@@ -10,5 +10,6 @@ homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
 edition = "2021"
+publish = false
 
 [dependencies]

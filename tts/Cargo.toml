@@ -9,5 +9,6 @@ homepage = "https://odilia.app"
 keywords = ["accessibility", "a11y", "tts", "speech-dispatcher", "linux"]
 categories = ["accessibility", "api-bindings"]
 edition = "2021"
+publish = false
 
 [dependencies]
