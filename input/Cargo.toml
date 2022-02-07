@@ -1,0 +1,14 @@
+[package]
+name = "odilia-input"
+version = "0.0.1"
+authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
+description = "Input subsystem for the Odilia screen reader."
+license = "gpl-3" # Not gpl-3-or-later
+readme = "README.md"
+repository = "https://github.com/odilia-app/odilia"
+homepage = "https://odilia.app"
+keywords = ["accessibility", "a11y", "input", "evdev", "linux"]
+categories = ["accessibility"]
+edition = "2021"
+
+[dependencies]
