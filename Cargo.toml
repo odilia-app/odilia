@@ -11,11 +11,31 @@ keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
 edition = "2021"
 
+[package.metadata.release]
+# The root crate should be released
+release = true
+
 # Note: we don't need to specify any members here because they're all path dependencies of the main crate
 [workspace]
 
 [profile.release]
 lto = "thin"
+
+[workspace.metadata.release]
+allow-branch = ["main"]
+# By default, crates will not be released or published
+# These are overridden on a crate-by-crate basis
+release = false
+publish = false
+shared-version = true
+consolidate-commits = true
+consolidate-pushes = true
+pre-release-commit-message = "Release {{crate_name}} version {{version}}"
+post-release-commit-message = "Post release version bump: version {{next_version}}"
+tag-message = "{{crate_name}} version {{version}}"
+dev-version-ext = "dev"
+dev-version = true
+pre-release-hook = ["cargo", "fmt"]
 
 [dependencies]
 atspi = { path = "atspi" }
