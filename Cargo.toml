@@ -15,6 +15,14 @@ publish = false
 [package.metadata.release]
 # The root crate should be released
 release = true
+# Update the CHANGELOG
+pre-release-replacements = [
+  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
+  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
+  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"},
+  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
+  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/odilia-app/odilia/compare/{{tag_name}}...HEAD", exactly=1},
+]
 
 # Note: we don't need to specify any members here because they're all path dependencies of the main crate
 [workspace]
@@ -37,6 +45,7 @@ tag-message = "{{crate_name}} version {{version}}"
 dev-version-ext = "dev"
 dev-version = true
 pre-release-hook = ["cargo", "fmt"]
+dependent-version = "upgrade"
 
 [dependencies]
 atspi = { path = "atspi" }
