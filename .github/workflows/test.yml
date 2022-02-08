@@ -1,0 +1,70 @@
+name: CI
+on: push
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf]
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
+
+      - name: Cache cargo home
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: test
+          args: --workspace --target ${{ matrix.target }}
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
+
+      - name: Cache cargo home
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: clippy
+          # "-- -D warnings" will make the job fail if their are clippy warnings
+          args: --workspace --no-deps -- -D warnings
