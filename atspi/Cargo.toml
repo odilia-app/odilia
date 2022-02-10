@@ -16,3 +16,4 @@ release = true
 publish = true
 
 [dependencies]
+zbus = "^2.1.1"
