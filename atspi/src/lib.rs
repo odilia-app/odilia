@@ -1,6 +1,7 @@
 pub mod accessible;
 pub mod action;
 pub mod application;
+pub mod bus;
 pub mod cache;
 pub mod collection;
 pub mod component;
