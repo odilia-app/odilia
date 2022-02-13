@@ -15,5 +15,11 @@ edition = "2021"
 release = true
 publish = true
 
+[features]
+default = ["async-io"]
+async-io = ["zbus/async-io"]
+gvariant = ["zbus/gvariant"]
+tokio = ["zbus/tokio"]
+
 [dependencies]
 zbus = "^2.1.1"
