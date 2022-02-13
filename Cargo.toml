@@ -49,6 +49,7 @@ dependent-version = "upgrade"
 
 [dependencies]
 atspi = { path = "atspi", default-features = false, features = ["tokio"] }
+clap = { version = "3.0.14", features = ["derive", "wrap_help"] }
 odilia-common = { path = "common" }
 odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
