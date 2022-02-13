@@ -1,3 +1,7 @@
-fn main() {
-    println!("Hello, world!");
+mod logging;
+
+#[tokio::main]
+async fn main() {
+    logging::init();
+    tracing::info!("Hello, world!");
 }
