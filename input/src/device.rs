@@ -1,4 +1,4 @@
-use std::{ffi::{OsStr, OsString}, path::PathBuf};
+use std::{ffi::{OsStr, OsString}, io, path::PathBuf};
 
 use tokio::{sync::mpsc, task::JoinHandle};
 
@@ -10,9 +10,25 @@ pub struct Device {
 impl Device {
     pub fn new(
         path: PathBuf,
-        mut stream: evdev::EventStream,
         tx: mpsc::Sender<evdev::InputEvent>,
-    ) -> Self {
+    ) -> io::Result<Self> {
+            tracing::debug!(path = %path.display(), "Opening input device");
+
+            let dev = match evdev::Device::open(&path) {
+                Ok(d) => d,
+                Err(e) => {
+                    tracing::error!(path = %path.display(), error = %e, "Could not open input device");
+                    return Err(e);
+                }
+            };
+            // Convert to an async stream of events
+            let mut stream = match dev.into_event_stream() {
+                Ok(s) => s,
+                Err(e) => {
+                    tracing::error!(path = %path.display(), error = %e, "Could not create event stream from input device");
+                    return Err(e);
+                }
+            };
         let name = path
             .file_name()
             .expect("Input device should have a file name")
@@ -31,7 +47,7 @@ impl Device {
                 }
             }
         });
-        Self { name, task }
+        Ok(Self { name, task })
     }
 
     pub fn name(&self) -> &OsStr {

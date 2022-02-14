@@ -1,11 +1,12 @@
 mod device;
 use device::Device;
 
-use std::io;
+use std::{io, path::Path};
 
 use evdev::InputEvent;
-
-use tokio::{fs, sync::mpsc};
+use futures::stream::StreamExt;
+use inotify::{EventMask, Inotify, WatchMask};
+use tokio::{fs, sync::mpsc, task::JoinHandle};
 
 /// The size of the buffer of [`evdev::InputEvent`]s. Sending more events than this at once will
 /// currently stop any more events being sent until at least one is processed.
@@ -16,7 +17,7 @@ use tokio::{fs, sync::mpsc};
 pub const MAX_INPUT_EVENTS: usize = 1024;
 
 pub struct InputManager {
-    devices: Vec<Device>,
+    inotify_task: JoinHandle<()>,
     rx: mpsc::Receiver<InputEvent>,
 }
 
@@ -24,14 +25,67 @@ impl InputManager {
 /// Initialises the input subsystem, spawning tasks to handle input events.
 pub async fn events() -> io::Result<Self> {
     let (tx, rx) = mpsc::channel(MAX_INPUT_EVENTS);
-    let devices = open_devices(&tx).await?;
-        Ok(Self { devices, rx })
+    let mut devices = open_devices(&tx).await?;
+    // Watch for inotify events on /dev/input to dynamically add and remove device handlers
+    let mut inotify = Inotify::init()?;
+    inotify.add_watch("/dev/input", WatchMask::CREATE | WatchMask::DELETE)?;
+    // Calculate the optimum buffer size
+    let buf_size = inotify::get_buffer_size(Path::new("/dev/input"))?;
+    let mut stream = inotify.event_stream(vec![0; buf_size])?;
+    // Spawn a task to process inotify events
+    // I don't want this here, but if you try to factor it into a function you either have issues
+    // with handling errors, or with lifetimes because `stream` refers to `inotify`.
+    let inotify_task = tokio::spawn(async move {
+        // Process inotify events
+        while let Some(res) = stream.next().await {
+            let event = match res {
+                Ok(ev) => ev,
+                Err(e) => {
+                    tracing::warn!(error = %e, "Could not read inotify event");
+                    continue;
+                }
+            };
+            // We can't do anything if there's no file name
+            let name = if let Some(name) = event.name { name } else {
+                tracing::warn!(?event, "Received an inotify event with no associated file name, ignoring it");
+                continue;
+            };
+            if event.mask.contains(EventMask::CREATE) {
+                let path = Path::new("/dev/input").join(name);
+                let device = match Device::new(path, tx.clone()) {
+                    Ok(s) => s,
+                    _ => continue, // Device::new() already logs errors
+                };
+            devices.push(device);
+            } else if event.mask.contains(EventMask::DELETE) {
+                // Find the handler
+                if let Some(index) = devices.iter().enumerate().find_map(|(i, d)| if d.name() == name {
+                    Some(i)
+                } else {
+                    None
+                }) {
+                    devices.swap_remove(index);
+                }
+            } else {
+                tracing::warn!(mask = event.mask.bits(), "Unknown inotify event, ignoring it");
+            }
+        }
+    });
+
+        Ok(Self { inotify_task, rx })
 }
 
 #[inline]
 pub fn rx_mut(&mut self) -> &mut mpsc::Receiver<InputEvent> {
     &mut self.rx
 }
+}
+
+impl Drop for InputManager {
+    fn drop(&mut self) {
+        // Stop watching for inotify events
+        self.inotify_task.abort();
+    }
 }
 
     /// Enumerates input devices in `/dev/input`, spawning tasks to handl their
@@ -72,24 +126,12 @@ async fn open_devices(tx: &mpsc::Sender<InputEvent>) -> io::Result<Vec<Device>> 
                     continue;
                 }
             }
-            // Open the device
-            tracing::debug!(path = %path.display(), "Opening input device");
-            let dev = match evdev::Device::open(&path) {
-                Ok(d) => d,
-                Err(e) => {
-                    tracing::error!(path = %path.display(), error = %e, "Could not open input device");
-                    continue;
-                }
-            };
-            // Convert to an async stream of events
-            let stream = match dev.into_event_stream() {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::error!(path = %path.display(), error = %e, "Could not create event stream from input device");
-                    continue;
-                }
-            };
-            devices.push(Device::new(path, stream, tx.clone()));
+            // Open the device and spawn the handler task
+                let device = match Device::new(path, tx.clone()) {
+                    Ok(s) => s,
+                    _ => continue, // Device::new() already logs errors
+                };
+            devices.push(device);
         }
         Ok(devices)
     }
