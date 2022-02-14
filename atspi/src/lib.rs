@@ -1,3 +1,6 @@
+// Needed because this is generated code
+// Todo: Remove when we've defined propper types for all arguments and return values
+#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub mod accessible;
 pub mod action;
 pub mod application;
