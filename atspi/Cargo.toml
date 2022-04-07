@@ -22,4 +22,4 @@ gvariant = ["zbus/gvariant"]
 tokio = ["zbus/tokio"]
 
 [dependencies]
-zbus = "^2.1.1"
+zbus = "2.1.1"

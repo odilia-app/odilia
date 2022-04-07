@@ -53,8 +53,8 @@ clap = { version = "3.0.14", features = ["derive", "wrap_help"] }
 odilia-common = { path = "common" }
 odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
-tokio = { version = "1.16.1", features = ["full", "parking_lot"] }
-tracing = { version = "0.1.30" }
-tracing-subscriber = { version = "0.3.8", features = ["parking_lot"] }
+tokio = { version = "1.17.0", features = ["full", "parking_lot"] }
+tracing = "0.1.32"
+tracing-subscriber = { version = "0.3.10", features = ["parking_lot"] }
 
 [features]
