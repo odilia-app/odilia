@@ -50,11 +50,14 @@ dependent-version = "upgrade"
 [dependencies]
 atspi = { path = "atspi", default-features = false, features = ["tokio"] }
 clap = { version = "3.1.8", features = ["derive", "wrap_help"] }
+color-eyre = "0.6.1"
+eyre = "0.6.8"
 odilia-common = { path = "common" }
 odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
 tokio = { version = "1.17.0", features = ["full", "parking_lot"] }
 tracing = "0.1.32"
+tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.10", features = ["parking_lot"] }
 
 [features]
