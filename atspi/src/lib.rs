@@ -22,3 +22,7 @@ pub mod socket;
 pub mod table;
 pub mod table_cell;
 pub mod value;
+
+// Hand-written connection module
+mod connection;
+pub use connection::*;
