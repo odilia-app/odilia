@@ -4,6 +4,7 @@
 //! reporting, tokio-console, etc.
 
 use tracing_error::ErrorLayer;
+use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, prelude::*};
 
 /// Initialise the logging stack. Right now this just calls [`tracing_subscriber::fmt::init`].
@@ -13,6 +14,9 @@ pub fn init() {
         .with(ErrorLayer::default());
     if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
         eprintln!("Warning: Failed to set log handler: {}", e);
+    }
+    if let Err(e) = LogTracer::init() {
+        tracing::warn!(error = %e, "Failed to install log facade");
     }
     if let Err(e) = color_eyre::install() {
         tracing::warn!(error = %e, "Failed to install error / panic handler");
