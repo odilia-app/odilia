@@ -22,4 +22,5 @@ gvariant = ["zbus/gvariant"]
 tokio = ["zbus/tokio"]
 
 [dependencies]
+tracing = "0.1.32"
 zbus = "2.1.1"
