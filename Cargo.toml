@@ -59,7 +59,7 @@ tokio = { version = "1.17.0", features = ["full", "parking_lot"] }
 tracing = "0.1.32"
 tracing-error = "0.2.0"
 tracing-log = "0.1.2"
-tracing-subscriber = { version = "0.3.10", features = ["parking_lot"] }
+tracing-subscriber = { version = "0.3.10", features = ["env-filter", "parking_lot"] }
 
 [features]
 
