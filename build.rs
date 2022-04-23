@@ -1,18 +1,15 @@
-use std::{
-    env,
-    fs::File,
-    io::{self, prelude::*},
-    path::PathBuf,
-};
+use std::io;
 
-use clap::CommandFactory;
-use clap_complete::Shell;
+//use clap::CommandFactory;
+//use clap_complete::Shell;
 
 #[allow(dead_code)]
 #[path = "src/args.rs"]
 mod args;
 
 fn main() -> io::Result<()> {
+    /*
+    // Commented out until we actually need shell completions
     let out_dir = match env::var_os("OUT_DIR") {
         Some(dir) => PathBuf::from(dir),
         None => return Ok(()),
@@ -42,6 +39,6 @@ fn main() -> io::Result<()> {
             shell_str, path
         )?;
     }
-
+    */
     Ok(())
 }
