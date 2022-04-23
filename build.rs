@@ -3,9 +3,9 @@ use std::io;
 //use clap::CommandFactory;
 //use clap_complete::Shell;
 
-#[allow(dead_code)]
-#[path = "src/args.rs"]
-mod args;
+//#[allow(dead_code)]
+//#[path = "src/args.rs"]
+//mod args;
 
 fn main() -> io::Result<()> {
     /*
