@@ -10,15 +10,20 @@
 //! section of the zbus documentation.
 //!
 
-use zbus::dbus_proxy;
+use zbus::{dbus_proxy, names::OwnedBusName};
 
-#[dbus_proxy(interface = "org.a11y.atspi.Registry")]
+#[dbus_proxy(
+    interface = "org.a11y.atspi.Registry",
+    default_service = "org.a11y.atspi.Registry",
+    default_path = "/org/a11y/atspi/registry"
+)]
 trait Registry {
     /// DeregisterEvent method
     fn deregister_event(&self, event: &str) -> zbus::Result<()>;
 
     /// GetRegisteredEvents method
-    fn get_registered_events(&self) -> zbus::Result<Vec<(String, String)>>;
+    #[dbus_proxy(name = "GetRegisteredEvents")]
+    fn registered_events(&self) -> zbus::Result<Vec<(OwnedBusName, String)>>;
 
     /// RegisterEvent method
     fn register_event(&self, event: &str) -> zbus::Result<()>;
