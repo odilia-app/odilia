@@ -12,6 +12,7 @@ pub mod device_event_controller;
 pub mod device_event_listener;
 pub mod document;
 pub mod editable_text;
+pub mod events;
 pub mod hyperlink;
 pub mod hypertext;
 pub mod image;
