@@ -6,7 +6,9 @@ pub struct ScreenReaderState {
 
 impl ScreenReaderState {
     pub async fn new() -> eyre::Result<Self> {
-        let atspi = atspi::Connection::open().await.context("Could not connect to at-spi bus")?;
+        let atspi = atspi::Connection::open()
+            .await
+            .context("Could not connect to at-spi bus")?;
         Ok(Self { atspi })
     }
 }

@@ -27,3 +27,5 @@ pub mod value;
 // Hand-written connection module
 mod connection;
 pub use connection::*;
+
+pub use zbus;

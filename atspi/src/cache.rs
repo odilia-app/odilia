@@ -19,8 +19,10 @@ trait Cache {
 
     /// AddAccessible signal
     #[dbus_proxy(signal)]
-    fn add_accessible(&self, node_added: (&str, zbus::zvariant::ObjectPath<'_>))
-        -> zbus::Result<()>;
+    fn add_accessible(
+        &self,
+        node_added: (&str, zbus::zvariant::ObjectPath<'_>),
+    ) -> zbus::Result<()>;
 
     /// RemoveAccessible signal
     #[dbus_proxy(signal)]
