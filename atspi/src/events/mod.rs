@@ -10,6 +10,9 @@
 //! section of the zbus documentation.
 //!
 
+use serde::Deserialize;
+use zbus::zvariant;
+
 pub mod document;
 pub mod focus;
 pub mod keyboard;
@@ -17,3 +20,12 @@ pub mod mouse;
 pub mod object;
 pub mod terminal;
 pub mod window;
+
+#[derive(Clone, Debug, Deserialize, zvariant::Type)]
+pub struct Event<'a> {
+    #[serde(rename = "type")]
+    pub kind: &'a str,
+    pub detail1: u32,
+    pub detail2: u32,
+    pub any_data: zvariant::Value<'a>,
+}

@@ -13,6 +13,7 @@ pub mod device_event_listener;
 pub mod document;
 pub mod editable_text;
 pub mod events;
+pub use events::Event;
 pub mod hyperlink;
 pub mod hypertext;
 pub mod image;
