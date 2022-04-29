@@ -131,6 +131,7 @@ dependencies = [
 name = "atspi"
 version = "0.0.1"
 dependencies = [
+ "serde",
  "tracing",
  "zbus",
 ]
@@ -599,6 +600,7 @@ dependencies = [
  "tracing-error",
  "tracing-log",
  "tracing-subscriber",
+ "tracing-tree",
 ]
 
 [[package]]
@@ -1120,6 +1122,19 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-log",
+]
+
+[[package]]
+name = "tracing-tree"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ce989c9962c7f61fe084dd4a230eec784649dfc2392467c790007c3a6e134e7"
+dependencies = [
+ "ansi_term",
+ "atty",
+ "tracing-core",
+ "tracing-log",
+ "tracing-subscriber",
 ]
 
 [[package]]

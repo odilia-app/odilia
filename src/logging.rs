@@ -8,6 +8,7 @@ use std::env;
 use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_tree::HierarchicalLayer;
 
 #[cfg(not(release))]
 const DEFAULT_LOG_FILTER: &'static str = "debug";
@@ -30,7 +31,12 @@ pub fn init() {
     let subscriber = tracing_subscriber::Registry::default()
         .with(env_filter)
         .with(fmt::layer())
-        .with(ErrorLayer::default());
+        .with(ErrorLayer::default())
+        .with(
+            HierarchicalLayer::new(4)
+                .with_ansi(true)
+                .with_bracketed_fields(true),
+        );
     if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
         eprintln!("Warning: Failed to set log handler: {}", e);
     }
