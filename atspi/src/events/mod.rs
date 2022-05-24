@@ -22,7 +22,7 @@ use std::sync::Arc;
 
 use serde::Deserialize;
 use zbus::{
-    names::{InterfaceName, MemberName},
+    names::{InterfaceName, MemberName, UniqueName},
     zvariant, Message,
 };
 
@@ -71,6 +71,10 @@ impl TryFrom<Arc<Message>> for Event {
 }
 
 impl Event {
+    pub fn sender(&self) -> zbus::Result<Option<UniqueName>> {
+        Ok(self.message.header()?.sender()?.cloned())
+    }
+
     pub fn path(&self) -> Option<zvariant::ObjectPath> {
         self.message.path()
     }
