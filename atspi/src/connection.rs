@@ -1,8 +1,9 @@
 use std::ops::Deref;
 
-use zbus::Address;
+use futures::stream::{Stream, StreamExt};
+use zbus::{Address, MessageStream};
 
-use crate::{bus::BusProxy, registry::RegistryProxy};
+use crate::{bus::BusProxy, events::Event, registry::RegistryProxy};
 
 /// A connection to the at-spi bus
 pub struct Connection {
@@ -41,6 +42,20 @@ impl Connection {
         let registry = RegistryProxy::new(&bus).await?;
 
         Ok(Self { registry })
+    }
+
+    pub fn event_stream(&self) -> impl Stream<Item = zbus::Result<Event>> {
+        MessageStream::from(self.registry.connection()).filter_map(|res| async move {
+            let msg = match res {
+                Ok(m) => m,
+                Err(e) => return Some(Err(e)),
+            };
+            if msg.interface()?.starts_with("org.a11y.atspi.Event.") {
+                Some(Event::try_from(msg))
+            } else {
+                None
+            }
+        })
     }
 }
 
