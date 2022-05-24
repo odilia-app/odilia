@@ -18,7 +18,7 @@ pub mod object;
 pub mod terminal;
 pub mod window;
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use serde::Deserialize;
 use zbus::{
@@ -30,18 +30,22 @@ use zbus::{
 pub struct EventBody<'a> {
     #[serde(rename = "type")]
     pub kind: &'a str,
-    pub detail1: u32,
-    pub detail2: u32,
+    pub detail1: i32,
+    pub detail2: i32,
     pub any_data: zvariant::Value<'a>,
+    // We don't yet know what this is for, so the name may be incorrect.
+    pub properties: HashMap<&'a str, zvariant::Value<'a>>,
 }
 
 #[derive(Clone, Debug, Deserialize, zvariant::Type)]
 pub struct EventBodyOwned {
     #[serde(rename = "type")]
     pub kind: String,
-    pub detail1: u32,
-    pub detail2: u32,
+    pub detail1: i32,
+    pub detail2: i32,
     pub any_data: zvariant::OwnedValue,
+    // We don't yet know what this is for, so the name may be incorrect.
+    pub properties: HashMap<String, zvariant::OwnedValue>,
 }
 
 impl<'a> From<EventBody<'a>> for EventBodyOwned {
@@ -51,6 +55,11 @@ impl<'a> From<EventBody<'a>> for EventBodyOwned {
             detail1: body.detail1,
             detail2: body.detail2,
             any_data: body.any_data.into(),
+            properties: body
+                .properties
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.into()))
+                .collect(),
         }
     }
 }
@@ -97,16 +106,20 @@ impl Event {
         &self.body.kind
     }
 
-    pub fn detail1(&self) -> u32 {
+    pub fn detail1(&self) -> i32 {
         self.body.detail1
     }
 
-    pub fn detail2(&self) -> u32 {
+    pub fn detail2(&self) -> i32 {
         self.body.detail2
     }
 
     pub fn any_data(&self) -> &zvariant::OwnedValue {
         &self.body.any_data
+    }
+
+    pub fn properties(&self) -> &HashMap<String, zvariant::OwnedValue> {
+        &self.body.properties
     }
 
     pub fn message(&self) -> &Arc<Message> {
