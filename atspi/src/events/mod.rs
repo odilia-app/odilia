@@ -10,9 +10,6 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Deserialize;
-use zbus::zvariant;
-
 pub mod document;
 pub mod focus;
 pub mod keyboard;
@@ -21,11 +18,98 @@ pub mod object;
 pub mod terminal;
 pub mod window;
 
-#[derive(Clone, Debug, Deserialize, zvariant::Type)]
-pub struct Event<'a> {
+use std::sync::Arc;
+
+use serde::Deserialize;
+use zbus::{
+    names::{InterfaceName, MemberName},
+    zvariant, Message,
+};
+
+#[derive(Debug, Deserialize, zvariant::Type)]
+pub struct EventBody<'a> {
     #[serde(rename = "type")]
     pub kind: &'a str,
     pub detail1: u32,
     pub detail2: u32,
     pub any_data: zvariant::Value<'a>,
+}
+
+#[derive(Clone, Debug, Deserialize, zvariant::Type)]
+pub struct EventBodyOwned {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub detail1: u32,
+    pub detail2: u32,
+    pub any_data: zvariant::OwnedValue,
+}
+
+impl<'a> From<EventBody<'a>> for EventBodyOwned {
+    fn from(body: EventBody<'a>) -> Self {
+        Self {
+            kind: body.kind.to_string(),
+            detail1: body.detail1,
+            detail2: body.detail2,
+            any_data: body.any_data.into(),
+        }
+    }
+}
+
+pub struct Event {
+    message: Arc<Message>,
+    body: EventBodyOwned,
+}
+
+impl TryFrom<Arc<Message>> for Event {
+    type Error = zbus::Error;
+
+    fn try_from(message: Arc<Message>) -> zbus::Result<Self> {
+        let body: EventBody = message.body()?;
+        let body = EventBodyOwned::from(body);
+        Ok(Self { message, body })
+    }
+}
+
+impl Event {
+    pub fn path(&self) -> Option<zvariant::ObjectPath> {
+        self.message.path()
+    }
+
+    /// For now this returns the full interface name because the lifetimes in [`zbus_names`] are
+    /// wrong such that the `&str` you can get from a
+    /// [`zbus_names::InterfaceName`][zbus::names::InterfaceName] is tied to the lifetime of that
+    /// name, not to the lifetime of the message as it should be. In future, this will return only
+    /// the last component of the interface name (I.E. "Object" from
+    /// "org.a11y.atspi.Event.Object").
+    pub fn interface(&self) -> Option<InterfaceName<'_>> {
+        self.message.interface()
+    }
+
+    pub fn member(&self) -> Option<MemberName<'_>> {
+        self.message.member()
+    }
+
+    pub fn kind(&self) -> &str {
+        &self.body.kind
+    }
+
+    pub fn detail1(&self) -> u32 {
+        self.body.detail1
+    }
+
+    pub fn detail2(&self) -> u32 {
+        self.body.detail2
+    }
+
+    pub fn any_data(&self) -> &zvariant::OwnedValue {
+        &self.body.any_data
+    }
+
+    pub fn message(&self) -> &Arc<Message> {
+        &self.message
+    }
+
+    pub fn body(&self) -> &EventBodyOwned {
+        &self.body
+    }
 }

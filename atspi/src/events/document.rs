@@ -4,25 +4,25 @@ use zbus::dbus_proxy;
 trait Document {
     /// AttributesChanged signal
     #[dbus_proxy(signal)]
-    fn attributes_changed(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn attributes_changed(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 
     /// ContentChanged signal
     #[dbus_proxy(signal)]
-    fn content_changed(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn content_changed(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 
     /// LoadComplete signal
     #[dbus_proxy(signal)]
-    fn load_complete(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn load_complete(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 
     /// LoadStopped signal
     #[dbus_proxy(signal)]
-    fn load_stopped(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn load_stopped(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 
     /// PageChanged signal
     #[dbus_proxy(signal)]
-    fn page_changed(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn page_changed(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 
     /// Reload signal
     #[dbus_proxy(signal)]
-    fn reload(&self, event: super::Event<'_>) -> zbus::Result<()>;
+    fn reload(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
 }
