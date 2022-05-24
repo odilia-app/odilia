@@ -7,7 +7,7 @@ use std::env;
 
 use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{prelude::*, EnvFilter};
 use tracing_tree::HierarchicalLayer;
 
 #[cfg(not(release))]
@@ -30,7 +30,6 @@ pub fn init() {
     };
     let subscriber = tracing_subscriber::Registry::default()
         .with(env_filter)
-        .with(fmt::layer())
         .with(ErrorLayer::default())
         .with(
             HierarchicalLayer::new(4)

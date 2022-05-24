@@ -61,6 +61,7 @@ tracing-error = "0.2.0"
 tracing-log = "0.1.2"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "parking_lot"] }
 tracing-tree = "0.2.0"
+zbus = { version = "2.2.0", default-features = false, features = ["tokio"] }
 
 [features]
 
