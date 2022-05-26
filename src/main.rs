@@ -25,7 +25,7 @@ async fn process_events(state: &ScreenReaderState) {
             Err(e) => {
                 tracing::error!(error = %e, "Error receiving atspi event");
                 continue;
-            },
+            }
         };
         tracing::debug!(kind = %event.kind(), "Got event");
     }
