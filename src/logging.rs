@@ -33,7 +33,7 @@ pub fn init() {
         .with(ErrorLayer::default())
         .with(
             HierarchicalLayer::new(4)
-                .with_ansi(true)
+                .with_ansi(false)
                 .with_bracketed_fields(true),
         );
     if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
