@@ -88,6 +88,21 @@ impl Event {
         self.message.path()
     }
 
+    /// Returns the atspi event string for this event type (E.G. "Object:StateChanged:Focused").
+    ///
+    /// This should not be used for matching on events as it needlessly allocates and copies the 3
+    /// components of the event type. It is meant for logging, etc.
+    pub fn event_string(&self) -> String {
+        let interface = self.interface().expect("Event should have an interface");
+        let interface = interface
+            .rsplit('.')
+            .next()
+            .expect("Interface should contain a '.'");
+        let member = self.member().expect("Event should have a member");
+        let kind = self.kind();
+        format!("{interface}:{member}:{kind}")
+    }
+
     /// For now this returns the full interface name because the lifetimes in [`zbus_names`] are
     /// wrong such that the `&str` you can get from a
     /// [`zbus_names::InterfaceName`][zbus::names::InterfaceName] is tied to the lifetime of that
