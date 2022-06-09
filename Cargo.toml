@@ -57,7 +57,7 @@ odilia-common = { path = "common" }
 odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
 pin-utils = "0.1.0"
-tokio = { version = "1.17.0", features = ["full", "parking_lot"] }
+tokio = { version = "1.17.0", features = ["full", "parking_lot", "tracing"] }
 tracing = "0.1.32"
 tracing-error = "0.2.0"
 tracing-log = "0.1.2"
