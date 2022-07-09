@@ -4,12 +4,21 @@ Input subsystem for the Odilia screen reader.
 
 Part of the [Odilia screen reader project](https://odilia.app).
 
+## Examples
+
+To run the example code, run:
+
+```shell
+cargo run --example basic_key_capture
+```
+
 ## Design
 
-This crate uses the [rdev crate](https://crates.io/crates/rdev), a Rust wrapper around the [Linux / BSD evdev
-interface](https://freedesktop.org/software/libevdev/doc/latest/). It spawns a new thread which monitors for input
-events, then sends them to the main program using an asynchronous [Tokio::sync::mpsc
-channel](https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html).
+This crate uses the [rdev crate](https://crates.io/crates/rdev), a Rust wrapper around the
+[Linux / BSD evdevinterface](https://freedesktop.org/software/libevdev/doc/latest/).
+It spawns a new thread which monitors for input events,
+then sends them to the main program using an asynchronous
+[Tokio::sync::mpsc::channel](https://docs.rs/tokio/latest/tokio/sync/mpsc/index.html).
 
 ### Udev Permissions
 
@@ -18,10 +27,8 @@ and redirect events from input devices, such as your keyboard and mouse.
 
 Evdev is normally a privileged interface, since any application that can access it could use it for malicious purposes,
 for example, creating a keylogger. For this reason, to run Odilia, you must give yourself access to evdev. This can be
-done by running the [setup-permissions.sh shell
-script](https://github.com/odilia-app/odilia/blob/main/setup-permissions.sh) included with Odilia. The script adds some
-udev rules, then creates an odilia group. Any users added to this group and the `input` group will be able to run
-Odilia.
+done by running the [setup-permissions.sh shell script](https://github.com/odilia-app/odilia/blob/main/setup-permissions.sh) included with Odilia. The script adds some
+udev rules, then creates an odilia group. Any users added to this group and the `input` group will be able to run Odilia.
 
 ## Contributing
 
