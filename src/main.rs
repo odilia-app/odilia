@@ -63,5 +63,15 @@ async fn process_state_changed_event(state: &ScreenReaderState, event: Event) ->
 
 async fn process_focused_event(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
     // Speak the newly focused object
+    let path = if let Some(path) = event.path() { path } else {return Ok(()); };
+    let sender = if let Some(sender) = event.sender()? { sender } else { return Ok(()); };
+    let accessible = state.accessible(sender, path).await?;
+
+    let name_fut = accessible.name();
+    let description_fut = accessible.description();
+    let role_fut = accessible.get_localized_role_name();
+    let (name, description, role) = tokio::try_join!(name_fut, description_fut, role_fut)?;
+
+    state.speaker.say(speech_dispatcher::Priority::Text, format!("{name}, {role}. {description}"));
     Ok(())
 }
