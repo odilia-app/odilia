@@ -1,6 +1,8 @@
 use eyre::WrapErr;
 use speech_dispatcher::Connection as SPDConnection;
-use zbus::fdo::DBusProxy;
+use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
+
+use atspi::accessible::AccessibleProxy;
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
@@ -21,6 +23,10 @@ impl ScreenReaderState {
         let speaker = SPDConnection::open(env!("CARGO_PKG_NAME"), "main", "", speech_dispatcher::Mode::Threaded).wrap_err("Failed to connect to speech-dispatcher")?;
         Ok(Self { atspi, dbus, speaker })
     }
+
+pub async fn accessible<'a>(&self, destination: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<AccessibleProxy<'a>> {
+    AccessibleProxy::builder(self.atspi.connection()).destination(destination)?.path(path)?.build().await
+}
 
     #[allow(dead_code)]
     pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
