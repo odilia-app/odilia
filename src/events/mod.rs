@@ -18,7 +18,9 @@ pub async fn process(state: &ScreenReaderState) -> eyre::Result<()> {
             }
         };
         tracing::debug!(kind = %event.kind(), "Got event");
-        dispatch(state, event).await?;
+        if let Err(e) = dispatch(state, event).await {
+            tracing::error!(error = %e, "Could not handle event");
+        }
     }
     Ok(())
 }
