@@ -24,7 +24,7 @@ impl ScreenReaderState {
         Ok(Self { atspi, dbus, speaker })
     }
 
-pub async fn accessible<'a>(&self, destination: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<AccessibleProxy<'a>> {
+pub async fn accessible<'a>(&'a self, destination: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<AccessibleProxy<'a>> {
     AccessibleProxy::builder(self.atspi.connection()).destination(destination)?.path(path)?.build().await
 }
 
