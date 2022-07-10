@@ -1,12 +1,15 @@
 use eyre::WrapErr;
+use speech_dispatcher::Connection as SPDConnection;
 use zbus::fdo::DBusProxy;
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
+    pub speaker: SPDConnection,
 }
 
 impl ScreenReaderState {
+    #[tracing::instrument]
     pub async fn new() -> eyre::Result<Self> {
         let atspi = atspi::Connection::open()
             .await
@@ -14,7 +17,9 @@ impl ScreenReaderState {
         let dbus = DBusProxy::new(atspi.connection())
             .await
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
-        Ok(Self { atspi, dbus })
+        tracing::debug!("Connecting to speech-dispatcher");
+        let speaker = SPDConnection::open(env!("CARGO_PKG_NAME"), "main", "", speech_dispatcher::Mode::Threaded).wrap_err("Failed to connect to speech-dispatcher")?;
+        Ok(Self { atspi, dbus, speaker })
     }
 
     #[allow(dead_code)]
