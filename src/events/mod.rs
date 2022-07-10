@@ -6,7 +6,7 @@ use atspi::events::Event;
 use crate::state::ScreenReaderState;
 
 #[tracing::instrument(level = "debug", skip(state))]
-pub async fn process(state: &ScreenReaderState) -> eyre::Result<()> {
+pub async fn process(state: &ScreenReaderState) {
     let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     while let Some(res) = events.next().await {
@@ -22,7 +22,6 @@ pub async fn process(state: &ScreenReaderState) -> eyre::Result<()> {
             tracing::error!(error = %e, "Could not handle event");
         }
     }
-    Ok(())
 }
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
