@@ -30,3 +30,14 @@ mod connection;
 pub use connection::*;
 
 pub use zbus;
+
+use serde::Serialize;
+use zbus::zvariant::Type;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum CoordType {
+    Screen,
+    Window,
+    Parent,
+}

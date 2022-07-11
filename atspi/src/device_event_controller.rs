@@ -10,7 +10,29 @@
 //! section of the zbus documentation.
 //!
 
-use zbus::dbus_proxy;
+use serde::Serialize;
+use zbus::{dbus_proxy, zvariant::Type};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum EventType {
+    KeyPressed,
+    KeyReleased,
+    ButtonPressed,
+    ButtonReleased,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum KeySynthType {
+    Press,
+    Release,
+    Pressrelease,
+    Sym,
+    String,
+    Lockmodifiers,
+    Unlockmodifiers,
+}
 
 #[dbus_proxy(interface = "org.a11y.atspi.DeviceEventController")]
 trait DeviceEventController {
@@ -18,7 +40,7 @@ trait DeviceEventController {
     fn deregister_device_event_listener(
         &self,
         listener: &zbus::zvariant::ObjectPath<'_>,
-        types: u32,
+        types: EventType,
     ) -> zbus::Result<()>;
 
     /// DeregisterKeystrokeListener method
@@ -27,7 +49,7 @@ trait DeviceEventController {
         listener: &zbus::zvariant::ObjectPath<'_>,
         keys: &[(i32, i32, &str, i32)],
         mask: u32,
-        type_: u32,
+        type_: EventType,
     ) -> zbus::Result<()>;
 
     /// GenerateKeyboardEvent method
@@ -35,7 +57,7 @@ trait DeviceEventController {
         &self,
         keycode: i32,
         keystring: &str,
-        type_: u32,
+        type_: KeySynthType,
     ) -> zbus::Result<()>;
 
     /// GenerateMouseEvent method
@@ -57,7 +79,7 @@ trait DeviceEventController {
     fn register_device_event_listener(
         &self,
         listener: &zbus::zvariant::ObjectPath<'_>,
-        types: u32,
+        types: EventType,
     ) -> zbus::Result<bool>;
 
     /// RegisterKeystrokeListener method
@@ -66,7 +88,7 @@ trait DeviceEventController {
         listener: &zbus::zvariant::ObjectPath<'_>,
         keys: &[(i32, i32, &str, i32)],
         mask: u32,
-        type_: &[u32],
+        type_: &[EventType],
         mode: &(bool, bool, bool),
     ) -> zbus::Result<bool>;
 }

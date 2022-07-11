@@ -12,13 +12,15 @@
 
 use zbus::dbus_proxy;
 
+use crate::CoordType;
+
 #[dbus_proxy(interface = "org.a11y.atspi.Image")]
 trait Image {
     /// GetImageExtents method
-    fn get_image_extents(&self, coord_type: u32) -> zbus::Result<(i32, i32, i32, i32)>;
+    fn get_image_extents(&self, coord_type: CoordType) -> zbus::Result<(i32, i32, i32, i32)>;
 
     /// GetImagePosition method
-    fn get_image_position(&self, coord_type: u32) -> zbus::Result<(i32, i32)>;
+    fn get_image_position(&self, coord_type: CoordType) -> zbus::Result<(i32, i32)>;
 
     /// GetImageSize method
     fn get_image_size(&self) -> zbus::Result<(i32, i32)>;

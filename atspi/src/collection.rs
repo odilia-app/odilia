@@ -10,7 +10,30 @@
 //! section of the zbus documentation.
 //!
 
-use zbus::dbus_proxy;
+use serde::Serialize;
+use zbus::{dbus_proxy, zvariant::Type};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum SortOrder {
+    Invalid,
+    Canonical,
+    Flow,
+    Tab,
+    ReverseCanonical,
+    ReverseFlow,
+    ReverseTab,
+    LastDefined,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum TreeTraversalType {
+    RestrictChildren,
+    RestrictSibling,
+    Inorder,
+    LastDefined,
+}
 
 #[dbus_proxy(interface = "org.a11y.atspi.Collection")]
 trait Collection {
@@ -21,7 +44,7 @@ trait Collection {
     fn get_matches(
         &self,
         rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
-        sortby: u32,
+        sortby: SortOrder,
         count: i32,
         traverse: bool,
     ) -> zbus::Result<Vec<(String, zbus::zvariant::OwnedObjectPath)>>;
@@ -31,8 +54,8 @@ trait Collection {
         &self,
         current_object: &zbus::zvariant::ObjectPath<'_>,
         rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
-        sortby: u32,
-        tree: u32,
+        sortby: SortOrder,
+        tree: TreeTraversalType,
         count: i32,
         traverse: bool,
     ) -> zbus::Result<Vec<(String, zbus::zvariant::OwnedObjectPath)>>;
@@ -42,8 +65,8 @@ trait Collection {
         &self,
         current_object: &zbus::zvariant::ObjectPath<'_>,
         rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
-        sortby: u32,
-        tree: u32,
+        sortby: SortOrder,
+        tree: TreeTraversalType,
         limit_scope: bool,
         count: i32,
         traverse: bool,
