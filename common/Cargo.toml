@@ -13,3 +13,4 @@ edition = "2021"
 publish = false
 
 [dependencies]
+config = "0.13.1"
