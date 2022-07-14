@@ -1,13 +1,19 @@
+use std::path::Path;
+
 use eyre::WrapErr;
 use speech_dispatcher::Connection as SPDConnection;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use atspi::accessible::AccessibleProxy;
+use odilia_common::settings::ApplicationConfig;
+
+const ODILIA_CONFIG_FILE_PATH: &str = "./target/debug/config.toml";
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
+    pub config: ApplicationConfig,
 }
 
 impl ScreenReaderState {
@@ -20,13 +26,38 @@ impl ScreenReaderState {
             .await
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
         tracing::debug!("Connecting to speech-dispatcher");
-        let speaker = SPDConnection::open(env!("CARGO_PKG_NAME"), "main", "", speech_dispatcher::Mode::Threaded).wrap_err("Failed to connect to speech-dispatcher")?;
-        Ok(Self { atspi, dbus, speaker })
+        let speaker = SPDConnection::open(
+            env!("CARGO_PKG_NAME"),
+            "main",
+            "",
+            speech_dispatcher::Mode::Threaded,
+        )
+        .wrap_err("Failed to connect to speech-dispatcher")?;
+        tracing::debug!("speech dispatcher initialisation successful");
+        tracing::debug!(path=%ODILIA_CONFIG_FILE_PATH, "loading configuration file");
+        let config_full_path = Path::new(ODILIA_CONFIG_FILE_PATH);
+        let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
+            .wrap_err("unable to load configuration file")?;
+        tracing::debug!("configuration loaded successfully");
+        Ok(Self {
+            atspi,
+            dbus,
+            speaker,
+            config,
+        })
     }
 
-pub async fn accessible<'a>(&'a self, destination: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<AccessibleProxy<'a>> {
-    AccessibleProxy::builder(self.atspi.connection()).destination(destination)?.path(path)?.build().await
-}
+    pub async fn accessible<'a>(
+        &'a self,
+        destination: UniqueName<'a>,
+        path: ObjectPath<'a>,
+    ) -> zbus::Result<AccessibleProxy<'a>> {
+        AccessibleProxy::builder(self.atspi.connection())
+            .destination(destination)?
+            .path(path)?
+            .build()
+            .await
+    }
 
     #[allow(dead_code)]
     pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
