@@ -14,3 +14,4 @@ publish = false
 
 [dependencies]
 config = "0.13.1"
+serde = "1.0.139"
