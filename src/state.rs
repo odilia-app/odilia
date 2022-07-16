@@ -1,8 +1,5 @@
 use std::path::Path;
-use std::sync::Arc;
-use tokio::sync::{
-  Mutex,
-};
+use std::sync::atomic::AtomicI32;
 
 use eyre::WrapErr;
 use speech_dispatcher::Connection as SPDConnection;
@@ -22,7 +19,7 @@ pub struct ScreenReaderState {
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
     pub config: ApplicationConfig,
-    pub last_caret_pos: Arc<Mutex<i32>>,
+    pub previous_caret_position: AtomicI32,
 }
 
 impl ScreenReaderState {
@@ -48,13 +45,13 @@ impl ScreenReaderState {
         let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
             .wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
-        let last_caret_pos = Arc::new(Mutex::new(0));
+        let previous_caret_position=AtomicI32::new(0);
         Ok(Self {
             atspi,
             dbus,
             speaker,
             config,
-            last_caret_pos
+            previous_caret_position,
         })
     }
 

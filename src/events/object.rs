@@ -1,14 +1,5 @@
-use atspi::accessible::AccessibleProxy;
-use atspi::events::Event;
 use crate::state::ScreenReaderState;
-
-/*
-pub async fn get_event_accessible<'a>(state: &ScreenReaderState, event: Event) -> eyre::Result<zbus::Result<AccessibleProxy<'a>>> {
-    let path = if let Some(path) = event.path() { path } else {return Err("Could not get path."); };
-    let sender = if let Some(sender) = event.sender()? { sender } else { return Err("Could not get sender."); };
-    Ok(state.accessible(sender, path))
-}
-*/
+use atspi::events::Event;
 
 pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
     // Dispatch based on member
@@ -17,9 +8,9 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
         "StateChanged" => state_changed::dispatch(state, event).await?,
         "TextCaretMoved" => text_caret_moved::dispatch(state, event).await?,
             member => tracing::debug!(member, "Ignoring event with unknown member"),
+        }
     }
-    }
-Ok(())
+    Ok(())
 }
 
 mod text_caret_moved {
@@ -29,20 +20,21 @@ use std::cmp::{
   min,
   max
 };
+use std::sync::atomic::Ordering;
 
 pub async fn tcm(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-  let mut last_caret_pos = state.last_caret_pos.lock().await;
+  let last_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
   let current_caret_pos = event.detail1();
 
-  let start = min(*last_caret_pos, current_caret_pos);
-  let end = max(*last_caret_pos, current_caret_pos);
+  let start = min(last_caret_pos, current_caret_pos);
+  let end = max(last_caret_pos, current_caret_pos);
 
   let path = if let Some(path) = event.path() { path } else {return Ok(()); };
   let sender = if let Some(sender) = event.sender()? { sender } else { return Ok(()); };
   let accessible = state.text(sender, path).await?;
   let name = accessible.get_text(start, end).await?;
   // update caret position
-  *last_caret_pos = event.detail1();
+  state.previous_caret_position.store(current_caret_pos, Ordering::Relaxed);
   std::mem::drop(last_caret_pos);
   if name.len() > 0 {
     state.speaker.say(speech_dispatcher::Priority::Text, format!("{name}"));
@@ -62,17 +54,17 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 } // end of text_caret_moved
 
 mod state_changed {
-use atspi::events::Event;
-use crate::state::ScreenReaderState;
+    use crate::state::ScreenReaderState;
+    use atspi::events::Event;
 
-pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-    // Dispatch based on kind
-    match event.kind() {
-        "focused" => focused(state, event).await?,
+    pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+        // Dispatch based on kind
+        match event.kind() {
+            "focused" => focused(state, event).await?,
             kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+        }
+        Ok(())
     }
-    Ok(())
-}
 
 pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
     // Speak the newly focused object
@@ -80,12 +72,15 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let sender = if let Some(sender) = event.sender()? { sender } else { return Ok(()); };
     let accessible = state.accessible(sender, path).await?;
 
-    let name_fut = accessible.name();
-    let description_fut = accessible.description();
-    let role_fut = accessible.get_localized_role_name();
-    let (name, description, role) = tokio::try_join!(name_fut, description_fut, role_fut)?;
+        let name_fut = accessible.name();
+        let description_fut = accessible.description();
+        let role_fut = accessible.get_localized_role_name();
+        let (name, description, role) = tokio::try_join!(name_fut, description_fut, role_fut)?;
 
-    state.speaker.say(speech_dispatcher::Priority::Text, format!("{name}, {role}. {description}"));
-    Ok(())
-}
+        state.speaker.say(
+            speech_dispatcher::Priority::Text,
+            format!("{name}, {role}. {description}"),
+        );
+        Ok(())
+    }
 }

@@ -9,7 +9,6 @@
 //! [Writing a client proxy](https://dbus.pages.freedesktop.org/zbus/client.html)
 //! section of the zbus documentation.
 //!
-
 use zbus::dbus_proxy;
 
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]
