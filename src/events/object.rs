@@ -22,7 +22,7 @@ use std::cmp::{
 };
 use std::sync::atomic::Ordering;
 
-pub async fn tcm(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   let last_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
   let current_caret_pos = event.detail1();
 
@@ -35,7 +35,6 @@ pub async fn tcm(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   let name = accessible.get_text(start, end).await?;
   // update caret position
   state.previous_caret_position.store(current_caret_pos, Ordering::Relaxed);
-  std::mem::drop(last_caret_pos);
   if name.len() > 0 {
     state.speaker.say(speech_dispatcher::Priority::Text, format!("{name}"));
   }
@@ -45,7 +44,7 @@ pub async fn tcm(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   // Dispatch based on kind
   match event.kind() {
-    "" => tcm(state, event).await?,
+    "" => text_cursor_moved(state, event).await?,
     kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
   }
   Ok(())
