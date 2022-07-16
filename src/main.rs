@@ -10,6 +10,7 @@ async fn main() -> eyre::Result<()> {
     let _args = args::parse();
     let state = ScreenReaderState::new().await?;
     state.register_event("Object:StateChanged:Focused").await?;
-events::process(&state).await;
+    state.register_event("Object:TextCaretMoved").await?;
+    events::process(&state).await;
     Ok(())
 }
