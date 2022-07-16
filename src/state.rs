@@ -1,10 +1,18 @@
 use std::path::Path;
+use std::sync::Arc;
+use tokio::sync::{
+  Mutex,
+};
 
 use eyre::WrapErr;
 use speech_dispatcher::Connection as SPDConnection;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
-use atspi::accessible::AccessibleProxy;
+use atspi::{
+  accessible::AccessibleProxy,
+  text::TextProxy,
+};
+
 use odilia_common::settings::ApplicationConfig;
 
 const ODILIA_CONFIG_FILE_PATH: &str = "./target/debug/config.toml";
@@ -14,6 +22,7 @@ pub struct ScreenReaderState {
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
     pub config: ApplicationConfig,
+    pub last_caret_pos: Arc<Mutex<i32>>,
 }
 
 impl ScreenReaderState {
@@ -39,12 +48,26 @@ impl ScreenReaderState {
         let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
             .wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
+        let last_caret_pos = Arc::new(Mutex::new(0));
         Ok(Self {
             atspi,
             dbus,
             speaker,
             config,
+            last_caret_pos
         })
+    }
+
+    pub async fn text<'a>(
+      &'a self,
+      destination: UniqueName<'a>,
+      path: ObjectPath<'a>,
+    ) -> zbus::Result<TextProxy<'a>> {
+      TextProxy::builder(self.atspi.connection())
+          .destination(destination)?
+          .path(path)?
+          .build()
+          .await
     }
 
     pub async fn accessible<'a>(
