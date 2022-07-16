@@ -6,6 +6,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
     if let Some(member) = event.member() {
     match member.as_str() {
         "StateChanged" => state_changed::dispatch(state, event).await?,
+        "TextCaretMoved"=>text_caret_moved::dispatch(state, event).await?,
             member => tracing::debug!(member, "Ignoring event with unknown member"),
     }
     }
@@ -39,4 +40,17 @@ async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
     state.speaker.say(speech_dispatcher::Priority::Text, format!("{name}, {role}. {description}"));
     Ok(())
 }
+}
+mod text_caret_moved {
+    use crate::state::ScreenReaderState;
+    use atspi::events::Event;
+
+    pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+        let current_caret_position = event.detail1();
+        state.speaker.say(
+            speech_dispatcher::Priority::Text,
+            format!("{}", current_caret_position),
+        );
+        Ok(())
+    }
 }
