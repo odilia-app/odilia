@@ -1,4 +1,5 @@
 use std::path::Path;
+use std::sync::atomic::AtomicI32;
 
 use eyre::WrapErr;
 use speech_dispatcher::Connection as SPDConnection;
@@ -14,6 +15,7 @@ pub struct ScreenReaderState {
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
     pub config: ApplicationConfig,
+pub previous_caret_position: AtomicI32,
 }
 
 impl ScreenReaderState {
@@ -39,11 +41,13 @@ impl ScreenReaderState {
         let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
             .wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
+        let previous_caret_position=AtomicI32::new(0);
         Ok(Self {
             atspi,
             dbus,
             speaker,
             config,
+previous_caret_position,
         })
     }
 
