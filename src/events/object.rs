@@ -70,6 +70,7 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let path = if let Some(path) = event.path() { path } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender } else { return Ok(()); };
     let accessible = state.accessible(sender, path).await?;
+    tracing::debug!("Implements interfaces: {:?}", accessible.get_interfaces().await?);
 
         let name_fut = accessible.name();
         let description_fut = accessible.description();
@@ -77,7 +78,7 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
         let (name, description, role) = tokio::try_join!(name_fut, description_fut, role_fut)?;
 
         state.speaker.say(
-            speech_dispatcher::Priority::Text,
+            speech_dispatcher::Priority::Message,
             format!("{name}, {role}. {description}"),
         );
         Ok(())
