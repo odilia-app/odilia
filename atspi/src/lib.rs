@@ -23,6 +23,7 @@ pub mod selection;
 pub mod socket;
 pub mod table;
 pub mod table_cell;
+pub mod text;
 pub mod value;
 
 // Hand-written connection module

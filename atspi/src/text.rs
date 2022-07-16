@@ -15,17 +15,17 @@ use zbus::dbus_proxy;
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]
 trait Text {
     /// AddSelection method
-    fn add_selection(&self, startOffset: i32, endOffset: i32) -> zbus::Result<bool>;
+    fn add_selection(&self, start_offset: i32, end_offset: i32) -> zbus::Result<bool>;
 
     /// GetAttributeRun method
     fn get_attribute_run(
         &self,
         offset: i32,
-        includeDefaults: bool,
+        include_defaults: bool,
     ) -> zbus::Result<(std::collections::HashMap<String, String>, i32, i32)>;
 
     /// GetAttributeValue method
-    fn get_attribute_value(&self, offset: i32, attributeName: &str) -> zbus::Result<String>;
+    fn get_attribute_value(&self, offset: i32, attribute_name: &str) -> zbus::Result<String>;
 
     /// GetAttributes method
     fn get_attributes(
@@ -40,9 +40,9 @@ trait Text {
         y: i32,
         width: i32,
         height: i32,
-        coordType: u32,
-        xClipType: u32,
-        yClipType: u32,
+        coord_type: u32,
+        x_clip_type: u32,
+        y_clip_type: u32,
     ) -> zbus::Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>>;
 
     /// GetCharacterAtOffset method
@@ -52,7 +52,7 @@ trait Text {
     fn get_character_extents(
         &self,
         offset: i32,
-        coordType: u32,
+        coord_type: u32,
     ) -> zbus::Result<(i32, i32, i32, i32)>;
 
     /// GetDefaultAttributeSet method
@@ -65,18 +65,18 @@ trait Text {
     fn get_nselections(&self) -> zbus::Result<i32>;
 
     /// GetOffsetAtPoint method
-    fn get_offset_at_point(&self, x: i32, y: i32, coordType: u32) -> zbus::Result<i32>;
+    fn get_offset_at_point(&self, x: i32, y: i32, coord_type: u32) -> zbus::Result<i32>;
 
     /// GetRangeExtents method
     fn get_range_extents(
         &self,
-        startOffset: i32,
-        endOffset: i32,
-        coordType: u32,
+        start_offset: i32,
+        end_offset: i32,
+        coord_type: u32,
     ) -> zbus::Result<(i32, i32, i32, i32)>;
 
     /// GetSelection method
-    fn get_selection(&self, selectionNum: i32) -> zbus::Result<(i32, i32)>;
+    fn get_selection(&self, selection_num: i32) -> zbus::Result<(i32, i32)>;
 
     /// GetStringAtOffset method
     fn get_string_at_offset(
@@ -86,7 +86,7 @@ trait Text {
     ) -> zbus::Result<(String, i32, i32)>;
 
     /// GetText method
-    fn get_text(&self, startOffset: i32, endOffset: i32) -> zbus::Result<String>;
+    fn get_text(&self, start_offset: i32, end_offset: i32) -> zbus::Result<String>;
 
     /// GetTextAfterOffset method
     fn get_text_after_offset(&self, offset: i32, type_: u32) -> zbus::Result<(String, i32, i32)>;
@@ -98,21 +98,21 @@ trait Text {
     fn get_text_before_offset(&self, offset: i32, type_: u32) -> zbus::Result<(String, i32, i32)>;
 
     /// RemoveSelection method
-    fn remove_selection(&self, selectionNum: i32) -> zbus::Result<bool>;
+    fn remove_selection(&self, selection_num: i32) -> zbus::Result<bool>;
 
     /// ScrollSubstringTo method
     fn scroll_substring_to(
         &self,
-        startOffset: i32,
-        endOffset: i32,
+        start_offset: i32,
+        end_offset: i32,
         type_: u32,
     ) -> zbus::Result<bool>;
 
     /// ScrollSubstringToPoint method
     fn scroll_substring_to_point(
         &self,
-        startOffset: i32,
-        endOffset: i32,
+        start_offset: i32,
+        end_offset: i32,
         type_: u32,
         x: i32,
         y: i32,
@@ -124,9 +124,9 @@ trait Text {
     /// SetSelection method
     fn set_selection(
         &self,
-        selectionNum: i32,
-        startOffset: i32,
-        endOffset: i32,
+        selection_num: i32,
+        start_offset: i32,
+        end_offset: i32,
     ) -> zbus::Result<bool>;
 
     /// CaretOffset property
