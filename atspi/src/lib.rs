@@ -19,6 +19,9 @@ pub mod hypertext;
 pub mod image;
 pub mod processed;
 pub mod registry;
+//this is here only temporarily, to silence linter warnings that don't matter in this specific context
+#[allow(non_snake_case)]
+pub mod text;
 pub mod selection;
 pub mod socket;
 pub mod table;
