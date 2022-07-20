@@ -19,18 +19,18 @@ use odilia_common::settings::ApplicationConfig;
 
 const ODILIA_CONFIG_FILE_PATH: &str = "./target/debug/config.toml";
 
-pub struct ScreenReaderState<'t> {
+pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
     pub config: ApplicationConfig,
     pub previous_caret_position: AtomicI32,
-    pub accessible_history: Arc<Mutex<CircularQueue<AccessibleProxy<'t>>>>
+    pub accessible_history: Arc<Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>>
 }
 
-impl<'t> ScreenReaderState<'t> {
+impl ScreenReaderState {
     #[tracing::instrument]
-    pub async fn new() -> eyre::Result<ScreenReaderState<'t>> {
+    pub async fn new() -> eyre::Result<ScreenReaderState> {
         let atspi = atspi::Connection::open()
             .await
             .wrap_err("Could not connect to at-spi bus")?;

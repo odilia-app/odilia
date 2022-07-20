@@ -1,7 +1,7 @@
 use crate::state::ScreenReaderState;
 use atspi::events::Event;
 
-pub async fn dispatch<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
     // Dispatch based on member
     if let Some(member) = event.member() {
     match member.as_str() {
@@ -24,7 +24,7 @@ use std::sync::{
     atomic::Ordering,
 };
 
-pub async fn text_cursor_moved<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> eyre::Result<()> {
+pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   let last_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
   let current_caret_pos = event.detail1();
 
@@ -44,8 +44,12 @@ pub async fn text_cursor_moved<'a>(state: &'a ScreenReaderState<'a>, event: Even
   let accessible_history_q = accessible_history_m.lock().await;
   let mut accessible_history = accessible_history_q.iter();
   // this just won't work on the first two accessibles we call. oh well.
-  if let Some(latest_accessible) = accessible_history.next() {
-      if let Some(second_latest_accessible) = accessible_history.next() {
+  if let Some(latest_accessible_parts) = accessible_history.next() {
+      if let Some(second_latest_accessible_parts) = accessible_history.next() {
+          let (latest_sender,latest_path) = latest_accessible_parts;
+          let (second_latest_sender, second_latest_path) = second_latest_accessible_parts;
+          let latest_accessible = state.accessible(latest_sender.to_owned(), latest_path.to_owned()).await?;
+          let second_latest_accessible = state.accessible(second_latest_sender.to_owned(), second_latest_path.to_owned()).await?;
           // if this is the same accessible as previously acted upon, and caret position is 0
           // This will be true if the user has just tabbed into a new accessible.
           if latest_accessible.path() == accessible.path() &&
@@ -67,7 +71,7 @@ pub async fn text_cursor_moved<'a>(state: &'a ScreenReaderState<'a>, event: Even
   Ok(())
 }
 
-pub async fn dispatch<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   // Dispatch based on kind
   match event.kind() {
     "" => text_cursor_moved(state, event).await?,
@@ -82,7 +86,7 @@ mod state_changed {
     use crate::state::ScreenReaderState;
     use atspi::events::Event;
 
-    pub async fn dispatch<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> eyre::Result<()> {
+    pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
         // Dispatch based on kind
         match event.kind() {
             "focused" => focused(state, event).await?,
@@ -91,16 +95,16 @@ mod state_changed {
         Ok(())
     }
 
-pub async fn focused<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> zbus::Result<()> {
+pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
     // Speak the newly focused object
     let path = if let Some(path) = event.path() { path.to_owned() } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender.to_owned() } else { return Ok(()); };
-    let accessible = state.accessible(sender, path).await?;
+    let accessible = state.accessible(sender.clone(), path.clone()).await?;
     tracing::debug!("Implements interfaces: {:?}", accessible.get_interfaces().await?);
 
     let accessible_history_arc = std::sync::Arc::clone(&state.accessible_history);
     let mut accessible_history = accessible_history_arc.lock().await;
-    accessible_history.push(accessible.clone());
+    accessible_history.push((sender.to_owned(),path.to_owned()));
 
     let name_fut = accessible.name();
     let description_fut = accessible.description();
