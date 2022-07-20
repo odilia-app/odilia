@@ -6,7 +6,7 @@ use atspi::events::Event;
 use crate::state::ScreenReaderState;
 
 #[tracing::instrument(level = "debug", skip(state))]
-pub async fn process(state: &ScreenReaderState) {
+pub async fn process<'a>(state: &'a ScreenReaderState<'a>) {
     let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     while let Some(res) = events.next().await {
@@ -24,7 +24,7 @@ pub async fn process(state: &ScreenReaderState) {
     }
 }
 
-async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+async fn dispatch<'a>(state: &'a ScreenReaderState<'a>, event: Event) -> eyre::Result<()> {
         // Dispatch based on interface
         if let Some(interface) = event.interface() {
         match interface.rsplit('.').next().expect("Interface name should contain '.'") {

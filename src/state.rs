@@ -1,9 +1,14 @@
 use std::path::Path;
-use std::sync::atomic::AtomicI32;
+use std::sync::{
+    atomic::AtomicI32,
+    Arc,
+};
 
 use eyre::WrapErr;
+use circular_queue::CircularQueue;
 use speech_dispatcher::Connection as SPDConnection;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
+use tokio::sync::Mutex;
 
 use atspi::{
   accessible::AccessibleProxy,
@@ -14,17 +19,18 @@ use odilia_common::settings::ApplicationConfig;
 
 const ODILIA_CONFIG_FILE_PATH: &str = "./target/debug/config.toml";
 
-pub struct ScreenReaderState {
+pub struct ScreenReaderState<'t> {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
     pub config: ApplicationConfig,
     pub previous_caret_position: AtomicI32,
+    pub accessible_history: Arc<Mutex<CircularQueue<AccessibleProxy<'t>>>>
 }
 
-impl ScreenReaderState {
+impl<'t> ScreenReaderState<'t> {
     #[tracing::instrument]
-    pub async fn new() -> eyre::Result<Self> {
+    pub async fn new() -> eyre::Result<ScreenReaderState<'t>> {
         let atspi = atspi::Connection::open()
             .await
             .wrap_err("Could not connect to at-spi bus")?;
@@ -45,13 +51,15 @@ impl ScreenReaderState {
         let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
             .wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
-        let previous_caret_position=AtomicI32::new(0);
+        let previous_caret_position = AtomicI32::new(0);
+        let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
         Ok(Self {
             atspi,
             dbus,
             speaker,
             config,
             previous_caret_position,
+            accessible_history,
         })
     }
 
