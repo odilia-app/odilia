@@ -16,7 +16,6 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 mod text_caret_moved {
 use atspi::{
   events::Event,
-  accessible::Role
 };
 use crate::state::ScreenReaderState;
 use std::cmp::{
@@ -26,7 +25,6 @@ use std::cmp::{
 use std::sync::{
     atomic::Ordering,
 };
-use std::collections::HashMap;
 
 pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   let last_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
@@ -106,6 +104,7 @@ mod state_changed {
     use crate::structural::{
       make_accessible,
       get_ancestor_with_role,
+      find_with_role,
     };
 
     pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -122,6 +121,7 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let path = if let Some(path) = event.path() { path.to_owned() } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender.to_owned() } else { return Ok(()); };
     let accessible = state.accessible(sender.clone(), path.clone()).await?;
+    /*
     let root = get_ancestor_with_role(state, &accessible, Role::Application).await?;
     let ints = root.get_interfaces().await?;
     let (rsender,rpath) = root.get_application().await?;
@@ -163,6 +163,15 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
       tracing::debug!("Link is: {}", acc.name().await?);
     }
     tracing::debug!("Implements interfaces: {:?}", accessible.get_interfaces().await?);
+    */
+    if let Ok(next_link_op) = find_with_role(state, &accessible, Role::Link, false).await {
+        if next_link_op.is_some() {
+            tracing::debug!("Next link found!");
+        } else {
+            tracing::debug!("Did not find next link.");
+        }
+    }
+
 
     let accessible_history_arc = std::sync::Arc::clone(&state.accessible_history);
     let mut accessible_history = accessible_history_arc.lock().await;
