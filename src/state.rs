@@ -13,6 +13,7 @@ use tokio::sync::Mutex;
 use atspi::{
   accessible::AccessibleProxy,
   text::TextProxy,
+  collection::CollectionProxy,
 };
 
 use odilia_common::settings::ApplicationConfig;
@@ -73,6 +74,17 @@ impl ScreenReaderState {
           .path(path)?
           .build()
           .await
+    }
+    pub async fn collection<'a>(
+        &'a self,
+        destination: UniqueName<'a>,
+        path: ObjectPath<'a>,
+    ) -> zbus::Result<CollectionProxy<'a>> {
+        CollectionProxy::builder(self.atspi.connection())
+            .destination(destination)?
+            .path(path)?
+            .build()
+            .await
     }
 
     pub async fn accessible<'a>(

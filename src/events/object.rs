@@ -1,5 +1,5 @@
-use crate::state::ScreenReaderState;
 use atspi::events::Event;
+use crate::state::ScreenReaderState;
 
 pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
     // Dispatch based on member
@@ -14,7 +14,10 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 }
 
 mod text_caret_moved {
-use atspi::events::Event;
+use atspi::{
+  events::Event,
+  accessible::Role
+};
 use crate::state::ScreenReaderState;
 use std::cmp::{
   min,
@@ -23,6 +26,7 @@ use std::cmp::{
 use std::sync::{
     atomic::Ordering,
 };
+use std::collections::HashMap;
 
 pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
   let last_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
@@ -83,8 +87,26 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 } // end of text_caret_moved
 
 mod state_changed {
+    use zbus::{
+      zvariant::ObjectPath,
+      names::UniqueName,
+    };
     use crate::state::ScreenReaderState;
-    use atspi::events::Event;
+    use atspi::{
+      events::Event,
+      collection::{
+        MatchType,
+        TreeTraversalType,
+        CollectionProxy,
+        SortOrder,
+      },
+      accessible::Role
+    };
+    use std::collections::HashMap;
+    use crate::structural::{
+      make_accessible,
+      get_ancestor_with_role,
+    };
 
     pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
         // Dispatch based on kind
@@ -100,6 +122,46 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let path = if let Some(path) = event.path() { path.to_owned() } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender.to_owned() } else { return Ok(()); };
     let accessible = state.accessible(sender.clone(), path.clone()).await?;
+    let root = get_ancestor_with_role(state, &accessible, Role::Application).await?;
+    let ints = root.get_interfaces().await?;
+    let (rsender,rpath) = root.get_application().await?;
+    let collection = state.collection(
+      UniqueName::try_from(rsender)?,
+      ObjectPath::try_from(rpath)?
+    ).await?;
+    let matcher: (
+      &[i32],
+      MatchType,
+      HashMap<&str, &str>,
+      MatchType,
+      &[i32],
+      MatchType,
+      &[&str],
+      MatchType,
+      bool) = (
+        &[],
+        MatchType::Empty,
+        HashMap::new(),
+        MatchType::Empty,
+        &[88],
+        MatchType::All,
+        &[],
+        MatchType::Empty,
+        false);
+    let wtf = collection.get_matches_to(
+      &path.clone(),
+      &matcher,
+      SortOrder::Flow,
+      TreeTraversalType::Inorder,
+      true,
+      5, // always return all results; no maximum
+      true // unused
+    ).await?;
+    tracing::debug!("Found {} results with search", wtf.len());
+    for wt in wtf {
+      let acc = make_accessible(state.atspi.connection(), wt).await.unwrap();
+      tracing::debug!("Link is: {}", acc.name().await?);
+    }
     tracing::debug!("Implements interfaces: {:?}", accessible.get_interfaces().await?);
 
     let accessible_history_arc = std::sync::Arc::clone(&state.accessible_history);

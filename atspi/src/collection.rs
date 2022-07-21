@@ -35,15 +35,38 @@ pub enum TreeTraversalType {
     LastDefined,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(i32)]
+pub enum MatchType {
+  Invalid,
+  All,
+  Any,
+  NA,
+  Empty,
+  LastDefined
+}
+
 #[dbus_proxy(interface = "org.a11y.atspi.Collection")]
 trait Collection {
     /// GetActiveDescendant method
     fn get_active_descendant(&self) -> zbus::Result<(String, zbus::zvariant::OwnedObjectPath)>;
 
+
+    /* ROLE fields:
+      &[i32]: AtspiStateSet,
+      i32: AtspiCollectionMatchType,
+      HashMap<&str, &str>: attributes,
+      i32: AtspiCollectionMatchType (attribute match type),
+      &[i32]: roles,
+      i32: AtspiCollectionMatchType (role match type),
+      &[&str]: interfaces,
+      i32: AtspiCollectionMatchType (interface match type),
+      bool: invert
+    */
     /// GetMatches method
     fn get_matches(
         &self,
-        rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
+        rule: &(&[i32], MatchType, std::collections::HashMap<&str, &str>, MatchType, &[i32], MatchType, &[&str], MatchType, bool),
         sortby: SortOrder,
         count: i32,
         traverse: bool,
@@ -53,7 +76,7 @@ trait Collection {
     fn get_matches_from(
         &self,
         current_object: &zbus::zvariant::ObjectPath<'_>,
-        rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
+        rule: &(&[i32], MatchType, std::collections::HashMap<&str, &str>, MatchType, &[i32], MatchType, &[&str], MatchType, bool),
         sortby: SortOrder,
         tree: TreeTraversalType,
         count: i32,
@@ -64,7 +87,7 @@ trait Collection {
     fn get_matches_to(
         &self,
         current_object: &zbus::zvariant::ObjectPath<'_>,
-        rule: &(&[i32], i32, std::collections::HashMap<&str, &str>),
+        rule: &(&[i32], MatchType, std::collections::HashMap<&str, &str>, MatchType, &[i32], MatchType, &[&str], MatchType, bool),
         sortby: SortOrder,
         tree: TreeTraversalType,
         limit_scope: bool,
