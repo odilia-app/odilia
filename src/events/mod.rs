@@ -8,7 +8,6 @@ use futures::stream::{
 use atspi::events::Event;
 use crate::state::ScreenReaderState;
 use tokio::sync::mpsc::{
-    channel,
     Sender,
     Receiver
 };

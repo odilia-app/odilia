@@ -9,7 +9,7 @@ use tokio::sync::mpsc::channel;
 async fn main() -> eyre::Result<()> {
     logging::init();
     let _args = args::parse();
-    let mut state = ScreenReaderState::new().await?;
+    let state = ScreenReaderState::new().await?;
     state.register_event("Object:StateChanged:Focused").await?;
     state.register_event("Object:TextCaretMoved").await?;
     let event_stream = state.atspi.event_stream();

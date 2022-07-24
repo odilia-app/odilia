@@ -38,7 +38,6 @@ pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre:
   let text = state.text(sender.to_owned(), path.to_owned()).await?;
   let accessible = state.accessible(sender, path).await?;
   let name = text.get_text(start, end).await?;
-  let test = accessible.accessible_id().await?;
   
   let accessible_history_m = std::sync::Arc::clone(&state.accessible_history);
   let accessible_history_q = accessible_history_m.lock().await;
@@ -90,7 +89,6 @@ mod state_changed {
           AccessibleProxy,
           Role,
       },
-      accessible_plus::AccessiblePlus,
     };
 
     pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -114,11 +112,6 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let path = if let Some(path) = event.path() { path.to_owned() } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender.to_owned() } else { return Ok(()); };
     let accessible = state.accessible(sender.clone(), path.clone()).await?;
-    if let Ok(next_link) = accessible.get_next(match_link, false).await {
-        tracing::debug!("Next link: {:?}", next_link);
-    } else {
-        tracing::debug!("No next link found");
-    }
 
     let accessible_history_arc = std::sync::Arc::clone(&state.accessible_history);
     let mut accessible_history = accessible_history_arc.lock().await;
@@ -127,7 +120,9 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let name_fut = accessible.name();
     let description_fut = accessible.description();
     let role_fut = accessible.get_localized_role_name();
-    let (name, description, role) = tokio::try_join!(name_fut, description_fut, role_fut)?;
+    let relation_fut = accessible.get_relation_set();
+    let (name, description, role, relation) = tokio::try_join!(name_fut, description_fut, role_fut, relation_fut)?;
+    tracing::debug!("Relations: {:?}", relation);
 
     state.speaker.say(
         speech_dispatcher::Priority::Text,
