@@ -1,6 +1,3 @@
-// Needed because this is generated code
-// Todo: Remove when we've defined propper types for all arguments and return values
-#![allow(clippy::type_complexity, clippy::too_many_arguments)]
 pub mod accessible;
 pub mod action;
 pub mod application;
@@ -8,6 +5,7 @@ pub mod bus;
 pub mod cache;
 pub mod collection;
 pub mod component;
+pub mod convertable;
 pub mod device_event_controller;
 pub mod device_event_listener;
 pub mod document;
@@ -19,14 +17,15 @@ pub mod hypertext;
 pub mod image;
 pub mod processed;
 pub mod registry;
-//this is here only temporarily, to silence linter warnings that don't matter in this specific context
-#[allow(non_snake_case)]
 pub mod text;
 pub mod selection;
 pub mod socket;
 pub mod table;
 pub mod table_cell;
 pub mod value;
+
+pub mod accessible_plus;
+pub mod text_plus;
 
 // Hand-written connection module
 mod connection;

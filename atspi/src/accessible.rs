@@ -11,7 +11,10 @@
 //!
 
 use serde::Deserialize;
-use zbus::{dbus_proxy, zvariant::Type};
+use zbus::{
+    dbus_proxy,
+    zvariant::Type,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type)]
 pub enum Role {
