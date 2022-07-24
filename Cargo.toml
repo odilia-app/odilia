@@ -60,7 +60,7 @@ odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
 pin-utils = "^0.1.0"
 speech-dispatcher = "^0.13.1"
-tokio = { version = "^1.20.0", default-features = false }
+tokio = { version = "^1.20.0", default-features = false, features = ["sync", "macros", "rt-multi-thread"] }
 tracing = "^0.1.32"
 tracing-error = "^0.2.0"
 tracing-log = "^0.1.2"
