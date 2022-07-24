@@ -1,13 +1,32 @@
 mod object;
 
-use futures::stream::StreamExt;
+use futures::stream::{
+    Stream,
+    StreamExt
+};
 
 use atspi::events::Event;
 use crate::state::ScreenReaderState;
+use tokio::sync::mpsc::{
+    channel,
+    Sender,
+    Receiver
+};
 
-#[tracing::instrument(level = "debug", skip(state))]
-pub async fn process(state: &ScreenReaderState) {
-    let events = state.atspi.event_stream();
+#[tracing::instrument(level = "debug", skip(state, rx))]
+pub async fn event_listener(rx: &mut Receiver<Event>, state: &ScreenReaderState) {
+    while let Some(event) = rx.recv().await {
+        if let Err(e) = dispatch(state, event).await {
+            tracing::error!(error = %e, "Could not handle event");
+        } else {
+            tracing::debug!("Event handled without error");
+        }
+    }
+}
+
+#[tracing::instrument(level = "debug", skip(tx, events))]
+pub async fn process(tx: &Sender<Event>, events: impl Stream<Item=zbus::Result<Event>>) {
+    //let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     while let Some(res) = events.next().await {
         let event = match res {
@@ -18,8 +37,9 @@ pub async fn process(state: &ScreenReaderState) {
             }
         };
         tracing::debug!(kind = %event.kind(), "Got event");
-        if let Err(e) = dispatch(state, event).await {
-            tracing::error!(error = %e, "Could not handle event");
+        if let Err(_) = tx.send(event).await {
+            tracing::error!("Receiver dropped.");
+            return;
         }
     }
 }
