@@ -16,7 +16,7 @@ use zbus::{
     zvariant::Type,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum Role {
     Invalid,
     AcceleratorLabel,
@@ -149,7 +149,7 @@ pub enum Role {
     Suggestion,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum StateType {
     InVALId,
     Active,
@@ -197,7 +197,7 @@ pub enum StateType {
     ReadOnly,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum RelationType {
     Null = 0,
     LabelFor,

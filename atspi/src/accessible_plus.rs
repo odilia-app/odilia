@@ -1,11 +1,15 @@
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use crate::accessible::{
+    RelationType,
     AccessibleProxy,
     Role
 };
 use crate::convertable::Convertable;
-use std::future::Future;
+use std::{
+    future::Future,
+    collections::HashMap,
+};
 
 #[async_trait]
 pub trait AccessiblePlus {
@@ -23,6 +27,7 @@ pub trait AccessiblePlus {
     async fn get_next<T, F, 'a>(&self, matcher: T, backward: bool) -> zbus::Result<Option<AccessibleProxy<'a>>>
         where T: Fn(AccessibleProxy<'a>) -> F + Send + Sync + Copy,
               F: Future<Output=bool> + Send;
+    async fn get_relation_set_plus<'a>(&self) -> zbus::Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>>;
 }
 
 impl AccessibleProxy<'_> {
@@ -167,5 +172,22 @@ impl AccessiblePlus for AccessibleProxy<'_> {
             }
         }
         Ok(None)
+    }
+    async fn get_relation_set_plus<'a>(&self) -> zbus::Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>> {
+        let raw_relations = self.get_relation_set().await?;
+        let mut relations = HashMap::new();
+        for relation in raw_relations {
+            let mut related_vec = Vec::new();
+            for related in relation.1 {
+                let accessible = AccessibleProxy::builder(self.connection())
+                    .destination(related.0)?
+                    .path(related.1)?
+                    .build()
+                    .await?;
+                related_vec.push(accessible);
+            }
+            relations.insert(relation.0, related_vec);
+        }
+        Ok(relations)
     }
 }
