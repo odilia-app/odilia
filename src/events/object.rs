@@ -39,8 +39,6 @@ pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre:
   let accessible = state.accessible(sender, path).await?;
   let name = text.get_text(start, end).await?;
   let test = accessible.accessible_id().await?;
-  tracing::debug!("Current: {}", test);
-  tracing::debug!("Empty? {}", test.is_empty());
   
   let accessible_history_m = std::sync::Arc::clone(&state.accessible_history);
   let accessible_history_q = accessible_history_m.lock().await;
@@ -105,8 +103,6 @@ mod state_changed {
     }
 
     async fn match_link<'a>(accessible: AccessibleProxy<'a>) -> bool {
-        tracing::debug!("MATCH LINK BEGIN");
-        tracing::debug!("Object id {:?}", accessible.path());
         match accessible.get_role().await {
             Ok(a_role) => a_role == Role::Link,
             _ => false
@@ -118,13 +114,11 @@ pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()
     let path = if let Some(path) = event.path() { path.to_owned() } else {return Ok(()); };
     let sender = if let Some(sender) = event.sender()? { sender.to_owned() } else { return Ok(()); };
     let accessible = state.accessible(sender.clone(), path.clone()).await?;
-    tracing::debug!("=====START NEXT LINK=====");
     if let Ok(next_link) = accessible.get_next(match_link, false).await {
         tracing::debug!("Next link: {:?}", next_link);
     } else {
-        tracing::debug!("Nothing found!!!!");
+        tracing::debug!("No next link found");
     }
-    tracing::debug!("=====END NEXT LINK=====");
 
     let accessible_history_arc = std::sync::Arc::clone(&state.accessible_history);
     let mut accessible_history = accessible_history_arc.lock().await;
