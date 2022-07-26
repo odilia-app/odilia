@@ -9,7 +9,23 @@
 //! [Writing a client proxy](https://dbus.pages.freedesktop.org/zbus/client.html)
 //! section of the zbus documentation.
 //!
-use zbus::dbus_proxy;
+use serde::Serialize;
+use zbus::{
+    dbus_proxy,
+    zvariant::Type,
+};
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[repr(u32)]
+pub enum BoundaryType {
+    Char,
+    WordStart,
+    WordEnd,
+    SentenceStart,
+    SentenceEnd,
+    LineStart,
+    LineEnd
+}
 
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]
 trait Text {
@@ -81,7 +97,7 @@ trait Text {
     fn get_string_at_offset(
         &self,
         offset: i32,
-        granularity: u32,
+        granularity: BoundaryType,
     ) -> zbus::Result<(String, i32, i32)>;
 
     /// GetText method
