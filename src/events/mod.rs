@@ -1,16 +1,11 @@
 mod object;
 
 use futures::stream::{
-    Stream,
     StreamExt
 };
 
 use atspi::events::Event;
 use crate::state::ScreenReaderState;
-use tokio::sync::mpsc::{
-    Sender,
-    Receiver
-};
 
 #[tracing::instrument(level = "debug", skip(state))]
 pub async fn process(state: &ScreenReaderState) {

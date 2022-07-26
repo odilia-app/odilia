@@ -3,7 +3,6 @@ mod events;
 mod logging;
 mod state;
 use state::ScreenReaderState;
-use tokio::sync::mpsc::channel;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
