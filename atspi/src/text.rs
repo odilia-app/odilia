@@ -11,8 +11,10 @@
 //!
 use serde::Serialize;
 use zbus::{
+    Connection,
     dbus_proxy,
-    zvariant::Type,
+    names::UniqueName,
+    zvariant::{Type, ObjectPath}
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
@@ -152,6 +154,7 @@ trait Text {
     #[dbus_proxy(property)]
     fn character_count(&self) -> zbus::Result<i32>;
 }
+
 /*
 #[async_trait]
 trait TextPlus {
@@ -166,3 +169,11 @@ impl TextPlus for TextProxy {
     }
 }
 */
+
+pub async fn new<'a>(conn: &Connection, sender: UniqueName<'_>, path: ObjectPath<'_>) -> zbus::Result<TextProxy<'a>> {
+  TextProxy::builder(conn)
+    .destination(sender.to_owned())?
+    .path(path.to_owned())?
+    .build()
+    .await
+}
