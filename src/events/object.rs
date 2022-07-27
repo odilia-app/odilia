@@ -85,10 +85,6 @@ mod state_changed {
     use crate::state::ScreenReaderState;
     use atspi::{
       events::Event,
-      accessible::{
-          AccessibleProxy,
-          Role,
-      },
     };
 
     pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -98,13 +94,6 @@ mod state_changed {
             kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
         }
         Ok(())
-    }
-
-    async fn match_link<'a>(accessible: AccessibleProxy<'a>) -> bool {
-        match accessible.get_role().await {
-            Ok(a_role) => a_role == Role::Link,
-            _ => false
-        }
     }
 
 pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
