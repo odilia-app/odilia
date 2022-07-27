@@ -1,11 +1,27 @@
 mod object;
 
+use odilia_common::{
+    events::ScreenReaderEvent,
+    modes::ScreenReaderMode,
+};
 use futures::stream::{
     StreamExt
 };
+use tokio::sync::mpsc::Receiver;
 
 use atspi::events::Event;
 use crate::state::ScreenReaderState;
+
+pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>) {
+    println!("Waiting for sr event.");
+    while let Some(sr_event) = sr_events.recv().await {
+        match sr_event {
+            ScreenReaderEvent::StopSpeech => println!("Stop speech!"),
+            ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name }) => println!("Change mode to {:?}", name),
+            _ => {}
+        }
+    }
+}
 
 #[tracing::instrument(level = "debug", skip(state))]
 pub async fn process(state: &ScreenReaderState) {
