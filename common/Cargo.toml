@@ -16,3 +16,7 @@ publish = false
 tini = "^1.3.0"
 serde = "1.0.139"
 zbus = "^2.3.2"
+bitflags = "1.3.2"
+smartstring = "1.0.1"
+thiserror = "1.0.31"
+speech-dispatcher = "^0.13.1"
