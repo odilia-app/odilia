@@ -40,8 +40,10 @@ pub async fn text_cursor_moved(event: Event) -> eyre::Result<()> {
   let sender = if let Some(sender) = event.sender()? { sender } else { return Ok(()); };
   let conn = state::get_connection().await;
   let text = text::new(&conn.clone(), sender.to_owned(), path.to_owned()).await?;
-  let accessible = accessible::new(&conn.clone(), sender, path).await?;
+  let accessible = accessible::new(&conn.clone(), sender.clone(), path.clone()).await?;
   let name = text.get_text(start, end).await?;
+  state::update_accessible(sender.to_owned(), path.to_owned()).await;
+  
   
   // this just won't work on the first two accessibles we call. oh well.
   let latest_accessible = state::get_accessible_history(0).await?;

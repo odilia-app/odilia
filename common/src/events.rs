@@ -1,3 +1,4 @@
+use atspi::accessible::Role;
 use crate::{elements::ElementType, modes::ScreenReaderMode};
 use speech_dispatcher::Priority;
 
@@ -5,17 +6,21 @@ use speech_dispatcher::Priority;
 pub enum Feature {
     Speech,
     Braille, // TODO
-    Navigation, // TODO
+}
+
+#[derive(Eq,PartialEq,Clone,Hash)]
+pub enum Direction {
+  Forward,
+  Backward
 }
 
 #[derive(Eq,PartialEq,Clone,Hash)]
 pub enum ScreenReaderEvent {
-    Noop,
+    Noop, // when we need to do "something" but this is alwyas hardcoded as nothing
     Speak(String, u32),
     StopSpeech,
     Enable(Feature),
     Disable(Feature),
     ChangeMode(ScreenReaderMode),
-    Next(ElementType),
-    Previous(ElementType),
+    StructuralNavigation(Direction, Role),
 }

@@ -10,6 +10,7 @@ use odilia_common::input::{
 use odilia_common::{
     events::{
         ScreenReaderEvent,
+        Direction,
     },
     modes::{
         ScreenReaderMode,
@@ -30,6 +31,7 @@ use odilia_input::{
       update_sr_mode,
     },
 };
+use atspi::accessible::Role;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -68,7 +70,7 @@ async fn main() -> eyre::Result<()> {
     logging::init();
     let (mode_change_tx,mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
     let mut screen_reader_event_stream = create_keybind_channel();
-    add_keybind(next_heading, ScreenReaderEvent::Next(ElementType::Heading)).await;
+    add_keybind(next_heading, ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading)).await;
     add_keybind(ctrl, ScreenReaderEvent::StopSpeech).await;
     add_keybind(
         browse_mode,

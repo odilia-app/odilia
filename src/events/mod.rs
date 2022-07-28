@@ -1,29 +1,49 @@
 mod object;
 
+use speech_dispatcher::Priority;
 use odilia_common::{
     events::ScreenReaderEvent,
     modes::ScreenReaderMode,
 };
-use futures::stream::{
-    StreamExt
+use futures::{
+    stream::{
+      StreamExt,
+    },
+    Future,
 };
 use tokio::sync::mpsc::{
   Sender,
   Receiver,
 };
 
-use atspi::events::Event;
+use atspi::{
+  events::Event,
+  accessible::Role,
+  accessible::AccessibleProxy,
+  accessible_plus::AccessiblePlus,
+  convertable::Convertable,
+};
 use crate::state;
 use crate::state::{
   ScreenReaderState
 };
 
-pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel: Sender<ScreenReaderMode>) {
+pub async fn match_heading(acc: AccessibleProxy<'_>) -> zbus::Result<bool> {
+  Ok(acc.get_role().await? == Role::Heading)
+}
+
+pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel: Sender<ScreenReaderMode>) -> zbus::Result<()>{
     println!("Waiting for sr event.");
     while let Some(sr_event) = sr_events.recv().await {
-        match sr_event {
-            ScreenReaderEvent::Next(ele_type) => {
-              tracing::debug!("Look for the next {:?}", ele_type);
+        let event_result = match sr_event {
+            ScreenReaderEvent::StructuralNavigation(dir,role) => {
+              let curr = state::get_accessible_history(0).await?;
+              if let Some(next) = curr.get_next(match_heading, false).await? {
+                let text = next.to_text().await?;
+                text.set_caret_offset(0).await?;
+              } else {
+                state::say(Priority::Text, "No more headings".to_string()).await;
+              }
             },
             ScreenReaderEvent::StopSpeech => println!("Stop speech!"),
             ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name }) => {
@@ -31,8 +51,9 @@ pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel:
               let _ = mode_channel.send(ScreenReaderMode{ name }).await;
             },
             _ => {}
-        }
+        };
     }
+    Ok(())
 }
 
 #[tracing::instrument(level = "debug")]
