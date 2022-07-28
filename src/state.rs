@@ -103,12 +103,6 @@ pub async fn say(priority: Priority, text: String) -> bool {
   }
 }
 
-pub async fn get_mode() -> ScreenReaderMode {
-  let mode_mutex = STATE.get().unwrap().mode.lock().await;
-  let mode = mode_mutex.clone();
-  return mode;
-}
-
 pub async fn get_accessible_history<'a>(index: i32) -> zbus::Result<AccessibleProxy<'a>> {
   let history_arc = Arc::clone(&STATE.get().unwrap().accessible_history);
   let history = history_arc.lock().await;
@@ -171,30 +165,6 @@ impl ScreenReaderState {
             mode,
             accessible_history,
         })
-    }
-
-    pub async fn text<'a>(
-      &'a self,
-      destination: UniqueName<'a>,
-      path: ObjectPath<'a>,
-    ) -> zbus::Result<TextProxy<'a>> {
-      TextProxy::builder(self.atspi.connection())
-          .destination(destination)?
-          .path(path)?
-          .build()
-          .await
-    }
-
-    pub async fn accessible<'a>(
-        &'a self,
-        destination: UniqueName<'a>,
-        path: ObjectPath<'a>,
-    ) -> zbus::Result<AccessibleProxy<'a>> {
-        AccessibleProxy::builder(self.atspi.connection())
-            .destination(destination)?
-            .path(path)?
-            .build()
-            .await
     }
 
     #[allow(dead_code)]

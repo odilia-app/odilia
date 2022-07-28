@@ -93,6 +93,6 @@ async fn main() -> eyre::Result<()> {
     let atspi_event_future = events::process();
     let odilia_event_future = events::sr_event(&mut screen_reader_event_stream, mode_change_tx);
     let update_mode_future = update_sr_mode(&mut mode_change_rx);
-    tokio::join!(atspi_event_future, odilia_event_future, update_mode_future);
+    let _ = tokio::join!(atspi_event_future, odilia_event_future, update_mode_future);
     Ok(())
 }

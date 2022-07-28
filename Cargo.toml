@@ -55,6 +55,7 @@ color-eyre = "^0.6.1"
 circular-queue = "^0.2.6"
 eyre = "^0.6.8"
 futures = { version = "^0.3.21", default-features = false }
+lazy_static = "1.4.0"
 odilia-common = { path = "common" }
 odilia-input = { path = "input" }
 odilia-tts = { path = "tts" }
