@@ -3,7 +3,10 @@ mod events;
 mod logging;
 mod state;
 use tokio::sync::mpsc::channel;
-use std::process::exit;
+use std::{
+  process::exit,
+  collections::HashMap,
+};
 use crate::state::ScreenReaderState;
 use odilia_common::input::{
 };
@@ -35,6 +38,12 @@ use atspi::accessible::Role;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    let mut s_nav = HashMap::new();
+    s_nav.insert(Some(Key::Other('h')), Role::Heading);
+    s_nav.insert(Some(Key::Other('b')), Role::PushButton);
+    s_nav.insert(Some(Key::Other('k')), Role::Link);
+    s_nav.insert(Some(Key::Other('l')), Role::List);
+    s_nav.insert(Some(Key::Other('i')), Role::ListItem);
     let ctrl = KeyBinding {
         key: None,
         mods: Modifiers::CONTROL,
@@ -59,18 +68,29 @@ async fn main() -> eyre::Result<()> {
         mode: None,
         notify: true
     };
-    let next_heading = KeyBinding {
-        key: Some(Key::Other('h')),
+    logging::init();
+    let (mode_change_tx,mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
+    let mut screen_reader_event_stream = create_keybind_channel();
+    for (key,role) in s_nav.into_iter() {
+      let kb = KeyBinding {
+        key: key,
         mods: Modifiers::NONE,
         repeat: 1,
         consume: true,
         mode: Some(ScreenReaderMode{ name: "BrowseMode".to_string()}),
         notify: true
-    };
-    logging::init();
-    let (mode_change_tx,mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
-    let mut screen_reader_event_stream = create_keybind_channel();
-    add_keybind(next_heading, ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading)).await;
+      };
+      let bkb = KeyBinding {
+        key: key,
+        mods: Modifiers::SHIFT,
+        repeat: 1,
+        consume: true,
+        mode: Some(ScreenReaderMode{ name: "BrowseMode".to_string()}),
+        notify: true
+      };
+      add_keybind(kb, ScreenReaderEvent::StructuralNavigation(Direction::Forward, role)).await;
+      add_keybind(bkb, ScreenReaderEvent::StructuralNavigation(Direction::Backward, role)).await;
+    }
     add_keybind(ctrl, ScreenReaderEvent::StopSpeech).await;
     add_keybind(
         browse_mode,
