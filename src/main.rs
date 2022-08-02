@@ -7,9 +7,6 @@ use std::{
   process::exit,
   collections::HashMap,
 };
-use crate::state::ScreenReaderState;
-use odilia_common::input::{
-};
 use odilia_common::{
     events::{
         ScreenReaderEvent,
@@ -22,9 +19,6 @@ use odilia_common::{
       KeyBinding,
       Modifiers,
       Key
-    },
-    elements::{
-        ElementType,
     },
 };
 use odilia_input::{

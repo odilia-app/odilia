@@ -1,5 +1,4 @@
 use atspi::events::Event;
-use crate::state::ScreenReaderState;
 
 pub async fn dispatch(event: Event) -> eyre::Result<()> {
     // Dispatch based on member
@@ -20,13 +19,9 @@ use atspi::{
   text,
 };
 use crate::state;
-use crate::state::ScreenReaderState;
 use std::cmp::{
   min,
   max
-};
-use std::sync::{
-    atomic::Ordering,
 };
 
 pub async fn text_cursor_moved(event: Event) -> eyre::Result<()> {
@@ -80,11 +75,9 @@ pub async fn dispatch(event: Event) -> eyre::Result<()> {
 
 mod state_changed {
     use crate::state;
-    use crate::state::ScreenReaderState;
     use atspi::{
       events::Event,
       accessible,
-      text,
     };
 
     pub async fn dispatch(event: Event) -> eyre::Result<()> {

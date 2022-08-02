@@ -18,13 +18,7 @@ use rdev::{
     EventType::{KeyPress, KeyRelease},
     Key as RDevKey,
 };
-use tokio::{
-    sync::mpsc,
-    sync::mpsc::{
-      Sender,
-      Receiver,
-    },
-};
+use tokio::sync::mpsc;
 
 use once_cell::sync::{Lazy, OnceCell};
 use std::{future::Future, sync::Mutex};

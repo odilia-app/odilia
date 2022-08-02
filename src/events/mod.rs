@@ -27,9 +27,7 @@ use atspi::{
   convertable::Convertable,
 };
 use crate::state;
-use crate::state::{
-  ScreenReaderState
-};
+
 type AsyncFn =
   Box<dyn Fn(AccessibleProxy<'static>) -> Box<dyn Future<Output=zbus::Result<bool>> + Unpin + Send + 'static> + Send + Sync + 'static>;
 
@@ -47,16 +45,11 @@ pub fn matchr(role: Role) -> AsyncFn {
   })
 }
 
-pub async fn match_heading(acc: AccessibleProxy<'_>) -> zbus::Result<bool> {
-  Ok(acc.get_role().await? == Role::Heading)
-}
-
 pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel: Sender<ScreenReaderMode>) -> zbus::Result<()>{
     println!("Waiting for sr event.");
     while let Some(sr_event) = sr_events.recv().await {
-        let event_result = match sr_event {
+        let _event_result = match sr_event {
             ScreenReaderEvent::StructuralNavigation(dir,role) => {
-              let match_func = matchr(role);
               let curr = state::get_accessible_history(0).await?;
               let direction = match dir {
                 Direction::Forward => false,

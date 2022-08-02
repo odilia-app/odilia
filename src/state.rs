@@ -25,7 +25,6 @@ use tokio::sync::Mutex;
 
 use atspi::{
   accessible::AccessibleProxy,
-  text::TextProxy,
   events::Event,
 };
 
@@ -93,14 +92,11 @@ pub async fn get_connection() -> Connection {
 
 pub async fn say(priority: Priority, text: String) -> bool {
   let state = STATE.get().unwrap();
-  if let spd = state.speaker.lock().await {
-    tracing::debug!("Saying: {}", text.clone());
-    spd.say(priority, text.clone());
-    tracing::debug!("Said: {}", text.clone());
-    true
-  } else {
-    false
-  }
+  let spd = state.speaker.lock().await;
+  tracing::debug!("Saying: {}", text.clone());
+  spd.say(priority, text.clone());
+  tracing::debug!("Said: {}", text.clone());
+  true
 }
 
 pub async fn get_accessible_history<'a>(index: i32) -> zbus::Result<AccessibleProxy<'a>> {
@@ -116,10 +112,6 @@ pub async fn get_accessible_history<'a>(index: i32) -> zbus::Result<AccessiblePr
     .path(history_item.1.to_owned())?
     .build()
     .await
-}
-
-pub fn get_mode_sync() -> ScreenReaderMode {
-  STATE.get().unwrap().mode.blocking_lock().clone()
 }
 
 pub async fn update_caret_position(new_pos: i32) -> bool {

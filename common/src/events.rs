@@ -1,6 +1,5 @@
 use atspi::accessible::Role;
-use crate::{elements::ElementType, modes::ScreenReaderMode};
-use speech_dispatcher::Priority;
+use crate::modes::ScreenReaderMode;
 
 #[derive(Eq, PartialEq, Clone, Hash)]
 pub enum Feature {

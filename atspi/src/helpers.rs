@@ -1,9 +1,3 @@
-use zbus::{
-  Connection,
-  ProxyDefault,
-  zvariant::OwnedObjectPath
-};
-
 /*
 TODO: generic version of new function
 pub async fn new<'a, T>(conn: Connection, dest: String, path: OwnedObjectPath) -> zbus::Result<T<'a>> 

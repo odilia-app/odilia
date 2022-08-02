@@ -10,7 +10,6 @@ use std::{
     future::Future,
     collections::HashMap,
 };
-use zbus::zvariant::OwnedObjectPath;
 
 #[async_trait]
 pub trait AccessiblePlus {
