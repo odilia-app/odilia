@@ -17,11 +17,11 @@ pub mod hypertext;
 pub mod image;
 pub mod processed;
 pub mod registry;
-pub mod text;
 pub mod selection;
 pub mod socket;
 pub mod table;
 pub mod table_cell;
+pub mod text;
 pub mod value;
 
 pub mod accessible_plus;

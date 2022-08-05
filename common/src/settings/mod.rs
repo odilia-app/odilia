@@ -3,11 +3,8 @@ mod speech;
 use log::LogSettings;
 use speech::SpeechSettings;
 
-use tini::{
-  Ini,
-  Error,
-};
 use serde::{Deserialize, Serialize};
+use tini::{Error, Ini};
 
 ///type representing a *read-only* view of the odilia screenreader configuration
 /// this type should only be obtained as a result of parsing odilia's configuration files, as it containes types for each section responsible for controlling various parts of the screenreader
@@ -25,10 +22,7 @@ impl ApplicationConfig {
         let level: String = ini.get("log", "level").unwrap();
         let speech = SpeechSettings::new(rate);
         let log = LogSettings::new(level);
-        Ok(Self {
-          speech,
-          log
-        })
+        Ok(Self { speech, log })
     }
 
     pub fn log(&self) -> &LogSettings {
