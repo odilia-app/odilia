@@ -12,7 +12,6 @@ use futures::{
     stream::{
       StreamExt,
     },
-    Future,
 };
 use tokio::sync::mpsc::{
   Sender,
@@ -21,29 +20,15 @@ use tokio::sync::mpsc::{
 
 use atspi::{
   events::Event,
-  accessible::Role,
-  accessible::AccessibleProxy,
-  accessible_plus::AccessiblePlus,
+  collection::MatchType,
+  accessible_plus::{
+      AccessiblePlus,
+      MatcherArgs,
+  },
   convertable::Convertable,
 };
 use crate::state;
-
-type AsyncFn =
-  Box<dyn Fn(AccessibleProxy<'static>) -> Box<dyn Future<Output=zbus::Result<bool>> + Unpin + Send + 'static> + Send + Sync + 'static>;
-
-/* TODO: I'm pretty sure this requires three heap allocation for every call.
-* The good news is that it only *needs* to be called once for every possible match. Grrrrr. I wish this could be done at compile-time with macros. So much more efficient.
-* Also, right now the heap allocation is done every time the key is pressed.
-*/
-pub fn matchr(role: Role) -> AsyncFn {
-  Box::new(move |acc: AccessibleProxy<'static>| {
-    Box::new(Box::pin(
-      async move {
-        Ok(acc.get_role().await? == role)
-      }
-    ))
-  })
-}
+use std::collections::HashMap;
 
 pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel: Sender<ScreenReaderMode>) -> zbus::Result<()>{
     println!("Waiting for sr event.");
@@ -55,7 +40,18 @@ pub async fn sr_event(sr_events: &mut Receiver<ScreenReaderEvent>, mode_channel:
                 Direction::Forward => false,
                 Direction::Backward => true,
               };
-              if let Some(next) = curr.get_next(&matchr(role), direction).await? {
+              let roles = vec![role];
+              let attributes = HashMap::new();
+              let interfaces = Vec::new();
+              let mt: MatcherArgs = (
+                roles,
+                MatchType::Invalid,
+                attributes,
+                MatchType::Invalid,
+                interfaces,
+                MatchType::Invalid,
+              );
+              if let Some(next) = curr.get_next(&mt, direction).await? {
                 let text = next.to_text().await?;
                 text.set_caret_offset(0).await?;
               } else {
