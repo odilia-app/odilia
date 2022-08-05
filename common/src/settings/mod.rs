@@ -3,7 +3,10 @@ mod speech;
 use log::LogSettings;
 use speech::SpeechSettings;
 
-use config::{Config, ConfigError, Environment, File};
+use tini::{
+  Ini,
+  Error,
+};
 use serde::{Deserialize, Serialize};
 
 ///type representing a *read-only* view of the odilia screenreader configuration
@@ -16,16 +19,16 @@ pub struct ApplicationConfig {
 }
 
 impl ApplicationConfig {
-    pub fn new(path: &str) -> Result<Self, ConfigError> {
-        let s = Config::builder()
-            // Start off by merging in the "default" configuration file specified by the path parameter
-            .add_source(File::with_name(path))
-            //add configuration from the environment, any variable prefixed by odilia is a candidate
-            // Eg `ODILIA_LEVEL=info ./target/odilia` would set the log level to `info`
-            .add_source(Environment::with_prefix("odilia"))
-            //finally, build the config
-            .build()?;
-        s.try_deserialize()
+    pub fn new(path: &str) -> Result<Self, Error> {
+        let ini = Ini::from_file(path)?;
+        let rate: i32 = ini.get("speech", "rate").unwrap();
+        let level: String = ini.get("log", "level").unwrap();
+        let speech = SpeechSettings::new(rate);
+        let log = LogSettings::new(level);
+        Ok(Self {
+          speech,
+          log
+        })
     }
 
     pub fn log(&self) -> &LogSettings {

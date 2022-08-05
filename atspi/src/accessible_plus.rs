@@ -3,13 +3,22 @@ use async_trait::async_trait;
 use crate::accessible::{
     RelationType,
     AccessibleProxy,
-    Role
+    Role,
 };
+use crate::collection::MatchType;
 use crate::convertable::Convertable;
 use std::{
-    future::Future,
     collections::HashMap,
 };
+
+pub type MatcherArgs = (
+    Vec<Role>,
+    MatchType,
+    HashMap<String, String>,
+    MatchType,
+    Vec<String>, // Interfaces
+    MatchType
+);
 
 #[async_trait]
 pub trait AccessiblePlus {
@@ -24,38 +33,47 @@ pub trait AccessiblePlus {
     /* TODO: not sure where these should go since it requires both Text as a self interface and
      * Hyperlink as children interfaces. */
     async fn get_children_caret<'a>(&self, after: bool) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
-    async fn get_next<T, F, 'a>(&self, matcher: T, backward: bool) -> zbus::Result<Option<AccessibleProxy<'a>>>
-        where T: Fn(AccessibleProxy<'a>) -> F + Send + Sync + Copy,
-              F: Future<Output=bool> + Send;
+    async fn get_next<'a>(&self, matcher_args: &MatcherArgs, backward: bool) -> zbus::Result<Option<AccessibleProxy<'a>>>;
     async fn get_relation_set_plus<'a>(&self) -> zbus::Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>>;
+}
+
+// TODO: make match more broad, allow use of other parameters
+async fn match_(
+    accessible: &AccessibleProxy<'_>,
+    matcher_args: &MatcherArgs,
+) -> zbus::Result<bool> {
+    let roles = &matcher_args.0;
+    if roles.len() == 1 {
+        Ok(accessible.get_role().await? == *roles.get(0).unwrap())
+    } else {
+        Ok(false)
+    }
 }
 
 impl AccessibleProxy<'_> {
     #[async_recursion]
-    async fn find_inner<T, F, 'a>(&self, after_or_before: i32, matcher: T, backward: bool, recur: bool) -> zbus::Result<Option<AccessibleProxy<'a>>> 
-    where T: Fn(AccessibleProxy<'a>) -> F + Send + Sync + Copy,
-          F: Future<Output=bool> + Send,
+    async fn find_inner<'a>(&self, after_or_before: i32, matcher_args: &MatcherArgs, backward: bool, recur: bool) -> zbus::Result<Option<AccessibleProxy<'a>>> 
     {
         let children = match backward {
+            false => self.get_children_plus().await?,
             true => {
-                let mut tmp = self.get_children_plus().await?;
-                tmp.reverse();
-                tmp
-            },
-            false => self.get_children_plus().await?
-        };
+              let mut vec = self.get_children_plus().await?;
+              vec.reverse();
+              vec
+            }
+         };
         for child in children {
             let child_index = child.get_index_in_parent().await?;
             if !recur &&
-                ((child_index<= after_or_before && !backward) ||
+                ((child_index <= after_or_before && !backward) ||
                  (child_index >= after_or_before && backward)) {
                 continue;
             }
-            if matcher(child.clone()).await {
+            if match_(&child.clone(), matcher_args).await? {
                 return Ok(Some(child));
             }
             /* 0 here is ignored because we are recursive; see the line starting with if !recur */
-            if let Some(found_decendant) = child.find_inner(0, matcher, backward, true).await? {
+            if let Some(found_decendant) = child.find_inner(0, &matcher_args, backward, true).await? {
                 return Ok(Some(found_decendant));
             }
         }
@@ -134,14 +152,14 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         }
         Ok(ancestor)
     }
-    async fn get_children_caret<'a>(&self, before: bool) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
+    async fn get_children_caret<'a>(&self, backward: bool) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let mut children_after_before = Vec::new();
         let caret_pos = self.to_text().await?.caret_offset().await?;
         let children_hyperlink = self.to_accessible().await?.get_children_plus().await?;
         for child in children_hyperlink {
             let hyperlink = child.to_hyperlink().await?;
             if let Ok(start_index) = hyperlink.start_index().await {
-                if (start_index <= caret_pos && before) || (start_index >= caret_pos && !before) {
+                if (start_index <= caret_pos && backward) || (start_index >= caret_pos && !backward) {
                     children_after_before.push(child);
                 }
             // include all children which do not identify their positions, for some reason
@@ -151,23 +169,25 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         }
         Ok(children_after_before)
     }
-    async fn get_next<T, F, 'a>(&self, matcher: T, backward: bool) -> zbus::Result<Option<AccessibleProxy<'a>>> 
-        where T: Fn(AccessibleProxy<'a>) -> F + Send + Sync + Copy,
-              F: Future<Output=bool> + Send
+    async fn get_next<'a>(&self, matcher_args: &MatcherArgs, backward: bool) -> zbus::Result<Option<AccessibleProxy<'a>>> 
     {
         // TODO if backwards, check here
         let caret_children = self.get_children_caret(backward).await?;
         for child in caret_children {
-            if matcher(child.clone()).await {
+            if match_(&child.clone(), matcher_args).await? {
                 return Ok(Some(child));
+            } else if let Some(found_sub) = child.find_inner(0, matcher_args, backward, true).await? {
+                return Ok(Some(found_sub));
             }
         }
+        let mut last_parent_index = self.get_index_in_parent().await?;
         if let Ok(mut parent) = self.get_parent_plus().await {
-            while parent.get_role().await? != Role::Frame {
-                let found_inner_child = parent.find_inner(parent.get_index_in_parent().await?, matcher, backward, false).await?;
+            while parent.get_role().await? != Role::InternalFrame {
+                let found_inner_child = parent.find_inner(last_parent_index, matcher_args, backward, false).await?;
                 if found_inner_child.is_some() {
                     return Ok(found_inner_child);
                 }
+                last_parent_index = parent.get_index_in_parent().await?;
                 parent = parent.get_parent_plus().await?;
             }
         }

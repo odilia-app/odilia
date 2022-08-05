@@ -27,6 +27,8 @@ pub mod value;
 pub mod accessible_plus;
 pub mod text_plus;
 
+pub mod helpers;
+
 // Hand-written connection module
 mod connection;
 pub use connection::*;

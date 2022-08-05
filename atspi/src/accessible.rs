@@ -12,8 +12,10 @@
 
 use serde::Deserialize;
 use zbus::{
+    names::UniqueName,
+    Connection,
     dbus_proxy,
-    zvariant::Type,
+    zvariant::{Type, ObjectPath}
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
@@ -287,4 +289,12 @@ trait Accessible {
     /// Parent property
     #[dbus_proxy(property)]
     fn parent(&self) -> zbus::Result<(String, zbus::zvariant::OwnedObjectPath)>;
+}
+
+pub async fn new<'a>(conn: &Connection, sender: UniqueName<'_>, path: ObjectPath<'_>) -> zbus::Result<AccessibleProxy<'a>> {
+  AccessibleProxy::builder(conn)
+    .destination(sender.to_owned())?
+    .path(path.to_owned())?
+    .build()
+    .await
 }
