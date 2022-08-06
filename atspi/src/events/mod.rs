@@ -73,6 +73,9 @@ impl TryFrom<Arc<Message>> for Event {
     type Error = zbus::Error;
 
     fn try_from(message: Arc<Message>) -> zbus::Result<Self> {
+        // TODO: this causes an error on QT apps due to a signature mismatch:
+        // The signature should be: `(siiva{sv})`
+        // Qt's signature is: `(siiv(so))`
         let body: EventBody = message.body()?;
         let body = EventBodyOwned::from(body);
         Ok(Self { message, body })
