@@ -76,9 +76,12 @@ pub async fn get_connection() -> Connection {
 pub async fn say(priority: Priority, text: String) -> bool {
     let state = STATE.get().unwrap();
     let spd = state.speaker.lock().await;
-    tracing::debug!("Saying: {}", text.clone());
-    spd.say(priority, text.clone());
-    tracing::debug!("Said: {}", text.clone());
+    if text == "" {
+        tracing::warn!("blank string, aborting");
+        return false;
+    }
+    spd.say(priority, &text);
+    tracing::debug!("Said: {}", text);
     true
 }
 
