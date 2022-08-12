@@ -68,3 +68,45 @@ jobs:
           command: clippy
           # "-- -D warnings" will make the job fail if their are clippy warnings
           args: --workspace --no-deps -- -D warnings
+
+  rustdoc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v2
+
+      - name: Cache cargo home
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Generate Documentation
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+
+      - name: Deploy Documentation
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+          external_repository: odilia-app/odilia-app.github.io
+          publish_dir: ./target/doc
+          destination_dir: doc/devel
+          keep_files: true
+          user_name: github-actions
+          user_email: actions@github.com
+          publish_branch: main
