@@ -1,5 +1,5 @@
 use lazy_static::lazy_static;
-use std::path::Path;
+
 use std::sync::{
     atomic::{AtomicI32, Ordering},
     Arc,
@@ -17,8 +17,6 @@ use atspi::{accessible::AccessibleProxy, events::Event};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
 use futures::stream::Stream;
-
-const ODILIA_CONFIG_FILE_PATH: &str = "./target/debug/config.toml";
 
 lazy_static! {
     static ref STATE: OnceCell<ScreenReaderState> = OnceCell::new();
@@ -138,9 +136,19 @@ impl ScreenReaderState {
             .wrap_err("Failed to connect to speech-dispatcher")?,
         ));
         tracing::debug!("speech dispatcher initialisation successful");
-        tracing::debug!(path=%ODILIA_CONFIG_FILE_PATH, "loading configuration file");
-        let config_full_path = Path::new(ODILIA_CONFIG_FILE_PATH);
-        let config = ApplicationConfig::new(config_full_path.canonicalize()?.to_str().unwrap())
+
+        let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+            "unable to find the odilia config directory according to the xdg dirs specification",
+        );
+        let config_path = xdg_dirs
+            .place_config_file("config.toml")
+            .expect("unable to place configuration file. Maybe your system is readonly?")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        tracing::debug!(path=%config_path, "loading configuration file");
+        let config =
+            ApplicationConfig::new(&config_path)
             .wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
         let previous_caret_position = AtomicI32::new(0);
