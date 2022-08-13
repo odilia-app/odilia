@@ -762,7 +762,7 @@ pub fn extract_curly_brace(line: &str) -> Vec<String> {
                 continue;
             }
 
-            // In swhkd we will parse the full range using ASCII values.
+            // In sohkd we will parse the full range using ASCII values.
 
             let begin_ascii_val = begin_char.parse::<char>().unwrap() as u8;
             let end_ascii_val = end_char.parse::<char>().unwrap() as u8;

@@ -47,10 +47,10 @@ impl KeyboardState {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
-    env::set_var("RUST_LOG", "swhkd=warn");
+    env::set_var("RUST_LOG", "sohkd=warn");
 
     if args.is_present("debug") {
-        env::set_var("RUST_LOG", "swhkd=trace");
+        env::set_var("RUST_LOG", "sohkd=trace");
     }
 
     env_logger::init();
@@ -63,13 +63,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             uid
         }
         Err(_) => {
-            log::error!("Failed to launch swhkd!!!");
+            log::error!("Failed to launch sohkd!!!");
             log::error!("Make sure to launch the binary with pkexec.");
             exit(1);
         }
     };
 
-    setup_swhkd(invoking_uid);
+    setup_sohkd(invoking_uid);
 
     let load_config = || {
         // Drop privileges to the invoking user.
@@ -392,10 +392,10 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
-        log::error!("Consider using `pkexec swhkd ...`");
+        log::error!("Consider using `pkexec sohkd ...`");
         exit(1);
     } else {
-        log::warn!("Running swhkd as root!");
+        log::warn!("Running sohkd as root!");
         Ok(())
     }
 }
@@ -403,7 +403,7 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
 pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
     let device = &tup.1;
     if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
-        if device.name() == Some("swhkd virtual output") {
+        if device.name() == Some("sohkd virtual output") {
             return false;
         }
         log::debug!("Keyboard: {}", device.name().unwrap(),);
@@ -415,7 +415,7 @@ pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
 }
 
 pub fn set_command_line_args() -> Command<'static> {
-    let app = Command::new("swhkd")
+    let app = Command::new("sohkd")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("Simple Wayland HotKey Daemon")
@@ -448,11 +448,11 @@ pub fn fetch_xdg_config_path() -> PathBuf {
     let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
             log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            Path::new(&val).join("swhkd/swhkdrc")
+            Path::new(&val).join("sohkd/sohkdrc")
         }
         Err(_) => {
             log::error!("XDG_CONFIG_HOME has not been set.");
-            Path::new("/etc/swhkd/swhkdrc").to_path_buf()
+            Path::new("/etc/sohkd/sohkdrc").to_path_buf()
         }
     };
     config_file_path
@@ -462,17 +462,17 @@ pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
     match env::var("XDG_RUNTIME_DIR") {
         Ok(val) => {
             log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
-            Path::new(&val).join("swhkd.sock")
+            Path::new(&val).join("sohkd.sock")
         }
         Err(_) => {
             log::error!("XDG_RUNTIME_DIR has not been set.");
-            Path::new(&format!("/run/user/{}/swhkd.sock", env::var("PKEXEC_UID").unwrap()))
+            Path::new(&format!("/run/user/{}/sohkd.sock", env::var("PKEXEC_UID").unwrap()))
                 .to_path_buf()
         }
     }
 }
 
-pub fn setup_swhkd(invoking_uid: u32) {
+pub fn setup_sohkd(invoking_uid: u32) {
     // Set a sane process umask.
     log::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
@@ -481,11 +481,11 @@ pub fn setup_swhkd(invoking_uid: u32) {
     let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
         Ok(runtime_path) => {
             log::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
-            Path::new(&runtime_path).join("swhkd").to_str().unwrap().to_owned()
+            Path::new(&runtime_path).join("sohkd").to_str().unwrap().to_owned()
         }
         Err(_) => {
             log::error!("XDG_RUNTIME_DIR has not been set.");
-            String::from("/run/swhkd/")
+            String::from("/run/sohkd/")
         }
     };
     if !Path::new(&runtime_path).exists() {
@@ -502,26 +502,26 @@ pub fn setup_swhkd(invoking_uid: u32) {
     }
 
     // Get the PID file path for instance tracking.
-    let pidfile: String = format!("{}swhkd_{}.pid", runtime_path, invoking_uid);
+    let pidfile: String = format!("{}sohkd_{}.pid", runtime_path, invoking_uid);
     if Path::new(&pidfile).exists() {
         log::trace!("Reading {} file and checking for running instances.", pidfile);
-        let swhkd_pid = match fs::read_to_string(&pidfile) {
-            Ok(swhkd_pid) => swhkd_pid,
+        let sohkd_pid = match fs::read_to_string(&pidfile) {
+            Ok(sohkd_pid) => sohkd_pid,
             Err(e) => {
                 log::error!("Unable to read {} to check all running instances", e);
                 exit(1);
             }
         };
-        log::debug!("Previous PID: {}", swhkd_pid);
+        log::debug!("Previous PID: {}", sohkd_pid);
 
-        // Check if swhkd is already running!
+        // Check if sohkd is already running!
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
-            if pid.to_string() == swhkd_pid && process.exe() == env::current_exe().unwrap() {
+            if pid.to_string() == sohkd_pid && process.exe() == env::current_exe().unwrap() {
                 log::error!("Swhkd is already running!");
-                log::error!("pid of existing swhkd process: {}", pid.to_string());
-                log::error!("To close the existing swhkd process, run `sudo killall swhkd`");
+                log::error!("pid of existing sohkd process: {}", pid.to_string());
+                log::error!("To close the existing sohkd process, run `sudo killall sohkd`");
                 exit(1);
             }
         }

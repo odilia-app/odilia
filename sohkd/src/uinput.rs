@@ -9,7 +9,7 @@ pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error
         keys.insert(key);
     }
     let device = VirtualDeviceBuilder::new()?
-        .name("swhkd virtual output")
+        .name("sohkd virtual output")
         .with_keys(&keys)?
         .build()
         .unwrap();

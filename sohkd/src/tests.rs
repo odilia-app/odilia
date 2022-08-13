@@ -117,7 +117,7 @@ mod test_config {
 
     #[test]
     fn test_existing_file() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file1");
+        let setup = TestPath::new("/tmp/sohkd-test-file1");
         // Build a dummy file in /tmp
         let mut f = File::create(setup.path())?;
         f.write_all(
@@ -136,16 +136,16 @@ q
 
     #[test]
     fn test_load_multiple_config() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file2");
+        let setup = TestPath::new("/tmp/sohkd-test-file2");
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
-include /tmp/swhkd-test-file3
+include /tmp/sohkd-test-file3
 super + b
    firefox",
         )?;
 
-        let setup2 = TestPath::new("/tmp/swhkd-test-file3");
+        let setup2 = TestPath::new("/tmp/sohkd-test-file3");
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
@@ -166,16 +166,16 @@ super + c
 
     #[test]
     fn test_relative_import() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-relative-file1");
+        let setup = TestPath::new("/tmp/sohkd-relative-file1");
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
-include swhkd-relative-file2
+include sohkd-relative-file2
 super + b
    firefox",
         )?;
 
-        let setup2 = TestPath::new("swhkd-relative-file2");
+        let setup2 = TestPath::new("sohkd-relative-file2");
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
@@ -196,7 +196,7 @@ super + c
 
     #[test]
     fn test_more_multiple_configs() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file4");
+        let setup = TestPath::new("/tmp/sohkd-test-file4");
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
@@ -204,30 +204,30 @@ a
     a",
         )?;
 
-        let setup2 = TestPath::new("/tmp/swhkd-test-file5");
+        let setup2 = TestPath::new("/tmp/sohkd-test-file5");
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
-include /tmp/swhkd-test-file4
+include /tmp/sohkd-test-file4
 b
     b",
         )?;
-        let setup3 = TestPath::new("/tmp/swhkd-test-file6");
+        let setup3 = TestPath::new("/tmp/sohkd-test-file6");
         let mut f3 = File::create(setup3.path())?;
         f3.write_all(
             b"
-include /tmp/swhkd-test-file4
-include /tmp/swhkd-test-file5
-include /tmp/swhkd-test-file6
-include /tmp/swhkd-test-file7
+include /tmp/sohkd-test-file4
+include /tmp/sohkd-test-file5
+include /tmp/sohkd-test-file6
+include /tmp/sohkd-test-file7
 c
     c",
         )?;
-        let setup4 = TestPath::new("/tmp/swhkd-test-file7");
+        let setup4 = TestPath::new("/tmp/sohkd-test-file7");
         let mut f4 = File::create(setup4.path())?;
         f4.write_all(
             b"
-include /tmp/swhkd-test-file6
+include /tmp/sohkd-test-file6
 d
     d",
         )?;
@@ -246,17 +246,17 @@ d
     }
     #[test]
     fn test_include_and_unbind() -> std::io::Result<()> {
-        let setup = TestPath::new("/tmp/swhkd-test-file8");
+        let setup = TestPath::new("/tmp/sohkd-test-file8");
         let mut f = File::create(setup.path())?;
         f.write_all(
             b"
-include /tmp/swhkd-test-file9
+include /tmp/sohkd-test-file9
 super + b
    firefox
 ignore super + d",
         )?;
 
-        let setup2 = TestPath::new("/tmp/swhkd-test-file9");
+        let setup2 = TestPath::new("/tmp/sohkd-test-file9");
         let mut f2 = File::create(setup2.path())?;
         f2.write_all(
             b"
