@@ -10,7 +10,10 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Deserialize;
+use serde::{
+  Deserialize,
+  Serialize,
+};
 use zbus::{
     names::UniqueName,
     Connection,
@@ -18,7 +21,7 @@ use zbus::{
     zvariant::{Type, ObjectPath}
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, Hash)]
 pub enum Role {
     Invalid,
     AcceleratorLabel,
