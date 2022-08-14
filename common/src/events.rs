@@ -4,6 +4,7 @@ use serde::{
 };
 use atspi::accessible::Role;
 use crate::modes::ScreenReaderMode;
+use atspi::accessible::Role;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Feature {
@@ -13,8 +14,8 @@ pub enum Feature {
 
 #[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
 pub enum Direction {
-  Forward,
-  Backward
+    Forward,
+    Backward,
 }
 
 #[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]

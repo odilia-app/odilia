@@ -120,7 +120,6 @@ impl FromStr for Key {
     }
 }
 
-
 bitflags::bitflags! {
     #[derive(Default)]
     pub struct Modifiers: u16 {
@@ -148,7 +147,6 @@ bitflags::bitflags! {
         const APPLICATIONS = 1 << 9;
     }
 }
-
 
 impl Modifiers {
     // Using `self` instead of `&self` here is fine, `Self` is `Copy`.
@@ -209,39 +207,39 @@ pub struct KeyBinding {
 
 /* get mode and return it with a stripped version of the string */
 fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
-  let new_str: String;
-  let mode_index = s.find("|");
-  let mode: Option<ScreenReaderMode> = match mode_index {
-    Some(mode_index) => {
-      new_str = s.get(mode_index+1..).unwrap().to_string(); // pretty sure is safe
-      Some(ScreenReaderMode {
-        name: s.get(..mode_index).unwrap().to_string() // mostly safe I think?
-      })
-    },
-    _ => {
-      new_str = s.to_string().clone();
-      None
-    },
-  };
+    let new_str: String;
+    let mode_index = s.find("|");
+    let mode: Option<ScreenReaderMode> = match mode_index {
+        Some(mode_index) => {
+            new_str = s.get(mode_index + 1..).unwrap().to_string(); // pretty sure is safe
+            Some(ScreenReaderMode {
+                name: s.get(..mode_index).unwrap().to_string(), // mostly safe I think?
+            })
+        }
+        _ => {
+            new_str = s.to_string().clone();
+            None
+        }
+    };
 
-  (mode, new_str)
+    (mode, new_str)
 }
 fn get_consume_strip(s: &str) -> (bool, String) {
-  let new_str: String;
-  let consume_index = s.find("|");
-  let consume: bool = match consume_index {
-    Some(consume_index) => {
-      new_str = s.get(consume_index+1..).unwrap().to_string(); // pretty sure is safe
-      let b_str = s.get(..consume_index).unwrap().to_string(); // mostly safe I think?
-      b_str == "C" 
-    },
-    _ => {
-      new_str = s.to_string().clone();
-      false
-    },
-  };
+    let new_str: String;
+    let consume_index = s.find("|");
+    let consume: bool = match consume_index {
+        Some(consume_index) => {
+            new_str = s.get(consume_index + 1..).unwrap().to_string(); // pretty sure is safe
+            let b_str = s.get(..consume_index).unwrap().to_string(); // mostly safe I think?
+            b_str == "C"
+        }
+        _ => {
+            new_str = s.to_string().clone();
+            false
+        }
+    };
 
-  (consume, new_str)
+    (consume, new_str)
 }
 
 impl FromStr for KeyBinding {
@@ -348,9 +346,7 @@ mod test {
         assert_eq!(kb.repeat, 2);
         assert_eq!(kb.consume, false);
         // test consume
-        let kb: KeyBinding = "C|Odilia+h"
-            .parse()
-            .unwrap();
+        let kb: KeyBinding = "C|Odilia+h".parse().unwrap();
         assert_eq!(kb.consume, true);
         assert_eq!(kb.notify, true);
     }

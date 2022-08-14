@@ -11,10 +11,10 @@
 //!
 use serde::Serialize;
 use zbus::{
-    Connection,
     dbus_proxy,
     names::UniqueName,
-    zvariant::{Type, ObjectPath}
+    zvariant::{ObjectPath, Type},
+    Connection,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
@@ -26,7 +26,7 @@ pub enum BoundaryType {
     SentenceStart,
     SentenceEnd,
     LineStart,
-    LineEnd
+    LineEnd,
 }
 
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]
@@ -165,15 +165,19 @@ trait TextPlus {
 impl TextPlus for TextProxy {
     async fn get_children_caret<'a>(&self, after: bool) -> zbus::Result<TextProxy<'a>> {
         let caret_pos = self.caret_offset()?;
-        
+
     }
 }
 */
 
-pub async fn new<'a>(conn: &Connection, sender: UniqueName<'_>, path: ObjectPath<'_>) -> zbus::Result<TextProxy<'a>> {
-  TextProxy::builder(conn)
-    .destination(sender.to_owned())?
-    .path(path.to_owned())?
-    .build()
-    .await
+pub async fn new<'a>(
+    conn: &Connection,
+    sender: UniqueName<'_>,
+    path: ObjectPath<'_>,
+) -> zbus::Result<TextProxy<'a>> {
+    TextProxy::builder(conn)
+        .destination(sender.to_owned())?
+        .path(path.to_owned())?
+        .build()
+        .await
 }

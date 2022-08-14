@@ -1,17 +1,8 @@
-use crate::keybinds::{
-  keyevent_match_sync
-};
+use crate::keybinds::keyevent_match_sync;
 
 use odilia_common::{
-  events::{
-    ScreenReaderEvent
-  },
-  input::{
-    KeyEvent,
-    KeyBinding,
-    Key,
-    Modifiers,
-  },
+    events::ScreenReaderEvent,
+    input::{Key, KeyBinding, KeyEvent, Modifiers},
 };
 use rdev::{
     Event,
@@ -164,27 +155,31 @@ fn rdev_event_to_odilia_event(events: &Vec<RDevKey>) -> KeyEvent {
     }
 }
 
-fn is_new_key_event(event: &Event, current_keys: &mut Vec<RDevKey>, last_keys: &mut Vec<RDevKey>) -> bool {
-  match event.event_type {
-    KeyPress(x) => {
-      *last_keys = current_keys.clone();
-      current_keys.push(x);
-      current_keys.dedup();
-      // if there is a new key pressed/released and it is not a repeat event
-      if last_keys != current_keys {
-        true
-      } else {
-        false
-      }
-    },
-    KeyRelease(x) => {
-      *last_keys = current_keys.clone();
-      // remove just released key from curent keys
-      current_keys.retain(|&k| k != x);
-      false
-    },
-    _ => false
-  }
+fn is_new_key_event(
+    event: &Event,
+    current_keys: &mut Vec<RDevKey>,
+    last_keys: &mut Vec<RDevKey>,
+) -> bool {
+    match event.event_type {
+        KeyPress(x) => {
+            *last_keys = current_keys.clone();
+            current_keys.push(x);
+            current_keys.dedup();
+            // if there is a new key pressed/released and it is not a repeat event
+            if last_keys != current_keys {
+                true
+            } else {
+                false
+            }
+        }
+        KeyRelease(x) => {
+            *last_keys = current_keys.clone();
+            // remove just released key from curent keys
+            current_keys.retain(|&k| k != x);
+            false
+        }
+        _ => false,
+    }
 }
 
 /// The maximum number of `[rdev::Event`]s that can be in the input queue at one time.
@@ -201,8 +196,7 @@ const MAX_EVENTS: usize = 256;
 /// also whether we are notified about it via the channel.
 /// # Panics
 /// * If called more than once in the same program.
-pub fn create_keybind_channel() -> mpsc::Receiver<ScreenReaderEvent>
-{
+pub fn create_keybind_channel() -> mpsc::Receiver<ScreenReaderEvent> {
     // Create the channel for communication between the input monitoring thread and async tasks
     let (tx, rx) = mpsc::channel(MAX_EVENTS);
 
@@ -222,10 +216,11 @@ pub fn create_keybind_channel() -> mpsc::Receiver<ScreenReaderEvent>
             TX.with(|tx| {
                 // Decide what to do with this `Event`
                 let o_event = rdev_event_to_odilia_event(&current_keys);
-                let keybind_event_match: Option<(KeyBinding, ScreenReaderEvent)> = keyevent_match_sync(&o_event);
+                let keybind_event_match: Option<(KeyBinding, ScreenReaderEvent)> =
+                    keyevent_match_sync(&o_event);
                 /* if a matching keybinding is not found, pass through the event */
                 if keybind_event_match.is_none() {
-                  return Some(ev);
+                    return Some(ev);
                 }
                 let keybind_event_match = keybind_event_match.unwrap(); // should never panic due to above if
                 let tx = tx.get().unwrap();
