@@ -153,7 +153,7 @@ pub fn load(path: &Path) -> Result<Vec<Mode>, Error> {
 
 #[derive(Debug, Clone)]
 pub struct KeyBinding {
-    pub keysym: evdev::Key,
+    pub keysym: Option<evdev::Key>,
     pub modifiers: Vec<Modifier>,
     pub send: bool,
     pub on_release: bool,
@@ -175,14 +175,14 @@ pub trait Prefix {
 }
 
 pub trait Value {
-    fn keysym(&self) -> evdev::Key;
+    fn keysym(&self) -> Option<evdev::Key>;
     fn modifiers(&self) -> Vec<Modifier>;
     fn is_send(&self) -> bool;
     fn is_on_release(&self) -> bool;
 }
 
 impl KeyBinding {
-    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>) -> Self {
+    pub fn new(keysym: Option<evdev::Key>, modifiers: Vec<Modifier>) -> Self {
         KeyBinding { keysym, modifiers, send: false, on_release: false }
     }
     pub fn on_release(mut self) -> Self {
@@ -203,7 +203,7 @@ impl Prefix for KeyBinding {
 }
 
 impl Value for KeyBinding {
-    fn keysym(&self) -> evdev::Key {
+    fn keysym(&self) -> Option<evdev::Key> {
         self.keysym
     }
     fn modifiers(&self) -> Vec<Modifier> {
@@ -238,7 +238,7 @@ impl Hotkey {
         Hotkey { keybinding, command }
     }
     #[cfg(test)]
-    pub fn new(keysym: evdev::Key, modifiers: Vec<Modifier>, command: String) -> Self {
+    pub fn new(keysym: Option<evdev::Key>, modifiers: Vec<Modifier>, command: String) -> Self {
         Hotkey { keybinding: KeyBinding::new(keysym, modifiers), command }
     }
 }
@@ -255,7 +255,7 @@ impl Prefix for Hotkey {
 }
 
 impl Value for &Hotkey {
-    fn keysym(&self) -> evdev::Key {
+    fn keysym(&self) -> Option<evdev::Key> {
         self.keybinding.keysym
     }
     fn modifiers(&self) -> Vec<Modifier> {
@@ -652,23 +652,29 @@ fn parse_keybind(
             }
         } else if mod_to_mod_enum.contains_key(token) {
             // Can't have a modifier that's like a keysym
-            if token == last_token {
+            /*if token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
-            }
+            }*/
         } else {
             return Err(Error::InvalidConfig(ParseError::UnknownSymbol(path, line_nr)));
         }
     }
 
     // Translate keypress into evdev key
-    let keysym = key_to_evdev_key.get(last_token).unwrap();
+    let keysym = match key_to_evdev_key.get(last_token) {
+      Some(k) => Some(*k),
+      _ => None
+    };
 
-    let modifiers: Vec<Modifier> = tokens_new[0..(tokens_new.len() - 1)]
+    let modifiers: Vec<Modifier> = tokens_new
         .iter()
-        .map(|token| *mod_to_mod_enum.get(token.as_str()).unwrap())
+        .filter_map(|token| match mod_to_mod_enum.get(token.as_str()) {
+          Some(m) => Some(*m),
+          _ => None,
+        })
         .collect();
 
-    let mut keybinding = KeyBinding::new(*keysym, modifiers);
+    let mut keybinding = KeyBinding::new(keysym, modifiers);
     if send {
         keybinding = keybinding.send();
     }

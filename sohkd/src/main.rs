@@ -198,6 +198,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         (Key::KEY_RIGHTCTRL, config::Modifier::Control),
         (Key::KEY_LEFTSHIFT, config::Modifier::Shift),
         (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
+        (Key::KEY_CAPSLOCK, config::Modifier::CapsLock),
     ]);
 
     let repeat_cooldown_duration: u64 = if args.is_present("cooldown") {
@@ -315,7 +316,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             keyboard_state.state_modifiers.remove(modifier);
                         } else if keyboard_state.state_keysyms.contains(key) {
                             if let Some(hotkey) = &last_hotkey {
-                                if key == hotkey.keysym() {
+                                if hotkey.keysym().is_some() && key == hotkey.keysym().unwrap() {
                                     last_hotkey = None;
                                 }
                             }
@@ -331,7 +332,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .collect();
 
                 let command_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
-                    hotkey.keysym().code() == command.code() &&
+                    ((hotkey.keysym().is_some() &&
+                    hotkey.keysym().unwrap().code() == command.code()) ||
+                    hotkey.keysym().is_none() && keyboard_state.state_keysyms.iter().count() == 0) &&
                         (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
                         .iter()
                         .all(|x| hotkey.modifiers().contains(x)) &&
@@ -340,7 +343,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         });
 
                 // Don't emit command to virtual device if it's from a valid hotkey
-                if !command_in_hotkeys {
+                // TODO: this will make sure that individual capslock keys send without any other modifiers or keys pressed will ALWAYS be consumed. This should be an option.
+                if !command_in_hotkeys && !(keyboard_state.state_keysyms.iter().count() == 0 && keyboard_state.state_modifiers.len() == 1 && keyboard_state.state_modifiers.iter().all(|&m| m == config::Modifier::CapsLock)) {
                     uinput_device.emit(&[command]).unwrap();
                 }
 
@@ -356,7 +360,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
                     if (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
                         && keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
-                        && keyboard_state.state_keysyms.contains(hotkey.keysym())
+                        && ((hotkey.keysym().is_some()
+                        && keyboard_state.state_keysyms.contains(hotkey.keysym().unwrap()))
+                        || (hotkey.keysym().is_none()
+                        && keyboard_state.state_keysyms.iter().count() == 0 /* no keys are pressed that are not modiiers */))
                     {
                         last_hotkey = Some(hotkey.clone());
                         if pending_release { break; }
