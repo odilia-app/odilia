@@ -1,34 +1,16 @@
-[package]
-name = "odilia"
-version = "0.0.1"
-authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
-description = "Building a better screen reader for the Linux desktop, one step at a time."
-license = "gpl-3" # Not gpl-3-or-later
-readme = "README.md"
-repository = "https://github.com/odilia-app/odilia"
-homepage = "https://odilia.app"
-keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
-categories = ["accessibility"]
-edition = "2021"
-publish = false
-
-[package.metadata.release]
-# The root crate should be released
-release = true
-# Update the CHANGELOG
-pre-release-replacements = [
-  {file="CHANGELOG.md", search="Unreleased", replace="{{version}}"},
-  {file="CHANGELOG.md", search="\\.\\.\\.HEAD", replace="...{{tag_name}}", exactly=1},
-  {file="CHANGELOG.md", search="ReleaseDate", replace="{{date}}"},
-  {file="CHANGELOG.md", search="<!-- next-header -->", replace="<!-- next-header -->\n\n## [Unreleased] - ReleaseDate", exactly=1},
-  {file="CHANGELOG.md", search="<!-- next-url -->", replace="<!-- next-url -->\n[Unreleased]: https://github.com/odilia-app/odilia/compare/{{tag_name}}...HEAD", exactly=1},
-]
-
-# Note: we don't need to specify any members here because they're all path dependencies of the main crate
 [workspace]
+members = [
+  "atspi",
+  "common",
+  "input",
+  "odilia",
+  "sohkd",
+]
 
 [profile.release]
 lto = "thin"
+codegen-units = 1 # Reduce codegen units for better optimizations (from swhkd)
+strip = true # remove debugging symbols from binaries
 
 [workspace.metadata.release]
 allow-branch = ["main"]
@@ -46,31 +28,3 @@ dev-version-ext = "dev"
 dev-version = true
 pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
-
-[dependencies]
-async-recursion = "^1.0.0"
-atspi = { path = "atspi", default-features = false, features = ["tokio"] }
-clap = { version = "^3.1.8", features = ["derive", "wrap_help"] }
-color-eyre = "^0.6.1"
-circular-queue = "^0.2.6"
-eyre = "^0.6.8"
-futures = { version = "^0.3.21", default-features = false }
-lazy_static = "1.4.0"
-odilia-common = { path = "common" }
-odilia-input = { path = "input" }
-odilia-tts = { path = "tts" }
-pin-utils = "^0.1.0"
-speech-dispatcher = "^0.13.1"
-tokio = { version = "^1.20.0", default-features = false, features = ["sync", "macros", "rt-multi-thread"] }
-tracing = "^0.1.32"
-tracing-error = "^0.2.0"
-tracing-log = "^0.1.2"
-tracing-subscriber = { version = "0.3.10", features = ["env-filter", "parking_lot"] }
-tracing-tree = "^0.2.0"
-zbus = { version = "^2.3.2", default-features = false, features = ["tokio"] }
-
-[features]
-
-#[build-dependencies]
-#clap = { version = "3.1.8", features = ["derive"] }
-#clap_complete = "3.1.1"

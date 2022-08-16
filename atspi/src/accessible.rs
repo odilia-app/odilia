@@ -10,7 +10,10 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Deserialize;
+use serde::{
+  Deserialize,
+  Serialize,
+};
 use zbus::{
     dbus_proxy,
     names::UniqueName,
@@ -18,7 +21,7 @@ use zbus::{
     Connection,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, Hash)]
 pub enum Role {
     Invalid,
     AcceleratorLabel,

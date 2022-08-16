@@ -1,0 +1,4 @@
+capslock + b
+	@odilia {"ChangeMode": "Browse"}
+capslock + f
+	@odilia {"ChangeMode": "Focus"}

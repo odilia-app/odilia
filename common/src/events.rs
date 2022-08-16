@@ -1,19 +1,24 @@
+use serde::{
+  Serialize,
+  Deserialize,
+};
+use atspi::accessible::Role;
 use crate::modes::ScreenReaderMode;
 use atspi::accessible::Role;
 
-#[derive(Eq, PartialEq, Clone, Hash)]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Feature {
     Speech,
     Braille, // TODO
 }
 
-#[derive(Eq, PartialEq, Clone, Hash)]
+#[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
 pub enum Direction {
     Forward,
     Backward,
 }
 
-#[derive(Eq, PartialEq, Clone, Hash)]
+#[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
 pub enum ScreenReaderEvent {
     Noop, // when we need to do "something" but this is alwyas hardcoded as nothing
     Speak(String, u32),
