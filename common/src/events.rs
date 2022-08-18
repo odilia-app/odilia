@@ -4,7 +4,6 @@ use serde::{
 };
 use atspi::accessible::Role;
 use crate::modes::ScreenReaderMode;
-use atspi::accessible::Role;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Feature {
