@@ -48,7 +48,11 @@ pub async fn sr_event(
     mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
     println!("Waiting for sr event.");
-    while let Some(sr_event) = sr_events.recv().await {
+    loop {
+        let sr_event = match sr_events.recv().await {
+            Some(e) => e,
+            _ => continue
+        };
         let _event_result = match sr_event {
             ScreenReaderEvent::StructuralNavigation(dir, role) => {
                 if let Ok(_) = structural_navigation(dir, role).await {
@@ -65,15 +69,14 @@ pub async fn sr_event(
             _ => {}
         };
     }
-    Ok(())
 }
 
 #[tracing::instrument(level = "debug")]
 pub async fn process() {
     let events = state::get_event_stream().await;
     pin_utils::pin_mut!(events);
-    while let result = events.next().await {
-        match result {
+    loop {
+        match events.next().await {
             Some(Ok(event)) => {
                 if let Err(e) = dispatch(event).await {
                     tracing::error!(error = %e, "Could not handle event");
