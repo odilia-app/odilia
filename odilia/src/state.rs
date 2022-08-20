@@ -12,7 +12,11 @@ use speech_dispatcher::{Connection as SPDConnection, Priority};
 use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
 
-use atspi::{accessible::AccessibleProxy, events::Event};
+use atspi::{
+    accessible::AccessibleProxy,
+    events::Event,
+    cache::CacheProxy,
+};
 
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
@@ -81,6 +85,14 @@ pub async fn say(priority: Priority, text: String) -> bool {
     spd.say(priority, &text);
     tracing::debug!("Said: {}", text);
     true
+}
+
+pub async fn get_cache<'a>(dest: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<CacheProxy<'a>> {
+    CacheProxy::builder(&get_connection().await)
+        .destination(dest.to_owned())?
+        .path(path.to_owned())?
+        .build()
+        .await
 }
 
 pub async fn get_accessible_history<'a>(index: i32) -> zbus::Result<AccessibleProxy<'a>> {

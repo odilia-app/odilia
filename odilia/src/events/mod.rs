@@ -1,4 +1,5 @@
 mod object;
+mod document;
 
 use futures::stream::StreamExt;
 use odilia_common::{
@@ -98,6 +99,7 @@ async fn dispatch(event: Event) -> eyre::Result<()> {
             .expect("Interface name should contain '.'")
         {
             "Object" => object::dispatch(event).await?,
+            "Document" => document::dispatch(event).await?,
             interface => tracing::debug!(interface, "Ignoring event with unknown interface"),
         }
     }

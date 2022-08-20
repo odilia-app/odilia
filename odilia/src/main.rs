@@ -100,6 +100,7 @@ async fn main() -> eyre::Result<()> {
 
     state::register_event("Object:StateChanged:Focused").await?;
     state::register_event("Object:TextCaretMoved").await?;
+    state::register_event("Document:LoadComplete").await?;
     let atspi_event_future = events::process();
     let odilia_event_future = events::sr_event(&mut screen_reader_event_stream, mode_change_tx);
     let update_mode_future = update_sr_mode(&mut mode_change_rx);
