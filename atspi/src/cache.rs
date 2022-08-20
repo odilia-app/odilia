@@ -12,22 +12,33 @@
 
 use zbus::dbus_proxy;
 
+type CacheStruct = ((String, zbus::zvariant::OwnedObjectPath), // a11y object reference
+        (String, zbus::zvariant::OwnedObjectPath), // application reference
+        (String, zbus::zvariant::OwnedObjectPath), // parent object reference
+        i32, // index in parent
+        i32, // child count of object
+        Vec<String>, // list of intercaces
+        String, // localized short names
+        u32, // role
+        String, // more dtailed localized name
+        Vec<u32>); // states
+
 #[dbus_proxy(interface = "org.a11y.atspi.Cache")]
 trait Cache {
     /// GetItems method
-    fn get_items(&self) -> zbus::Result<Vec<(String, zbus::zvariant::OwnedObjectPath)>>;
+    fn get_items(&self) -> zbus::Result<Vec<CacheStruct>>;
 
     /// AddAccessible signal
     #[dbus_proxy(signal)]
     fn add_accessible(
         &self,
-        node_added: (&str, zbus::zvariant::ObjectPath<'_>),
+        node_added: CacheStruct,
     ) -> zbus::Result<()>;
 
     /// RemoveAccessible signal
     #[dbus_proxy(signal)]
     fn remove_accessible(
         &self,
-        node_removed: (&str, zbus::zvariant::ObjectPath<'_>),
+        node_removed: CacheStruct,
     ) -> zbus::Result<()>;
 }
