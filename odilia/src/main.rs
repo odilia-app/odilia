@@ -2,6 +2,7 @@ mod args;
 mod events;
 mod logging;
 mod state;
+
 use atspi::accessible::Role;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},

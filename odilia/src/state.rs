@@ -10,7 +10,7 @@ use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use speech_dispatcher::{Connection as SPDConnection, Priority};
 use tokio::sync::Mutex;
-use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
+use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use atspi::{
     accessible::AccessibleProxy,
@@ -70,7 +70,7 @@ pub async fn init_state() -> bool {
     }
 }
 
-pub async fn get_connection() -> Connection {
+pub async fn get_connection() -> zbus::Connection {
     let c_conn = STATE.get().unwrap().atspi.connection().clone();
     return c_conn;
 }
