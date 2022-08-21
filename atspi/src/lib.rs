@@ -33,6 +33,8 @@ pub mod helpers;
 mod connection;
 pub use connection::*;
 
+pub use zbus;
+
 use serde::Serialize;
 use zbus::zvariant::Type;
 

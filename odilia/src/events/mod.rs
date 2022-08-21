@@ -35,9 +35,9 @@ pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<(
         interfaces,
         MatchType::Invalid,
     );
-    if let Ok(Some(next)) = curr.get_next(&mt, direction).await {
-        let text = next.to_text().await.unwrap();
-        text.set_caret_offset(0).await.unwrap();
+    if let Some(next) = curr.get_next(&mt, direction).await? {
+        let text = next.to_text().await?;
+        text.set_caret_offset(0).await?;
     } else {
         state::say(Priority::Text, "No more headings".to_string()).await;
     }
