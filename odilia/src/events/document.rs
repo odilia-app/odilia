@@ -1,3 +1,4 @@
+use zbus::zvariant::ObjectPath;
 use crate::state;
 use atspi::events::Event;
 
@@ -5,8 +6,9 @@ pub async fn load_complete(event: Event) -> eyre::Result<()> {
     let path = event.path().unwrap();
     let dest = event.sender()?.unwrap();
     let cache = state::get_cache(
-        dest, path
+        dest, ObjectPath::try_from("/org/a11y/atspi/cache".to_string())?
     ).await?;
+    tracing::debug!("LOAD COMPLETE-P");
     let entire_cache = cache.get_items().await?;
     tracing::debug!("LOAD COMPLETE: {:?}", entire_cache);
     Ok(())
