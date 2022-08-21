@@ -29,7 +29,7 @@ lazy_static! {
 
 pub struct OdiliaCache {
     pub by_id_read: evmap::ReadHandleFactory<u32, (String, String)>,
-    pub by_id_write: Mutex<evmap::WriteHandle<u32, (String, String)>>,
+    pub by_id_write: Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>>,
 }
 
 pub struct ScreenReaderState {
@@ -94,7 +94,11 @@ pub async fn say(priority: Priority, text: String) -> bool {
     true
 }
 
-pub async fn get_cache<'a>(dest: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<CacheProxy<'a>> {
+pub async fn by_id_write() -> Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>> { 
+    Arc::clone(&STATE.get().unwrap().cache.by_id_write)
+}
+
+pub async fn build_cache<'a>(dest: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<CacheProxy<'a>> {
     CacheProxy::builder(&get_connection().await)
         .destination(dest.to_owned())?
         .path(path.to_owned())?
@@ -173,7 +177,7 @@ impl ScreenReaderState {
         let previous_caret_position = AtomicI32::new(0);
         let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
         let (rh, wh) = evmap::new();
-        let write_handle = Mutex::new(wh);
+        let write_handle = Arc::new(Mutex::new(wh));
         let cache = OdiliaCache { by_id_read: rh.factory(), by_id_write: write_handle };
         Ok(Self {
             atspi,
@@ -200,6 +204,11 @@ impl ScreenReaderState {
         let match_rule = event_to_match_rule(event);
         self.atspi.deregister_event(event).await?;
         self.dbus.remove_match(&match_rule).await?;
+        Ok(())
+    }
+
+    pub async fn add_match_rule(&self, match_rule: &str) -> zbus::Result<()> {
+        self.dbus.add_match(match_rule).await?;
         Ok(())
     }
 }
