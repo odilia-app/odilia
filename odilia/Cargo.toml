@@ -30,6 +30,7 @@ atspi = { path = "../atspi", default-features = false, features = ["tokio"] }
 clap = { version = "^3.1.8", features = ["derive", "wrap_help"] }
 color-eyre = "^0.6.1"
 circular-queue = "^0.2.6"
+evmap = "10.0.2"
 eyre = "^0.6.8"
 futures = { version = "^0.3.21", default-features = false }
 lazy_static = "1.4.0"
