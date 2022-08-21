@@ -17,6 +17,7 @@ use atspi::{
     events::Event,
     cache::CacheProxy,
 };
+use evmap;
 
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
@@ -24,6 +25,11 @@ use futures::stream::Stream;
 
 lazy_static! {
     static ref STATE: OnceCell<ScreenReaderState> = OnceCell::new();
+}
+
+pub struct OdiliaCache {
+    pub by_id_read: evmap::ReadHandleFactory<u32, (String, String)>,
+    pub by_id_write: Mutex<evmap::WriteHandle<u32, (String, String)>>,
 }
 
 pub struct ScreenReaderState {
@@ -34,6 +40,7 @@ pub struct ScreenReaderState {
     pub previous_caret_position: AtomicI32,
     pub mode: Arc<Mutex<ScreenReaderMode>>,
     pub accessible_history: Arc<Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>>,
+    pub cache: OdiliaCache,
 }
 
 pub async fn register_event(event: &str) -> zbus::Result<()> {
@@ -165,6 +172,9 @@ impl ScreenReaderState {
         tracing::debug!("configuration loaded successfully");
         let previous_caret_position = AtomicI32::new(0);
         let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
+        let (rh, wh) = evmap::new();
+        let write_handle = Mutex::new(wh);
+        let cache = OdiliaCache { by_id_read: rh.factory(), by_id_write: write_handle };
         Ok(Self {
             atspi,
             dbus,
@@ -173,6 +183,7 @@ impl ScreenReaderState {
             previous_caret_position,
             mode,
             accessible_history,
+            cache,
         })
     }
 
