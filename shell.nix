@@ -1,19 +1,24 @@
 { pkgs ? import <nixpkgs> {} }:
-pkgs.mkShell {
-  buildInputs = with pkgs; [
+let
+  libs = with pkgs; [
   at-spi2-core.dev
-  cargo
   libevdev
+  speechd
+  xorg.libX11
+  xorg.libXi.dev
+  xorg.libXtst
+  ];
+in pkgs.mkShell {
+nativeBuildInputs = with pkgs; [
+  cargo
   llvmPackages_latest.clang
   mold
   llvmPackages_latest.libclang.dev
   pkg-config
   rustc
-  speechd
-  xorg.libX11.dev
-  xorg.libXi.dev
-  xorg.libXtst
-  ];
+  rustfmt
+];
+buildInputs = libs;
 
   # Environment variables
   ODILIA_LOG = "debug";
@@ -25,4 +30,6 @@ pkgs.mkShell {
       llvmPackages_latest.clang
       speechd
     ]));
+    LD_LIBRARY_PATH = let paths = builtins.map (p: "${p}/lib") libs;
+    in pkgs.lib.strings.concatStringsSep ":" paths;
 }
