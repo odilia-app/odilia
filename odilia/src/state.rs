@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicI32, Ordering};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::stream::Stream;
-use lazy_static::lazy_static;
 use speech_dispatcher::{Connection as SPDConnection, Priority};
 use tokio::sync::{Mutex, OnceCell};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
@@ -12,9 +11,7 @@ use crate::cache::Cache;
 use atspi::{accessible::AccessibleProxy, cache::CacheProxy, events::Event};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
-lazy_static! {
-    static ref STATE: OnceCell<ScreenReaderState> = OnceCell::new();
-}
+static STATE: OnceCell<ScreenReaderState> = OnceCell::const_new();
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
