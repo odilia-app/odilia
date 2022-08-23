@@ -45,7 +45,7 @@ tracing-log = "^0.1.2"
 tracing-subscriber = { version = "0.3.10", features = ["env-filter", "parking_lot"] }
 tracing-tree = "^0.2.0"
 xdg = "2.4.1"
-zbus = { version = "^2.3.2", default-features = false, features = ["tokio"] }
+zbus = { version = "^3.0.0", default-features = false, features = ["tokio"] }
 
 [features]
 
