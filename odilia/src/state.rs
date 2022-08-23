@@ -69,8 +69,7 @@ pub async fn init_state() -> eyre::Result<()> {
 }
 
 pub async fn get_connection() -> Connection {
-    let c_conn = STATE.get().unwrap().atspi.connection().clone();
-    return c_conn;
+    STATE.get().unwrap().atspi.connection().clone()
 }
 
 pub async fn say(priority: Priority, text: String) -> bool {
@@ -81,7 +80,7 @@ pub async fn say(priority: Priority, text: String) -> bool {
         return false;
     }
     spd.say(priority, &text);
-    tracing::debug!("Said: {}", text);
+    tracing::trace!("Said: {}", text);
     true
 }
 
