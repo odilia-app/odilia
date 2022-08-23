@@ -1,7 +1,4 @@
-use std::sync::{
-    atomic::{AtomicI32, Ordering},
-    Arc,
-};
+use std::sync::atomic::{AtomicI32, Ordering};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
@@ -22,11 +19,11 @@ lazy_static! {
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
-    pub speaker: Arc<Mutex<SPDConnection>>,
+    pub speaker: Mutex<SPDConnection>,
     pub config: ApplicationConfig,
     pub previous_caret_position: AtomicI32,
-    pub mode: Arc<Mutex<ScreenReaderMode>>,
-    pub accessible_history: Arc<Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>>,
+    pub mode: Mutex<ScreenReaderMode>,
+    pub accessible_history: Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>,
     pub cache: Cache,
 }
 
@@ -44,8 +41,8 @@ pub async fn get_event_stream() -> impl Stream<Item = zbus::Result<Event>> {
 
 /// Adds a new accessible to the history. We only sotre 16 previous accessibles, but theoretically, it should be lower.
 pub async fn update_accessible(sender: UniqueName<'_>, path: ObjectPath<'_>) -> bool {
-    let accessible_history_arc = Arc::clone(&STATE.get().unwrap().accessible_history);
-    let mut accessible_history = accessible_history_arc.lock().await;
+    let accessible_history = &STATE.get().unwrap().accessible_history;
+    let mut accessible_history = accessible_history.lock().await;
     accessible_history.push((sender.to_owned(), path.to_owned()));
     true
 }
@@ -62,8 +59,8 @@ pub async fn init_state() -> eyre::Result<()> {
         .map_err(|_| eyre::eyre!("Could not initialize state"))
 }
 
-pub async fn get_connection() -> Connection {
-    STATE.get().unwrap().atspi.connection().clone()
+pub async fn get_connection() -> &'static Connection {
+    &STATE.get().unwrap().atspi.connection()
 }
 
 pub async fn say(priority: Priority, text: String) -> bool {
@@ -78,31 +75,31 @@ pub async fn say(priority: Priority, text: String) -> bool {
     true
 }
 
-pub async fn by_id_write() -> Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>> {
-    Arc::clone(&STATE.get().unwrap().cache.by_id_write)
+pub async fn by_id_write() -> &'static Mutex<evmap::WriteHandle<u32, (String, String)>> {
+    &STATE.get().unwrap().cache.by_id_write
 }
 
 pub async fn build_cache<'a>(
     dest: UniqueName<'a>,
     path: ObjectPath<'a>,
 ) -> zbus::Result<CacheProxy<'a>> {
-    CacheProxy::builder(&get_connection().await)
-        .destination(dest.to_owned())?
-        .path(path.to_owned())?
+    CacheProxy::builder(get_connection().await)
+        .destination(dest)?
+        .path(path)?
         .build()
         .await
 }
 
 pub async fn get_accessible_history<'a>(index: usize) -> zbus::Result<AccessibleProxy<'a>> {
-    let history_arc = Arc::clone(&STATE.get().unwrap().accessible_history);
-    let history = history_arc.lock().await;
+    let history = &STATE.get().unwrap().accessible_history;
+    let history = history.lock().await;
     let (dest, path) = history
         .iter()
         .nth(index)
         .expect("Looking for invalid index in accessible history");
-    AccessibleProxy::builder(&get_connection().await)
+    AccessibleProxy::builder(get_connection().await)
         .destination(dest.to_owned())?
-        .path(path.to_owned())?
+        .path(path)?
         .build()
         .await
 }
@@ -131,11 +128,11 @@ impl ScreenReaderState {
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
         tracing::debug!("Connecting to speech-dispatcher");
 
-        let mode = Arc::new(Mutex::new(ScreenReaderMode {
+        let mode = Mutex::new(ScreenReaderMode {
             name: "CommandMode".to_string(),
-        }));
+        });
 
-        let speaker = Arc::new(Mutex::new(
+        let speaker = Mutex::new(
             SPDConnection::open(
                 env!("CARGO_PKG_NAME"),
                 "main",
@@ -143,7 +140,7 @@ impl ScreenReaderState {
                 speech_dispatcher::Mode::Threaded,
             )
             .wrap_err("Failed to connect to speech-dispatcher")?,
-        ));
+        );
         tracing::debug!("speech dispatcher initialisation successful");
 
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -161,7 +158,7 @@ impl ScreenReaderState {
         tracing::debug!("configuration loaded successfully");
 
         let previous_caret_position = AtomicI32::new(0);
-        let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
+        let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
         let cache = Cache::new();
         Ok(Self {
             atspi,
