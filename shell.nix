@@ -11,6 +11,7 @@ let
 in pkgs.mkShell {
 nativeBuildInputs = with pkgs; [
   cargo
+  clippy
   llvmPackages_latest.clang
   mold
   llvmPackages_latest.libclang.dev
