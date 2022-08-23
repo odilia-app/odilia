@@ -1,15 +1,14 @@
-use lazy_static::lazy_static;
-
 use std::sync::{
     atomic::{AtomicI32, Ordering},
     Arc,
 };
-use tokio::sync::OnceCell;
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
+use futures::stream::Stream;
+use lazy_static::lazy_static;
+use tokio::sync::{Mutex, OnceCell};
 use speech_dispatcher::{Connection as SPDConnection, Priority};
-use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
 
 use atspi::{
@@ -17,11 +16,7 @@ use atspi::{
     events::Event,
     cache::CacheProxy,
 };
-use evmap;
-
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
-
-use futures::stream::Stream;
 
 lazy_static! {
     static ref STATE: OnceCell<ScreenReaderState> = OnceCell::new();
@@ -66,15 +61,11 @@ pub async fn update_accessible(sender: UniqueName<'_>, path: ObjectPath<'_>) -> 
 /// Initializes state for the screen reader.
 /// There are some things, which unfortunately must be held in global state.
 /// For example, the mode, currently focused item, a speaker instance (for TTS), etc.
-/// This initializes all of it so that the global state may be queried from the reest of the program.
+/// This initializes all of it so that the global state may be queried from the rest of the program.
 /// @returns bool: true if state has been initialized successfully, false otherwise.
-pub async fn init_state() -> bool {
+pub async fn init_state() -> eyre::Result<()> {
     let sr_state = ScreenReaderState::new().await.unwrap();
-    if STATE.set(sr_state).is_ok() {
-        true
-    } else {
-        false
-    }
+    STATE.set(sr_state).map_err(|_| eyre::eyre!("Could not initialize state"))
 }
 
 pub async fn get_connection() -> Connection {

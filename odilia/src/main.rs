@@ -100,11 +100,7 @@ async fn main() -> eyre::Result<()> {
     add_keybind(noop_caps, ScreenReaderEvent::Noop).await;
 
     // Initialize state
-    let init = state::init_state().await;
-    if !init {
-        eprintln!("Unable to initialize state. Fatal error.");
-        exit(1);
-    }
+    state::init_state().await?;
 
     // Register events
     state::register_event("Object:StateChanged:Focused").await?;
