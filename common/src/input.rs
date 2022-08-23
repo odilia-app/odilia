@@ -205,6 +205,55 @@ pub struct KeyBinding {
     pub notify: bool,
 }
 
+impl Default for KeyBinding {
+    fn default() -> Self {
+        Self {
+    key: None,
+    mods: Modifiers::empty(),
+    repeat: 1,
+    mode: None,
+    consume: true,
+    notify: true,
+        }
+    }
+}
+
+impl KeyBinding {
+    pub fn new(key: Option<Key>) -> Self {
+        Self { key, ..Default::default() }
+    }
+
+    #[inline]
+    pub fn mods(mut self, mods: Modifiers) -> Self {
+        self.mods = mods;
+        self
+    }
+
+    #[inline]
+    pub fn repeat(mut self, repeat: u8) -> Self {
+        self.repeat = repeat;
+        self
+    }
+
+    #[inline]
+    pub fn mode(mut self, mode: Option<ScreenReaderMode>) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    #[inline]
+    pub fn consume(mut self, consume: bool) -> Self {
+        self.consume = consume;
+        self
+    }
+
+    #[inline]
+    pub fn notify(mut self, notify: bool) -> Self {
+        self.notify = notify;
+        self
+    }
+}
+
 /// get mode and return it with a stripped version of the string
 fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
     let new_str: String;
