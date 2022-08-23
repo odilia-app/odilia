@@ -3,8 +3,6 @@ mod events;
 mod logging;
 mod state;
 
-use std::{collections::HashMap, process::exit};
-
 use tokio::sync::mpsc::channel;
 
 use atspi::accessible::Role;
