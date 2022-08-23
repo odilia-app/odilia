@@ -1,12 +1,28 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<node name="/node">
-<interface name="org.a11y.atspi.DeviceEventListener">
+<node>
+  <interface name="org.a11y.atspi.DeviceEventListener">
 
-  <method name="NotifyEvent">
-    <arg direction="in" name="event" type="(uiuuisb)"/>
-    <annotation name="org.qtproject.QtDBus.QtTypeName.In0" value="QSpiDeviceEvent"/>
-    <arg direction="out" type="b"/>
-  </method>
+    <method name="NotifyEvent">
+      <arg direction="in" name="event" type="(uiuuisb)"/>
+      <annotation name="org.qtproject.QtDBus.QtTypeName.In0" value="QSpiDeviceEvent"/>
+      <arg direction="out" type="b"/>
+    </method>
 
-</interface>
+    <signal name="KeystrokeListenerRegistered">
+      <arg name="listener" type="(souua(iisi)u(bbb))"/>
+    </signal>
+
+    <signal name="KeystrokeListenerDeregistered">
+      <arg name="listener" type="(souua(iisi)u(bbb))"/>
+    </signal>
+
+    <signal name="DeviceListenerRegistered">
+      <arg name="listener" type="(sou)"/>
+    </signal>
+
+    <signal name="DeviceListenerDeregistered">
+      <arg name="listener" type="(sou)"/>
+    </signal>
+
+  </interface>
 </node>
