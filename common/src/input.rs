@@ -184,7 +184,7 @@ impl Modifiers {
     }
 }
 
-/* Notice it has almost the same fields as KeyBinding. */
+// Notice it has almost the same fields as [`KeyBinding`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyEvent {
     pub key: Option<Key>,
@@ -197,15 +197,15 @@ pub struct KeyBinding {
     pub key: Option<Key>,
     pub mods: Modifiers,
     pub repeat: u8,
-    /* if none, match all modes */
+    /// if `None`, match all modes
     pub mode: Option<ScreenReaderMode>,
-    /* whether or not to consume the event, or let it pass through */
+    // whether or not to consume the event, or let it pass through
     pub consume: bool,
-    /* whether to notify the SR that the key has been pressed; currently at least one function in -prototype/main.rs will ALWAYS see every key, but this could change. */
+    /// whether to notify the SR that the key has been pressed; currently at least one function in -prototype/main.rs will ALWAYS see every key, but this could change.
     pub notify: bool,
 }
 
-/* get mode and return it with a stripped version of the string */
+/// get mode and return it with a stripped version of the string
 fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
     let new_str: String;
     let mode_index = s.find("|");

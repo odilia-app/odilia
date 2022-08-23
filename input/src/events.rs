@@ -1,9 +1,6 @@
-use crate::keybinds::keyevent_match_sync;
+use std::{future::Future, sync::Mutex};
 
-use odilia_common::{
-    events::ScreenReaderEvent,
-    input::{Key, KeyBinding, KeyEvent, Modifiers},
-};
+use once_cell::sync::{Lazy, OnceCell};
 use rdev::{
     Event,
     EventType::{KeyPress, KeyRelease},
@@ -11,8 +8,11 @@ use rdev::{
 };
 use tokio::sync::mpsc;
 
-use once_cell::sync::{Lazy, OnceCell};
-use std::{future::Future, sync::Mutex};
+use crate::keybinds::keyevent_match_sync;
+use odilia_common::{
+    events::ScreenReaderEvent,
+    input::{Key, KeyBinding, KeyEvent, Modifiers},
+};
 
 pub type AsyncFn =
     Box<dyn Fn() -> Box<dyn Future<Output = ()> + Unpin + Send + 'static> + Send + Sync + 'static>;

@@ -1,4 +1,5 @@
 use smartstring::alias::String as SmartString;
+
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum KeyFromStrError {
     #[error("Empty key binding")]

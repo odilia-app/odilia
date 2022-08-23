@@ -2,6 +2,11 @@ mod args;
 mod events;
 mod logging;
 mod state;
+
+use std::{collections::HashMap, process::exit};
+
+use tokio::sync::mpsc::channel;
+
 use atspi::accessible::Role;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
@@ -12,11 +17,13 @@ use odilia_input::{
     events::create_keybind_channel,
     keybinds::{add_keybind, update_sr_mode},
 };
-use std::{collections::HashMap, process::exit};
-use tokio::sync::mpsc::channel;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
+    logging::init();
+    let _args = args::parse();
+
+    // Setup structural navigation
     let mut s_nav = HashMap::new();
     s_nav.insert(Some(Key::Other('h')), Role::Heading);
     s_nav.insert(Some(Key::Other('b')), Role::PushButton);
@@ -47,7 +54,7 @@ async fn main() -> eyre::Result<()> {
         mode: None,
         notify: true,
     };
-    logging::init();
+
     let (mode_change_tx, mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
     let mut screen_reader_event_stream = create_keybind_channel();
     for (key, role) in s_nav.into_iter() {
@@ -91,16 +98,20 @@ async fn main() -> eyre::Result<()> {
     )
     .await;
     add_keybind(noop_caps, ScreenReaderEvent::Noop).await;
-    let _args = args::parse();
+
+    // Initialize state
     let init = state::init_state().await;
     if !init {
         eprintln!("Unable to initialize state. Fatal error.");
         exit(1);
     }
 
+    // Register events
     state::register_event("Object:StateChanged:Focused").await?;
     state::register_event("Object:TextCaretMoved").await?;
     state::register_event("Document:LoadComplete").await?;
+
+    // Run tasks
     let atspi_event_future = events::process();
     let odilia_event_future = events::sr_event(&mut screen_reader_event_stream, mode_change_tx);
     let update_mode_future = update_sr_mode(&mut mode_change_rx);

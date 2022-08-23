@@ -1,10 +1,12 @@
+use std::{collections::HashMap, future::Future};
+
+use tokio::sync::{mpsc::Receiver, Mutex};
+
 use odilia_common::{
     events::ScreenReaderEvent,
     input::{KeyBinding, KeyEvent, Modifiers},
     modes::ScreenReaderMode,
 };
-use std::{collections::HashMap, future::Future};
-use tokio::sync::{mpsc::Receiver, Mutex};
 
 lazy_static! {
     static ref KB_MAP: Mutex<HashMap<KeyBinding, ScreenReaderEvent>> = Mutex::new(HashMap::new());
