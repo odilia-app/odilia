@@ -7,24 +7,16 @@ use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::stream::Stream;
 use lazy_static::lazy_static;
-use tokio::sync::{Mutex, OnceCell};
 use speech_dispatcher::{Connection as SPDConnection, Priority};
+use tokio::sync::{Mutex, OnceCell};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
 
-use atspi::{
-    accessible::AccessibleProxy,
-    events::Event,
-    cache::CacheProxy,
-};
+use crate::cache::Cache;
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy, events::Event};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
 lazy_static! {
     static ref STATE: OnceCell<ScreenReaderState> = OnceCell::new();
-}
-
-pub struct OdiliaCache {
-    pub by_id_read: evmap::ReadHandleFactory<u32, (String, String)>,
-    pub by_id_write: Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>>,
 }
 
 pub struct ScreenReaderState {
@@ -35,7 +27,7 @@ pub struct ScreenReaderState {
     pub previous_caret_position: AtomicI32,
     pub mode: Arc<Mutex<ScreenReaderMode>>,
     pub accessible_history: Arc<Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>>,
-    pub cache: OdiliaCache,
+    pub cache: Cache,
 }
 
 pub async fn register_event(event: &str) -> zbus::Result<()> {
@@ -65,7 +57,9 @@ pub async fn update_accessible(sender: UniqueName<'_>, path: ObjectPath<'_>) -> 
 /// @returns bool: true if state has been initialized successfully, false otherwise.
 pub async fn init_state() -> eyre::Result<()> {
     let sr_state = ScreenReaderState::new().await.unwrap();
-    STATE.set(sr_state).map_err(|_| eyre::eyre!("Could not initialize state"))
+    STATE
+        .set(sr_state)
+        .map_err(|_| eyre::eyre!("Could not initialize state"))
 }
 
 pub async fn get_connection() -> Connection {
@@ -84,11 +78,14 @@ pub async fn say(priority: Priority, text: String) -> bool {
     true
 }
 
-pub async fn by_id_write() -> Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>> { 
+pub async fn by_id_write() -> Arc<Mutex<evmap::WriteHandle<u32, (String, String)>>> {
     Arc::clone(&STATE.get().unwrap().cache.by_id_write)
 }
 
-pub async fn build_cache<'a>(dest: UniqueName<'a>, path: ObjectPath<'a>) -> zbus::Result<CacheProxy<'a>> {
+pub async fn build_cache<'a>(
+    dest: UniqueName<'a>,
+    path: ObjectPath<'a>,
+) -> zbus::Result<CacheProxy<'a>> {
     CacheProxy::builder(&get_connection().await)
         .destination(dest.to_owned())?
         .path(path.to_owned())?
@@ -96,19 +93,16 @@ pub async fn build_cache<'a>(dest: UniqueName<'a>, path: ObjectPath<'a>) -> zbus
         .await
 }
 
-pub async fn get_accessible_history<'a>(index: i32) -> zbus::Result<AccessibleProxy<'a>> {
+pub async fn get_accessible_history<'a>(index: usize) -> zbus::Result<AccessibleProxy<'a>> {
     let history_arc = Arc::clone(&STATE.get().unwrap().accessible_history);
     let history = history_arc.lock().await;
-    let mut history_iter = history.iter();
-    for _ in 0..index {
-        history_iter.next();
-    }
-    let history_item = history_iter
-        .next()
+    let (dest, path) = history
+        .iter()
+        .nth(index)
         .expect("Looking for invalid index in accessible history");
     AccessibleProxy::builder(&get_connection().await)
-        .destination(history_item.0.to_owned())?
-        .path(history_item.1.to_owned())?
+        .destination(dest.to_owned())?
+        .path(path.to_owned())?
         .build()
         .await
 }
@@ -136,9 +130,11 @@ impl ScreenReaderState {
             .await
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
         tracing::debug!("Connecting to speech-dispatcher");
+
         let mode = Arc::new(Mutex::new(ScreenReaderMode {
             name: "CommandMode".to_string(),
         }));
+
         let speaker = Arc::new(Mutex::new(
             SPDConnection::open(
                 env!("CARGO_PKG_NAME"),
@@ -161,14 +157,12 @@ impl ScreenReaderState {
             .to_owned();
         tracing::debug!(path=%config_path, "loading configuration file");
         let config =
-            ApplicationConfig::new(&config_path)
-            .wrap_err("unable to load configuration file")?;
+            ApplicationConfig::new(&config_path).wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
+
         let previous_caret_position = AtomicI32::new(0);
         let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
-        let (rh, wh) = evmap::new();
-        let write_handle = Arc::new(Mutex::new(wh));
-        let cache = OdiliaCache { by_id_read: rh.factory(), by_id_write: write_handle };
+        let cache = Cache::new();
         Ok(Self {
             atspi,
             dbus,
@@ -181,10 +175,9 @@ impl ScreenReaderState {
         })
     }
 
-    #[allow(dead_code)]
     pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
         let match_rule = event_to_match_rule(event);
-        self.dbus.add_match(&match_rule).await?;
+        self.add_match_rule(&match_rule).await?;
         self.atspi.register_event(event).await?;
         Ok(())
     }
@@ -197,12 +190,12 @@ impl ScreenReaderState {
         Ok(())
     }
 
-    pub async fn add_match_rule(&self, match_rule: &str) -> zbus::Result<()> {
-        self.dbus.add_match(match_rule).await?;
-        Ok(())
+    pub async fn add_match_rule(&self, match_rule: &str) -> zbus::fdo::Result<()> {
+        self.dbus.add_match(match_rule).await
     }
 }
 
+/// Converts an at-spi event string ("Object:StateChanged:Focused"), into a DBus match rule ("type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'")
 fn event_to_match_rule(event: &str) -> String {
     let mut components = event.split(':');
     let interface = components

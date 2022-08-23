@@ -1,4 +1,5 @@
 mod args;
+mod cache;
 mod events;
 mod logging;
 mod state;
@@ -29,12 +30,12 @@ async fn main() -> eyre::Result<()> {
     let mut screen_reader_event_stream = create_keybind_channel();
 
     // Add directional structural nav keys
-    const S_NAV_BINDINGS: &'static [(Key, Role)]= &[
-    (Key::Other('h'), Role::Heading),
-    (Key::Other('b'), Role::PushButton),
-    (Key::Other('k'), Role::Link),
-    (Key::Other('l'), Role::List),
-    (Key::Other('i'), Role::ListItem),
+    const S_NAV_BINDINGS: &'static [(Key, Role)] = &[
+        (Key::Other('h'), Role::Heading),
+        (Key::Other('b'), Role::PushButton),
+        (Key::Other('k'), Role::Link),
+        (Key::Other('l'), Role::List),
+        (Key::Other('i'), Role::ListItem),
     ];
 
     for (key, role) in S_NAV_BINDINGS.iter().copied() {
