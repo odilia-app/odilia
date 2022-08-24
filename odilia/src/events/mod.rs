@@ -43,7 +43,7 @@ pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<(
 }
 
 pub async fn sr_event(
-    sr_events: &mut Receiver<ScreenReaderEvent>,
+    mut sr_events: Receiver<ScreenReaderEvent>,
     mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
     loop {
