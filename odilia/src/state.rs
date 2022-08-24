@@ -7,7 +7,7 @@ use speech_dispatcher::{Connection as SPDConnection, Priority};
 use tokio::sync::{Mutex, OnceCell};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
 
-use crate::cache::Cache;
+use crate::cache::{Cache, FxWriteHandle};
 use atspi::{accessible::AccessibleProxy, cache::CacheProxy, events::Event};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
 
@@ -72,7 +72,7 @@ pub async fn say(priority: Priority, text: String) -> bool {
     true
 }
 
-pub async fn by_id_write() -> &'static Mutex<evmap::WriteHandle<u32, (String, String)>> {
+pub async fn by_id_write() -> &'static Mutex<FxWriteHandle<u32, (String, String)>> {
     &STATE.get().unwrap().cache.by_id_write
 }
 

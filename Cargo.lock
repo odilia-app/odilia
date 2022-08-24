@@ -1039,6 +1039,7 @@ dependencies = [
  "odilia-input",
  "odilia-tts",
  "pin-utils",
+ "rustc-hash",
  "speech-dispatcher",
  "tokio",
  "tracing",
