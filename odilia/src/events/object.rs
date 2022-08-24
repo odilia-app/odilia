@@ -52,9 +52,9 @@ mod text_caret_moved {
             tracing::debug!("Tabbed selection detected. Do no re-speak due to caret navigation.");
         } else {
             tracing::debug!("Tabbed selection not detected.");
-            if name.len() > 0 {
+            if !name.is_empty() {
                 tracing::debug!("Speaking normal caret navigation");
-                state::say(speech_dispatcher::Priority::Text, format!("{name}")).await;
+                state::say(speech_dispatcher::Priority::Text, name).await;
             }
         }
 

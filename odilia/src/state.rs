@@ -57,13 +57,13 @@ pub async fn init_state() -> eyre::Result<()> {
 }
 
 pub async fn get_connection() -> &'static Connection {
-    &STATE.get().unwrap().atspi.connection()
+    STATE.get().unwrap().atspi.connection()
 }
 
 pub async fn say(priority: Priority, text: String) -> bool {
     let state = STATE.get().unwrap();
     let spd = state.speaker.lock().await;
-    if text == "" {
+    if text.is_empty() {
         tracing::warn!("blank string, aborting");
         return false;
     }

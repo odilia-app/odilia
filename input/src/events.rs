@@ -146,7 +146,7 @@ fn rdev_keys_to_single_odilia_key(keys: &[RDevKey]) -> Option<Key> {
     None
 }
 
-fn rdev_event_to_odilia_event(events: &Vec<RDevKey>) -> KeyEvent {
+fn rdev_event_to_odilia_event(events: &[RDevKey]) -> KeyEvent {
     KeyEvent {
         key: rdev_keys_to_single_odilia_key(events),
         mods: rdev_keys_to_odilia_modifiers(events),
@@ -166,11 +166,7 @@ fn is_new_key_event(
             current_keys.push(x);
             current_keys.dedup();
             // if there is a new key pressed/released and it is not a repeat event
-            if last_keys != current_keys {
-                true
-            } else {
-                false
-            }
+            last_keys != current_keys
         }
         KeyRelease(x) => {
             *last_keys = current_keys.clone();

@@ -1,15 +1,12 @@
 mod object;
 mod document;
 
+use std::collections::HashMap;
+
 use futures::stream::StreamExt;
-use odilia_common::{
-    events::{Direction, ScreenReaderEvent},
-    modes::ScreenReaderMode,
-};
 use speech_dispatcher::Priority;
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use crate::state;
 use atspi::{
     accessible::Role,
     accessible_plus::{AccessiblePlus, MatcherArgs},
@@ -17,13 +14,14 @@ use atspi::{
     convertable::Convertable,
     events::Event,
 };
-use std::collections::HashMap;
+use crate::state;
+use odilia_common::{
+    events::{Direction, ScreenReaderEvent},
+    modes::ScreenReaderMode,
+};
+
 pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<()> {
     let curr = state::get_accessible_history(0).await?;
-    let direction = match dir {
-        Direction::Forward => false,
-        Direction::Backward => true,
-    };
     let roles = vec![role];
     let attributes = HashMap::new();
     let interfaces = Vec::new();
@@ -35,7 +33,7 @@ pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<(
         interfaces,
         MatchType::Invalid,
     );
-    if let Some(next) = curr.get_next(&mt, direction).await? {
+    if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
         let text = next.to_text().await?;
         text.set_caret_offset(0).await?;
     } else {
@@ -48,23 +46,21 @@ pub async fn sr_event(
     sr_events: &mut Receiver<ScreenReaderEvent>,
     mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
-    println!("Waiting for sr event.");
     loop {
         let sr_event = match sr_events.recv().await {
             Some(e) => e,
             _ => continue
         };
-        let _event_result = match sr_event {
+
+        match sr_event {
             ScreenReaderEvent::StructuralNavigation(dir, role) => {
-                if let Ok(_) = structural_navigation(dir, role).await {
-                    // it worked!
-                } else {
-                    tracing::debug!("There was an error with the structural navigation call.");
+                if let Err(e) = structural_navigation(dir, role).await {
+                    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
                 }
             },
-            ScreenReaderEvent::StopSpeech => println!("Stop speech!"),
+            ScreenReaderEvent::StopSpeech => tracing::trace!("Stopping speech!"),
             ScreenReaderEvent::ChangeMode(ScreenReaderMode { name }) => {
-                tracing::debug!("Change mode to {:?}", name);
+                tracing::debug!("Changing mode to {:?}", name);
                 let _ = mode_channel.send(ScreenReaderMode { name }).await;
             }
             _ => {}
@@ -81,8 +77,6 @@ pub async fn process() {
             Some(Ok(event)) => {
                 if let Err(e) = dispatch(event).await {
                     tracing::error!(error = %e, "Could not handle event");
-                } else {
-                    tracing::debug!("Event handled without error");
                 }
             },
             _ => tracing::debug!("Event is none"),

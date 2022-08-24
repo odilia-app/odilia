@@ -11,7 +11,7 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 use tracing_tree::HierarchicalLayer;
 
 #[cfg(not(release))]
-const DEFAULT_LOG_FILTER: &'static str = "debug";
+const DEFAULT_LOG_FILTER: &str = "debug";
 #[cfg(release)]
 const DEFAULT_LOG_FILTER: &'static str = "error";
 

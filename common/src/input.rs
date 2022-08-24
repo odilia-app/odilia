@@ -257,7 +257,7 @@ impl KeyBinding {
 /// get mode and return it with a stripped version of the string
 fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
     let new_str: String;
-    let mode_index = s.find("|");
+    let mode_index = s.find('|');
     let mode: Option<ScreenReaderMode> = match mode_index {
         Some(mode_index) => {
             new_str = s.get(mode_index + 1..).unwrap().to_string(); // pretty sure is safe
@@ -266,7 +266,7 @@ fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
             })
         }
         _ => {
-            new_str = s.to_string().clone();
+            new_str = s.to_string();
             None
         }
     };
@@ -275,7 +275,7 @@ fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
 }
 fn get_consume_strip(s: &str) -> (bool, String) {
     let new_str: String;
-    let consume_index = s.find("|");
+    let consume_index = s.find('|');
     let consume: bool = match consume_index {
         Some(consume_index) => {
             new_str = s.get(consume_index + 1..).unwrap().to_string(); // pretty sure is safe
@@ -283,7 +283,7 @@ fn get_consume_strip(s: &str) -> (bool, String) {
             b_str == "C"
         }
         _ => {
-            new_str = s.to_string().clone();
+            new_str = s.to_string();
             false
         }
     };
@@ -296,7 +296,7 @@ impl FromStr for KeyBinding {
 
     fn from_str(s1: &str) -> Result<Self, Self::Err> {
         use KeyFromStrError as E;
-        let (consume, s2) = get_consume_strip(&s1);
+        let (consume, s2) = get_consume_strip(s1);
         let (mode, s) = get_mode_strip(&s2);
 
         let mut parts = s.rsplit('+').map(str::trim);
