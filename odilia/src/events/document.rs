@@ -1,6 +1,7 @@
 use zbus::zvariant::ObjectPath;
-use crate::state;
+
 use atspi::events::Event;
+use crate::state;
 
 pub async fn load_complete(event: Event) -> eyre::Result<()> {
     let dest = event.sender()?.unwrap();
@@ -16,8 +17,8 @@ pub async fn load_complete(event: Event) -> eyre::Result<()> {
         let dest = item.0.0.to_string();
         if let Some(id) = path.split('/').next_back() {
             if let Ok(uid) = id.parse::<u32>() {
+                tracing::trace!(id=uid, path, dest, "Caching item");
                 write_by_id.insert(uid, (path, dest));
-                tracing::debug!("ID: {:?}", uid);
             }
         }
     }
