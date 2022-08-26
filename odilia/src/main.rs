@@ -4,11 +4,14 @@ mod events;
 mod logging;
 mod state;
 
+use std::sync::Arc;
+
 use eyre::WrapErr;
 use futures::future::FutureExt;
 use tokio::sync::mpsc::channel;
 
 use atspi::accessible::Role;
+use crate::state::ScreenReaderState;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     input::{Key, KeyBinding, Modifiers},
@@ -25,7 +28,7 @@ async fn main() -> eyre::Result<()> {
     let _args = args::parse();
 
     // Initialize state
-    state::init_state().await?;
+    let state = Arc::new(ScreenReaderState::new().await?);
 
     // Add directional structural nav keys
     const S_NAV_BINDINGS: &[(Key, Role)] = &[
@@ -71,16 +74,16 @@ async fn main() -> eyre::Result<()> {
     .await;
 
     // Register events
-    state::register_event("Object:StateChanged:Focused").await?;
-    state::register_event("Object:TextCaretMoved").await?;
-    state::register_event("Document:LoadComplete").await?;
+    state.register_event("Object:StateChanged:Focused").await?;
+    state.register_event("Object:TextCaretMoved").await?;
+    state.register_event("Document:LoadComplete").await?;
 
     // Create and run tasks
     let (mode_change_tx, mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
     let screen_reader_event_stream = create_keybind_channel();
 
-    let atspi_event_future = tokio::spawn(events::process()).map(|r| r.wrap_err("Could not process at-spi events"));
-    let odilia_event_future = events::sr_event(screen_reader_event_stream, mode_change_tx).map(|r| r.wrap_err("Could not process Odilia events"));
+    let atspi_event_future = tokio::spawn(events::process(Arc::clone(&state))).map(|r| r.wrap_err("Could not process at-spi events"));
+    let odilia_event_future = events::sr_event(Arc::clone(&state), screen_reader_event_stream, mode_change_tx).map(|r| r.wrap_err("Could not process Odilia events"));
     let update_mode_future = tokio::spawn(update_sr_mode(mode_change_rx)).map(|r| r.wrap_err("Could not update mode"));
     tokio::try_join!(atspi_event_future, odilia_event_future, update_mode_future)?;
     Ok(())

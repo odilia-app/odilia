@@ -1,117 +1,24 @@
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::cell::Cell;
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use futures::stream::Stream;
 use speech_dispatcher::{Connection as SPDConnection, Priority};
-use tokio::sync::{Mutex, OnceCell};
-use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, Connection};
+use tokio::sync::Mutex;
+use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
-use crate::cache::{Cache, FxWriteHandle};
-use atspi::{accessible::AccessibleProxy, cache::CacheProxy, events::Event};
+use crate::cache::Cache;
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
-
-static STATE: OnceCell<ScreenReaderState> = OnceCell::const_new();
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
-    pub speaker: Mutex<SPDConnection>,
+    pub speaker: SPDConnection,
     pub config: ApplicationConfig,
-    pub previous_caret_position: AtomicI32,
+    pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
     pub accessible_history: Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>,
     pub cache: Cache,
-}
-
-pub async fn register_event(event: &str) -> zbus::Result<()> {
-    let state = STATE.get().unwrap();
-    state.register_event(event).await?;
-    Ok(())
-}
-
-/// Returns the AT-SPI event stream
-pub async fn get_event_stream() -> impl Stream<Item = zbus::Result<Event>> {
-    let conn = &STATE.get().unwrap().atspi;
-    conn.event_stream()
-}
-
-/// Adds a new accessible to the history. We only sotre 16 previous accessibles, but theoretically, it should be lower.
-pub async fn update_accessible(sender: UniqueName<'_>, path: ObjectPath<'_>) -> bool {
-    let accessible_history = &STATE.get().unwrap().accessible_history;
-    let mut accessible_history = accessible_history.lock().await;
-    accessible_history.push((sender.to_owned(), path.to_owned()));
-    true
-}
-
-/// Initializes state for the screen reader.
-/// There are some things, which unfortunately must be held in global state.
-/// For example, the mode, currently focused item, a speaker instance (for TTS), etc.
-/// This initializes all of it so that the global state may be queried from the rest of the program.
-/// @returns bool: true if state has been initialized successfully, false otherwise.
-pub async fn init_state() -> eyre::Result<()> {
-    let sr_state = ScreenReaderState::new().await.unwrap();
-    STATE
-        .set(sr_state)
-        .map_err(|_| eyre::eyre!("Could not initialize state"))
-}
-
-pub async fn get_connection() -> &'static Connection {
-    STATE.get().unwrap().atspi.connection()
-}
-
-pub async fn say(priority: Priority, text: String) -> bool {
-    let state = STATE.get().unwrap();
-    let spd = state.speaker.lock().await;
-    if text.is_empty() {
-        tracing::warn!("blank string, aborting");
-        return false;
-    }
-    spd.say(priority, &text);
-    tracing::trace!("Said: {}", text);
-    true
-}
-
-pub async fn by_id_write() -> &'static Mutex<FxWriteHandle<u32, (String, String)>> {
-    &STATE.get().unwrap().cache.by_id_write
-}
-
-pub async fn build_cache<'a>(
-    dest: UniqueName<'a>,
-    path: ObjectPath<'a>,
-) -> zbus::Result<CacheProxy<'a>> {
-    CacheProxy::builder(get_connection().await)
-        .destination(dest)?
-        .path(path)?
-        .build()
-        .await
-}
-
-pub async fn get_accessible_history<'a>(index: usize) -> zbus::Result<AccessibleProxy<'a>> {
-    let history = &STATE.get().unwrap().accessible_history;
-    let history = history.lock().await;
-    let (dest, path) = history
-        .iter()
-        .nth(index)
-        .expect("Looking for invalid index in accessible history");
-    AccessibleProxy::builder(get_connection().await)
-        .destination(dest.to_owned())?
-        .path(path)?
-        .build()
-        .await
-}
-
-pub async fn update_caret_position(new_pos: i32) -> bool {
-    let current_position = &STATE.get().unwrap().previous_caret_position;
-    current_position.store(new_pos, Ordering::Relaxed);
-    true
-}
-pub async fn get_previous_caret_position() -> i32 {
-    STATE
-        .get()
-        .unwrap()
-        .previous_caret_position
-        .load(Ordering::Relaxed)
 }
 
 impl ScreenReaderState {
@@ -129,15 +36,13 @@ impl ScreenReaderState {
             name: "CommandMode".to_string(),
         });
 
-        let speaker = Mutex::new(
-            SPDConnection::open(
+        let speaker = SPDConnection::open(
                 env!("CARGO_PKG_NAME"),
                 "main",
                 "",
                 speech_dispatcher::Mode::Threaded,
             )
-            .wrap_err("Failed to connect to speech-dispatcher")?,
-        );
+            .wrap_err("Failed to connect to speech-dispatcher")?;
         tracing::debug!("speech dispatcher initialisation successful");
 
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -154,7 +59,7 @@ impl ScreenReaderState {
             ApplicationConfig::new(&config_path).wrap_err("unable to load configuration file")?;
         tracing::debug!("configuration loaded successfully");
 
-        let previous_caret_position = AtomicI32::new(0);
+        let previous_caret_position = Cell::new(0);
         let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
         let cache = Cache::new();
         Ok(Self {
@@ -187,6 +92,51 @@ impl ScreenReaderState {
     pub async fn add_match_rule(&self, match_rule: &str) -> zbus::fdo::Result<()> {
         self.dbus.add_match(match_rule).await
     }
+
+    pub fn connection(&self) -> &zbus::Connection {
+        self.atspi.connection()
+    }
+
+pub async fn say(&self, priority: Priority, text: String) -> bool {
+    if text.is_empty() {
+        tracing::warn!("blank string, aborting");
+        return false;
+    }
+    self.speaker.say(priority, &text);
+    tracing::trace!("Said: {}", text);
+    true
+}
+
+pub async fn history_item(&self, index: usize) -> zbus::Result<AccessibleProxy<'static>> {
+    let history = self.accessible_history.lock().await;
+    let (dest, path) = history
+        .iter()
+        .nth(index)
+        .expect("Looking for invalid index in accessible history");
+    AccessibleProxy::builder(&self.connection())
+        .destination(dest.to_owned())?
+        .path(path)?
+        .build()
+        .await
+}
+
+/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
+pub async fn update_accessible(&self, sender: UniqueName<'_>, path: ObjectPath<'_>) {
+    let mut history = self.accessible_history.lock().await;
+    history.push((sender.to_owned(), path.to_owned()));
+}
+
+pub async fn build_cache<'a>(
+    &self,
+    dest: UniqueName<'a>,
+    path: ObjectPath<'a>,
+) -> zbus::Result<CacheProxy<'a>> {
+    CacheProxy::builder(&self.connection())
+        .destination(dest)?
+        .path(path)?
+        .build()
+        .await
+}
 }
 
 /// Converts an at-spi event string ("Object:StateChanged:Focused"), into a DBus match rule ("type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'")

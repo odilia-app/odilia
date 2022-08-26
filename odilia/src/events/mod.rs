@@ -1,7 +1,7 @@
 mod object;
 mod document;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use futures::stream::StreamExt;
 use speech_dispatcher::Priority;
@@ -14,14 +14,14 @@ use atspi::{
     convertable::Convertable,
     events::Event,
 };
-use crate::state;
+use crate::state::ScreenReaderState;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
 };
 
-pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<()> {
-    let curr = state::get_accessible_history(0).await?;
+pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, role: Role) -> zbus::Result<()> {
+    let curr = state.history_item(0).await?;
     let roles = vec![role];
     let attributes = HashMap::new();
     let interfaces = Vec::new();
@@ -37,12 +37,13 @@ pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<(
         let text = next.to_text().await?;
         text.set_caret_offset(0).await?;
     } else {
-        state::say(Priority::Text, "No more headings".to_string()).await;
+        state.say(Priority::Text, "No more headings".to_string()).await;
     }
     Ok(())
 }
 
 pub async fn sr_event(
+    state: Arc<ScreenReaderState>,
     mut sr_events: Receiver<ScreenReaderEvent>,
     mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
@@ -54,7 +55,7 @@ pub async fn sr_event(
 
         match sr_event {
             ScreenReaderEvent::StructuralNavigation(dir, role) => {
-                if let Err(e) = structural_navigation(dir, role).await {
+                 if let Err(e) = structural_navigation(&state, dir, role).await {
                     tracing::debug!(error = %e, "There was an error with the structural navigation call.");
                 }
             },
@@ -68,14 +69,14 @@ pub async fn sr_event(
     }
 }
 
-#[tracing::instrument(level = "debug")]
-pub async fn process() {
-    let events = state::get_event_stream().await;
+#[tracing::instrument(level = "debug"i, skip(state))]
+pub async fn process(state: Arc<ScreenReaderState>) {
+    let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     loop {
         match events.next().await {
             Some(Ok(event)) => {
-                if let Err(e) = dispatch(event).await {
+                if let Err(e) = dispatch(&state, event).await {
                     tracing::error!(error = %e, "Could not handle event");
                 }
             },
@@ -84,7 +85,7 @@ pub async fn process() {
     }
 }
 
-async fn dispatch(event: Event) -> eyre::Result<()> {
+async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
     // Dispatch based on interface
     if let Some(interface) = event.interface() {
         match interface
@@ -92,8 +93,8 @@ async fn dispatch(event: Event) -> eyre::Result<()> {
             .next()
             .expect("Interface name should contain '.'")
         {
-            "Object" => object::dispatch(event).await?,
-            "Document" => document::dispatch(event).await?,
+            "Object" => object::dispatch(state, event).await?,
+            "Document" => document::dispatch(state, event).await?,
             interface => tracing::debug!(interface, "Ignoring event with unknown interface"),
         }
     }
