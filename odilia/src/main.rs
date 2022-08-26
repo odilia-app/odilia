@@ -19,7 +19,7 @@ use odilia_input::{
     keybinds::{add_keybind, update_sr_mode},
 };
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     logging::init();
     let _args = args::parse();
