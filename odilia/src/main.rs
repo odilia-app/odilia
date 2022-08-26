@@ -4,7 +4,7 @@ mod events;
 mod logging;
 mod state;
 
-use std::sync::Arc;
+use std::rc::Rc;
 
 use eyre::WrapErr;
 use futures::future::FutureExt;
@@ -28,7 +28,7 @@ async fn main() -> eyre::Result<()> {
     let _args = args::parse();
 
     // Initialize state
-    let state = Arc::new(ScreenReaderState::new().await?);
+    let state = Rc::new(ScreenReaderState::new().await?);
 
     // Add directional structural nav keys
     const S_NAV_BINDINGS: &[(Key, Role)] = &[
@@ -82,9 +82,9 @@ async fn main() -> eyre::Result<()> {
     let (mode_change_tx, mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
     let screen_reader_event_stream = create_keybind_channel();
 
-    let atspi_event_future = tokio::spawn(events::process(Arc::clone(&state))).map(|r| r.wrap_err("Could not process at-spi events"));
-    let odilia_event_future = events::sr_event(Arc::clone(&state), screen_reader_event_stream, mode_change_tx).map(|r| r.wrap_err("Could not process Odilia events"));
-    let update_mode_future = tokio::spawn(update_sr_mode(mode_change_rx)).map(|r| r.wrap_err("Could not update mode"));
+    let atspi_event_future = events::process(Rc::clone(&state)).map(|_| Ok::<_, eyre::Report>(()));
+    let odilia_event_future = events::sr_event(Rc::clone(&state), screen_reader_event_stream, mode_change_tx).map(|r| r.wrap_err("Could not process Odilia events"));
+    let update_mode_future = update_sr_mode(mode_change_rx).map(|_| Ok::<_, eyre::Report>(()));
     tokio::try_join!(atspi_event_future, odilia_event_future, update_mode_future)?;
     Ok(())
 }

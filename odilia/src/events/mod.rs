@@ -1,7 +1,7 @@
 mod object;
 mod document;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, rc::Rc};
 
 use futures::stream::StreamExt;
 use speech_dispatcher::Priority;
@@ -43,7 +43,7 @@ pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, ro
 }
 
 pub async fn sr_event(
-    state: Arc<ScreenReaderState>,
+    state: Rc<ScreenReaderState>,
     mut sr_events: Receiver<ScreenReaderEvent>,
     mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
@@ -70,7 +70,7 @@ pub async fn sr_event(
 }
 
 #[tracing::instrument(level = "debug"i, skip(state))]
-pub async fn process(state: Arc<ScreenReaderState>) {
+pub async fn process(state: Rc<ScreenReaderState>) {
     let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     loop {
