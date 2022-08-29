@@ -73,21 +73,30 @@ pub async fn sr_event(
 }
 
 #[tracing::instrument(level = "debug")]
-pub async fn process() {
+pub async fn receive(tx: &Sender<Event>) {
     let events = state::get_event_stream().await;
     pin_utils::pin_mut!(events);
     loop {
         match events.next().await {
             Some(Ok(event)) => {
-                if let Err(e) = dispatch(event).await {
-                    tracing::error!(error = %e, "Could not handle event");
-                } else {
-                    tracing::debug!("Event handled without error");
-                }
+              if let Err(e) = tx.send(event).await {
+                tracing::error!(error = %e, "Error sending atspi event");
+              }
             },
             _ => tracing::debug!("Event is none"),
         }
     }
+}
+
+#[tracing::instrument(level = "debug")]
+pub async fn process(rx: &mut Receiver<Event>) {
+  while let Some(event) = rx.recv().await {
+    if let Err(e) = dispatch(event).await {
+        tracing::error!(error = %e, "Could not handle event");
+    } else {
+        tracing::debug!("Event handled without error");
+    }
+  }
 }
 
 async fn dispatch(event: Event) -> eyre::Result<()> {

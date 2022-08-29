@@ -26,6 +26,9 @@ async fn main() -> eyre::Result<()> {
     state::init_state().await?;
 
     let (mode_change_tx, mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
+    // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
+    // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
+    let (atspi_event_tx, mut atspi_event_rx) = channel(64);
 
     let mut screen_reader_event_stream = create_keybind_channel();
 
@@ -78,9 +81,10 @@ async fn main() -> eyre::Result<()> {
     state::register_event("Document:LoadComplete").await?;
 
     // Run tasks
-    let atspi_event_future = events::process();
+    let atspi_event_receiver_future = events::receive(&atspi_event_tx);
+    let atspi_event_handler_future = events::process(&mut atspi_event_rx);
     let odilia_event_future = events::sr_event(&mut screen_reader_event_stream, mode_change_tx);
     let update_mode_future = update_sr_mode(&mut mode_change_rx);
-    let _ = tokio::join!(atspi_event_future, odilia_event_future, update_mode_future);
+    let _ = tokio::join!(atspi_event_receiver_future, atspi_event_handler_future, odilia_event_future, update_mode_future);
     Ok(())
 }
