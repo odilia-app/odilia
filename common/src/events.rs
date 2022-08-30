@@ -2,6 +2,7 @@ use serde::{
   Serialize,
   Deserialize,
 };
+
 use atspi::accessible::Role;
 use crate::modes::ScreenReaderMode;
 
@@ -19,7 +20,7 @@ pub enum Direction {
 
 #[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
 pub enum ScreenReaderEvent {
-    Noop, // when we need to do "something" but this is alwyas hardcoded as nothing
+    Noop, // when we need to do "something" but this is always hardcoded as nothing
     Speak(String, u32),
     StopSpeech,
     Enable(Feature),

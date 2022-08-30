@@ -1,10 +1,12 @@
+use std::{collections::HashMap, future::Future};
+
+use tokio::sync::{mpsc::Receiver, Mutex};
+
 use odilia_common::{
     events::ScreenReaderEvent,
     input::{KeyBinding, KeyEvent, Modifiers},
     modes::ScreenReaderMode,
 };
-use std::{collections::HashMap, future::Future};
-use tokio::sync::{mpsc::Receiver, Mutex};
 
 lazy_static! {
     static ref KB_MAP: Mutex<HashMap<KeyBinding, ScreenReaderEvent>> = Mutex::new(HashMap::new());
@@ -80,7 +82,7 @@ pub async fn set_sr_mode(srm: ScreenReaderMode) {
     let mut sr_mode = SR_MODE.lock().await;
     *sr_mode = srm;
 }
-pub async fn update_sr_mode(mode_channel: &mut Receiver<ScreenReaderMode>) {
+pub async fn update_sr_mode(mut mode_channel: Receiver<ScreenReaderMode>) {
     while let Some(new_mode) = mode_channel.recv().await {
         let mut mode = SR_MODE.lock().await;
         *mode = new_mode;

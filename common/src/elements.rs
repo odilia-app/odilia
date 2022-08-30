@@ -16,5 +16,5 @@ pub enum ElementType {
     Video,
     Audio,
     Link,
-    Tab, // ?? is this what it is when you're looking at tabs in a dialog?
+    Tab, // This is when you're looking at tabs in a dialog
 }

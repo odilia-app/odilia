@@ -33,7 +33,6 @@ circular-queue = "^0.2.6"
 evmap = "10.0.2"
 eyre = "^0.6.8"
 futures = { version = "^0.3.21", default-features = false }
-lazy_static = "1.4.0"
 odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
 odilia-tts = { path = "../tts" }
@@ -47,6 +46,7 @@ tracing-subscriber = { version = "0.3.10", features = ["env-filter", "parking_lo
 tracing-tree = "^0.2.0"
 xdg = "2.4.1"
 zbus = { version = "^2.3.2", default-features = false, features = ["tokio"] }
+rustc-hash = "1.1.0"
 
 [features]
 

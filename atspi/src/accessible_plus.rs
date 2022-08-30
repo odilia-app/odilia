@@ -17,6 +17,7 @@ pub type MatcherArgs = (
 #[async_trait]
 pub trait AccessiblePlus {
     // Assumes that an accessible can be made from the component parts
+    async fn get_id(&self) -> Option<u32>;
     async fn get_parent_plus<'a>(&self) -> zbus::Result<AccessibleProxy<'a>>;
     async fn get_children_plus<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_siblings<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
@@ -91,6 +92,16 @@ impl AccessibleProxy<'_> {
 
 #[async_trait]
 impl AccessiblePlus for AccessibleProxy<'_> {
+    async fn get_id(&self) -> Option<u32> {
+        let path = self.path();
+        if let Some(id) = path.split('/').next_back() {
+            if let Ok(uid) = id.parse::<u32>() {
+                tracing::debug!("ID: {:?}", uid);
+                return Some(uid);
+            }
+        }
+        None
+    }
     async fn get_parent_plus<'a>(&self) -> zbus::Result<AccessibleProxy<'a>> {
         let parent_parts = self.parent().await?;
         AccessibleProxy::builder(self.connection())

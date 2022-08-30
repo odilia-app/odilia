@@ -184,7 +184,7 @@ impl Modifiers {
     }
 }
 
-/* Notice it has almost the same fields as KeyBinding. */
+// Notice it has almost the same fields as [`KeyBinding`].
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct KeyEvent {
     pub key: Option<Key>,
@@ -197,18 +197,67 @@ pub struct KeyBinding {
     pub key: Option<Key>,
     pub mods: Modifiers,
     pub repeat: u8,
-    /* if none, match all modes */
+    /// if `None`, match all modes
     pub mode: Option<ScreenReaderMode>,
-    /* whether or not to consume the event, or let it pass through */
+    // whether or not to consume the event, or let it pass through
     pub consume: bool,
-    /* whether to notify the SR that the key has been pressed; currently at least one function in -prototype/main.rs will ALWAYS see every key, but this could change. */
+    /// whether to notify the SR that the key has been pressed; currently at least one function in -prototype/main.rs will ALWAYS see every key, but this could change.
     pub notify: bool,
 }
 
-/* get mode and return it with a stripped version of the string */
+impl Default for KeyBinding {
+    fn default() -> Self {
+        Self {
+    key: None,
+    mods: Modifiers::empty(),
+    repeat: 1,
+    mode: None,
+    consume: true,
+    notify: true,
+        }
+    }
+}
+
+impl KeyBinding {
+    pub fn new(key: Option<Key>) -> Self {
+        Self { key, ..Default::default() }
+    }
+
+    #[inline]
+    pub fn mods(mut self, mods: Modifiers) -> Self {
+        self.mods = mods;
+        self
+    }
+
+    #[inline]
+    pub fn repeat(mut self, repeat: u8) -> Self {
+        self.repeat = repeat;
+        self
+    }
+
+    #[inline]
+    pub fn mode(mut self, mode: Option<ScreenReaderMode>) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    #[inline]
+    pub fn consume(mut self, consume: bool) -> Self {
+        self.consume = consume;
+        self
+    }
+
+    #[inline]
+    pub fn notify(mut self, notify: bool) -> Self {
+        self.notify = notify;
+        self
+    }
+}
+
+/// get mode and return it with a stripped version of the string
 fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
     let new_str: String;
-    let mode_index = s.find("|");
+    let mode_index = s.find('|');
     let mode: Option<ScreenReaderMode> = match mode_index {
         Some(mode_index) => {
             new_str = s.get(mode_index + 1..).unwrap().to_string(); // pretty sure is safe
@@ -217,7 +266,7 @@ fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
             })
         }
         _ => {
-            new_str = s.to_string().clone();
+            new_str = s.to_string();
             None
         }
     };
@@ -226,7 +275,7 @@ fn get_mode_strip(s: &str) -> (Option<ScreenReaderMode>, String) {
 }
 fn get_consume_strip(s: &str) -> (bool, String) {
     let new_str: String;
-    let consume_index = s.find("|");
+    let consume_index = s.find('|');
     let consume: bool = match consume_index {
         Some(consume_index) => {
             new_str = s.get(consume_index + 1..).unwrap().to_string(); // pretty sure is safe
@@ -234,7 +283,7 @@ fn get_consume_strip(s: &str) -> (bool, String) {
             b_str == "C"
         }
         _ => {
-            new_str = s.to_string().clone();
+            new_str = s.to_string();
             false
         }
     };
@@ -247,7 +296,7 @@ impl FromStr for KeyBinding {
 
     fn from_str(s1: &str) -> Result<Self, Self::Err> {
         use KeyFromStrError as E;
-        let (consume, s2) = get_consume_strip(&s1);
+        let (consume, s2) = get_consume_strip(s1);
         let (mode, s) = get_mode_strip(&s2);
 
         let mut parts = s.rsplit('+').map(str::trim);
