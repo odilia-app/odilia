@@ -144,8 +144,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 commands_to_send = commands_to_send.strip_suffix("&& ").unwrap().to_string();
             }
             if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
-                log::error!("Failed to send command to swhks through IPC.");
-                log::error!("Please make sure that swhks is running.");
+                log::error!("Failed to send command to sohks through IPC.");
+                log::error!("Please make sure that sohks is running.");
                 log::error!("Err: {:#?}", e)
             }
         };
