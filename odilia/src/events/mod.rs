@@ -44,14 +44,13 @@ pub async fn structural_navigation(dir: Direction, role: Role) -> zbus::Result<(
 
 pub async fn sr_event(
     mut sr_events: Receiver<ScreenReaderEvent>,
-    mode_channel: Sender<ScreenReaderMode>,
 ) -> zbus::Result<()> {
     loop {
         let sr_event = match sr_events.recv().await {
             Some(e) => e,
             _ => continue
         };
-
+        tracing::debug!("SR Event received");
         match sr_event {
             ScreenReaderEvent::StructuralNavigation(dir, role) => {
                 if let Err(e) = structural_navigation(dir, role).await {
@@ -61,7 +60,7 @@ pub async fn sr_event(
             ScreenReaderEvent::StopSpeech => tracing::trace!("Stopping speech!"),
             ScreenReaderEvent::ChangeMode(ScreenReaderMode { name }) => {
                 tracing::debug!("Changing mode to {:?}", name);
-                let _ = mode_channel.send(ScreenReaderMode { name }).await;
+                //let _ = mode_channel.send(ScreenReaderMode { name }).await;
             }
             _ => {}
         };

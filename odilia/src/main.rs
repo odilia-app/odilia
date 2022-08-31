@@ -14,31 +14,23 @@ use odilia_common::{
     input::{Key, KeyBinding, Modifiers},
     modes::ScreenReaderMode,
 };
-use odilia_input::{
-    keybinds::{add_keybind, update_sr_mode},
-};
+use odilia_input::sr_event_receiver;
+
+use std::process::exit;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     logging::init();
-    let (mode_change_tx, mut mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
+    let (sr_event_tx, mut sr_event_rx) = channel(8);
     let _args = args::parse();
     let init = state::init_state().await;
-    if !init {
+    if init.is_err() {
         eprintln!("Unable to initialize state. Fatal error.");
         exit(1);
     }
-    let atspi_event_future = events::process();
-    //let odilia_event_future = events::sr_event(&mut screen_reader_event_stream, mode_change_tx);
-    let update_mode_future = update_sr_mode(&mut mode_change_rx);
-    let _ = tokio::join!(atspi_event_future,  update_mode_future);
-    // Create and run tasks
-    let (mode_change_tx, mode_change_rx) = channel(8); // should maybe be 1? I don't know how it works
-    let screen_reader_event_stream = create_keybind_channel();
-
     let atspi_event_future = tokio::spawn(events::process()).map(|r| r.wrap_err("Could not process at-spi events"));
-    //let odilia_event_future = events::sr_event(screen_reader_event_stream, mode_change_tx).map(|r| r.wrap_err("Could not process Odilia events"));
-    let update_mode_future = tokio::spawn(update_sr_mode(mode_change_rx)).map(|r| r.wrap_err("Could not update mode"));
-    tokio::try_join!(atspi_event_future, odilia_event_future, update_mode_future)?;
+    let odilia_event_receiver = tokio::spawn(sr_event_receiver(sr_event_tx)).map(|r| r.wrap_err("Could not set up event receiver"));
+    let odilia_event_future = tokio::spawn(events::sr_event(sr_event_rx)).map(|r| r.wrap_err("Could not process Odilia events"));
+    tokio::try_join!(atspi_event_future, odilia_event_receiver, odilia_event_future)?;
     Ok(())
 }
