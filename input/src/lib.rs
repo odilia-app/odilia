@@ -1,5 +1,164 @@
-#[macro_use]
-extern crate lazy_static;
+use serde_json;
+use eyre;
+use tokio::{
+  net::UnixListener,
+  io::AsyncReadExt,
+  fs,
+  fs::{
+    File,
+    OpenOptions,
+  },
+  sync::mpsc::{
+    Receiver,
+    Sender,
+    channel,
+  },
+};
+use nix::unistd::Uid;
+use std::{
+    env,
+    io::prelude::*,
+    path::Path,
+    process::{exit, id, Command, Stdio},
+    time::{SystemTime, UNIX_EPOCH},
+};
+use sysinfo::{ProcessExt, System, SystemExt};
+use odilia_common::events::ScreenReaderEvent;
 
-pub mod events;
-pub mod keybinds;
+fn get_log_file_name() -> String {
+    let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
+        Ok(n) => n.as_secs().to_string(),
+        Err(_) => {
+            tracing::error!("SystemTime before UnixEpoch!");
+            exit(1);
+        }
+    };
+
+    match env::var("XDG_DATA_HOME") {
+        Ok(val) => {
+            tracing::info!(
+                "XDG_DATA_HOME Variable is present, using it's value for default file path."
+            );
+            format!("{}/swhks/swhks-{}.log", val, time)
+        }
+        Err(e) => {
+            tracing::trace!(
+            "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
+            e
+        );
+
+            format!("~/.local/share/swhks/swhks-{}.log", time)
+        }
+    }
+}
+
+pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre::Result<()> {
+    //tracing::trace!("Setting process umask.");
+    //umask(Mode::S_IWGRP | Mode::S_IWOTH);
+
+    let (pid_file_path, sock_file_path) = get_file_paths();
+    let log_file_name = get_log_file_name();
+
+    let log_path = Path::new(&log_file_name);
+    if let Some(p) = log_path.parent() {
+        if !p.exists() {
+            if let Err(e) = fs::create_dir_all(p).await {
+                tracing::error!("Failed to create log dir: {}", e);
+            }
+        }
+    }
+
+    if Path::new(&pid_file_path).exists() {
+        tracing::trace!("Reading {} file and checking for running instances.", pid_file_path);
+        let swhks_pid = match fs::read_to_string(&pid_file_path).await {
+            Ok(swhks_pid) => swhks_pid,
+            Err(e) => {
+                tracing::error!("Unable to read {} to check all running instances", e);
+                exit(1);
+            }
+        };
+        tracing::debug!("Previous PID: {}", swhks_pid);
+
+        let mut sys = System::new_all();
+        sys.refresh_all();
+        for (pid, process) in sys.processes() {
+            if pid.to_string() == swhks_pid && process.exe() == env::current_exe().unwrap() {
+                tracing::error!("Server is already running!");
+                exit(1);
+            }
+        }
+    }
+
+    if Path::new(&sock_file_path).exists() {
+        tracing::trace!("Sockfile exists, attempting to remove it.");
+        match fs::remove_file(&sock_file_path).await {
+            Ok(_) => {
+                tracing::debug!("Removed old socket file");
+            }
+            Err(e) => {
+                tracing::error!("Error removing the socket file!: {}", e);
+                tracing::error!("You can manually remove the socket file: {}", sock_file_path);
+                exit(1);
+            }
+        };
+    }
+
+    match fs::write(&pid_file_path, id().to_string()).await {
+        Ok(_) => {}
+        Err(e) => {
+            tracing::error!("Unable to write to {}: {}", pid_file_path, e);
+            exit(1);
+        }
+    }
+
+    let listener = UnixListener::bind(sock_file_path).expect("Could not open socket");
+    loop {
+        match listener.accept().await {
+            Ok((mut socket, address)) => {
+                let mut response = String::new();
+                match socket.read_to_string(&mut response).await {
+                  Ok(_) => {},
+                  Err(e) => {
+                    tracing::error!("Error reading from socket {:#?}", e);
+                  }
+                }
+                // if valid screen reader event
+                match serde_json::from_str::<ScreenReaderEvent>(&response) {
+                  Ok(sre) => {
+                    event_sender.send(sre).await;
+                  },
+                  Err(e) => tracing::trace!("Invalid odilia event. {:#?}", e)
+                }
+                tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+            }
+            Err(e) => tracing::error!("accept function failed: {:?}", e),
+        }
+    }
+}
+
+fn get_file_paths() -> (String, String) {
+    match env::var("XDG_RUNTIME_DIR") {
+        Ok(val) => {
+            tracing::info!(
+                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
+            );
+
+            let pid_file_path = format!("{}/swhks.pid", val);
+            let sock_file_path = format!("{}/swhkd.sock", val);
+
+            (pid_file_path, sock_file_path)
+        }
+        Err(e) => {
+            tracing::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
+
+            let pid_file_path = format!("/run/user/{}/swhks.pid", Uid::current());
+            let sock_file_path = format!("/run/user/{}/swhkd.sock", Uid::current());
+
+            (pid_file_path, sock_file_path)
+        }
+    }
+}
+
+fn run_system_command(odilia_event_str: &str) {
+  
+}
