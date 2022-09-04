@@ -60,6 +60,7 @@ pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre:
     let log_file_name = get_log_file_name();
 
     let log_path = Path::new(&log_file_name);
+    tracing::debug!("Socket file located at: {:?}", sock_file_path);
     if let Some(p) = log_path.parent() {
         if !p.exists() {
             if let Err(e) = fs::create_dir_all(p).await {
@@ -112,9 +113,11 @@ pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre:
     }
 
     let listener = UnixListener::bind(sock_file_path).expect("Could not open socket");
+    tracing::debug!("Listener activated!");
     loop {
         match listener.accept().await {
             Ok((mut socket, address)) => {
+                tracing::debug!("Ok from socket");
                 let mut response = String::new();
                 match socket.read_to_string(&mut response).await {
                   Ok(_) => {},
@@ -144,7 +147,7 @@ fn get_file_paths() -> (String, String) {
             );
 
             let pid_file_path = format!("{}/swhks.pid", val);
-            let sock_file_path = format!("{}/swhkd.sock", val);
+            let sock_file_path = format!("{}/sohkd.sock", val);
 
             (pid_file_path, sock_file_path)
         }
@@ -152,7 +155,7 @@ fn get_file_paths() -> (String, String) {
             tracing::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
 
             let pid_file_path = format!("/run/user/{}/swhks.pid", Uid::current());
-            let sock_file_path = format!("/run/user/{}/swhkd.sock", Uid::current());
+            let sock_file_path = format!("/run/user/{}/sohkd.sock", Uid::current());
 
             (pid_file_path, sock_file_path)
         }
