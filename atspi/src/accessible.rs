@@ -153,6 +153,19 @@ pub enum Role {
     Mark,
     Suggestion,
 }
+impl std::fmt::Display for Role {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", match self {
+      Self::Heading => "heading",
+      Self::Link => "link",
+      Self::ListItem => "list item",
+      Self::PushButton => "push button",
+      Self::List => "list",
+      Self::Video => "video",
+      _ => "Invalid",
+    })
+  }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum StateType {
