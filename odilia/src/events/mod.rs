@@ -21,7 +21,9 @@ use odilia_common::{
 };
 
 pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, role: Role) -> zbus::Result<()> {
+    tracing::debug!("Start history");
     let curr = state.history_item(0).await?;
+    tracing::debug!("End history");
     let roles = vec![role];
     let attributes = HashMap::new();
     let interfaces = Vec::new();
@@ -37,14 +39,14 @@ pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, ro
         let text = next.to_text().await?;
         text.set_caret_offset(0).await?;
     } else {
-        state.say(Priority::Text, "No more headings".to_string()).await;
+        state.say(Priority::Text, format!("No more {}s", role)).await;
     }
     Ok(())
 }
 
 pub async fn sr_event(
     state: Rc<ScreenReaderState>,
-    mut sr_events: Receiver<ScreenReaderEvent>,
+    sr_events: &mut Receiver<ScreenReaderEvent>,
 ) -> zbus::Result<()> {
     loop {
         let sr_event = match sr_events.recv().await {
@@ -68,20 +70,31 @@ pub async fn sr_event(
     }
 }
 
-#[tracing::instrument(level = "debug"i, skip(state))]
-pub async fn process(state: Rc<ScreenReaderState>) {
+//#[tracing::instrument(level = "debug"i, skip(state))]
+pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>) {
     let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     loop {
         match events.next().await {
             Some(Ok(event)) => {
-                if let Err(e) = dispatch(&state, event).await {
-                    tracing::error!(error = %e, "Could not handle event");
-                }
+              if let Err(e) = tx.send(event).await {
+                tracing::error!(error = %e, "Error sending atspi event");
+              }
             },
             _ => tracing::debug!("Event is none"),
         }
     }
+}
+
+//#[tracing::instrument(level = "debug")]
+pub async fn process(state: Rc<ScreenReaderState>, rx: &mut Receiver<Event>) {
+  while let Some(event) = rx.recv().await {
+    if let Err(e) = dispatch(&state, event).await {
+        tracing::error!(error = %e, "Could not handle event");
+    } else {
+        tracing::debug!("Event handled without error");
+    }
+  }
 }
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -92,8 +105,8 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
             .next()
             .expect("Interface name should contain '.'")
         {
-            "Object" => object::dispatch(state, event).await?,
-            "Document" => document::dispatch(state, event).await?,
+            "Object" => object::dispatch(&state, event).await?,
+            "Document" => document::dispatch(&state, event).await?,
             interface => tracing::debug!(interface, "Ignoring event with unknown interface"),
         }
     }

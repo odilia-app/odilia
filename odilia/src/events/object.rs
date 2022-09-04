@@ -105,12 +105,10 @@ mod state_changed {
 
         state.update_accessible(sender.to_owned(), path.to_owned()).await;
 
-        let name_fut = accessible.name();
-        let description_fut = accessible.description();
-        let role_fut = accessible.get_localized_role_name();
-        let relation_fut = accessible.get_relation_set();
-        let (name, description, role, relation) =
-            tokio::try_join!(name_fut, description_fut, role_fut, relation_fut)?;
+        let name = accessible.name().await?;
+        let description = accessible.description().await?;
+        let role = accessible.get_localized_role_name().await?;
+        let relation = accessible.get_relation_set().await?;
         tracing::debug!("Relations: {:?}", relation);
 
         state.say(

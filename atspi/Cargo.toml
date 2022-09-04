@@ -27,4 +27,4 @@ async-trait = "^0.1.56"
 futures = { version = "0.3.21", default-features = false }
 serde = { version = "1.0.136", features = ["derive"] }
 tracing = "0.1.32"
-zbus = { version = "^2.3.2", default-features = false }
+zbus = { version = "^3.0.0", default-features = false }

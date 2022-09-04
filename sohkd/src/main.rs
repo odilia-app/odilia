@@ -126,14 +126,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             log::debug!("Odilia event statement matched");
                             let odilia_sr_event= cmd.split(' ').nth(1).unwrap();
                             // TODO: check validity on config load
-                            if let Ok(_sr_event) = serde_json::from_str::<ScreenReaderEvent>(odilia_sr_event) {
-                               log::debug!("Odiia event serialzied");
-                               commands_to_send.push_str(format!("{odilia_sr_event}").as_str()); 
-                            } else {
-                              log::error!("Cannot serialize, this is bad!");
-                              // TODO: error handling
-                            }
-                        }
+                             commands_to_send.push_str(format!("{odilia_sr_event}").as_str()); 
+                        },
                         _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
                     }
                 }
@@ -146,6 +140,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
                 log::error!("Failed to send command to sohks through IPC.");
                 log::error!("Please make sure that sohks is running.");
+                log::error!("Socket path is: {:?}", $socket_path);
                 log::error!("Err: {:#?}", e)
             }
         };
