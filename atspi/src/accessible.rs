@@ -318,3 +318,10 @@ pub async fn new<'a>(
         .build()
         .await
 }
+
+impl PartialEq for AccessibleProxy<'_> {
+  fn eq<'a>(&self, other: &Self) -> bool {
+    self.path() == other.path()
+  }
+}
+impl Eq for AccessibleProxy<'_> {}
