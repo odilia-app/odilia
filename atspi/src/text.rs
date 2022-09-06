@@ -19,14 +19,12 @@ use zbus::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
 #[repr(u32)]
-pub enum BoundaryType {
+pub enum TextGranularity {
     Char,
-    WordStart,
-    WordEnd,
-    SentenceStart,
-    SentenceEnd,
-    LineStart,
-    LineEnd,
+    Word,
+    Sentence,
+    Line,
+    Paragraph
 }
 
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]
@@ -99,7 +97,7 @@ trait Text {
     fn get_string_at_offset(
         &self,
         offset: i32,
-        granularity: BoundaryType,
+        granularity: TextGranularity,
     ) -> zbus::Result<(String, i32, i32)>;
 
     /// GetText method
