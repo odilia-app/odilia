@@ -107,17 +107,20 @@ pub async fn say(&self, priority: Priority, text: String) -> bool {
     true
 }
 
-pub async fn history_item(&self, index: usize) -> zbus::Result<AccessibleProxy<'static>> {
+pub async fn history_item(&self, index: usize) -> zbus::Result<Option<AccessibleProxy<'static>>> {
     let history = self.accessible_history.lock().await;
+    if history.len() <= index {
+      return Ok(None);
+    }
     let (dest, path) = history
         .iter()
         .nth(index)
         .expect("Looking for invalid index in accessible history");
-    AccessibleProxy::builder(&self.connection())
+    Ok(Some(AccessibleProxy::builder(&self.connection())
         .destination(dest.to_owned())?
         .path(path)?
         .build()
-        .await
+        .await?))
 }
 
 /// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
