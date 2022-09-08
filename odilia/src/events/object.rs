@@ -14,8 +14,6 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 }
 
 mod text_caret_moved {
-    use std::cmp::{max, min};
-
     use atspi::{accessible, events::Event, text};
     use crate::state::ScreenReaderState;
 

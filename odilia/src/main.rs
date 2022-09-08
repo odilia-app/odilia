@@ -14,13 +14,10 @@ use atspi::accessible::Role;
 use crate::state::ScreenReaderState;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
-    input::{Key, KeyBinding, Modifiers},
     modes::ScreenReaderMode,
 };
 use odilia_input::sr_event_receiver;
 use serde_json;
-
-use std::process::exit;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
