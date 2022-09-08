@@ -4,22 +4,13 @@ use tokio::{
   net::UnixListener,
   io::AsyncReadExt,
   fs,
-  fs::{
-    File,
-    OpenOptions,
-  },
-  sync::mpsc::{
-    Receiver,
-    Sender,
-    channel,
-  },
+  sync::mpsc::Sender,
 };
 use nix::unistd::Uid;
 use std::{
     env,
-    io::prelude::*,
     path::Path,
-    process::{exit, id, Command, Stdio},
+    process::{exit, id},
     time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
@@ -128,7 +119,9 @@ pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre:
                 // if valid screen reader event
                 match serde_json::from_str::<ScreenReaderEvent>(&response) {
                   Ok(sre) => {
-                    event_sender.send(sre).await;
+                    if let Err(err) = event_sender.send(sre).await {
+                      tracing::error!("Error sending ScreenReaderEvent over socket: {}", err);
+                    }
                   },
                   Err(e) => tracing::trace!("Invalid odilia event. {:#?}", e)
                 }
@@ -160,8 +153,4 @@ fn get_file_paths() -> (String, String) {
             (pid_file_path, sock_file_path)
         }
     }
-}
-
-fn run_system_command(odilia_event_str: &str) {
-  
 }
