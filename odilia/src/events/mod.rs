@@ -11,6 +11,7 @@ use atspi::{
     accessible::Role,
     accessible_plus::{AccessiblePlus, MatcherArgs},
     collection::MatchType,
+    component::ScrollType,
     convertable::Convertable,
     events::Event,
 };
@@ -19,11 +20,13 @@ use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
 };
+use zbus_names::UniqueName;
 
 pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, role: Role) -> zbus::Result<()> {
-    tracing::debug!("Start history");
-    let curr = state.history_item(0).await?;
-    tracing::debug!("End history");
+    let curr = match state.history_item(0).await? {
+      Some(acc) => acc,
+      None => return Ok(())
+    };
     let roles = vec![role];
     let attributes = HashMap::new();
     let interfaces = Vec::new();
@@ -36,8 +39,18 @@ pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, ro
         MatchType::Invalid,
     );
     if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
-        let text = next.to_text().await?;
-        text.set_caret_offset(0).await?;
+        let comp = next.to_component().await?;
+        let texti = next.to_text().await?;
+        let focused = comp.grab_focus().await?;
+        comp.scroll_to(ScrollType::TopLeft).await?;
+        let caret_offset = texti.set_caret_offset(0).await?;
+        tracing::debug!("Focused: {}", focused);
+        tracing::debug!("Caret offset: {}", caret_offset);
+        state.update_accessible(UniqueName::try_from(next.destination().as_str())?, next.path().to_owned()).await;
+        let role = next.get_role().await?;
+        let len = texti.character_count().await?;
+        let text = texti.get_text(0, len).await?;
+        state.say(Priority::Text, format!("{}, {}", text, role)).await;
     } else {
         state.say(Priority::Text, format!("No more {}s", role)).await;
     }
