@@ -7,8 +7,10 @@ use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
-use atspi::{accessible::AccessibleProxy, cache::CacheProxy};
-use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig};
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_plus::AccessiblePlus, convertable::Convertable};
+use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea, GranularSelection, IndexesSelection}};
+
+use futures::stream::StreamExt;
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
@@ -74,6 +76,33 @@ impl ScreenReaderState {
         })
     }
 
+    // TODO: use cache; this will uplift performance MASSIVELY
+    pub async fn generate_speech_string(&self, acc: AccessibleProxy<'_>, select: TextSelectionArea) -> zbus::Result<String> {
+      let acc_text = acc.to_text().await?;
+      let text_length = acc_text.character_count().await?;
+      let full_text = acc_text.get_text(0, text_length).await?;
+      let (mut text_selection, start, end) = match select {
+        TextSelectionArea::Granular(granular) => acc_text.get_string_at_offset(granular.index, granular.granularity).await?,
+        TextSelectionArea::Index(indexed) => (acc_text.get_text(indexed.start, indexed.end).await?, indexed.start, indexed.end),
+      };
+      // TODO: Use streaming filters, or create custom function
+      let children = acc.get_children_plus().await?;
+      let mut children_in_range = Vec::new();
+      for child in children {
+        let index = child.get_index_in_parent().await?;
+        if index >= start && index <= end {
+          children_in_range.push(child);
+        }
+      }
+      for child in children_in_range {
+        let index = child.get_index_in_parent().await? as usize;
+        let child_text = format!("{}, {}", child.name().await?, child.get_role_name().await?);
+        text_selection.replace_range(index..index+1, &child_text);
+      }
+      // TODO: add logic for punctuation
+      Ok(text_selection)
+    }
+  
     pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
         let match_rule = event_to_match_rule(event);
         self.add_match_rule(&match_rule).await?;
