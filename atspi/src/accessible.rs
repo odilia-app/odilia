@@ -10,10 +10,7 @@
 //! section of the zbus documentation.
 //!
 
-use serde::{
-  Deserialize,
-  Serialize,
-};
+use serde::{Deserialize, Serialize};
 use zbus::{
     dbus_proxy,
     names::UniqueName,
@@ -154,17 +151,21 @@ pub enum Role {
     Suggestion,
 }
 impl std::fmt::Display for Role {
-  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", match self {
-      Self::Heading => "heading",
-      Self::Link => "link",
-      Self::ListItem => "list item",
-      Self::PushButton => "push button",
-      Self::List => "list",
-      Self::Video => "video",
-      _ => "Invalid",
-    })
-  }
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Heading => "heading",
+                Self::Link => "link",
+                Self::ListItem => "list item",
+                Self::PushButton => "push button",
+                Self::List => "list",
+                Self::Video => "video",
+                _ => "Invalid",
+            }
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
@@ -320,8 +321,8 @@ pub async fn new<'a>(
 }
 
 impl PartialEq for AccessibleProxy<'_> {
-  fn eq<'a>(&self, other: &Self) -> bool {
-    self.path() == other.path()
-  }
+    fn eq<'a>(&self, other: &Self) -> bool {
+        self.path() == other.path()
+    }
 }
 impl Eq for AccessibleProxy<'_> {}

@@ -24,7 +24,7 @@ pub enum TextGranularity {
     Word,
     Sentence,
     Line,
-    Paragraph
+    Paragraph,
 }
 
 #[dbus_proxy(interface = "org.a11y.atspi.Text")]

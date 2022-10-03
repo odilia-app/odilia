@@ -112,11 +112,11 @@ impl AccessibleExt for AccessibleProxy<'_> {
             .await
     }
     async fn get_children_indexes<'a>(&self) -> zbus::Result<Vec<i32>> {
-      let mut indexes = Vec::new();
-      for child in self.get_children_ext().await? {
-        indexes.push(child.get_index_in_parent().await?);
-      }
-      Ok(indexes)
+        let mut indexes = Vec::new();
+        for child in self.get_children_ext().await? {
+            indexes.push(child.get_index_in_parent().await?);
+        }
+        Ok(indexes)
     }
     async fn get_children_ext<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let children_parts = self.get_children().await?;
