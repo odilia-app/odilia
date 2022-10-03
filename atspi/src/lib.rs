@@ -1,3 +1,11 @@
+#![deny(
+  clippy::all,
+  clippy::pedantic,
+  clippy::cargo,
+  missing_docs,
+  unsafe_code
+)]
+
 pub mod accessible;
 pub mod action;
 pub mod application;
