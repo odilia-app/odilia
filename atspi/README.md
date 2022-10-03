@@ -10,6 +10,10 @@ Part of the [Odilia screen reader project](https://odilia.app).
 
 ## Design
 
+* Fully documented, with `#[deny(missing_docs)]`
+* Fully safe, with `#[deny(unsafe_code)]`
+* Fantastic code style with `#[deny(clippy:all, clippy::pedantic, clippy::cargo)]`
+
 These bindings are currently general purpose, and can be used in any project. While we intend to try keeping it that
 way, the design of this crate will likely be affected by the design of Odilia, particularly by it's addon API, which
 requires that addons from different languages be able to access objects from this crate.
