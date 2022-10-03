@@ -21,6 +21,7 @@ pub trait AccessiblePlus {
     async fn get_parent_plus<'a>(&self) -> zbus::Result<AccessibleProxy<'a>>;
     async fn get_children_plus<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_siblings<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
+    async fn get_children_indexes<'a>(&self) -> zbus::Result<Vec<i32>>;
     async fn get_siblings_before<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_siblings_after<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_ancestors<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
@@ -109,6 +110,13 @@ impl AccessiblePlus for AccessibleProxy<'_> {
             .path(parent_parts.1)?
             .build()
             .await
+    }
+    async fn get_children_indexes<'a>(&self) -> zbus::Result<Vec<i32>> {
+      let mut indexes = Vec::new();
+      for child in self.get_children_plus().await? {
+        indexes.push(child.get_index_in_parent().await?);
+      }
+      Ok(indexes)
     }
     async fn get_children_plus<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let children_parts = self.get_children().await?;
