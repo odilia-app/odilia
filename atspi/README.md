@@ -17,7 +17,7 @@ requires that addons from different languages be able to access objects from thi
 This crate makes use of the [zbus crate](https://crates.io/crates/zbus) for [dbus
 communication](https://www.freedesktop.org/wiki/Software/dbus/). We use the asynchronous zbus API, so to use atspi, you
 will need to run an async executer like [tokio](https://crates.io/crates/tokio) or
-[async-std](https://crates.io/crates/async-std). The async-io` and `tokio` features are exposed and will be passed
+[async-std](https://crates.io/crates/async-std). The `async-io` and `tokio` features are exposed and will be passed
 through to zbus.
 
 ## Usage
