@@ -4,7 +4,7 @@
 [![docs.rs badge](https//docs.rs/atspi/badge.svg)](https://docs.rs/atspi)
 
 Higher level, asynchronous Rust bindings to [AT-SPI2](https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/), using
-[zbus][https://crates.io/crates/zbus].
+[zbus](https://crates.io/crates/zbus).
 
 Part of the [Odilia screen reader project](https://odilia.app).
 
