@@ -24,8 +24,7 @@ pub mod table_cell;
 pub mod text;
 pub mod value;
 
-pub mod accessible_plus;
-pub mod text_plus;
+pub mod accessible_ext;
 
 pub mod helpers;
 

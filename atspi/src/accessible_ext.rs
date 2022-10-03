@@ -15,11 +15,11 @@ pub type MatcherArgs = (
 );
 
 #[async_trait]
-pub trait AccessiblePlus {
+pub trait AccessibleExt {
     // Assumes that an accessible can be made from the component parts
     async fn get_id(&self) -> Option<u32>;
-    async fn get_parent_plus<'a>(&self) -> zbus::Result<AccessibleProxy<'a>>;
-    async fn get_children_plus<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
+    async fn get_parent_ext<'a>(&self) -> zbus::Result<AccessibleProxy<'a>>;
+    async fn get_children_ext<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_siblings<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
     async fn get_children_indexes<'a>(&self) -> zbus::Result<Vec<i32>>;
     async fn get_siblings_before<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>>;
@@ -34,7 +34,7 @@ pub trait AccessiblePlus {
         matcher_args: &MatcherArgs,
         backward: bool,
     ) -> zbus::Result<Option<AccessibleProxy<'a>>>;
-    async fn get_relation_set_plus<'a>(
+    async fn get_relation_set_ext<'a>(
         &self,
     ) -> zbus::Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>>;
 }
@@ -62,9 +62,9 @@ impl AccessibleProxy<'_> {
         recur: bool,
     ) -> zbus::Result<Option<AccessibleProxy<'a>>> {
         let children = match backward {
-            false => self.get_children_plus().await?,
+            false => self.get_children_ext().await?,
             true => {
-                let mut vec = self.get_children_plus().await?;
+                let mut vec = self.get_children_ext().await?;
                 vec.reverse();
                 vec
             }
@@ -92,7 +92,7 @@ impl AccessibleProxy<'_> {
 }
 
 #[async_trait]
-impl AccessiblePlus for AccessibleProxy<'_> {
+impl AccessibleExt for AccessibleProxy<'_> {
     async fn get_id(&self) -> Option<u32> {
         let path = self.path();
         if let Some(id) = path.split('/').next_back() {
@@ -103,7 +103,7 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         }
         None
     }
-    async fn get_parent_plus<'a>(&self) -> zbus::Result<AccessibleProxy<'a>> {
+    async fn get_parent_ext<'a>(&self) -> zbus::Result<AccessibleProxy<'a>> {
         let parent_parts = self.parent().await?;
         AccessibleProxy::builder(self.connection())
             .destination(parent_parts.0)?
@@ -113,12 +113,12 @@ impl AccessiblePlus for AccessibleProxy<'_> {
     }
     async fn get_children_indexes<'a>(&self) -> zbus::Result<Vec<i32>> {
       let mut indexes = Vec::new();
-      for child in self.get_children_plus().await? {
+      for child in self.get_children_ext().await? {
         indexes.push(child.get_index_in_parent().await?);
       }
       Ok(indexes)
     }
-    async fn get_children_plus<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
+    async fn get_children_ext<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let children_parts = self.get_children().await?;
         let mut children = Vec::new();
         for child_parts in children_parts {
@@ -132,10 +132,10 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         Ok(children)
     }
     async fn get_siblings<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
-        let parent = self.get_parent_plus().await?;
+        let parent = self.get_parent_ext().await?;
         let index = self.get_index_in_parent().await? as usize;
         let children: Vec<AccessibleProxy<'a>> = parent
-            .get_children_plus()
+            .get_children_ext()
             .await?
             .into_iter()
             .enumerate()
@@ -144,10 +144,10 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         Ok(children)
     }
     async fn get_siblings_before<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
-        let parent = self.get_parent_plus().await?;
+        let parent = self.get_parent_ext().await?;
         let index = self.get_index_in_parent().await? as usize;
         let children: Vec<AccessibleProxy<'a>> = parent
-            .get_children_plus()
+            .get_children_ext()
             .await?
             .into_iter()
             .enumerate()
@@ -156,10 +156,10 @@ impl AccessiblePlus for AccessibleProxy<'_> {
         Ok(children)
     }
     async fn get_siblings_after<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
-        let parent = self.get_parent_plus().await?;
+        let parent = self.get_parent_ext().await?;
         let index = self.get_index_in_parent().await? as usize;
         let children: Vec<AccessibleProxy<'a>> = parent
-            .get_children_plus()
+            .get_children_ext()
             .await?
             .into_iter()
             .enumerate()
@@ -169,17 +169,17 @@ impl AccessiblePlus for AccessibleProxy<'_> {
     }
     async fn get_ancestors<'a>(&self) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let mut ancestors = Vec::new();
-        let mut ancestor = self.get_parent_plus().await?;
+        let mut ancestor = self.get_parent_ext().await?;
         while ancestor.get_role().await? != Role::Frame {
             ancestors.push(ancestor.clone());
-            ancestor = ancestor.get_parent_plus().await?;
+            ancestor = ancestor.get_parent_ext().await?;
         }
         Ok(ancestors)
     }
     async fn get_ancestor_with_role<'a>(&self, role: Role) -> zbus::Result<AccessibleProxy<'a>> {
-        let mut ancestor = self.get_parent_plus().await?;
+        let mut ancestor = self.get_parent_ext().await?;
         while ancestor.get_role().await? != role && ancestor.get_role().await? != Role::Frame {
-            ancestor = ancestor.get_parent_plus().await?;
+            ancestor = ancestor.get_parent_ext().await?;
         }
         Ok(ancestor)
     }
@@ -189,7 +189,7 @@ impl AccessiblePlus for AccessibleProxy<'_> {
     ) -> zbus::Result<Vec<AccessibleProxy<'a>>> {
         let mut children_after_before = Vec::new();
         let caret_pos = self.to_text().await?.caret_offset().await?;
-        let children_hyperlink = self.to_accessible().await?.get_children_plus().await?;
+        let children_hyperlink = self.to_accessible().await?.get_children_ext().await?;
         for child in children_hyperlink {
             let hyperlink = child.to_hyperlink().await?;
             if let Ok(start_index) = hyperlink.start_index().await {
@@ -221,7 +221,7 @@ impl AccessiblePlus for AccessibleProxy<'_> {
             }
         }
         let mut last_parent_index = self.get_index_in_parent().await?;
-        if let Ok(mut parent) = self.get_parent_plus().await {
+        if let Ok(mut parent) = self.get_parent_ext().await {
             while parent.get_role().await? != Role::InternalFrame {
                 let found_inner_child = parent
                     .find_inner(last_parent_index, matcher_args, backward, false)
@@ -230,12 +230,12 @@ impl AccessiblePlus for AccessibleProxy<'_> {
                     return Ok(found_inner_child);
                 }
                 last_parent_index = parent.get_index_in_parent().await?;
-                parent = parent.get_parent_plus().await?;
+                parent = parent.get_parent_ext().await?;
             }
         }
         Ok(None)
     }
-    async fn get_relation_set_plus<'a>(
+    async fn get_relation_set_ext<'a>(
         &self,
     ) -> zbus::Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>> {
         let raw_relations = self.get_relation_set().await?;
