@@ -31,14 +31,17 @@ atspi = "0.0.1"
 
 ## Contributing
 
-This is a very young project, we appreciate any and all contributions! However, please be aware there is a very llarge
-learning curve to helping with this project, particularly due to the lack of documentation, or **complete**
-documentation, of many of the libraries and technologies that comprise the Linux accessibility stack. For this reason,
-we are currently focused on learning as much as we can, and writing code to take advantage of it, and we don't have lots
-of time to mentor new contributors or review pull requests.
+We love people who add functionality, find bugs, or improve code quality!
+You can clone the respository and make modifications just by `git clone`-ing the repository like so:
 
-Once the ground-work has been layed, accepting contributions should get much easier. We are greatful for your
-cooperation in this regard!
+```bash
+$ git clone https://github.com/odilia-app/odilia
+$ cd odilia/atspi
+$ cargo build
+```
+
+At this time, you need to download our entire `odilia` respository to make modifications to the `atspi` crate.
+This will be changed in the future.
 
 ## License
 
