@@ -34,8 +34,6 @@ pub mod value;
 
 pub mod accessible_ext;
 
-pub mod helpers;
-
 // Hand-written connection module
 mod connection;
 pub use connection::*;
@@ -47,8 +45,12 @@ use zbus::zvariant::Type;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
 #[repr(u32)]
+/// The relative coordinate type.
 pub enum CoordType {
+    /// In relation to the entire screen.
     Screen,
+    /// In relation to only the window.
     Window,
+    /// In relation to the parent of the element being checked.
     Parent,
 }
