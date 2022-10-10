@@ -236,7 +236,7 @@ impl std::fmt::Display for Role {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum StateType {
-    InVALId,
+    Invalid,
     Active,
     Armed,
     Busy,
@@ -326,7 +326,7 @@ trait Accessible {
     /// GetChildren method
     fn get_children(&self) -> zbus::Result<Vec<(String, zbus::zvariant::OwnedObjectPath)>>;
 
-    /// GetIndexInParent method
+    /// GetIndexInParent method; this will give an index between 0 and n, where n is the number of children in the parent.
     fn get_index_in_parent(&self) -> zbus::Result<i32>;
 
     /// GetInterfaces method
