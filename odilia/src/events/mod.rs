@@ -9,7 +9,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use atspi::{
     accessible::Role,
-    accessible_plus::{AccessiblePlus, MatcherArgs},
+    accessible_ext::{AccessibleExt, MatcherArgs},
     collection::MatchType,
     component::ScrollType,
     convertable::Convertable,

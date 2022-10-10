@@ -15,7 +15,6 @@ publish = false
 [dependencies]
 tokio = { version = "^1.19.0", features = ["full"] }
 eyre = "^0.6.8"
-rdev = { version = "0.5.1", features = ["unstable_grab"] }
 lazy_static = "1.4.0"
 tracing = "0.1.32"
 nix = "0.23.1"

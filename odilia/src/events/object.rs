@@ -14,11 +14,20 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 }
 
 mod text_caret_moved {
-    use atspi::{accessible, events::Event, text};
+    use speech_dispatcher::Priority;
+    use atspi::{accessible, events::Event, text, convertable::Convertable};
     use crate::state::ScreenReaderState;
+    use odilia_common::types::{IndexesSelection, TextSelectionArea};
 
+    // TODO: left/right vs. up/down, and use generated speech
     pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
         let current_caret_pos = event.detail1();
+        let previous_caret_pos = state.previous_caret_position.get();
+        state.previous_caret_position.set(current_caret_pos);
+        let (start, end) = match current_caret_pos > previous_caret_pos {
+          true => (previous_caret_pos, current_caret_pos),
+          false => (current_caret_pos, previous_caret_pos),
+        };
         let path = if let Some(path) = event.path() {
             path
         } else {
@@ -29,47 +38,27 @@ mod text_caret_moved {
         } else {
             return Ok(());
         };
-        let conn = state.connection();
-        let text = text::new(&conn.clone(), sender.to_owned(), path.to_owned()).await?;
+        let conn = state.connection().clone();
         let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
-        if let Some(latest) = state.history_item(0).await? {
-          if let Some(second) = state.history_item(1).await? {
-          if latest == accessible && second != accessible && current_caret_pos == 0 {
-              tracing::trace!("Caret is moved to latest accessible and the second latest isn't the same and te cursor is at zero; this is usually a result of a structural navigation or tab. Do not read out.");
-              state.update_accessible(sender, path).await;
-              return Ok(());
-            }
-          }
-        }
-        let line = text.get_string_at_offset(current_caret_pos, text::TextGranularity::Line).await?.0;
-        state.update_accessible(sender, path).await;
-
-        // TODO this just won't work on the first two accessibles we call. oh well.
-        let latest_accessible = match state.history_item(0).await? {
+        let last_accessible = match state.history_item(0).await? {
           Some(acc) => acc,
           None => return Ok(()),
         };
-        let second_latest_accessible = match state.history_item(0).await? {
+        let last_last_accessible = match state.history_item(1).await? {
           Some(acc) => acc,
-          None => return Ok(())
+          None => return Ok(()),
         };
-        // if this is the same accessible as previously acted upon, and caret position is 0
-        // This will be true if the user has just tabbed into a new accessible.
-        if latest_accessible.path() == accessible.path()
-            && second_latest_accessible.path() != accessible.path()
-            && current_caret_pos == 0
-        {
-            tracing::debug!("Tabbed selection detected. Do no re-speak due to caret navigation.");
-        } else {
-            tracing::debug!("Tabbed selection not detected.");
-            tracing::debug!("Speaking normal caret navigation");
-            if !line.is_empty() {
-              state.say(speech_dispatcher::Priority::Text, format!("{}", line)).await;
-            }
+        state.update_accessible(sender, path).await;
+        
+        // in the case that this is not a tab navigation
+        // TODO: algorithm that only triggers this when a tab navigation is known to have not occured. How the fuck am I supposed to know how that works?
+        // Ok, start out with the basics: if a focus event has recently occuredm, there is a good chance that this function is about to get triggered as well. So, for one, a tab navigation GUARENTEES that the last_accessible will be equal to the curent accessible.
+        if accessible == last_last_accessible  {
+           let txt = accessible.to_text().await?;
+            let len = txt.character_count().await?;
+          // TODO: improve text readout
+          state.say(Priority::Text, format!("{}", txt.get_text(0, len).await?)).await;
         }
-
-        // update caret position
-        state.previous_caret_position.set(current_caret_pos);
         Ok(())
     }
 

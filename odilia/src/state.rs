@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
-use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_plus::AccessiblePlus, convertable::Convertable};
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea, GranularSelection, IndexesSelection}};
 
 use futures::stream::StreamExt;
@@ -79,6 +79,7 @@ impl ScreenReaderState {
     // TODO: use cache; this will uplift performance MASSIVELY
     pub async fn generate_speech_string(&self, acc: AccessibleProxy<'_>, select: TextSelectionArea) -> zbus::Result<String> {
       let acc_text = acc.to_text().await?;
+      let acc_hyper = acc.to_hyperlink().await?;
       let text_length = acc_text.character_count().await?;
       let full_text = acc_text.get_text(0, text_length).await?;
       let (mut text_selection, start, end) = match select {
@@ -86,18 +87,21 @@ impl ScreenReaderState {
         TextSelectionArea::Index(indexed) => (acc_text.get_text(indexed.start, indexed.end).await?, indexed.start, indexed.end),
       };
       // TODO: Use streaming filters, or create custom function
-      let children = acc.get_children_plus().await?;
+      let children = acc.get_children_ext().await?;
       let mut children_in_range = Vec::new();
       for child in children {
-        let index = child.get_index_in_parent().await?;
+        let child_hyper = child.to_hyperlink().await?;
+        let index = child_hyper.start_index().await?;
         if index >= start && index <= end {
           children_in_range.push(child);
         }
       }
       for child in children_in_range {
-        let index = child.get_index_in_parent().await? as usize;
+        let child_hyper = child.to_hyperlink().await?;
+        let child_start = child_hyper.start_index().await? as usize;
+        let child_end = child_hyper.end_index().await? as usize;
         let child_text = format!("{}, {}", child.name().await?, child.get_role_name().await?);
-        text_selection.replace_range(index..index+1, &child_text);
+        text_selection.replace_range(child_start+(start as usize)..child_end+(start as usize), &child_text);
       }
       // TODO: add logic for punctuation
       Ok(text_selection)
