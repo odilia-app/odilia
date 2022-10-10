@@ -12,6 +12,31 @@
 
 use zbus::dbus_proxy;
 
+/// A structure which represents a cache item from AT-SPI.
+/// It proceedes in this order:
+/// 
+/// ```rust
+/// // the accessible being referred to
+/// (String, [`zbus::zvariant::OwnedObjectPath`]), 
+/// // the application which the accessible is contained within.
+/// (String, [`zbus::zvariant::OwnedObjectPath`]),
+/// // the parent object reference
+/// (String, [`zbus::zvariant::OwnedObjectPath`]),
+/// // accessible index in parent
+/// i32,
+/// // child count of accessible
+/// i32,
+/// // list of interfaces
+/// Vec<String>
+/// // localized short names
+/// String,
+/// // role
+/// u32,
+/// // more detailed localized name
+/// String,
+/// // states
+/// Vec<u32>
+/// ```
 type CacheStruct = (
     (String, zbus::zvariant::OwnedObjectPath), // a11y object reference
     (String, zbus::zvariant::OwnedObjectPath), // application reference
