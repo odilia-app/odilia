@@ -10,6 +10,7 @@
 //! section of the zbus documentation.
 //!
 
+use crate::StateSet;
 use serde::{Deserialize, Serialize};
 use zbus::{
     dbus_proxy,
@@ -235,54 +236,6 @@ impl std::fmt::Display for Role {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
-pub enum StateType {
-    Invalid,
-    Active,
-    Armed,
-    Busy,
-    Checked,
-    Collapsed,
-    Defunct,
-    Editable,
-    Enabled,
-    Expandable,
-    Expanded,
-    Focusable,
-    Focused,
-    HasTooltip,
-    Horizontal,
-    Iconified,
-    Modal,
-    MultiLine,
-    Multiselectable,
-    Opaque,
-    Pressed,
-    Resizable,
-    Selectable,
-    Selected,
-    Sensitive,
-    Showing,
-    SingleLine,
-    Stale,
-    Transient,
-    Vertical,
-    Visible,
-    ManagesDescendants,
-    Indeterminate,
-    Required,
-    Truncated,
-    Animated,
-    InvalidEntry,
-    SupportsAutocompletion,
-    SelectableText,
-    IsDefault,
-    Visited,
-    Checkable,
-    HasPopup,
-    ReadOnly,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
 pub enum RelationType {
     Null = 0,
     LabelFor,
@@ -347,7 +300,7 @@ trait Accessible {
     fn get_role_name(&self) -> zbus::Result<String>;
 
     /// GetState method
-    fn get_state(&self) -> zbus::Result<Vec<StateType>>;
+    fn get_state(&self) -> zbus::Result<StateSet>;
 
     /// AccessibleId property
     #[dbus_proxy(property)]
