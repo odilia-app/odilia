@@ -1,4 +1,44 @@
 capslock + b
-	@odilia {"ChangeMode": "Browse"}
+	@enter browse
+	@odilia {"event":"changeMode","args":{"name":"browse"}}
 capslock + f
-	@odilia {"ChangeMode": "Focus"}
+	@enter focus
+	@odilia {"event":"changeMode","args":{"name":"focus"}}
+# Capslock + up = fake cursor movement
+# TODO: use separate fake cursor, only works with 
+capslock + up
+	@odilia {"event":"changeMode","args":{"name":"goup"}}
+
+# all focus mode keys
+mode focus
+capslock + b
+	@enter browse
+	@odilia {"event":"changeMode","args":{"name":"browse"}}
+endmode
+
+# all browse mode keys, including structural nvaigation
+mode browse
+capslock + f
+	@enter focus
+	@odilia {"event":"changeMode","args":{"name":"focus"}}
+shift + i
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"ListItem"]}
+i
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"ListItem"]}
+shift + l
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"List"]}
+l
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"List"]}
+shift + k
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Link"]}
+k
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Link"]}
+shift + b
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"PushButton"]}
+b
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"PushButton"]}
+shift + h
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Heading"]}
+h
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Heading"]}
+endmode
