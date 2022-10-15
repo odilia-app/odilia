@@ -11,6 +11,7 @@ Part of the [Odilia screen reader project](https://odilia.app).
 ## Design
 
 * Fully documented, with `#[deny(missing_docs)]`
+	* Or at least, it will be by 1.0
 * Fully safe, with `#[deny(unsafe_code)]`
 * Fantastic code style with `#[deny(clippy:all, clippy::pedantic, clippy::cargo)]`
 
