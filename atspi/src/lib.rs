@@ -2,7 +2,7 @@
   clippy::all,
   clippy::pedantic,
   clippy::cargo,
-  missing_docs,
+  //missing_docs,
   unsafe_code
 )]
 
