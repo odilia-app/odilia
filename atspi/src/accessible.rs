@@ -229,6 +229,17 @@ impl std::fmt::Display for Role {
                 Self::PushButton => "push button",
                 Self::List => "list",
                 Self::Video => "video",
+                Self::Form => "form",
+                Self::CheckBox => "checkbox",
+                Self::Separator => "separator",
+                Self::Math => "math",
+                Self::Section => "section",
+                Self::ComboBox => "combo box",
+                Self::RadioButton => "radio button",
+                Self::Table => "table",
+                Self::Image => "image",
+                Self::Frame => "frame",
+                Self::Entry => "entry",
                 _ => "Invalid",
             }
         )
