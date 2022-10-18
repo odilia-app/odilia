@@ -225,6 +225,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // The socket we're sending the commands to.
     let socket_file_path = fetch_xdg_runtime_socket_path();
+    log::debug!("Socket path: {:#?}", socket_file_path);
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
