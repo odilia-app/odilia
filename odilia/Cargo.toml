@@ -29,6 +29,7 @@ async-recursion = "^1.0.0"
 atspi = { path = "../atspi", default-features = false, features = ["tokio"] }
 clap = { version = "^3.1.8", features = ["derive", "wrap_help"] }
 color-eyre = "^0.6.1"
+console-subscriber = "0.1.8"
 circular-queue = "^0.2.6"
 evmap = "10.0.2"
 eyre = "^0.6.8"
@@ -37,8 +38,9 @@ odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
 odilia-tts = { path = "../tts" }
 pin-utils = "^0.1.0"
-speech-dispatcher = "^0.13.1"
-tokio = { version = "^1.20.0", default-features = false, features = ["sync", "macros", "rt"] }
+# TODO: temporary until upstream merge is made to allow speech-dispatcher to compile once again
+speech-dispatcher = { git = "https://git.tait.tech/tait/speech-dispatcher-rs" }
+tokio = { version = "^1.21.2", features = ["sync", "macros", "rt", "full", "tracing"] }
 tracing = "^0.1.32"
 tracing-error = "^0.2.0"
 tracing-log = "^0.1.2"
