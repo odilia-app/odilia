@@ -450,11 +450,11 @@ pub fn fetch_xdg_config_path() -> PathBuf {
     let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
             log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            Path::new(&val).join("sohkd/sohkdrc")
+            Path::new(&val).join("odilia/sohkdrc")
         }
         Err(_) => {
             log::error!("XDG_CONFIG_HOME has not been set.");
-            Path::new("/etc/sohkd/sohkdrc").to_path_buf()
+            Path::new("/etc/odilia/sohkdrc").to_path_buf()
         }
     };
     config_file_path
