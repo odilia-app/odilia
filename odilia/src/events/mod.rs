@@ -67,23 +67,24 @@ pub async fn sr_event(
 ) -> zbus::Result<()> {
     loop {
         tokio::select! {
-            Some(sr_event) = sr_events.recv() => {
+            sr_event = sr_events.recv() => {
                 tracing::debug!("SR Event received");
                 match sr_event {
-                    ScreenReaderEvent::StructuralNavigation(dir, role) => {
+                    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
                          if let Err(e) = structural_navigation(&state, dir, role).await {
                             tracing::debug!(error = %e, "There was an error with the structural navigation call.");
                         }
                     },
-                    ScreenReaderEvent::StopSpeech => tracing::trace!("Stopping speech!"),
-                    ScreenReaderEvent::ChangeMode(ScreenReaderMode { name }) => {
+                    Some(ScreenReaderEvent::StopSpeech) => tracing::trace!("Stopping speech!"),
+                    Some(ScreenReaderEvent::ChangeMode(ScreenReaderMode { name })) => {
                         tracing::debug!("Changing mode to {:?}", name);
                         //let _ = mode_channel.send(ScreenReaderMode { name }).await;
                     }
-                    _ => {}
+                    _ => { continue; }
                 };
+                continue;
             }
-            Ok(i) = shutdown_rx.recv() => {
+            _ = shutdown_rx.recv() => {
                 tracing::debug!("sr_event cancelled");
                 break;
             }
@@ -98,10 +99,6 @@ pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_r
     pin_utils::pin_mut!(events);
     loop {
         tokio::select! {
-            i = shutdown_rx.recv() => {
-                tracing::debug!("receive function is done");
-                break;
-            }
             event = events.next() => {
                 if let Some(Ok(good_event)) = event {
                     if let Err(e) = tx.send(good_event).await {
@@ -110,6 +107,11 @@ pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_r
                 } else {
                     tracing::debug!("Event is either None or an Error variant.");
                 }
+                continue;
+            }
+            _ = shutdown_rx.recv() => {
+                tracing::debug!("receive function is done");
+                break;
             }
         }
     }
@@ -119,14 +121,22 @@ pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_r
 pub async fn process(state: Rc<ScreenReaderState>, rx: &mut Receiver<Event>, shutdown_rx: &mut broadcast::Receiver<i32>) {
     loop {
         tokio::select! {
-            Some(event) = rx.recv() => {
-                if let Err(e) = dispatch(&state, event).await {
-                    tracing::error!(error = %e, "Could not handle event");
-                } else {
-                    tracing::debug!("Event handled without error");
-                }
+            event = rx.recv() => {
+                match event {
+                    Some(good_event) => {
+                        if let Err(e) = dispatch(&state, good_event).await {
+                            tracing::error!(error = %e, "Could not handle event");
+                        } else {
+                            tracing::debug!("Event handled without error");
+                        }
+                    },
+                    None => {
+                        tracing::debug!("Event was none.");
+                    }
+                };
+                continue;
             }
-            i = shutdown_rx.recv() => {
+            _ = shutdown_rx.recv() => {
                 tracing::debug!("process function is done");
                 break;
             }

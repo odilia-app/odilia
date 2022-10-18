@@ -4,6 +4,8 @@ mod events;
 mod logging;
 mod state;
 
+use console_subscriber;
+
 use std::rc::Rc;
 
 use eyre::WrapErr;
@@ -16,7 +18,6 @@ use tokio::{
         signal,
     },
 };
-use tokio_graceful_shutdown::{SubsystemHandle, Toplevel};
 
 use atspi::accessible::Role;
 use crate::state::ScreenReaderState;
@@ -32,8 +33,8 @@ async fn sigterm_signal_watcher(state: Rc<ScreenReaderState>, shutdown_tx: broad
     tracing::debug!("Watching for Ctrl+C");
     loop {
         c.recv().await;
-        shutdown_tx.send(0);
         tracing::debug!("Asking all processes to stop.");
+        shutdown_tx.send(0);
         return Ok(());
     }
 }
@@ -41,6 +42,7 @@ async fn sigterm_signal_watcher(state: Rc<ScreenReaderState>, shutdown_tx: broad
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     logging::init();
+    //console_subscriber::init();
     let _args = args::parse();
     let change_mode = ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name: "Browse".to_string()});
     let sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
@@ -51,7 +53,7 @@ async fn main() -> eyre::Result<()> {
     let (sr_event_tx, mut sr_event_rx) = mpsc::channel(8);
     // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
     // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
-    let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(64);
+    let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(128);
 
     // Register events
     state.register_event("Object:StateChanged:Focused").await?;

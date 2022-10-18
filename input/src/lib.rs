@@ -5,6 +5,7 @@ use tokio::{
   io::AsyncReadExt,
   fs,
   sync::mpsc::Sender,
+  sync::broadcast,
 };
 use nix::unistd::Uid;
 use std::{
@@ -43,7 +44,7 @@ fn get_log_file_name() -> String {
     }
 }
 
-pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre::Result<()> {
+pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>, shutdown_rx: &mut broadcast::Receiver<i32>) -> eyre::Result<()> {
     //tracing::trace!("Setting process umask.");
     //umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
@@ -106,30 +107,40 @@ pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>) -> eyre:
     let listener = UnixListener::bind(sock_file_path).expect("Could not open socket");
     tracing::debug!("Listener activated!");
     loop {
-        match listener.accept().await {
-            Ok((mut socket, address)) => {
-                tracing::debug!("Ok from socket");
-                let mut response = String::new();
-                match socket.read_to_string(&mut response).await {
-                  Ok(_) => {},
-                  Err(e) => {
-                    tracing::error!("Error reading from socket {:#?}", e);
-                  }
+        tokio::select! {
+            msg = listener.accept() => {
+                match msg {
+                    Ok((mut socket, address)) => {
+                        tracing::debug!("Ok from socket");
+                        let mut response = String::new();
+                        match socket.read_to_string(&mut response).await {
+                          Ok(_) => {},
+                          Err(e) => {
+                            tracing::error!("Error reading from socket {:#?}", e);
+                          }
+                        }
+                        // if valid screen reader event
+                        match serde_json::from_str::<ScreenReaderEvent>(&response) {
+                          Ok(sre) => {
+                            if let Err(err) = event_sender.send(sre).await {
+                              tracing::error!("Error sending ScreenReaderEvent over socket: {}", err);
+                            }
+                          },
+                          Err(e) => tracing::trace!("Invalid odilia event. {:#?}", e)
+                        }
+                        tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+                    },
+                    Err(e) => tracing::error!("accept function failed: {:?}", e),
                 }
-                // if valid screen reader event
-                match serde_json::from_str::<ScreenReaderEvent>(&response) {
-                  Ok(sre) => {
-                    if let Err(err) = event_sender.send(sre).await {
-                      tracing::error!("Error sending ScreenReaderEvent over socket: {}", err);
-                    }
-                  },
-                  Err(e) => tracing::trace!("Invalid odilia event. {:#?}", e)
-                }
-                tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+                continue;
             }
-            Err(e) => tracing::error!("accept function failed: {:?}", e),
+            _ = shutdown_rx.recv() => {
+                tracing::debug!("Shutting down input socker.");
+                break;
+            }
         }
     }
+    Ok(())
 }
 
 fn get_file_paths() -> (String, String) {
