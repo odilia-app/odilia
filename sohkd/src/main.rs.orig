@@ -176,19 +176,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
-    // Apparently, having a single uinput device with keys, relative axes and switches
-    // prevents some libraries to listen to these events. The easy fix is to have separate
-    // virtual devices, one for keys and relative axes (`uinput_device`) and another one
-    // just for switches (`uinput_switches_device`).
     let mut uinput_device = match uinput::create_uinput_device() {
-        Ok(dev) => dev,
-        Err(e) => {
-            log::error!("Err: {:#?}", e);
-            exit(1);
-        }
-    };
-
-    let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
         Ok(dev) => dev,
         Err(e) => {
             log::error!("Err: {:#?}", e);
@@ -290,22 +278,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
 
-            Some((i, Ok(event))) = keyboard_stream_map.next() => {
+            Some((i, Ok(command))) = keyboard_stream_map.next() => {
                 let keyboard_state = &mut keyboard_states[i];
 
-                let key = match event.kind() {
+                let key = match command.kind() {
                     InputEventKind::Key(keycode) => keycode,
-                    InputEventKind::Switch(_) => {
-                        uinput_switches_device.emit(&[event]).unwrap();
-                        continue
-                    }
-                    _ => {
-                        uinput_device.emit(&[event]).unwrap();
-                        continue
-                    }
+                    _ => continue
                 };
 
-                match event.value() {
+                match command.value() {
                     // Key press
                     1 => {
                         if let Some(modifier) = modifiers_map.get(&key) {
@@ -348,7 +329,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 let command_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
                     ((hotkey.keysym().is_some() &&
-                    hotkey.keysym().unwrap().code() == event.code()) ||
+                    hotkey.keysym().unwrap().code() == command.code()) ||
                     hotkey.keysym().is_none() && keyboard_state.state_keysyms.iter().count() == 0) &&
                         (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
                         .iter()
@@ -360,7 +341,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 // Don't emit command to virtual device if it's from a valid hotkey
                 // TODO: this will make sure that individual capslock keys send without any other modifiers or keys pressed will ALWAYS be consumed. This should be an option.
                 if !command_in_hotkeys && !(keyboard_state.state_keysyms.iter().count() == 0 && keyboard_state.state_modifiers.len() == 1 && keyboard_state.state_modifiers.iter().all(|&m| m == config::Modifier::CapsLock)) {
-                    uinput_device.emit(&[event]).unwrap();
+                    uinput_device.emit(&[command]).unwrap();
                 }
 
                 if execution_is_paused || possible_hotkeys.is_empty() || last_hotkey.is_some() {
