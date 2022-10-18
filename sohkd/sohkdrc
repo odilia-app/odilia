@@ -41,4 +41,48 @@ shift + h
 	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Heading"]}
 h
 	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Heading"]}
+shift + g
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Image"]}
+g
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Image"]}
+shift + f
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Form"]}
+f
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Form"]}
+shift + t
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Table"]}
+t
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Table"]}
+shift + r
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"RadioButton"]}
+r
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"RadioButton"]}
+shift + x
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"CheckBox"]}
+x
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"CheckBox"]}
+shift + c
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"ComboBox"]}
+c
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"ComboBox"]}
+shift + s
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Section"]}
+s
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Section"]}
+shift + m
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Math"]}
+m
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Math"]}
+shift + a
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Frame"]}
+a
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Frame"]}
+shift + minus
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Separator"]}
+minus
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Separator"]}
+shift + e
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"Entry"]}
+e
+	@odilia {"event":"structuralNavigation","args":[{"direction":"Forward"},"Entry"]}
 endmode
