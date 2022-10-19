@@ -38,8 +38,7 @@ odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
 odilia-tts = { path = "../tts" }
 pin-utils = "^0.1.0"
-# TODO: temporary until upstream merge is made to allow speech-dispatcher to compile once again
-speech-dispatcher = { git = "https://git.tait.tech/tait/speech-dispatcher-rs" }
+speech-dispatcher = "0.15.1"
 tokio = { version = "^1.21.2", features = ["sync", "macros", "rt", "full", "tracing"] }
 tracing = "^0.1.32"
 tracing-error = "^0.2.0"
