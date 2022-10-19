@@ -55,3 +55,4 @@ cooperation in this regard!
 ## License
 
 All our code is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
+THe only exception is the `atspi` library, which is licensed as [LGPL v3](https://www.gnu.org/licenses/lgpl-3.0.html).
