@@ -23,7 +23,7 @@ use std::{collections::HashMap, sync::Arc};
 use serde::Deserialize;
 use zbus::{
     names::{InterfaceName, MemberName, UniqueName},
-    zvariant, Message,
+    zvariant::{self, Signature}, Message,
 };
 
 #[derive(Debug, Deserialize, zvariant::Type)]
@@ -35,6 +35,16 @@ pub struct EventBody<'a> {
     pub any_data: zvariant::Value<'a>,
     // We don't yet know what this is for, so the name may be incorrect.
     pub properties: HashMap<&'a str, zvariant::Value<'a>>,
+}
+#[derive(Debug, Deserialize, zvariant::Type)]
+pub struct EventBodyQT<'a> {
+    #[serde(rename = "type")]
+    pub kind: &'a str,
+    pub detail1: i32,
+    pub detail2: i32,
+    pub any_data: zvariant::Value<'a>,
+    // We don't yet know what this is for, so the name may be incorrect.
+    pub properties: (&'a str, zvariant::ObjectPath<'a>),
 }
 
 #[derive(Clone, Debug, Deserialize, zvariant::Type)]
@@ -48,6 +58,19 @@ pub struct EventBodyOwned {
     pub properties: HashMap<String, zvariant::OwnedValue>,
 }
 
+impl<'a> From<EventBodyQT<'a>> for EventBodyOwned {
+    fn from(body: EventBodyQT<'a>) -> Self {
+        let mut props = HashMap::new();
+        props.insert(body.properties.0.to_string(), body.properties.1.into());
+        Self {
+            kind: body.kind.to_string(),
+            detail1: body.detail1,
+            detail2: body.detail2,
+            any_data: body.any_data.into(),
+            properties: props,
+        }
+    }
+}
 impl<'a> From<EventBody<'a>> for EventBodyOwned {
     fn from(body: EventBody<'a>) -> Self {
         Self {
@@ -76,8 +99,17 @@ impl TryFrom<Arc<Message>> for Event {
         // TODO: this causes an error on QT apps due to a signature mismatch:
         // The signature should be: `(siiva{sv})`
         // Qt's signature is: `(siiv(so))`
-        let body: EventBody = message.body()?;
-        let body = EventBodyOwned::from(body);
+        let qt_sig = Signature::try_from("siiv(so)").unwrap();
+        let body: EventBodyOwned = match message.body_signature() {
+            Ok(sig) => {
+                if sig == qt_sig {
+                    EventBodyOwned::from(message.body::<EventBodyQT>()?)
+                } else {
+                    EventBodyOwned::from(message.body::<EventBody>()?)
+                }
+            },
+            Err(e) => return Err(e),
+        };
         Ok(Self { message, body })
     }
 }
