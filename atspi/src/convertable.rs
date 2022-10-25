@@ -1,5 +1,5 @@
 use crate::{
-    accessible::AccessibleProxy, application::ApplicationProxy, cache::CacheProxy,
+    accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy, cache::CacheProxy,
     collection::CollectionProxy, component::ComponentProxy,
     device_event_controller::DeviceEventControllerProxy,
     device_event_listener::DeviceEventListenerProxy, document::DocumentProxy,
@@ -12,6 +12,7 @@ use zbus::{Error, ProxyDefault};
 
 enum Interfaces {
     Accessible,
+    Action,
     Application,
     Collection,
     Component,
@@ -36,6 +37,7 @@ impl TryFrom<&str> for Interfaces {
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         match s {
             "org.a11y.atspi.Accessible" => Ok(Interfaces::Accessible),
+            "org.a11y.atspi.Action" => Ok(Interfaces::Action),
             "org.a11y.atspi.Application" => Ok(Interfaces::Application),
             "org.a11y.atspi.Collection" => Ok(Interfaces::Collection),
             "org.a11y.atspi.Component" => Ok(Interfaces::Component),
@@ -61,6 +63,7 @@ impl ToString for Interfaces {
     fn to_string(&self) -> String {
         match self {
             Interfaces::Accessible => "org.a11y.atspi.Accessible",
+            Interfaces::Action => "org.a11y.atspi.Action",
             Interfaces::Application => "org.a11y.atspi.Application",
             Interfaces::Collection => "org.a11y.atspi.Collection",
             Interfaces::Component => "org.a11y.atspi.Component",
@@ -86,6 +89,7 @@ impl ToString for Interfaces {
 #[async_trait]
 pub trait Convertable {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>>;
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>>;
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>>;
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>>;
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>>;
@@ -118,6 +122,23 @@ impl Convertable for AccessibleProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -421,6 +442,23 @@ impl Convertable for ApplicationProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -722,6 +760,23 @@ impl Convertable for CacheProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -1025,6 +1080,23 @@ impl Convertable for CollectionProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -1326,6 +1398,23 @@ impl Convertable for ComponentProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -1629,6 +1718,23 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -1930,6 +2036,23 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -2233,6 +2356,23 @@ impl Convertable for DocumentProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -2534,6 +2674,23 @@ impl Convertable for EditableTextProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -2837,6 +2994,23 @@ impl Convertable for HyperlinkProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -3138,6 +3312,23 @@ impl Convertable for HypertextProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -3441,6 +3632,23 @@ impl Convertable for ImageProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -3742,6 +3950,23 @@ impl Convertable for TextProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
@@ -4045,6 +4270,23 @@ impl Convertable for TableProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -4347,6 +4589,23 @@ impl Convertable for TableCellProxy<'_> {
             .build()
             .await
     }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
+    }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
         if acc
@@ -4648,6 +4907,23 @@ impl Convertable for ValueProxy<'_> {
             .path(self.path())?
             .build()
             .await
+    }
+    async fn to_action<'a>(&'a self) -> zbus::Result<ActionProxy<'a>> {
+        let acc = self.to_accessible().await?;
+        if acc
+            .get_interfaces()
+            .await?
+            .contains(&ActionProxy::INTERFACE.to_string())
+        {
+            // you can use self here since converting to accessible does not change the internal
+            // variables
+            return ActionProxy::builder(self.connection())
+                .destination(self.destination())?
+                .path(self.path())?
+                .build()
+                .await;
+        }
+        Err(Error::InterfaceNotFound)
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
