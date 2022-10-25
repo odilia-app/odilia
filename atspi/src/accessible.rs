@@ -132,15 +132,20 @@ pub enum Role {
     TableColumnHeader,
     TableRowHeader,
     TearoffMenuItem,
+    /// A virtual terminal like MATE Terminal, Foot, or `st`.
     Terminal,
     Text,
     ToggleButton,
     ToolBar,
     ToolTip,
+    /// The root of a tree, which may have many sub trees and tree items (leafs).
     Tree,
     TreeTable,
+    /// When the role cannot be accurately reported, this role will be set.
     Unknown,
     Viewport,
+    /// A window itself, not the same thing as a Pane or a Frame, which are both contained within a
+    /// Window.
     Window,
     Extended,
     /// A header with upfront information about a document, site, or application. The same as <header> in HTML.
@@ -149,6 +154,7 @@ pub enum Role {
     Footer,
     /// A paragraph of text: the same as <p> in HTML.
     Paragraph,
+    /// A horizontal line between two items. Usually a `<hr>` in HTML.
     Ruler,
     Application,
     Autocomplete,
@@ -191,14 +197,14 @@ pub enum Role {
     BlockQuote,
     /// Audio: a role which can play sound. In HTML: <audio>
     Audio,
-    /// Video: a role which can play a video (with optional sound). In HTML: <video>
+    /// Video: a role which can play a video (with optional sound). In HTML: `<video>`
     Video,
     Definition,
     Article,
     Landmark,
     Log,
     Marquee,
-    /// Math: a special role for when math equations appear. This is the same as the <math> tag in HTML, indicating embedded MathML.
+    /// Math: a special role for when math equations appear. This is the same as the `<math>` tag in HTML, indicating embedded MathML.
     Math,
     /// A rating system, generally out of five stars, but it does not need to be that way. There is not tag nor role for this in HTML, however.
     Rating,
@@ -208,8 +214,13 @@ pub enum Role {
     MathRoot,
     Subscript,
     Superscript,
+    /// A list with Term/Value subitems. This is the same as `<dl>` in HTML.
     DescriptionList,
+    /// An item (usually inside a [`Self::DescriptionList`]) that has a term as its content.
+    /// The same as the `<dt>` tag in HTML.
     DescriptionTerm,
+    /// An item (usually inside a [`Self::DescriptionList`]) that has a term's value as its
+    /// content. This is the same as a `<dd>` tag in HTML.
     DescriptionValue,
     Footnote,
     ContentDeletion,
