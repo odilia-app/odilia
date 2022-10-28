@@ -5,83 +5,10 @@ use crate::{
     device_event_listener::DeviceEventListenerProxy, document::DocumentProxy,
     editable_text::EditableTextProxy, hyperlink::HyperlinkProxy, hypertext::HypertextProxy,
     image::ImageProxy, registry::RegistryProxy, selection::SelectionProxy, table::TableProxy,
-    table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
+    table_cell::TableCellProxy, text::TextProxy, value::ValueProxy, Interface,
 };
 use async_trait::async_trait;
-use zbus::{Error, ProxyDefault};
-
-enum Interfaces {
-    Accessible,
-    Application,
-    Collection,
-    Component,
-    Document,
-    Hypertext,
-    Hyperlink,
-    Image,
-    Selection,
-    Table,
-    TableCell,
-    Text,
-    EditableText,
-    Cache,
-    Value,
-    Registry,
-    DeviceEventController,
-    DeviceEventListener,
-}
-impl TryFrom<&str> for Interfaces {
-    type Error = &'static str;
-
-    fn try_from(s: &str) -> Result<Self, Self::Error> {
-        match s {
-            "org.a11y.atspi.Accessible" => Ok(Interfaces::Accessible),
-            "org.a11y.atspi.Application" => Ok(Interfaces::Application),
-            "org.a11y.atspi.Collection" => Ok(Interfaces::Collection),
-            "org.a11y.atspi.Component" => Ok(Interfaces::Component),
-            "org.a11y.atspi.Document" => Ok(Interfaces::Document),
-            "org.a11y.atspi.Hypertext" => Ok(Interfaces::Hypertext),
-            "org.a11y.atspi.Hyperlink" => Ok(Interfaces::Hyperlink),
-            "org.a11y.atspi.Image" => Ok(Interfaces::Image),
-            "org.a11y.atspi.Selection" => Ok(Interfaces::Selection),
-            "org.a11y.atspi.Table" => Ok(Interfaces::Table),
-            "org.a11y.atspi.TableCell" => Ok(Interfaces::TableCell),
-            "org.a11y.atspi.Text" => Ok(Interfaces::Text),
-            "org.a11y.atspi.EditableText" => Ok(Interfaces::EditableText),
-            "org.a11y.atspi.Cache" => Ok(Interfaces::Cache),
-            "org.a11y.atspi.Value" => Ok(Interfaces::Value),
-            "org.a11y.atspi.Registry" => Ok(Interfaces::Registry),
-            "org.a11y.atspi.DeviceEventController" => Ok(Interfaces::DeviceEventController),
-            "org.a11y.atspi.DeviceEventListener" => Ok(Interfaces::DeviceEventListener),
-            _ => Err("No interface found for conversion."),
-        }
-    }
-}
-impl ToString for Interfaces {
-    fn to_string(&self) -> String {
-        match self {
-            Interfaces::Accessible => "org.a11y.atspi.Accessible",
-            Interfaces::Application => "org.a11y.atspi.Application",
-            Interfaces::Collection => "org.a11y.atspi.Collection",
-            Interfaces::Component => "org.a11y.atspi.Component",
-            Interfaces::Document => "org.a11y.atspi.Document",
-            Interfaces::Hypertext => "org.a11y.atspi.Hypertext",
-            Interfaces::Hyperlink => "org.a11y.atspi.Hyperlink",
-            Interfaces::Image => "org.a11y.atspi.Image",
-            Interfaces::Selection => "org.a11y.atspi.Selection",
-            Interfaces::Table => "org.a11y.atspi.Table",
-            Interfaces::TableCell => "org.a11y.atspi.TableCell",
-            Interfaces::Text => "org.a11y.atspi.Text",
-            Interfaces::EditableText => "org.a11y.atspi.EditableText",
-            Interfaces::Cache => "org.a11y.atspi.Cache",
-            Interfaces::Value => "org.a11y.atspi.Value",
-            Interfaces::Registry => "org.a11y.atspi.Registry",
-            Interfaces::DeviceEventController => "org.a11y.atspi.DeviceEventController",
-            Interfaces::DeviceEventListener => "org.a11y.atspi.DeviceEventListener",
-        }
-        .to_string()
-    }
-}
+use zbus::Error;
 
 #[async_trait]
 pub trait Convertable {
@@ -121,11 +48,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -138,11 +61,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -155,11 +74,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -172,11 +87,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -189,11 +100,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -206,11 +113,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -223,11 +126,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -240,11 +139,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -257,11 +152,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -274,11 +165,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -291,11 +178,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -311,7 +194,7 @@ impl Convertable for AccessibleProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -325,11 +208,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -342,11 +221,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -359,11 +234,7 @@ impl Convertable for AccessibleProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -381,7 +252,7 @@ impl Convertable for AccessibleProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -398,7 +269,7 @@ impl Convertable for AccessibleProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -423,11 +294,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -440,11 +307,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -457,11 +320,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -474,11 +333,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -491,11 +346,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -508,11 +359,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -525,11 +372,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -542,11 +385,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -559,11 +398,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -576,11 +411,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -593,11 +424,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -613,7 +440,7 @@ impl Convertable for ApplicationProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -627,11 +454,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -644,11 +467,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -661,11 +480,7 @@ impl Convertable for ApplicationProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -683,7 +498,7 @@ impl Convertable for ApplicationProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -700,7 +515,7 @@ impl Convertable for ApplicationProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -725,11 +540,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -742,11 +553,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -759,11 +566,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -776,11 +579,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -793,11 +592,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -810,11 +605,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -827,11 +618,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -844,11 +631,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -861,11 +644,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -878,11 +657,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -895,11 +670,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -915,7 +686,7 @@ impl Convertable for CacheProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -929,11 +700,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -946,11 +713,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -963,11 +726,7 @@ impl Convertable for CacheProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -985,7 +744,7 @@ impl Convertable for CacheProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1002,7 +761,7 @@ impl Convertable for CacheProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1027,11 +786,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -1044,11 +799,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -1061,11 +812,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -1078,11 +825,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -1095,11 +838,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -1112,11 +851,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -1129,11 +864,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -1146,11 +877,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -1163,11 +890,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -1180,11 +903,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -1197,11 +916,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -1217,7 +932,7 @@ impl Convertable for CollectionProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1231,11 +946,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -1248,11 +959,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -1265,11 +972,7 @@ impl Convertable for CollectionProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -1287,7 +990,7 @@ impl Convertable for CollectionProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1304,7 +1007,7 @@ impl Convertable for CollectionProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1329,11 +1032,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -1346,11 +1045,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -1363,11 +1058,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -1380,11 +1071,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -1397,11 +1084,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -1414,11 +1097,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -1431,11 +1110,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -1448,11 +1123,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -1465,11 +1136,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -1482,11 +1149,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -1499,11 +1162,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -1519,7 +1178,7 @@ impl Convertable for ComponentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1533,11 +1192,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -1550,11 +1205,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -1567,11 +1218,7 @@ impl Convertable for ComponentProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -1589,7 +1236,7 @@ impl Convertable for ComponentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1606,7 +1253,7 @@ impl Convertable for ComponentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1631,11 +1278,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -1648,11 +1291,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -1665,11 +1304,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -1682,11 +1317,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -1699,11 +1330,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -1716,11 +1343,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -1733,11 +1356,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -1750,11 +1369,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -1767,11 +1382,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -1784,11 +1395,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -1801,11 +1408,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -1821,7 +1424,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1835,11 +1438,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -1852,11 +1451,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -1869,11 +1464,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -1891,7 +1482,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1908,7 +1499,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1933,11 +1524,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -1950,11 +1537,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -1967,11 +1550,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -1984,11 +1563,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -2001,11 +1576,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -2018,11 +1589,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -2035,11 +1602,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -2052,11 +1615,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -2069,11 +1628,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -2086,11 +1641,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -2103,11 +1654,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -2123,7 +1670,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2137,11 +1684,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -2154,11 +1697,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -2171,11 +1710,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -2193,7 +1728,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2210,7 +1745,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2235,11 +1770,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -2252,11 +1783,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -2269,11 +1796,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -2286,11 +1809,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -2303,11 +1822,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -2320,11 +1835,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -2337,11 +1848,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -2354,11 +1861,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -2371,11 +1874,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -2388,11 +1887,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -2405,11 +1900,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -2425,7 +1916,7 @@ impl Convertable for DocumentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2439,11 +1930,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -2456,11 +1943,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -2473,11 +1956,7 @@ impl Convertable for DocumentProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -2495,7 +1974,7 @@ impl Convertable for DocumentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2512,7 +1991,7 @@ impl Convertable for DocumentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2537,11 +2016,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -2554,11 +2029,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -2571,11 +2042,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -2588,11 +2055,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -2605,11 +2068,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -2622,11 +2081,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -2639,11 +2094,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -2656,11 +2107,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -2673,11 +2120,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -2690,11 +2133,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -2707,11 +2146,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -2727,7 +2162,7 @@ impl Convertable for EditableTextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2741,11 +2176,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -2758,11 +2189,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -2775,11 +2202,7 @@ impl Convertable for EditableTextProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -2797,7 +2220,7 @@ impl Convertable for EditableTextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2814,7 +2237,7 @@ impl Convertable for EditableTextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2839,11 +2262,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -2856,11 +2275,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -2873,11 +2288,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -2890,11 +2301,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -2907,11 +2314,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -2924,11 +2327,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -2941,11 +2340,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -2958,11 +2353,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -2975,11 +2366,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -2992,11 +2379,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -3009,11 +2392,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -3029,7 +2408,7 @@ impl Convertable for HyperlinkProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3043,11 +2422,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -3060,11 +2435,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -3077,11 +2448,7 @@ impl Convertable for HyperlinkProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -3099,7 +2466,7 @@ impl Convertable for HyperlinkProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3116,7 +2483,7 @@ impl Convertable for HyperlinkProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3141,11 +2508,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -3158,11 +2521,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -3175,11 +2534,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -3192,11 +2547,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -3209,11 +2560,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -3226,11 +2573,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -3243,11 +2586,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -3260,11 +2599,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -3277,11 +2612,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -3294,11 +2625,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -3311,11 +2638,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -3331,7 +2654,7 @@ impl Convertable for HypertextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3345,11 +2668,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -3362,11 +2681,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -3379,11 +2694,7 @@ impl Convertable for HypertextProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -3401,7 +2712,7 @@ impl Convertable for HypertextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3418,7 +2729,7 @@ impl Convertable for HypertextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3443,11 +2754,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -3460,11 +2767,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -3477,11 +2780,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -3494,11 +2793,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -3511,11 +2806,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -3528,11 +2819,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -3545,11 +2832,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -3562,11 +2845,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -3579,11 +2858,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -3596,11 +2871,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -3613,11 +2884,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -3633,7 +2900,7 @@ impl Convertable for ImageProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3647,11 +2914,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -3664,11 +2927,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -3681,11 +2940,7 @@ impl Convertable for ImageProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -3703,7 +2958,7 @@ impl Convertable for ImageProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3720,7 +2975,7 @@ impl Convertable for ImageProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3745,11 +3000,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -3762,11 +3013,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -3779,11 +3026,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -3796,11 +3039,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -3813,11 +3052,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -3830,11 +3065,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -3847,11 +3078,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -3864,11 +3091,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -3881,11 +3104,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -3898,11 +3117,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -3915,11 +3130,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -3935,7 +3146,7 @@ impl Convertable for TextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3949,11 +3160,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -3966,11 +3173,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -3983,11 +3186,7 @@ impl Convertable for TextProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -4005,7 +3204,7 @@ impl Convertable for TextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4022,7 +3221,7 @@ impl Convertable for TextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4047,11 +3246,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -4064,11 +3259,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -4081,11 +3272,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -4098,11 +3285,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -4115,11 +3298,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -4132,11 +3311,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -4149,11 +3324,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -4166,11 +3337,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -4183,11 +3350,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -4200,11 +3363,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -4217,11 +3376,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -4237,7 +3392,7 @@ impl Convertable for TableProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4251,11 +3406,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -4268,11 +3419,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -4285,11 +3432,7 @@ impl Convertable for TableProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -4307,7 +3450,7 @@ impl Convertable for TableProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4324,7 +3467,7 @@ impl Convertable for TableProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4349,11 +3492,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -4366,11 +3505,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -4383,11 +3518,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -4400,11 +3531,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -4417,11 +3544,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -4434,11 +3557,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -4451,11 +3570,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -4468,11 +3583,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -4485,11 +3596,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -4502,11 +3609,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -4519,11 +3622,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -4539,7 +3638,7 @@ impl Convertable for TableCellProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4553,11 +3652,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -4570,11 +3665,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -4587,11 +3678,7 @@ impl Convertable for TableCellProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -4609,7 +3696,7 @@ impl Convertable for TableCellProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4626,7 +3713,7 @@ impl Convertable for TableCellProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4651,11 +3738,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_application<'a>(&'a self) -> zbus::Result<ApplicationProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ApplicationProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Application) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ApplicationProxy::builder(self.connection())
@@ -4668,11 +3751,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_collection<'a>(&'a self) -> zbus::Result<CollectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CollectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Collection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CollectionProxy::builder(self.connection())
@@ -4685,11 +3764,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_component<'a>(&'a self) -> zbus::Result<ComponentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ComponentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Component) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ComponentProxy::builder(self.connection())
@@ -4702,11 +3777,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_document<'a>(&'a self) -> zbus::Result<DocumentProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&DocumentProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Document) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return DocumentProxy::builder(self.connection())
@@ -4719,11 +3790,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_hypertext<'a>(&'a self) -> zbus::Result<HypertextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HypertextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hypertext) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HypertextProxy::builder(self.connection())
@@ -4736,11 +3803,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_hyperlink<'a>(&'a self) -> zbus::Result<HyperlinkProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&HyperlinkProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Hyperlink) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return HyperlinkProxy::builder(self.connection())
@@ -4753,11 +3816,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_image<'a>(&'a self) -> zbus::Result<ImageProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ImageProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Image) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ImageProxy::builder(self.connection())
@@ -4770,11 +3829,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_selection<'a>(&'a self) -> zbus::Result<SelectionProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&SelectionProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Selection) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return SelectionProxy::builder(self.connection())
@@ -4787,11 +3842,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_table<'a>(&'a self) -> zbus::Result<TableProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Table) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableProxy::builder(self.connection())
@@ -4804,11 +3855,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_table_cell<'a>(&'a self) -> zbus::Result<TableCellProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TableCellProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::TableCell) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TableCellProxy::builder(self.connection())
@@ -4821,11 +3868,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_text<'a>(&'a self) -> zbus::Result<TextProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&TextProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Text) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return TextProxy::builder(self.connection())
@@ -4841,7 +3884,7 @@ impl Convertable for ValueProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&EditableTextProxy::INTERFACE.to_string())
+            .contains(Interface::EditableText)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4855,11 +3898,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_cache<'a>(&'a self) -> zbus::Result<CacheProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&CacheProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Cache) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return CacheProxy::builder(self.connection())
@@ -4872,11 +3911,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_value<'a>(&'a self) -> zbus::Result<ValueProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&ValueProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Value) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return ValueProxy::builder(self.connection())
@@ -4889,11 +3924,7 @@ impl Convertable for ValueProxy<'_> {
     }
     async fn to_registry<'a>(&'a self) -> zbus::Result<RegistryProxy<'a>> {
         let acc = self.to_accessible().await?;
-        if acc
-            .get_interfaces()
-            .await?
-            .contains(&RegistryProxy::INTERFACE.to_string())
-        {
+        if acc.get_interfaces().await?.contains(Interface::Registry) {
             // you can use self here since converting to accessible does not change the internal
             // variables
             return RegistryProxy::builder(self.connection())
@@ -4911,7 +3942,7 @@ impl Convertable for ValueProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventControllerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventController)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4928,7 +3959,7 @@ impl Convertable for ValueProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&DeviceEventListenerProxy::INTERFACE.to_string())
+            .contains(Interface::DeviceEventListener)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
