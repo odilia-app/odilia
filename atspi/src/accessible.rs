@@ -10,7 +10,7 @@
 //! section of the zbus documentation.
 //!
 
-use crate::StateSet;
+use crate::{InterfaceSet, StateSet};
 use serde::{Deserialize, Serialize};
 use zbus::{
     dbus_proxy,
@@ -305,7 +305,7 @@ trait Accessible {
     fn get_index_in_parent(&self) -> zbus::Result<i32>;
 
     /// GetInterfaces method
-    fn get_interfaces(&self) -> zbus::Result<Vec<String>>;
+    fn get_interfaces(&self) -> zbus::Result<InterfaceSet>;
 
     /// GetLocalizedRoleName method
     fn get_localized_role_name(&self) -> zbus::Result<String>;

@@ -23,7 +23,8 @@ use std::{collections::HashMap, sync::Arc};
 use serde::Deserialize;
 use zbus::{
     names::{InterfaceName, MemberName, UniqueName},
-    zvariant::{self, Signature}, Message,
+    zvariant::{self, Signature},
+    Message,
 };
 
 #[derive(Debug, Deserialize, zvariant::Type)]
@@ -107,7 +108,7 @@ impl TryFrom<Arc<Message>> for Event {
                 } else {
                     EventBodyOwned::from(message.body::<EventBody>()?)
                 }
-            },
+            }
             Err(e) => return Err(e),
         };
         Ok(Self { message, body })

@@ -17,6 +17,7 @@ use atspi::{
     component::ScrollType,
     convertable::Convertable,
     events::Event,
+    InterfaceSet,
 };
 use crate::state::ScreenReaderState;
 use odilia_common::{
@@ -32,7 +33,7 @@ pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, ro
     };
     let roles = vec![role];
     let attributes = HashMap::new();
-    let interfaces = Vec::new();
+    let interfaces = InterfaceSet::empty();
     let mt: MatcherArgs = (
         roles,
         MatchType::Invalid,
