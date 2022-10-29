@@ -1,6 +1,9 @@
-use crate::accessible::{AccessibleProxy, RelationType, Role};
-use crate::collection::MatchType;
-use crate::convertable::Convertable;
+use crate::{
+    accessible::{AccessibleProxy, RelationType, Role},
+    collection::MatchType,
+    convertable::Convertable,
+    InterfaceSet,
+};
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -10,7 +13,7 @@ pub type MatcherArgs = (
     MatchType,
     HashMap<String, String>,
     MatchType,
-    Vec<String>, // Interfaces
+    InterfaceSet,
     MatchType,
 );
 

@@ -38,6 +38,9 @@ pub mod accessible_ext;
 mod connection;
 pub use connection::*;
 
+mod interfaces;
+pub use interfaces::*;
+
 mod state;
 pub use state::*;
 
