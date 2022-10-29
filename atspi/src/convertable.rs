@@ -8,7 +8,7 @@ use crate::{
     table_cell::TableCellProxy, text::TextProxy, value::ValueProxy, Interface,
 };
 use async_trait::async_trait;
-use zbus::{Error, ProxyDefault};
+use zbus::{Error};
 
 enum Interfaces {
     Accessible,
@@ -128,7 +128,7 @@ impl Convertable for AccessibleProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -391,7 +391,7 @@ impl Convertable for ApplicationProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -654,7 +654,7 @@ impl Convertable for CacheProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -917,7 +917,7 @@ impl Convertable for CollectionProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1180,7 +1180,7 @@ impl Convertable for ComponentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1443,7 +1443,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1706,7 +1706,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -1969,7 +1969,7 @@ impl Convertable for DocumentProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2232,7 +2232,7 @@ impl Convertable for EditableTextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2495,7 +2495,7 @@ impl Convertable for HyperlinkProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -2758,7 +2758,7 @@ impl Convertable for HypertextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3021,7 +3021,7 @@ impl Convertable for ImageProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3284,7 +3284,7 @@ impl Convertable for TextProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3547,7 +3547,7 @@ impl Convertable for TableProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -3810,7 +3810,7 @@ impl Convertable for TableCellProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
@@ -4073,7 +4073,7 @@ impl Convertable for ValueProxy<'_> {
         if acc
             .get_interfaces()
             .await?
-            .contains(&ActionProxy::INTERFACE.to_string())
+            .contains(Interface::Action)
         {
             // you can use self here since converting to accessible does not change the internal
             // variables
