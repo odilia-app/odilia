@@ -1,6 +1,6 @@
 [package]
 name = "atspi"
-version = "0.1.2"
+version = "0.2.0"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
 description = "Bindings to the Assistive Technology Service Provider Interface over dbus"
 license = "LGPL-3.0-only" # Not gpl-3-or-later, or gpl-3-only; this is an API-level crate that should be able to be used in any project as long as *this* code gets improved
