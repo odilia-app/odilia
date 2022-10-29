@@ -13,6 +13,7 @@
 use crate::{InterfaceSet, StateSet};
 use serde::{Deserialize, Serialize};
 use zbus::{
+    CacheProperties,
     dbus_proxy,
     names::UniqueName,
     zvariant::{ObjectPath, Type},
@@ -356,6 +357,7 @@ pub async fn new<'a>(
 ) -> zbus::Result<AccessibleProxy<'a>> {
     AccessibleProxy::builder(conn)
         .destination(sender.to_owned())?
+        .cache_properties(CacheProperties::No)
         .path(path.to_owned())?
         .build()
         .await

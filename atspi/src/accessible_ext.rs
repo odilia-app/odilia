@@ -7,6 +7,7 @@ use crate::{
 use async_recursion::async_recursion;
 use async_trait::async_trait;
 use std::collections::HashMap;
+use zbus::CacheProperties;
 
 pub type MatcherArgs = (
     Vec<Role>,
@@ -110,6 +111,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
         let parent_parts = self.parent().await?;
         AccessibleProxy::builder(self.connection())
             .destination(parent_parts.0)?
+            .cache_properties(CacheProperties::No)
             .path(parent_parts.1)?
             .build()
             .await
@@ -127,6 +129,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
         for child_parts in children_parts {
             let acc = AccessibleProxy::builder(self.connection())
                 .destination(child_parts.0)?
+                .cache_properties(CacheProperties::No)
                 .path(child_parts.1)?
                 .build()
                 .await?;
@@ -248,6 +251,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
             for related in relation.1 {
                 let accessible = AccessibleProxy::builder(self.connection())
                     .destination(related.0)?
+                    .cache_properties(CacheProperties::No)
                     .path(related.1)?
                     .build()
                     .await?;

@@ -8,7 +8,7 @@ use crate::{
     table_cell::TableCellProxy, text::TextProxy, value::ValueProxy, Interface,
 };
 use async_trait::async_trait;
-use zbus::{Error};
+use zbus::{CacheProperties, Error};
 
 enum Interfaces {
     Accessible,
@@ -119,6 +119,7 @@ impl Convertable for AccessibleProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -134,6 +135,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -147,6 +149,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -160,6 +163,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -173,6 +177,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -186,6 +191,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -199,6 +205,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -212,6 +219,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -225,6 +233,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -238,6 +247,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -251,6 +261,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -264,6 +275,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -277,6 +289,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -294,6 +307,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -307,6 +321,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -320,6 +335,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -333,6 +349,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -352,6 +369,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -369,6 +387,7 @@ impl Convertable for AccessibleProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -382,6 +401,7 @@ impl Convertable for ApplicationProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -397,6 +417,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -410,6 +431,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -423,6 +445,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -436,6 +459,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -449,6 +473,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -462,6 +487,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -475,6 +501,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -488,6 +515,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -501,6 +529,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -514,6 +543,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -527,6 +557,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -540,6 +571,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -557,6 +589,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -570,6 +603,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -583,6 +617,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -596,6 +631,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -615,6 +651,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -632,6 +669,7 @@ impl Convertable for ApplicationProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -645,6 +683,7 @@ impl Convertable for CacheProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -660,6 +699,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -673,6 +713,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -686,6 +727,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -699,6 +741,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -712,6 +755,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -725,6 +769,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -738,6 +783,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -751,6 +797,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -764,6 +811,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -777,6 +825,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -790,6 +839,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -803,6 +853,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -820,6 +871,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -833,6 +885,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -846,6 +899,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -859,6 +913,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -878,6 +933,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -895,6 +951,7 @@ impl Convertable for CacheProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -908,6 +965,7 @@ impl Convertable for CollectionProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -923,6 +981,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -936,6 +995,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -949,6 +1009,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -962,6 +1023,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -975,6 +1037,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -988,6 +1051,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1001,6 +1065,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1014,6 +1079,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1027,6 +1093,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1040,6 +1107,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1053,6 +1121,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1066,6 +1135,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1083,6 +1153,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1096,6 +1167,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1109,6 +1181,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1122,6 +1195,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1141,6 +1215,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1158,6 +1233,7 @@ impl Convertable for CollectionProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1171,6 +1247,7 @@ impl Convertable for ComponentProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -1186,6 +1263,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1199,6 +1277,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1212,6 +1291,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1225,6 +1305,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1238,6 +1319,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1251,6 +1333,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1264,6 +1347,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1277,6 +1361,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1290,6 +1375,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1303,6 +1389,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1316,6 +1403,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1329,6 +1417,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1346,6 +1435,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1359,6 +1449,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1372,6 +1463,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1385,6 +1477,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1404,6 +1497,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1421,6 +1515,7 @@ impl Convertable for ComponentProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1434,6 +1529,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -1449,6 +1545,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1462,6 +1559,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1475,6 +1573,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1488,6 +1587,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1501,6 +1601,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1514,6 +1615,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1527,6 +1629,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1540,6 +1643,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1553,6 +1657,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1566,6 +1671,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1579,6 +1685,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1592,6 +1699,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1609,6 +1717,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1622,6 +1731,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1635,6 +1745,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1648,6 +1759,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1667,6 +1779,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1684,6 +1797,7 @@ impl Convertable for DeviceEventControllerProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1697,6 +1811,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -1712,6 +1827,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1725,6 +1841,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1738,6 +1855,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1751,6 +1869,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1764,6 +1883,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1777,6 +1897,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1790,6 +1911,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1803,6 +1925,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1816,6 +1939,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1829,6 +1953,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1842,6 +1967,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1855,6 +1981,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1872,6 +1999,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1885,6 +2013,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1898,6 +2027,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1911,6 +2041,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1930,6 +2061,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1947,6 +2079,7 @@ impl Convertable for DeviceEventListenerProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1960,6 +2093,7 @@ impl Convertable for DocumentProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -1975,6 +2109,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -1988,6 +2123,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2001,6 +2137,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2014,6 +2151,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2027,6 +2165,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2040,6 +2179,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2053,6 +2193,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2066,6 +2207,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2079,6 +2221,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2092,6 +2235,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2105,6 +2249,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2118,6 +2263,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2135,6 +2281,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2148,6 +2295,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2161,6 +2309,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2174,6 +2323,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2193,6 +2343,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2210,6 +2361,7 @@ impl Convertable for DocumentProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2223,6 +2375,7 @@ impl Convertable for EditableTextProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -2238,6 +2391,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2251,6 +2405,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2264,6 +2419,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2277,6 +2433,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2290,6 +2447,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2303,6 +2461,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2316,6 +2475,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2329,6 +2489,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2342,6 +2503,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2355,6 +2517,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2368,6 +2531,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2381,6 +2545,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2398,6 +2563,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2411,6 +2577,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2424,6 +2591,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2437,6 +2605,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2456,6 +2625,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2473,6 +2643,7 @@ impl Convertable for EditableTextProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2486,6 +2657,7 @@ impl Convertable for HyperlinkProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -2501,6 +2673,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2514,6 +2687,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2527,6 +2701,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2540,6 +2715,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2553,6 +2729,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2566,6 +2743,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2579,6 +2757,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2592,6 +2771,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2605,6 +2785,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2618,6 +2799,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2631,6 +2813,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2644,6 +2827,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2661,6 +2845,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2674,6 +2859,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2687,6 +2873,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2700,6 +2887,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2719,6 +2907,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2736,6 +2925,7 @@ impl Convertable for HyperlinkProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2749,6 +2939,7 @@ impl Convertable for HypertextProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -2764,6 +2955,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2777,6 +2969,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2790,6 +2983,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2803,6 +2997,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2816,6 +3011,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2829,6 +3025,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2842,6 +3039,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2855,6 +3053,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2868,6 +3067,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2881,6 +3081,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2894,6 +3095,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2907,6 +3109,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2924,6 +3127,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2937,6 +3141,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2950,6 +3155,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2963,6 +3169,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2982,6 +3189,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -2999,6 +3207,7 @@ impl Convertable for HypertextProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3012,6 +3221,7 @@ impl Convertable for ImageProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -3027,6 +3237,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3040,6 +3251,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3053,6 +3265,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3066,6 +3279,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3079,6 +3293,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3092,6 +3307,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3105,6 +3321,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3118,6 +3335,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3131,6 +3349,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3144,6 +3363,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3157,6 +3377,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3170,6 +3391,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3187,6 +3409,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3200,6 +3423,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3213,6 +3437,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3226,6 +3451,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3245,6 +3471,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3262,6 +3489,7 @@ impl Convertable for ImageProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3275,6 +3503,7 @@ impl Convertable for TextProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -3290,6 +3519,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3303,6 +3533,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3316,6 +3547,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3329,6 +3561,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3342,6 +3575,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3355,6 +3589,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3368,6 +3603,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3381,6 +3617,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3394,6 +3631,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3407,6 +3645,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3420,6 +3659,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3433,6 +3673,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3450,6 +3691,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3463,6 +3705,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3476,6 +3719,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3489,6 +3733,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3508,6 +3753,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3525,6 +3771,7 @@ impl Convertable for TextProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3538,6 +3785,7 @@ impl Convertable for TableProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -3553,6 +3801,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3566,6 +3815,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3579,6 +3829,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3592,6 +3843,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3605,6 +3857,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3618,6 +3871,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3631,6 +3885,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3644,6 +3899,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3657,6 +3913,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3670,6 +3927,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3683,6 +3941,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3696,6 +3955,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3713,6 +3973,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3726,6 +3987,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3739,6 +4001,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3752,6 +4015,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3771,6 +4035,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3788,6 +4053,7 @@ impl Convertable for TableProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3801,6 +4067,7 @@ impl Convertable for TableCellProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -3816,6 +4083,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3829,6 +4097,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3842,6 +4111,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3855,6 +4125,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3868,6 +4139,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3881,6 +4153,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3894,6 +4167,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3907,6 +4181,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3920,6 +4195,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3933,6 +4209,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3946,6 +4223,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3959,6 +4237,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3976,6 +4255,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -3989,6 +4269,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4002,6 +4283,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4015,6 +4297,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4034,6 +4317,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4051,6 +4335,7 @@ impl Convertable for TableCellProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4064,6 +4349,7 @@ impl Convertable for ValueProxy<'_> {
     async fn to_accessible<'a>(&'a self) -> zbus::Result<AccessibleProxy<'a>> {
         AccessibleProxy::builder(self.connection())
             .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
             .path(self.path())?
             .build()
             .await
@@ -4079,6 +4365,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return ActionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4092,6 +4379,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return ApplicationProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4105,6 +4393,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return CollectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4118,6 +4407,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return ComponentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4131,6 +4421,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return DocumentProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4144,6 +4435,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return HypertextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4157,6 +4449,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return HyperlinkProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4170,6 +4463,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return ImageProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4183,6 +4477,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return SelectionProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4196,6 +4491,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return TableProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4209,6 +4505,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return TableCellProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4222,6 +4519,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return TextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4239,6 +4537,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return EditableTextProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4252,6 +4551,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return CacheProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4265,6 +4565,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return ValueProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4278,6 +4579,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return RegistryProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4297,6 +4599,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return DeviceEventControllerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;
@@ -4314,6 +4617,7 @@ impl Convertable for ValueProxy<'_> {
             // variables
             return DeviceEventListenerProxy::builder(self.connection())
                 .destination(self.destination())?
+				.cache_properties(CacheProperties::No)
                 .path(self.path())?
                 .build()
                 .await;

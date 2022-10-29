@@ -11,6 +11,7 @@
 //!
 use serde::Serialize;
 use zbus::{
+    CacheProperties,
     dbus_proxy,
     names::UniqueName,
     zvariant::{ObjectPath, Type},
@@ -181,6 +182,7 @@ pub async fn new<'a>(
 ) -> zbus::Result<TextProxy<'a>> {
     TextProxy::builder(conn)
         .destination(sender.to_owned())?
+        .cache_properties(CacheProperties::No)
         .path(path.to_owned())?
         .build()
         .await
