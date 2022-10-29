@@ -31,7 +31,7 @@ Add this to `Cargo.toml`:
 
 ```toml
 [dependencies]
-atspi = "0.0.1"
+atspi = "0.2.1"
 ```
 
 ## Contributing
