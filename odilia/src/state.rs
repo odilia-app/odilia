@@ -8,9 +8,7 @@ use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
 use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable};
-use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea, GranularSelection, IndexesSelection}};
-
-use futures::stream::StreamExt;
+use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea }};
 
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,

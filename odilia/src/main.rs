@@ -28,13 +28,13 @@ use odilia_common::{
 use odilia_input::sr_event_receiver;
 use serde_json;
 
-async fn sigterm_signal_watcher(state: Rc<ScreenReaderState>, shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()>{
+async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()>{
     let mut c = signal(SignalKind::interrupt())?;
     tracing::debug!("Watching for Ctrl+C");
     loop {
         c.recv().await;
         tracing::debug!("Asking all processes to stop.");
-        shutdown_tx.send(0);
+        let _ = shutdown_tx.send(0);
         return Ok(());
     }
 }
@@ -68,7 +68,7 @@ async fn main() -> eyre::Result<()> {
     let odilia_event_receiver = sr_event_receiver(sr_event_tx, &mut shutdown_rx_odilia_recv).map(|r| r.wrap_err("Could not process Odilia events"));
     let mut shutdown_rx_odilia_proc_recv = shutdown_tx.subscribe();
     let odilia_event_processor = events::sr_event(Rc::clone(&state), &mut sr_event_rx, &mut shutdown_rx_odilia_proc_recv).map(|r| r.wrap_err("Could not process Odilia event"));
-    let signal_receiver = sigterm_signal_watcher(Rc::clone(&state), shutdown_tx).map(|r| r.wrap_err("Could not process signal shutdown."));
+    let signal_receiver = sigterm_signal_watcher(shutdown_tx).map(|r| r.wrap_err("Could not process signal shutdown."));
     tokio::try_join!(signal_receiver, atspi_event_receiver, atspi_event_processor, odilia_event_receiver, odilia_event_processor)?;
     tracing::debug!("All listeners have stopped. Running cleanup code.");
     let _ = state.speaker.cancel_all();
