@@ -43,14 +43,13 @@ Odilia.
 
 ## Contributing
 
-This is a very young project, we appreciate any and all contributions! However, please be aware there is a very llarge
-learning curve to helping with this project, particularly due to the lack of documentation, or **complete**
-documentation, of many of the libraries and technologies that comprise the Linux accessibility stack. For this reason,
-we are currently focused on learning as much as we can, and writing code to take advantage of it, and we don't have lots
-of time to mentor new contributors or review pull requests.
+We are excited to accept new contributions to this project; in fact, we already have!
+Sometimes there may be missing documentation or lack of examples.
+Please, reach out to us, [make an issue](https://github.com/odilia-app/odilia), or a [pull request](https://github.com/odilia-app/odilia/pulls) and we will continue to improve Odilia with your help.
+Thank you to all who have contibuted so far, and who will continue to contribute in the future!
 
-Once the ground-work has been layed, accepting contributions should get much easier. We are greatful for your
-cooperation in this regard!
+We do not have any specific contribution guidelines or code of conducts.
+These will be fleshed out as Odilia matures.
 
 ## License
 

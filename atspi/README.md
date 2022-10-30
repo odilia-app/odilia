@@ -50,4 +50,4 @@ This will be changed in the future.
 
 ## License
 
-All our code is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
+The `atspi` library is licensed as [LGPL v3](https://www.gnu.org/licenses/lgpl-3.0.html).
