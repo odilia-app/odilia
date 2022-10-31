@@ -218,6 +218,7 @@ pub enum State {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// The bitflag representation of all states an object may have.
 pub struct StateSet(BitFlags<State>);
 
 impl StateSet {
