@@ -1,7 +1,7 @@
 # AT-SPI for Rust
 
 [![crates.io badge](http://meritbadge.herokuapp.com/atspi)](https://crates.io/crates/atspi)
-[![docs.rs badge](https//docs.rs/atspi/badge.svg)](https://docs.rs/atspi)
+[![docs.rs badge](https://docs.rs/atspi/badge.svg)](https://docs.rs/atspi)
 
 Higher level, asynchronous Rust bindings to [AT-SPI2](https://www.freedesktop.org/wiki/Accessibility/AT-SPI2/), using
 [zbus](https://crates.io/crates/zbus).
@@ -37,7 +37,7 @@ atspi = "0.2.1"
 ## Contributing
 
 We love people who add functionality, find bugs, or improve code quality!
-You can clone the respository and make modifications just by `git clone`-ing the repository like so:
+You can clone the repository and make modifications just by `git clone`-ing the repository like so:
 
 ```bash
 $ git clone https://github.com/odilia-app/odilia
@@ -45,7 +45,7 @@ $ cd odilia/atspi
 $ cargo build
 ```
 
-At this time, you need to download our entire `odilia` respository to make modifications to the `atspi` crate.
+At this time, you need to download our entire `odilia` repository to make modifications to the `atspi` crate.
 This will be changed in the future.
 
 ## License
