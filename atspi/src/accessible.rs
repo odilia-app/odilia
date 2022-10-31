@@ -37,17 +37,17 @@ pub enum Role {
     Animation,
     /// Arrow: unknown use TODO
     Arrow,
-    /// Calendar: a calendar widget, or in HTML terms, <input type="datetime-local">
+    /// Calendar: a calendar widget, or in HTML terms, `<input type="datetime-local">`
     Calendar,
-    /// A canvas on which any direct rendering may be called. In web terms, this would be the <canvas> element.
+    /// A canvas on which any direct rendering may be called. In web terms, this would be the `<canvas>` element.
     Canvas,
-    /// A (multiple) checkbox. In HTML terms, <input type="checkbox">, note that there is a different role for radio buttons and for multiple select dropdowns.
+    /// A (multiple) checkbox. In HTML terms, `<input type="checkbox">`, note that there is a different role for radio buttons and for multiple select dropdowns.
     CheckBox,
     /// CheckMenuItem: unknown use. TODO
     CheckMenuItem,
-    /// ColorChooser: a color picker input. In HTML terms, <input type="color">
+    /// ColorChooser: a color picker input. In HTML terms, `<input type="color">`
     ColorChooser,
-    /// Column header: in HTML terms, a <th>.
+    /// Column header: in HTML terms, a `<th>`.
     ColumnHeader,
     /// A multiple select dropdown menu.
     ComboBox,
@@ -59,7 +59,7 @@ pub enum Role {
     DesktopFrame,
     /// Dial: unknown use case. TODO
     Dial,
-    /// Dialog: a pop-up dialog. In HTML terms, the <dialog> tag.
+    /// Dialog: a pop-up dialog. In HTML terms, the `<dialog>` tag.
     Dialog,
     /// Directory pane: unknown use case.
     DirectoryPane,
@@ -84,13 +84,13 @@ pub enum Role {
     Image,
     /// Internal frame: this is the constraining role for a graphical window. This is a good bounding role for finding things from within an application.
     InternalFrame,
-    /// A label, which is generally associated with an item with a different role. In HTML terms, this would be a <label for="X"> being attached to whatever <Y id="X"> is.
+    /// A label, which is generally associated with an item with a different role. In HTML terms, this would be a `<label for="X">` being attached to whatever `<Y id="X">` is.
     Label,
     /// Layered pane? TODO
     LayeredPane,
-    /// List: a list with `ListItem` contained within it. In HTML, this would be the same as the <ul> or <ol> elements.
+    /// List: a list with [`Self::ListItem`] contained within it. In HTML, this would be the same as the `<ul>` or `<ol>` elements.
     List,
-    /// ListItem: a list's item. This would be the same as an <li> in HTML terms.
+    /// ListItem: a list's item. This would be the same as an `<li>` in HTML terms.
     ListItem,
     Menu,
     MenuBar,
@@ -99,6 +99,7 @@ pub enum Role {
     PageTab,
     PageTabList,
     Panel,
+    /// A password input, like `<input type="password">`.
     PasswordText,
     PopupMenu,
     /// Progress bar: this indicates progress of some process, and generally is indicated by successively higher-pitched beeps on a screen reader as it is updated to a more and more highly completed state. In HTML this would be the same as <progress> tag.
@@ -128,9 +129,11 @@ pub enum Role {
     StatusBar,
     /// Table: a table. This may hold any tabular data with rows and columns. This would be the same as the <table> element in HTML.
     Table,
-    /// A table cell: this may hold a singular piece of data at a row+column combo. This is the same as <td> in HTML.
+    /// A table cell: this may hold a singular piece of data at a row+column combo. This is the same as `<td>` in HTML.
     TableCell,
+    /// The column header of a table, represented in HTML as a `<th>`
     TableColumnHeader,
+    /// The row heading of a table, represented in HTML as a `<th scope="row">`.
     TableRowHeader,
     TearoffMenuItem,
     /// A virtual terminal like MATE Terminal, Foot, or `st`.
@@ -176,14 +179,19 @@ pub enum Role {
     /// Link: a hyperlink that leads to a new destination. The same as the <a> tag in HTML.
     Link,
     InputMethodWindow,
-    /// Table row: a row of table data. This is the same as the <tr> tag from HTML.
+    /// Table row: a row of table data. This is the same as the `<tr>` tag from HTML.
     TableRow,
     /// A leaf or node within a tree.
     TreeItem,
+    /// A spreadsheet document (almost exclusively used by LibreofficeCalc).
     DocumentSpreadsheet,
+    /// A presentation document (almost exclusively used by LibreofficePresent).
     DocumentPresentation,
+    /// A text document (almost exclusively used by LibreofficeWriter).
     DocumentText,
+    /// A web document, used for any web browser.
     DocumentWeb,
+    /// An email document, used primarily by Thunderbird.
     DocumentEmail,
     Comment,
     ListBox,
@@ -194,9 +202,9 @@ pub enum Role {
     InfoBar,
     LevelBar,
     TitleBar,
-    /// Block quote: when a quote is longer than around one full sentence, a block-style quote often make more sense. This is the same as the <blockquote> HTML tag.
+    /// Block quote: when a quote is longer than around one full sentence, a block-style quote often make more sense. This is the same as the `<blockquote>` HTML tag.
     BlockQuote,
-    /// Audio: a role which can play sound. In HTML: <audio>
+    /// Audio: a role which can play sound. In HTML: `<audio>`
     Audio,
     /// Video: a role which can play a video (with optional sound). In HTML: `<video>`
     Video,
