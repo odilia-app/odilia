@@ -25,7 +25,7 @@ cargo build --release
 # At this point the compiled program is at ./target/release/odilia
 # Optionally, run this to install Odilia to ~/.cargo/bin:
 cargo install --path .
-./setup-permissions.sh
+./scripts/setup-permissions.sh
 ```
 
 ### Udev Permissions
@@ -35,7 +35,7 @@ and redirect events from input devices, such as your keyboard and mouse.
 
 Evdev is normally a privileged interface, since any application that can access it could use it for malicious purposes,
 for example, creating a keylogger. For this reason, to run Odilia, you must give yourself access to evdev. This can be
-done by running the [setup-permissions.sh shell
+done by running the [scripts/setup-permissions.sh shell
 script](https://github.com/odilia-app/odilia/blob/main/setup-permissions.sh) included with Odilia. The script adds some
 udev rules, then creates an odilia group. Any users added to this group and the `input` group will be able to run
 Odilia.
