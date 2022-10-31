@@ -1,4 +1,4 @@
-use std::cell::Cell;
+use std::{cell::Cell, fs};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
@@ -50,7 +50,12 @@ impl ScreenReaderState {
         );
         let config_path = xdg_dirs
             .place_config_file("config.toml")
-            .expect("unable to place configuration file. Maybe your system is readonly?")
+            .expect("unable to place configuration file. Maybe your system is readonly?");
+        if !config_path.exists() {
+            fs::copy("config.toml", &config_path)
+                .expect("Unable to copy default config file.");
+        }
+        let config_path = config_path
             .to_str()
             .unwrap()
             .to_owned();
