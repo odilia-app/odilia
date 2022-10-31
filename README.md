@@ -4,16 +4,15 @@
 
 ## Welcome to Odilia!
 
-Accessibility on Linux has historically been under-developed, under-maintained, and therefore not up to modern standards
-for many blind people. We're hear to help with that!
+Odilia is a screen reader for the Linux desktop.
+It's written in [Rust](https://rust-lang.org), for maximum performance and stability.
 
-Odilia is a new screen reader for the Linux desktop. It's written in [Rust](https://rust-lang.org), for maximum
-performance and stability.
+## Status: Beta
 
-## Status: Alpha
-
-This is **absolutely not stable or production ready in any way!** Everything is in a very early stage and we're breaking
-things on a daily basis!
+This is **absolutely not production ready in any way!**
+Everything is in a fairly early stage and we're changing things on a daily basis.
+However, Odilia is *somewhat* useable, and will not crash randomly or cause weird behaviour in other applications.
+Try it out! See if it works for you!
 
 ## Building
 
@@ -48,7 +47,7 @@ Sometimes there may be missing documentation or lack of examples.
 Please, reach out to us, [make an issue](https://github.com/odilia-app/odilia), or a [pull request](https://github.com/odilia-app/odilia/pulls) and we will continue to improve Odilia with your help.
 Thank you to all who have contibuted so far, and who will continue to contribute in the future!
 
-We do not have any specific contribution guidelines or code of conducts.
+We do not have any specific contribution guidelines or codes of conduct.
 These will be fleshed out as Odilia matures.
 
 ## License
