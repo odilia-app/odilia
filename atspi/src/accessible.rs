@@ -266,7 +266,7 @@ impl std::fmt::Display for Role {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Deserialize, Type, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, Hash)]
 pub enum RelationType {
     Null = 0,
     LabelFor,
