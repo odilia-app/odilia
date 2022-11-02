@@ -20,14 +20,14 @@ pub mod window;
 
 use std::{collections::HashMap, sync::Arc};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use zbus::{
     names::{InterfaceName, MemberName, UniqueName},
     zvariant::{self, Signature},
     Message,
 };
 
-#[derive(Debug, Deserialize, zvariant::Type)]
+#[derive(Debug, Serialize, Deserialize, zvariant::Type)]
 pub struct EventBody<'a> {
     #[serde(rename = "type")]
     pub kind: &'a str,
@@ -37,7 +37,7 @@ pub struct EventBody<'a> {
     // We don't yet know what this is for, so the name may be incorrect.
     pub properties: HashMap<&'a str, zvariant::Value<'a>>,
 }
-#[derive(Debug, Deserialize, zvariant::Type)]
+#[derive(Debug, Serialize, Deserialize, zvariant::Type)]
 pub struct EventBodyQT<'a> {
     #[serde(rename = "type")]
     pub kind: &'a str,
@@ -48,7 +48,7 @@ pub struct EventBodyQT<'a> {
     pub properties: (&'a str, zvariant::ObjectPath<'a>),
 }
 
-#[derive(Clone, Debug, Deserialize, zvariant::Type)]
+#[derive(Clone, Debug, Serialize, Deserialize, zvariant::Type)]
 pub struct EventBodyOwned {
     #[serde(rename = "type")]
     pub kind: String,
