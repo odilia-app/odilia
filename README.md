@@ -53,4 +53,5 @@ These will be fleshed out as Odilia matures.
 ## License
 
 All our code is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
-THe only exception is the `atspi` library, which is licensed as [LGPL v3](https://www.gnu.org/licenses/lgpl-3.0.html).
+THe only exception is the `atspi` library, which is licensed as [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0.html) or [MIT](https://mit-license.org/).
+
