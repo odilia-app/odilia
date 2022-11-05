@@ -1,6 +1,6 @@
 [package]
 name = "atspi"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>", "DataTriny <datatriny@gmail.com>"]
 description = "Bindings to the Assistive Technology Service Provider Interface over dbus"
 license = "Apache-2.0 OR MIT" # For ease of integration in the Rust ecosystem.
