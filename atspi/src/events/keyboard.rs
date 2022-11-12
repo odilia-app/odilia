@@ -4,5 +4,5 @@ use zbus::dbus_proxy;
 trait Keyboard {
     /// Modifiers signal
     #[dbus_proxy(signal)]
-    fn modifiers(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
+    fn modifiers(&self, event: super::EventBody<'_, &str>) -> zbus::Result<()>;
 }
