@@ -203,6 +203,14 @@ impl From<Interface> for InterfaceSet {
     }
 }
 
+impl std::ops::BitAnd for InterfaceSet {
+    type Output = InterfaceSet;
+
+    fn bitand(self, other: Self) -> Self::Output {
+        InterfaceSet(self.0 & other.0)
+    }
+}
+
 impl std::ops::BitXor for InterfaceSet {
     type Output = InterfaceSet;
 
