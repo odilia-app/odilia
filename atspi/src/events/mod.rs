@@ -127,7 +127,7 @@ impl Event {
         format!("{interface}:{member}:{kind}")
     }
 
-    /// For now this returns the full interface name because the lifetimes in [`zbus_names`] are
+    /// For now this returns the full interface name because the lifetimes in [`zbus_names`][zbus::names] are
     /// wrong such that the `&str` you can get from a
     /// [`zbus_names::InterfaceName`][zbus::names::InterfaceName] is tied to the lifetime of that
     /// name, not to the lifetime of the message as it should be. In future, this will return only
