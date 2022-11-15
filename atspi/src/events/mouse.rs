@@ -4,13 +4,13 @@ use zbus::dbus_proxy;
 trait Mouse {
     /// Abs signal
     #[dbus_proxy(signal)]
-    fn abs(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
+    fn abs(&self, event: super::EventBody<'_, &str>) -> zbus::Result<()>;
 
     /// Button signal
     #[dbus_proxy(signal)]
-    fn button(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
+    fn button(&self, event: super::EventBody<'_, &str>) -> zbus::Result<()>;
 
     /// Rel signal
     #[dbus_proxy(signal)]
-    fn rel(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
+    fn rel(&self, event: super::EventBody<'_, &str>) -> zbus::Result<()>;
 }

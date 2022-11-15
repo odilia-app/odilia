@@ -1,7 +1,8 @@
 use enumflags2::{bitflags, BitFlag, BitFlags, FromBitsError};
 use serde::{
-    de::{self, Deserialize, Deserializer, Visitor},
-    ser::{Serialize, SerializeSeq, Serializer},
+    de::{self, Deserializer, Visitor},
+    ser::{SerializeSeq, Serializer},
+    Deserialize, Serialize,
 };
 use std::fmt;
 use zbus::zvariant::{Signature, Type};
@@ -10,7 +11,8 @@ use zbus::zvariant::{Signature, Type};
 /// an [`crate::accessible::AccessibleProxy`] object can assume.
 #[bitflags]
 #[repr(u64)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
 pub enum State {
     /// Indicates an invalid state - probably an error condition.
     Invalid,

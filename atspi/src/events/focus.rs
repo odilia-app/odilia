@@ -4,5 +4,5 @@ use zbus::dbus_proxy;
 trait Focus {
     /// Focus signal
     #[dbus_proxy(signal)]
-    fn focus(&self, event: super::EventBody<'_>) -> zbus::Result<()>;
+    fn focus(&self, event: super::EventBody<'_, &str>) -> zbus::Result<()>;
 }

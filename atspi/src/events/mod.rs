@@ -23,67 +23,58 @@ use std::{collections::HashMap, sync::Arc};
 use serde::{Deserialize, Serialize};
 use zbus::{
     names::{InterfaceName, MemberName, UniqueName},
-    zvariant::{self, Signature},
+    zvariant::{self, OwnedObjectPath, OwnedValue, Signature, Type, Value},
     Message,
 };
 
-#[derive(Debug, Serialize, Deserialize, zvariant::Type)]
-pub struct EventBody<'a> {
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EventBody<'a, T> {
     #[serde(rename = "type")]
-    pub kind: &'a str,
+    pub kind: T,
     pub detail1: i32,
     pub detail2: i32,
-    pub any_data: zvariant::Value<'a>,
-    // We don't yet know what this is for, so the name may be incorrect.
-    pub properties: HashMap<&'a str, zvariant::Value<'a>>,
-}
-#[derive(Debug, Serialize, Deserialize, zvariant::Type)]
-pub struct EventBodyQT<'a> {
-    #[serde(rename = "type")]
-    pub kind: &'a str,
-    pub detail1: i32,
-    pub detail2: i32,
-    pub any_data: zvariant::Value<'a>,
-    // We don't yet know what this is for, so the name may be incorrect.
-    pub properties: (&'a str, zvariant::ObjectPath<'a>),
+    #[serde(borrow)]
+    pub any_data: Value<'a>,
+    #[serde(borrow)]
+    pub properties: HashMap<&'a str, Value<'a>>,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, zvariant::Type)]
+impl<T> Type for EventBody<'_, T> {
+    fn signature() -> Signature<'static> {
+        <(&str, i32, i32, Value, HashMap<&str, Value>)>::signature()
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Type)]
+pub struct EventBodyQT {
+    #[serde(rename = "type")]
+    pub kind: String,
+    pub detail1: i32,
+    pub detail2: i32,
+    pub any_data: OwnedValue,
+    pub properties: (String, OwnedObjectPath),
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
 pub struct EventBodyOwned {
     #[serde(rename = "type")]
     pub kind: String,
     pub detail1: i32,
     pub detail2: i32,
-    pub any_data: zvariant::OwnedValue,
-    // We don't yet know what this is for, so the name may be incorrect.
-    pub properties: HashMap<String, zvariant::OwnedValue>,
+    pub any_data: OwnedValue,
+    pub properties: HashMap<String, OwnedValue>,
 }
 
-impl<'a> From<EventBodyQT<'a>> for EventBodyOwned {
-    fn from(body: EventBodyQT<'a>) -> Self {
+impl From<EventBodyQT> for EventBodyOwned {
+    fn from(body: EventBodyQT) -> Self {
         let mut props = HashMap::new();
-        props.insert(body.properties.0.to_string(), body.properties.1.into());
+        props.insert(body.properties.0, Value::ObjectPath(body.properties.1.into_inner()).to_owned());
         Self {
-            kind: body.kind.to_string(),
+            kind: body.kind,
             detail1: body.detail1,
             detail2: body.detail2,
-            any_data: body.any_data.into(),
+            any_data: body.any_data,
             properties: props,
-        }
-    }
-}
-impl<'a> From<EventBody<'a>> for EventBodyOwned {
-    fn from(body: EventBody<'a>) -> Self {
-        Self {
-            kind: body.kind.to_string(),
-            detail1: body.detail1,
-            detail2: body.detail2,
-            any_data: body.any_data.into(),
-            properties: body
-                .properties
-                .iter()
-                .map(|(k, v)| (k.to_string(), v.into()))
-                .collect(),
         }
     }
 }
@@ -97,16 +88,13 @@ impl TryFrom<Arc<Message>> for Event {
     type Error = zbus::Error;
 
     fn try_from(message: Arc<Message>) -> zbus::Result<Self> {
-        // TODO: this causes an error on QT apps due to a signature mismatch:
-        // The signature should be: `(siiva{sv})`
-        // Qt's signature is: `(siiv(so))`
         let qt_sig = Signature::try_from("siiv(so)").unwrap();
         let body: EventBodyOwned = match message.body_signature() {
             Ok(sig) => {
                 if sig == qt_sig {
                     EventBodyOwned::from(message.body::<EventBodyQT>()?)
                 } else {
-                    EventBodyOwned::from(message.body::<EventBody>()?)
+                    message.body::<EventBodyOwned>()?
                 }
             }
             Err(e) => return Err(e),
