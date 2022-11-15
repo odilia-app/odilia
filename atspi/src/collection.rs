@@ -10,10 +10,10 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zbus::{dbus_proxy, zvariant::Type};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 pub enum SortOrder {
     Invalid,
@@ -26,7 +26,7 @@ pub enum SortOrder {
     LastDefined,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 pub enum TreeTraversalType {
     RestrictChildren,
@@ -35,7 +35,7 @@ pub enum TreeTraversalType {
     LastDefined,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(i32)]
 pub enum MatchType {
     Invalid,

@@ -9,16 +9,15 @@
 //! [Writing a client proxy](https://dbus.pages.freedesktop.org/zbus/client.html)
 //! section of the zbus documentation.
 //!
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zbus::{
-    CacheProperties,
     dbus_proxy,
     names::UniqueName,
     zvariant::{ObjectPath, Type},
-    Connection,
+    CacheProperties, Connection,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 /// Level of granularity to get text of, in relation to a cursor position.
 pub enum TextGranularity {
