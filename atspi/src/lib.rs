@@ -46,10 +46,10 @@ pub use state::*;
 
 pub use zbus;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zbus::zvariant::Type;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 /// The relative coordinate type.
 pub enum CoordType {

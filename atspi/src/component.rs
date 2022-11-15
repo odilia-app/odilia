@@ -10,10 +10,10 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zbus::{dbus_proxy, zvariant::Type};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum ScrollType {
     TopLeft,
     BottomRight,

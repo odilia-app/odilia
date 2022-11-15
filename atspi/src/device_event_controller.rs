@@ -10,10 +10,10 @@
 //! section of the zbus documentation.
 //!
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use zbus::{dbus_proxy, zvariant::Type};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 pub enum EventType {
     KeyPressed,
@@ -22,7 +22,7 @@ pub enum EventType {
     ButtonReleased,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Type)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[repr(u32)]
 pub enum KeySynthType {
     Press,
