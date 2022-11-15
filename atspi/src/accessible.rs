@@ -13,18 +13,17 @@
 use crate::{InterfaceSet, StateSet};
 use serde::{Deserialize, Serialize};
 use zbus::{
-    CacheProperties,
     dbus_proxy,
     names::UniqueName,
     zvariant::{ObjectPath, Type},
-    Connection,
+    CacheProperties, Connection,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, Type, Hash)]
 /// An accessible object role.
 /// To think of it in terms of HTML, any semantic element likely has a corollary in this enum.
-/// For example: <button>, <input>, <form> or <h4>.
-/// Non-semantic elements like <span>, <div> and <b> will not be represented here, and this information is not passed through via the atspi library.
+/// For example: `<button>`, `<input>`, `<form>` or `<h4>`.
+/// Non-semantic elements like `<span>`, `<div>` and `<b>` will not be represented here, and this information is not passed through via the atspi library.
 /// TODO: add examples for GTK/Qt libraries in addition to HTML examples.
 pub enum Role {
     /// An invalid role used for either an invalid deserialization, or when trying to match for any possible role. TODO: confirm
@@ -102,7 +101,7 @@ pub enum Role {
     /// A password input, like `<input type="password">`.
     PasswordText,
     PopupMenu,
-    /// Progress bar: this indicates progress of some process, and generally is indicated by successively higher-pitched beeps on a screen reader as it is updated to a more and more highly completed state. In HTML this would be the same as <progress> tag.
+    /// Progress bar: this indicates progress of some process, and generally is indicated by successively higher-pitched beeps on a screen reader as it is updated to a more and more highly completed state. In HTML this would be the same as `<progress>` tag.
     ProgressBar,
     /// PushButton: this is what everybody else calls a button. In HTML, `<button>`
     PushButton,
@@ -111,13 +110,13 @@ pub enum Role {
     RadioMenuItem,
     /// Root pane: the mother of *ALL* panes. This is the pane from which all other panes descend. If you wanted to, for some reason, search within a bound of the entire active desktop, this would be your bounding pane.
     RootPane,
-    /// Row header: a heading to a row. In HTML this would be the same as <th role="rowheader"> without the additional role="..." attribute, the header will still be recognized as a column header.
+    /// Row header: a heading to a row. In HTML this would be the same as `<th role="rowheader">` without the additional role="..." attribute, the header will still be recognized as a column header.
     RowHeader,
     /// A scroll bar itself: the item you may click on and scroll up and down.
     ScrollBar,
     /// A scroll pane: the pane in which the scrollable content is contained within.
     ScrollPane,
-    /// Separator: commonly used in desktop applications to pad out the interface. This also is the same as the <hr> element in HTML.
+    /// Separator: commonly used in desktop applications to pad out the interface. This also is the same as the `<hr>` element in HTML.
     Separator,
     /// Slider: a slider to control a granular value like volume, pitch, or speed.
     Slider,
@@ -127,7 +126,7 @@ pub enum Role {
     SplitPane,
     /// Status bar: ? TODO
     StatusBar,
-    /// Table: a table. This may hold any tabular data with rows and columns. This would be the same as the <table> element in HTML.
+    /// Table: a table. This may hold any tabular data with rows and columns. This would be the same as the `<table>` element in HTML.
     Table,
     /// A table cell: this may hold a singular piece of data at a row+column combo. This is the same as `<td>` in HTML.
     TableCell,
@@ -152,11 +151,11 @@ pub enum Role {
     /// Window.
     Window,
     Extended,
-    /// A header with upfront information about a document, site, or application. The same as <header> in HTML.
+    /// A header with upfront information about a document, site, or application. The same as `<header>` in HTML.
     Header,
-    /// A footer with additional (usually optional) information about a web page, document, or application. The same as <footer> in HTML.
+    /// A footer with additional (usually optional) information about a web page, document, or application. The same as `<footer>` in HTML.
     Footer,
-    /// A paragraph of text: the same as <p> in HTML.
+    /// A paragraph of text: the same as `<p>` in HTML.
     Paragraph,
     /// A horizontal line between two items. Usually a `<hr>` in HTML.
     Ruler,
@@ -168,15 +167,15 @@ pub enum Role {
     CHART,
     Caption,
     DocumentFrame,
-    /// Heading: this is a heading with a level (usually 1-6). This is represented by <h1> through <h6> in HTML.
+    /// Heading: this is a heading with a level (usually 1-6). This is represented by `<h1>` through `<h6>` in HTML.
     Heading,
     Page,
-    /// Section: pieces of grouped content for semantic purposes. This is the same as the <section> tag in HTML.
+    /// Section: pieces of grouped content for semantic purposes. This is the same as the `<section>` tag in HTML.
     Section,
     RedundantObject,
-    /// Form: a form where a user will input information and send the form out (usually to an online service). The same as the <form> element in HTML.
+    /// Form: a form where a user will input information and send the form out (usually to an online service). The same as the `<form>` element in HTML.
     Form,
-    /// Link: a hyperlink that leads to a new destination. The same as the <a> tag in HTML.
+    /// Link: a hyperlink that leads to a new destination. The same as the `<a>` tag in HTML.
     Link,
     InputMethodWindow,
     /// Table row: a row of table data. This is the same as the `<tr>` tag from HTML.
@@ -215,7 +214,7 @@ pub enum Role {
     Marquee,
     /// Math: a special role for when math equations appear. This is the same as the `<math>` tag in HTML, indicating embedded MathML.
     Math,
-    /// A rating system, generally out of five stars, but it does not need to be that way. There is not tag nor role for this in HTML, however.
+    /// A rating system, generally out of five stars, but it does not need to be that way. There is no tag nor role for this in HTML, however.
     Rating,
     Timer,
     Static,
