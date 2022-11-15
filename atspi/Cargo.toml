@@ -1,9 +1,9 @@
 [package]
 name = "atspi"
-version = "0.2.3"
-authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
+version = "0.3.3"
+authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>", "DataTriny <datatriny@gmail.com>"]
 description = "Bindings to the Assistive Technology Service Provider Interface over dbus"
-license = "LGPL-3.0-only" # Not gpl-3-or-later, or gpl-3-only; this is an API-level crate that should be able to be used in any project as long as *this* code gets improved
+license = "Apache-2.0 OR MIT" # For ease of integration in the Rust ecosystem.
 readme = "README.md"
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
@@ -26,7 +26,7 @@ async-recursion = "^1.0.0"
 async-trait = "^0.1.56"
 enumflags2 = "0.7.5"
 futures = { version = "0.3.21", default-features = false }
-serde = { version = "1.0.136", features = ["derive"] }
+serde = { version = "^1.0", features = ["derive"] }
 tracing = "0.1.32"
 zbus = { version = "^3.0.0", default-features = false }
 
