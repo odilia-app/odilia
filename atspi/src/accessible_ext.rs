@@ -65,13 +65,12 @@ impl AccessibleProxy<'_> {
         backward: bool,
         recur: bool,
     ) -> zbus::Result<Option<AccessibleProxy<'a>>> {
-        let children = match backward {
-            false => self.get_children_ext().await?,
-            true => {
-                let mut vec = self.get_children_ext().await?;
-                vec.reverse();
-                vec
-            }
+        let children = if backward {
+            let mut vec = self.get_children_ext().await?;
+            vec.reverse();
+            vec
+        } else {
+            self.get_children_ext().await?
         };
         for child in children {
             let child_index = child.get_index_in_parent().await?;
@@ -86,7 +85,7 @@ impl AccessibleProxy<'_> {
             }
             /* 0 here is ignored because we are recursive; see the line starting with if !recur */
             if let Some(found_decendant) =
-                child.find_inner(0, &matcher_args, backward, true).await?
+                child.find_inner(0, matcher_args, backward, true).await?
             {
                 return Ok(Some(found_decendant));
             }
