@@ -1,7 +1,6 @@
 [workspace]
 default-members = ["odilia"]
 members = [
-  "atspi",
   "common",
   "input",
   "odilia",
