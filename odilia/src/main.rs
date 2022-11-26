@@ -31,12 +31,10 @@ use serde_json;
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()>{
     let mut c = signal(SignalKind::interrupt())?;
     tracing::debug!("Watching for Ctrl+C");
-    loop {
-        c.recv().await;
-        tracing::debug!("Asking all processes to stop.");
-        let _ = shutdown_tx.send(0);
-        return Ok(());
-    }
+    c.recv().await;
+    tracing::debug!("Asking all processes to stop.");
+    let _ = shutdown_tx.send(0);
+    Ok(())
 }
 
 #[tokio::main(flavor = "current_thread")]
