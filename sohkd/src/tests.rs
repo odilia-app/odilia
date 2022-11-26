@@ -157,8 +157,8 @@ super + c
         assert_eq!(
             *hotkeys,
             vec!(
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())

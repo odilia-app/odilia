@@ -36,9 +36,9 @@ eyre = "^0.6.8"
 futures = { version = "^0.3.21", default-features = false }
 odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
-speech-dispatcher-async = { path = "../tts" }
+speech-dispatcher-async = { path = "../tts", package = "odilia-tts" }
 pin-utils = "^0.1.0"
-speech-dispatcher = "0.15.1"
+speech-dispatcher = "0.16.0"
 tokio = { version = "^1.21.2", features = ["sync", "macros", "rt", "full", "tracing"] }
 tracing = "^0.1.32"
 tracing-error = "^0.2.0"
