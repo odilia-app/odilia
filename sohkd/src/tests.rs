@@ -187,8 +187,8 @@ super + c
         assert_eq!(
             *hotkeys,
             vec!(
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())
@@ -236,10 +236,10 @@ d
         assert_eq!(
             *hotkeys,
             vec!(
-                Hotkey::new(evdev::Key::KEY_C, vec![], String::from("c")),
-                Hotkey::new(evdev::Key::KEY_A, vec![], String::from("a")),
-                Hotkey::new(evdev::Key::KEY_B, vec![], String::from("b")),
-                Hotkey::new(evdev::Key::KEY_D, vec![], String::from("d")),
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![], String::from("c")),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![], String::from("a")),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![], String::from("b")),
+                Hotkey::new(Some(evdev::Key::KEY_D), vec![], String::from("d")),
             )
         );
         Ok(())
@@ -270,8 +270,8 @@ super + d
         assert_eq!(
             *hotkeys,
             vec!(
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
             )
         );
         Ok(())
@@ -286,7 +286,7 @@ r
 
         eval_config_test(
             contents,
-            vec![Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"))],
+            vec![Hotkey::new(Some(evdev::Key::KEY_R), vec![], String::from("alacritty"))],
         )
     }
 
@@ -303,9 +303,9 @@ t
     /bin/firefox
         ";
 
-        let hotkey_1 = Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty"));
-        let hotkey_2 = Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty"));
-        let hotkey_3 = Hotkey::new(evdev::Key::KEY_T, vec![], String::from("/bin/firefox"));
+        let hotkey_1 = Hotkey::new(Some(evdev::Key::KEY_R), vec![], String::from("alacritty"));
+        let hotkey_2 = Hotkey::new(Some(evdev::Key::KEY_W), vec![], String::from("kitty"));
+        let hotkey_3 = Hotkey::new(Some(evdev::Key::KEY_T), vec![], String::from("/bin/firefox"));
 
         eval_config_test(contents, vec![hotkey_1, hotkey_2, hotkey_3])
     }
@@ -324,8 +324,8 @@ w
         ";
 
         let expected_keybinds = vec![
-            Hotkey::new(evdev::Key::KEY_R, vec![], String::from("alacritty")),
-            Hotkey::new(evdev::Key::KEY_W, vec![], String::from("kitty")),
+            Hotkey::new(Some(evdev::Key::KEY_R), vec![], String::from("alacritty")),
+            Hotkey::new(Some(evdev::Key::KEY_W), vec![], String::from("kitty")),
         ];
 
         eval_config_test(contents, expected_keybinds)
@@ -339,7 +339,7 @@ super + 5
         ";
 
         let expected_keybinds =
-            vec![Hotkey::new(evdev::Key::KEY_5, vec![Modifier::Super], String::from("alacritty"))];
+            vec![Hotkey::new(Some(evdev::Key::KEY_5), vec![Modifier::Super], String::from("alacritty"))];
 
         eval_config_test(contents, expected_keybinds)
     }
@@ -404,22 +404,22 @@ super + z
 
         let expected_hotkeys = vec![
             Hotkey::new(
-                evdev::Key::KEY_K,
+                Some(evdev::Key::KEY_K),
                 vec![Modifier::Shift],
                 "notify-send 'Hello world!'".to_string(),
             ),
             Hotkey::new(
-                evdev::Key::KEY_5,
+                Some(evdev::Key::KEY_5),
                 vec![Modifier::Control],
                 "notify-send 'Hello world!'".to_string(),
             ),
             Hotkey::new(
-                evdev::Key::KEY_2,
+                Some(evdev::Key::KEY_2),
                 vec![Modifier::Alt],
                 "notify-send 'Hello world!'".to_string(),
             ),
             Hotkey::new(
-                evdev::Key::KEY_Z,
+                Some(evdev::Key::KEY_Z),
                 vec![Modifier::Super],
                 "notify-send 'Hello world!'".to_string(),
             ),
@@ -436,7 +436,7 @@ p
         ";
 
         let expected_keybinds = vec![Hotkey::new(
-            evdev::Key::KEY_P,
+            Some(evdev::Key::KEY_P),
             vec![],
             String::from("xbacklight -inc 10 -fps 30 -time 200"),
         )];
@@ -471,7 +471,7 @@ w
         eval_config_test(
             contents,
             vec![Hotkey::new(
-                evdev::Key::KEY_K,
+                Some(evdev::Key::KEY_K),
                 vec![],
                 "xbacklight -inc 10 -fps 30 -time 200".to_string(),
             )],
@@ -481,55 +481,55 @@ w
     #[test]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
-# reloads sxhkd configuration:
-super + Escape
-    pkill -USR1 -x sxhkd ; sxhkd &
+            # reloads sxhkd configuration:
+            super + Escape
+                pkill -USR1 -x sxhkd ; sxhkd &
 
-# Launch Terminal
-super + Return
-    alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"
+            # Launch Terminal
+            super + Return
+                alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"
 
-# terminal emulator (no tmux)
-super + shift + Return
-    alacritty -t \"Terminal\"
+            # terminal emulator (no tmux)
+            super + shift + Return
+                alacritty -t \"Terminal\"
 
-# terminal emulator (new tmux session)
-alt + Return
-    alacritty -t \"Terminal\" -e \"tmux\"
+            # terminal emulator (new tmux session)
+            alt + Return
+                alacritty -t \"Terminal\" -e \"tmux\"
 
-ctrl + 0
-    play-song.sh
+            ctrl + 0
+                play-song.sh
 
-super + minus
-    play-song.sh album
-                    ";
+            super + minus
+                play-song.sh album
+                                ";
 
         let expected_result: Vec<Hotkey> = vec![
             Hotkey::new(
-                evdev::Key::KEY_ESC,
+                Some(evdev::Key::KEY_ESC),
                 vec![Modifier::Super],
                 String::from("pkill -USR1 -x sxhkd ; sxhkd &"),
             ),
             Hotkey::new(
-                evdev::Key::KEY_ENTER,
+                Some(evdev::Key::KEY_ENTER),
                 vec![Modifier::Super],
                 String::from(
                     "alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"",
                 ),
             ),
             Hotkey::new(
-                evdev::Key::KEY_ENTER,
+                Some(evdev::Key::KEY_ENTER),
                 vec![Modifier::Super, Modifier::Shift],
                 String::from("alacritty -t \"Terminal\""),
             ),
             Hotkey::new(
-                evdev::Key::KEY_ENTER,
+                Some(evdev::Key::KEY_ENTER),
                 vec![Modifier::Alt],
                 String::from("alacritty -t \"Terminal\" -e \"tmux\""),
             ),
-            Hotkey::new(evdev::Key::KEY_0, vec![Modifier::Control], String::from("play-song.sh")),
+            Hotkey::new(Some(evdev::Key::KEY_0), vec![Modifier::Control], String::from("play-song.sh")),
             Hotkey::new(
-                evdev::Key::KEY_MINUS,
+                Some(evdev::Key::KEY_MINUS),
                 vec![Modifier::Super],
                 String::from("play-song.sh album"),
             ),
@@ -547,7 +547,7 @@ k
                     ";
 
         let expected_keybind = Hotkey::new(
-            evdev::Key::KEY_K,
+            Some(evdev::Key::KEY_K),
             vec![],
             String::from("mpc ls | dmenu | sed -i 's/foo/bar/g'"),
         );
@@ -620,7 +620,7 @@ k
         let contents = &contents;
 
         let expected_result: Vec<Hotkey> =
-            keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
+            keysyms.iter().map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
     }
@@ -647,7 +647,7 @@ k
         let contents = &contents;
 
         let expected_result: Vec<Hotkey> =
-            keysyms.iter().map(|keysym| Hotkey::new(*keysym, vec![], "st".to_string())).collect();
+            keysyms.iter().map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string())).collect();
 
         eval_config_test(contents, expected_result)
     }
@@ -664,11 +664,11 @@ ReTurn
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_A,
+                    Some(evdev::Key::KEY_A),
                     vec![Modifier::Super, Modifier::Shift, Modifier::Alt],
                     "st".to_string(),
                 ),
-                Hotkey::new(evdev::Key::KEY_ENTER, vec![], "ts".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_ENTER), vec![], "ts".to_string()),
             ],
         )
     }
@@ -689,11 +689,11 @@ B
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_A,
+                    Some(evdev::Key::KEY_A),
                     vec![Modifier::Super, Modifier::Shift],
                     "ts".to_string(),
                 ),
-                Hotkey::new(evdev::Key::KEY_B, vec![], "ts".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![], "ts".to_string()),
             ],
         )
     }
@@ -710,9 +710,9 @@ super + shift + b
         eval_config_test(
             &contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "st".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "st".to_string()),
                 Hotkey::new(
-                    evdev::Key::KEY_B,
+                    Some(evdev::Key::KEY_B),
                     vec![Modifier::Super, Modifier::Shift],
                     "ts #this comment should be handled by shell".to_string(),
                 ),
@@ -769,9 +769,9 @@ super + {a,b,c}
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], "chrome".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], "chrome".to_string()),
             ],
         )
     }
@@ -784,8 +784,8 @@ super + {a,b,c}
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], "brave".to_string()),
             ],
         )
     }
@@ -798,8 +798,8 @@ super + {a, b}
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], "brave".to_string()),
             ],
         )
     }
@@ -813,52 +813,52 @@ super + {1-9,0}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Super],
                     "bspc desktop -f '1'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Super],
                     "bspc desktop -f '2'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_3,
+                    Some(evdev::Key::KEY_3),
                     vec![Modifier::Super],
                     "bspc desktop -f '3'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_4,
+                    Some(evdev::Key::KEY_4),
                     vec![Modifier::Super],
                     "bspc desktop -f '4'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_5,
+                    Some(evdev::Key::KEY_5),
                     vec![Modifier::Super],
                     "bspc desktop -f '5'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_6,
+                    Some(evdev::Key::KEY_6),
                     vec![Modifier::Super],
                     "bspc desktop -f '6'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_7,
+                    Some(evdev::Key::KEY_7),
                     vec![Modifier::Super],
                     "bspc desktop -f '7'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_8,
+                    Some(evdev::Key::KEY_8),
                     vec![Modifier::Super],
                     "bspc desktop -f '8'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_9,
+                    Some(evdev::Key::KEY_9),
                     vec![Modifier::Super],
                     "bspc desktop -f '9'".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_0,
+                    Some(evdev::Key::KEY_0),
                     vec![Modifier::Super],
                     "bspc desktop -f '0'".to_string(),
                 ),
@@ -874,9 +874,9 @@ super + {a-c}
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "firefox".to_string()),
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "brave".to_string()),
-                Hotkey::new(evdev::Key::KEY_C, vec![Modifier::Super], "chrome".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], "brave".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], "chrome".to_string()),
             ],
         )
     }
@@ -915,9 +915,9 @@ super + {_, shift} + b
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_B, vec![Modifier::Super], "firefox".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], "firefox".to_string()),
                 Hotkey::new(
-                    evdev::Key::KEY_B,
+                    Some(evdev::Key::KEY_B),
                     vec![Modifier::Super, Modifier::Shift],
                     "brave".to_string(),
                 ),
@@ -936,22 +936,22 @@ super + {shift,alt} + {c,d}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_C,
+                    Some(evdev::Key::KEY_C),
                     vec![Modifier::Super, Modifier::Shift],
                     "librewolf --sync".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_D,
+                    Some(evdev::Key::KEY_D),
                     vec![Modifier::Super, Modifier::Shift],
                     "librewolf --help".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_C,
+                    Some(evdev::Key::KEY_C),
                     vec![Modifier::Super, Modifier::Alt],
                     "firefox --sync".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_D,
+                    Some(evdev::Key::KEY_D),
                     vec![Modifier::Super, Modifier::Alt],
                     "firefox --help".to_string(),
                 ),
@@ -970,23 +970,23 @@ super + {shift,alt} + {c,d}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Control],
                     "notify-send hello".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Control],
                     "notify-send how".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_3,
+                    Some(evdev::Key::KEY_3),
                     vec![Modifier::Control],
                     "notify-send are".to_string(),
                 ),
-                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "echo hello".to_string()),
-                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "echo how".to_string()),
-                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "echo are".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_1), vec![Modifier::Super], "echo hello".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_2), vec![Modifier::Super], "echo how".to_string()),
+                Hotkey::new(Some(evdev::Key::KEY_3), vec![Modifier::Super], "echo are".to_string()),
             ],
         )
     }
@@ -1001,42 +1001,42 @@ super + {_,shift + }{h,j,k,l}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_H,
+                    Some(evdev::Key::KEY_H),
                     vec![Modifier::Super],
                     "bspc node -f west".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_J,
+                    Some(evdev::Key::KEY_J),
                     vec![Modifier::Super],
                     "bspc node -f south".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_K,
+                    Some(evdev::Key::KEY_K),
                     vec![Modifier::Super],
                     "bspc node -f north".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_L,
+                    Some(evdev::Key::KEY_L),
                     vec![Modifier::Super],
                     "bspc node -f east".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_H,
+                    Some(evdev::Key::KEY_H),
                     vec![Modifier::Super, Modifier::Shift],
                     "bspc node -s west".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_J,
+                    Some(evdev::Key::KEY_J),
                     vec![Modifier::Super, Modifier::Shift],
                     "bspc node -s south".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_K,
+                    Some(evdev::Key::KEY_K),
                     vec![Modifier::Super, Modifier::Shift],
                     "bspc node -s north".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_L,
+                    Some(evdev::Key::KEY_L),
                     vec![Modifier::Super, Modifier::Shift],
                     "bspc node -s east".to_string(),
                 ),
@@ -1053,42 +1053,42 @@ super + {_, ctrl +} {_, shift +} {1-2}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Super],
                     "riverctl set-focused-tags 1".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Super],
                     "riverctl set-focused-tags 2".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Super, Modifier::Control],
                     "riverctl toggle-focused-tags 1".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Super, Modifier::Control],
                     "riverctl toggle-focused-tags 2".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Super, Modifier::Shift],
                     "riverctl set-view-tags 1".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Super, Modifier::Shift],
                     "riverctl set-view-tags 2".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_1,
+                    Some(evdev::Key::KEY_1),
                     vec![Modifier::Super, Modifier::Control, Modifier::Shift],
                     "riverctl toggle-view-tags 1".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_2,
+                    Some(evdev::Key::KEY_2),
                     vec![Modifier::Super, Modifier::Control, Modifier::Shift],
                     "riverctl toggle-view-tags 2".to_string(),
                 ),
@@ -1106,12 +1106,12 @@ super + {comma, period}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_COMMA,
+                    Some(evdev::Key::KEY_COMMA),
                     vec![Modifier::Super],
                     "riverctl focus-output previous".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_DOT,
+                    Some(evdev::Key::KEY_DOT),
                     vec![Modifier::Super],
                     "riverctl focus-output next".to_string(),
                 ),
@@ -1129,12 +1129,12 @@ super + {\\,, .}
             contents,
             vec![
                 Hotkey::new(
-                    evdev::Key::KEY_COMMA,
+                    Some(evdev::Key::KEY_COMMA),
                     vec![Modifier::Super],
                     "riverctl focus-output previous".to_string(),
                 ),
                 Hotkey::new(
-                    evdev::Key::KEY_DOT,
+                    Some(evdev::Key::KEY_DOT),
                     vec![Modifier::Super],
                     "riverctl focus-output next".to_string(),
                 ),
@@ -1157,12 +1157,12 @@ super + @~4
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(evdev::Key::KEY_1, vec![Modifier::Super], "1".to_string()).on_release(),
-                Hotkey::new(evdev::Key::KEY_2, vec![Modifier::Super], "2".to_string()).send(),
-                Hotkey::new(evdev::Key::KEY_3, vec![Modifier::Super], "3".to_string())
+                Hotkey::new(Some(evdev::Key::KEY_1), vec![Modifier::Super], "1".to_string()).on_release(),
+                Hotkey::new(Some(evdev::Key::KEY_2), vec![Modifier::Super], "2".to_string()).send(),
+                Hotkey::new(Some(evdev::Key::KEY_3), vec![Modifier::Super], "3".to_string())
                     .on_release()
                     .send(),
-                Hotkey::new(evdev::Key::KEY_4, vec![Modifier::Super], "4".to_string())
+                Hotkey::new(Some(evdev::Key::KEY_4), vec![Modifier::Super], "4".to_string())
                     .on_release()
                     .send(),
             ],
@@ -1178,7 +1178,7 @@ super + a
     2";
         eval_config_test(
             contents,
-            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Super], "2".to_string())],
+            vec![Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Super], "2".to_string())],
         )
     }
 
@@ -1189,7 +1189,7 @@ any + a
     1";
         eval_config_test(
             contents,
-            vec![Hotkey::new(evdev::Key::KEY_A, vec![Modifier::Any], "1".to_string())],
+            vec![Hotkey::new(Some(evdev::Key::KEY_A), vec![Modifier::Any], "1".to_string())],
         )
     }
 }
