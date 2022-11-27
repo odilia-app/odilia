@@ -28,3 +28,13 @@ dev-version-ext = "dev"
 dev-version = true
 pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
+
+[workspace.dependencies]
+clap = { version = "^4.0.27", features = ["derive", "wrap_help"] }
+eyre = "0.6.8"
+nix = "0.25.0"
+serde_json = "1.0.89"
+sysinfo = "0.26.8"
+tokio = { version = "^1.22.0", features = ["sync", "macros", "rt", "signal", "tracing"] }
+tracing = "^0.1.37"
+zbus = { version = "^3.5.0", default-features = false, features = ["tokio"] }

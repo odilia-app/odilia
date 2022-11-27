@@ -15,16 +15,16 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 
 mod text_caret_moved {
     use speech_dispatcher::Priority;
-    use atspi::{accessible, events::Event, text, convertable::Convertable};
+    use atspi::{accessible, events::Event, convertable::Convertable};
     use crate::state::ScreenReaderState;
-    use odilia_common::types::{IndexesSelection, TextSelectionArea};
+    
 
     // TODO: left/right vs. up/down, and use generated speech
     pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
         let current_caret_pos = event.detail1();
         let previous_caret_pos = state.previous_caret_position.get();
         state.previous_caret_position.set(current_caret_pos);
-        let (start, end) = match current_caret_pos > previous_caret_pos {
+        let (_start, _end) = match current_caret_pos > previous_caret_pos {
           true => (previous_caret_pos, current_caret_pos),
           false => (current_caret_pos, previous_caret_pos),
         };
@@ -40,7 +40,7 @@ mod text_caret_moved {
         };
         let conn = state.connection().clone();
         let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
-        let last_accessible = match state.history_item(0).await? {
+        let _last_accessible = match state.history_item(0).await? {
           Some(acc) => acc,
           None => return Ok(()),
         };
