@@ -24,7 +24,7 @@ use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
 };
-use zbus_names::UniqueName;
+use zbus::names::UniqueName;
 
 pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, role: Role) -> zbus::Result<()> {
     let curr = match state.history_item(0).await? {
