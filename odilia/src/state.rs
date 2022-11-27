@@ -183,9 +183,9 @@ fn event_to_match_rule(event: &str) -> String {
     let mut components = event.split(':');
     let interface = components
         .next()
-        .expect("Event should consist of 3 components separated by ':'");
+        .expect("Event should consist of at least 2 components separated by ':'");
     let member = components
         .next()
-        .expect("Event should consist of 3 components separated by ':'");
+        .expect("Event should consist of at least 2 components separated by ':'");
     format!("type='signal',interface='org.a11y.atspi.Event.{interface}',member='{member}'")
 }
