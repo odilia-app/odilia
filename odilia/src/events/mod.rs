@@ -77,6 +77,11 @@ pub async fn sr_event(
                         }
                     },
                     Some(ScreenReaderEvent::StopSpeech) => tracing::trace!("Stopping speech!"),
+                    Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
+                      tracing::debug!("Changing granularity of read text.");
+                      let mut sr_granularity = state.granularity.lock().await;
+                      *sr_granularity = granularity;
+                    },
                     Some(ScreenReaderEvent::ChangeMode(ScreenReaderMode { name })) => {
                         tracing::debug!("Changing mode to {:?}", name);
                         //let _ = mode_channel.send(ScreenReaderMode { name }).await;

@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
-use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable};
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable, text::TextGranularity};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea }};
 
 pub struct ScreenReaderState {
@@ -17,6 +17,7 @@ pub struct ScreenReaderState {
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
+    pub granularity: Mutex<TextGranularity>,
     pub accessible_history: Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>,
     pub cache: Cache,
 }
@@ -67,6 +68,8 @@ impl ScreenReaderState {
         let previous_caret_position = Cell::new(0);
         let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
         let cache = Cache::new();
+
+        let granularity = Mutex::new(TextGranularity::Line);
         Ok(Self {
             atspi,
             dbus,
@@ -74,6 +77,7 @@ impl ScreenReaderState {
             config,
             previous_caret_position,
             mode,
+            granularity,
             accessible_history,
             cache,
         })
