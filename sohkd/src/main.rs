@@ -44,7 +44,7 @@ impl KeyboardState {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor="current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
     env::set_var("RUST_LOG", "sohkd=warn");
