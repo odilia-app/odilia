@@ -25,7 +25,7 @@ cargo build --release
 # At this point the compiled program is at ./target/release/odilia
 # Optionally, run this to install Odilia to ~/.cargo/bin:
 cargo install --path .
-./scripts/setup-permissions.sh
+sudo ./scripts/setup_permissions.sh
 ```
 
 ### Udev Permissions

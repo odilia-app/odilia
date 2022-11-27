@@ -4,7 +4,7 @@ mod events;
 mod logging;
 mod state;
 
-use console_subscriber;
+
 
 use std::rc::Rc;
 
@@ -26,7 +26,7 @@ use odilia_common::{
     modes::ScreenReaderMode,
 };
 use odilia_input::sr_event_receiver;
-use serde_json;
+
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()>{
     let mut c = signal(SignalKind::interrupt())?;
@@ -44,8 +44,8 @@ async fn main() -> eyre::Result<()> {
     logging::init();
     //console_subscriber::init();
     let _args = args::parse();
-    let change_mode = ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name: "Browse".to_string()});
-    let sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
+    let _change_mode = ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name: "Browse".to_string()});
+    let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
     let (shutdown_tx, _) = broadcast::channel(1);
     // Initialize state
     let state = Rc::new(ScreenReaderState::new().await?);
