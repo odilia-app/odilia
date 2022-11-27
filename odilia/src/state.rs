@@ -82,9 +82,9 @@ impl ScreenReaderState {
     // TODO: use cache; this will uplift performance MASSIVELY
     pub async fn generate_speech_string(&self, acc: AccessibleProxy<'_>, select: TextSelectionArea) -> zbus::Result<String> {
       let acc_text = acc.to_text().await?;
-      let acc_hyper = acc.to_hyperlink().await?;
+      let _acc_hyper = acc.to_hyperlink().await?;
       let text_length = acc_text.character_count().await?;
-      let full_text = acc_text.get_text(0, text_length).await?;
+      let _full_text = acc_text.get_text(0, text_length).await?;
       let (mut text_selection, start, end) = match select {
         TextSelectionArea::Granular(granular) => acc_text.get_string_at_offset(granular.index, granular.granularity).await?,
         TextSelectionArea::Index(indexed) => (acc_text.get_text(indexed.start, indexed.end).await?, indexed.start, indexed.end),
