@@ -1,13 +1,28 @@
-include /etc/odilia/common-keys.conf
+include /etc/odilia/stop-speech.conf
+include /etc/odilia/arrow-granularities.conf
+capslock + f
+	@odilia {"event":"changeMode","args":{"name":"focus"}}
+	@enter focus
+capslock + b
+	@odilia {"event":"changeMode","args":{"name":"browse"}}
+	@enter browse
 
 # all focus mode keys
 mode focus
-include /etc/odilia/common-keys.conf
+include /etc/odilia/stop-speech.conf
+include /etc/odilia/arrow-granularities.conf
+capslock + b
+	@odilia {"event":"changeMode","args":{"name":"browse"}}
+	@enter browse
 endmode
 
 # all browse mode keys, including structural nvaigation
 mode browse
-include /etc/odilia/common-keys.conf
+include /etc/odilia/stop-speech.conf
+include /etc/odilia/arrow-granularities.conf
+capslock + f
+	@odilia {"event":"changeMode","args":{"name":"focus"}}
+	@enter focus
 shift + i
 	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"ListItem"]}
 i
