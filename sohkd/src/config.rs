@@ -162,7 +162,10 @@ pub struct KeyBinding {
 impl PartialEq for KeyBinding {
     fn eq(&self, other: &Self) -> bool {
         self.keysym == other.keysym
-            && self.modifiers.iter().all(|modifier| other.modifiers.contains(modifier))
+            && self
+                .modifiers
+                .iter()
+                .all(|modifier| other.modifiers.contains(modifier))
             && self.modifiers.len() == other.modifiers.len()
             && self.send == other.send
             && self.on_release == other.on_release
@@ -581,7 +584,9 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
             log::trace!("Valid hotkey found: {:#?}", hotkey);
 
             // Override latter
-            modes[current_mode].hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
+            modes[current_mode]
+                .hotkeys
+                .retain(|h| h.keybinding != hotkey.keybinding);
             modes[current_mode].hotkeys.push(hotkey);
         }
     }
@@ -600,8 +605,11 @@ fn parse_keybind(
     mod_to_mod_enum: &HashMap<&str, Modifier>,
 ) -> Result<KeyBinding, Error> {
     let line = line.split('#').next().unwrap();
-    let tokens: Vec<String> =
-        line.split('+').map(|s| s.trim().to_lowercase()).filter(|s| s != "_").collect();
+    let tokens: Vec<String> = line
+        .split('+')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| s != "_")
+        .collect();
 
     let mut tokens_new = Vec::new();
     for mut token in tokens {
@@ -663,15 +671,15 @@ fn parse_keybind(
 
     // Translate keypress into evdev key
     let keysym = match key_to_evdev_key.get(last_token) {
-      Some(k) => Some(*k),
-      _ => None
+        Some(k) => Some(*k),
+        _ => None,
     };
 
     let modifiers: Vec<Modifier> = tokens_new
         .iter()
         .filter_map(|token| match mod_to_mod_enum.get(strip_at(token.as_str())) {
-          Some(m) => Some(*m),
-          _ => None,
+            Some(m) => Some(*m),
+            _ => None,
         })
         .collect();
 

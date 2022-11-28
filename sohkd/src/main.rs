@@ -1,12 +1,12 @@
 use crate::config::Value;
-use serde_json;
-use odilia_common::events::ScreenReaderEvent;
 use clap::{arg, Command};
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
     sys::stat::{umask, Mode},
     unistd::{Group, Uid},
 };
+use odilia_common::events::ScreenReaderEvent;
+use serde_json;
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
@@ -44,7 +44,7 @@ impl KeyboardState {
     }
 }
 
-#[tokio::main(flavor="current_thread")]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
     env::set_var("RUST_LOG", "sohkd=warn");
@@ -124,10 +124,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         }
                         config::ODILIA_SEND_STATEMENT => {
                             log::debug!("Odilia event statement matched");
-                            let odilia_sr_event= cmd.split(' ').nth(1).unwrap();
+                            let odilia_sr_event = cmd.split(' ').nth(1).unwrap();
                             // TODO: check validity on config load
-                             commands_to_send.push_str(format!("{odilia_sr_event}").as_str()); 
-                        },
+                            commands_to_send.push_str(format!("{odilia_sr_event}").as_str());
+                        }
                         _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
                     }
                 }
@@ -160,11 +160,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // }
             let arg_devices = arg_devices.collect::<Vec<&str>>();
             evdev::enumerate()
-                .filter(|device| arg_devices.contains(&device.name().unwrap_or("")))
+                .filter_map(|(_, device)| if arg_devices.contains(&device.name().unwrap_or("")) { Some(device) } else { None })
                 .collect()
         } else {
             log::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate().filter(check_device_is_keyboard).collect()
+            evdev::enumerate()
+                .filter(check_device_is_keyboard)
+                .map(|(_, device)| device)
+                .collect()
         }
     };
 
@@ -252,14 +255,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 match signal {
                     SIGUSR1 => {
                         execution_is_paused = true;
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                     }
 
                     SIGUSR2 => {
                         execution_is_paused = false;
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.grab();
                         }
                     }
@@ -270,7 +273,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     SIGINT => {
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
                         log::warn!("Received SIGINT signal, exiting...");
@@ -278,7 +281,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     }
 
                     _ => {
-                        for mut device in evdev::enumerate().filter(check_device_is_keyboard) {
+                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
 
@@ -421,8 +424,12 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
     }
 }
 
-pub fn check_device_is_keyboard(device: &Device) -> bool {
-    if device.supported_keys().map_or(false, |keys| keys.contains(Key::KEY_ENTER)) {
+pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
+    let device = &tup.1;
+    if device
+        .supported_keys()
+        .map_or(false, |keys| keys.contains(Key::KEY_ENTER))
+    {
         if device.name() == Some("sohkd virtual output") {
             return false;
         }

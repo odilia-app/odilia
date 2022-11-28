@@ -31,8 +31,7 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: apt -yyq install libx11-6 libx11-dev libxi6 libxi-dev libspeechd-dev libspeechd2 libevdev2 libevdev-dev
-
+        run: sudo apt -yyq install libx11-6 libx11-dev libxi6 libxi-dev libspeechd-dev libspeechd2 libevdev2 libevdev-dev llvm-dev libclang-dev clang
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:

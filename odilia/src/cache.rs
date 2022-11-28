@@ -15,9 +15,6 @@ impl Cache {
     pub fn new() -> Self {
         let (rh, wh) = evmap::with_hasher((), FxBuildHasher::default());
 
-        Self {
-            by_id_read: rh.factory(),
-            by_id_write: Mutex::new(wh),
-        }
+        Self { by_id_read: rh.factory(), by_id_write: Mutex::new(wh) }
     }
 }
