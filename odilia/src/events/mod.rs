@@ -1,15 +1,16 @@
-mod object;
 mod document;
+mod object;
 
 use std::{collections::HashMap, rc::Rc};
 
 use futures::stream::StreamExt;
 use speech_dispatcher::Priority;
 use tokio::sync::{
-    mpsc::{Receiver, Sender},
     broadcast,
+    mpsc::{Receiver, Sender},
 };
 
+use crate::state::ScreenReaderState;
 use atspi::{
     accessible::Role,
     accessible_ext::{AccessibleExt, MatcherArgs},
@@ -19,29 +20,26 @@ use atspi::{
     events::Event,
     InterfaceSet,
 };
-use crate::state::ScreenReaderState;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
 };
 use zbus::names::UniqueName;
 
-pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, role: Role) -> zbus::Result<()> {
+pub async fn structural_navigation(
+    state: &ScreenReaderState,
+    dir: Direction,
+    role: Role,
+) -> zbus::Result<()> {
     let curr = match state.history_item(0).await? {
-      Some(acc) => acc,
-      None => return Ok(())
+        Some(acc) => acc,
+        None => return Ok(()),
     };
     let roles = vec![role];
     let attributes = HashMap::new();
     let interfaces = InterfaceSet::empty();
-    let mt: MatcherArgs = (
-        roles,
-        MatchType::Invalid,
-        attributes,
-        MatchType::Invalid,
-        interfaces,
-        MatchType::Invalid,
-    );
+    let mt: MatcherArgs =
+        (roles, MatchType::Invalid, attributes, MatchType::Invalid, interfaces, MatchType::Invalid);
     if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
         let comp = next.to_component().await?;
         let texti = next.to_text().await?;
@@ -50,7 +48,12 @@ pub async fn structural_navigation(state: &ScreenReaderState, dir: Direction, ro
         let caret_offset = texti.set_caret_offset(0).await?;
         tracing::debug!("Focused: {}", focused);
         tracing::debug!("Caret offset: {}", caret_offset);
-        state.update_accessible(UniqueName::try_from(next.destination().as_str())?, next.path().to_owned()).await;
+        state
+            .update_accessible(
+                UniqueName::try_from(next.destination().as_str())?,
+                next.path().to_owned(),
+            )
+            .await;
         let role = next.get_role().await?;
         let len = texti.character_count().await?;
         let text = texti.get_text(0, len).await?;
@@ -100,7 +103,11 @@ pub async fn sr_event(
 }
 
 //#[tracing::instrument(level = "debug"i, skip(state))]
-pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_rx: &mut broadcast::Receiver<i32>) {
+pub async fn receive(
+    state: Rc<ScreenReaderState>,
+    tx: Sender<Event>,
+    shutdown_rx: &mut broadcast::Receiver<i32>,
+) {
     let events = state.atspi.event_stream();
     pin_utils::pin_mut!(events);
     loop {
@@ -109,7 +116,7 @@ pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_r
                 if let Some(Ok(good_event)) = event {
                     if let Err(e) = tx.send(good_event).await {
                         tracing::error!(error = %e, "Error sending atspi event");
-                    } 
+                    }
                 } else {
                     tracing::debug!("Event is either None or an Error variant.");
                 }
@@ -124,7 +131,11 @@ pub async fn receive(state: Rc<ScreenReaderState>, tx: Sender<Event>, shutdown_r
 }
 
 //#[tracing::instrument(level = "debug")]
-pub async fn process(state: Rc<ScreenReaderState>, rx: &mut Receiver<Event>, shutdown_rx: &mut broadcast::Receiver<i32>) {
+pub async fn process(
+    state: Rc<ScreenReaderState>,
+    rx: &mut Receiver<Event>,
+    shutdown_rx: &mut broadcast::Receiver<i32>,
+) {
     loop {
         tokio::select! {
             event = rx.recv() => {

@@ -1,5 +1,5 @@
-use atspi::events::Event;
 use crate::state::ScreenReaderState;
+use atspi::events::Event;
 
 pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
     // Dispatch based on member
@@ -14,10 +14,9 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 }
 
 mod text_caret_moved {
-    use speech_dispatcher::Priority;
-    use atspi::{accessible, events::Event, convertable::Convertable};
     use crate::state::ScreenReaderState;
-    
+    use atspi::{accessible, convertable::Convertable, events::Event};
+    use speech_dispatcher::Priority;
 
     // TODO: left/right vs. up/down, and use generated speech
     pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -25,8 +24,8 @@ mod text_caret_moved {
         let previous_caret_pos = state.previous_caret_position.get();
         state.previous_caret_position.set(current_caret_pos);
         let (_start, _end) = match current_caret_pos > previous_caret_pos {
-          true => (previous_caret_pos, current_caret_pos),
-          false => (current_caret_pos, previous_caret_pos),
+            true => (previous_caret_pos, current_caret_pos),
+            false => (current_caret_pos, previous_caret_pos),
         };
         let path = if let Some(path) = event.path() {
             path
@@ -41,23 +40,25 @@ mod text_caret_moved {
         let conn = state.connection().clone();
         let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
         let _last_accessible = match state.history_item(0).await? {
-          Some(acc) => acc,
-          None => return Ok(()),
+            Some(acc) => acc,
+            None => return Ok(()),
         };
         let last_last_accessible = match state.history_item(1).await? {
-          Some(acc) => acc,
-          None => return Ok(()),
+            Some(acc) => acc,
+            None => return Ok(()),
         };
         state.update_accessible(sender, path).await;
-        
+
         // in the case that this is not a tab navigation
         // TODO: algorithm that only triggers this when a tab navigation is known to have not occured. How the fuck am I supposed to know how that works?
         // Ok, start out with the basics: if a focus event has recently occuredm, there is a good chance that this function is about to get triggered as well. So, for one, a tab navigation GUARENTEES that the last_accessible will be equal to the curent accessible.
-        if accessible == last_last_accessible  {
-           let txt = accessible.to_text().await?;
+        if accessible == last_last_accessible {
+            let txt = accessible.to_text().await?;
             let len = txt.character_count().await?;
-          // TODO: improve text readout
-          state.say(Priority::Text, format!("{}", txt.get_text(0, len).await?)).await;
+            // TODO: improve text readout
+            state
+                .say(Priority::Text, format!("{}", txt.get_text(0, len).await?))
+                .await;
         }
         Ok(())
     }
@@ -73,8 +74,8 @@ mod text_caret_moved {
 } // end of text_caret_moved
 
 mod state_changed {
-    use atspi::{accessible, events::Event};
     use crate::state::ScreenReaderState;
+    use atspi::{accessible, events::Event};
 
     pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
         // Dispatch based on kind
@@ -100,9 +101,9 @@ mod state_changed {
         let conn = state.connection();
         let accessible = accessible::new(&conn.clone(), sender.clone(), path.clone()).await?;
         if let Some(curr) = state.history_item(0).await? {
-          if curr == accessible {
-            return Ok(());
-          }
+            if curr == accessible {
+                return Ok(());
+            }
         }
         state.update_accessible(sender.to_owned(), path.to_owned()).await;
 
@@ -113,11 +114,9 @@ mod state_changed {
         let relation = accessible.get_relation_set().await?;
         tracing::debug!("Relations: {:?}", relation);
 
-        state.say(
-            speech_dispatcher::Priority::Text,
-            format!("{name}, {role}. {description}"),
-        )
-        .await;
+        state
+            .say(speech_dispatcher::Priority::Text, format!("{name}, {role}. {description}"))
+            .await;
 
         Ok(())
     }

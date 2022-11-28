@@ -208,12 +208,12 @@ pub struct KeyBinding {
 impl Default for KeyBinding {
     fn default() -> Self {
         Self {
-    key: None,
-    mods: Modifiers::empty(),
-    repeat: 1,
-    mode: None,
-    consume: true,
-    notify: true,
+            key: None,
+            mods: Modifiers::empty(),
+            repeat: 1,
+            mode: None,
+            consume: true,
+            notify: true,
         }
     }
 }
@@ -307,9 +307,7 @@ impl FromStr for KeyBinding {
 
         let repeat: u8 = {
             let repeat_str = subparts.next().unwrap_or("1");
-            repeat_str
-                .parse()
-                .map_err(|_| E::InvalidRepeat(repeat_str.into()))?
+            repeat_str.parse().map_err(|_| E::InvalidRepeat(repeat_str.into()))?
         };
 
         let mut mods = Modifiers::empty();
@@ -339,14 +337,7 @@ impl FromStr for KeyBinding {
             };
         }
 
-        Ok(Self {
-            key: Some(key),
-            mods,
-            repeat,
-            mode,
-            consume,
-            notify: true,
-        })
+        Ok(Self { key: Some(key), mods, repeat, mode, consume, notify: true })
     }
 }
 
@@ -368,25 +359,19 @@ mod test {
         assert_eq!(kb.mods, Modifiers::ODILIA);
         assert_eq!(kb.repeat, 1);
         // Complex
-        let kb: KeyBinding = "Control+Shift+Alt+Meta+Applications+Odilia+Return:3"
-            .parse()
-            .unwrap();
+        let kb: KeyBinding = "Control+Shift+Alt+Meta+Applications+Odilia+Return:3".parse().unwrap();
         assert_eq!(kb.key, Some(Key::Return));
         assert_eq!(kb.mods, Modifiers::all());
         assert_eq!(kb.repeat, 3);
         // Left only
-        let kb: KeyBinding = "LeftControl+LeftShift+LeftAlt+LeftMeta+.:2"
-            .parse()
-            .unwrap();
+        let kb: KeyBinding = "LeftControl+LeftShift+LeftAlt+LeftMeta+.:2".parse().unwrap();
         assert_eq!(kb.key, Some(Key::Other('.')));
         assert_eq!(
             kb.mods,
             Modifiers::CONTROL_L | Modifiers::ALT_L | Modifiers::SHIFT_L | Modifiers::META_L
         );
         assert_eq!(kb.repeat, 2);
-        let kb: KeyBinding = "RightControl+RightShift+RightAlt+RightMeta+.:2"
-            .parse()
-            .unwrap();
+        let kb: KeyBinding = "RightControl+RightShift+RightAlt+RightMeta+.:2".parse().unwrap();
         assert_eq!(kb.key, Some(Key::Other('.')));
         assert_eq!(
             kb.mods,

@@ -1,13 +1,7 @@
-use serde::{
-  Serialize,
-  Deserialize,
-};
+use serde::{Deserialize, Serialize};
 
-use atspi::{
-  accessible::Role,
-  text::TextGranularity,
-};
 use crate::modes::ScreenReaderMode;
+use atspi::{accessible::Role, text::TextGranularity};
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Feature {
@@ -15,15 +9,15 @@ pub enum Feature {
     Braille, // TODO
 }
 
-#[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
-#[serde(tag="direction")]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+#[serde(tag = "direction")]
 pub enum Direction {
     Forward,
     Backward,
 }
 
-#[derive(Eq,PartialEq,Clone,Hash,Serialize,Deserialize)]
-#[serde(tag="event", content="args", rename_all="camelCase")]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+#[serde(tag = "event", content = "args", rename_all = "camelCase")]
 pub enum ScreenReaderEvent {
     Noop, // when we need to do "something" but this is always hardcoded as nothing
     Speak(String, u32),

@@ -158,7 +158,11 @@ super + c
             *hotkeys,
             vec!(
                 Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(
+                    Some(evdev::Key::KEY_B),
+                    vec![Modifier::Super],
+                    String::from("firefox")
+                )
             )
         );
         Ok(())
@@ -188,7 +192,11 @@ super + c
             *hotkeys,
             vec!(
                 Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(
+                    Some(evdev::Key::KEY_B),
+                    vec![Modifier::Super],
+                    String::from("firefox")
+                )
             )
         );
         Ok(())
@@ -271,7 +279,11 @@ super + d
             *hotkeys,
             vec!(
                 Hotkey::new(Some(evdev::Key::KEY_C), vec![Modifier::Super], String::from("hello")),
-                Hotkey::new(Some(evdev::Key::KEY_B), vec![Modifier::Super], String::from("firefox"))
+                Hotkey::new(
+                    Some(evdev::Key::KEY_B),
+                    vec![Modifier::Super],
+                    String::from("firefox")
+                )
             )
         );
         Ok(())
@@ -338,8 +350,11 @@ super + 5
     alacritty
         ";
 
-        let expected_keybinds =
-            vec![Hotkey::new(Some(evdev::Key::KEY_5), vec![Modifier::Super], String::from("alacritty"))];
+        let expected_keybinds = vec![Hotkey::new(
+            Some(evdev::Key::KEY_5),
+            vec![Modifier::Super],
+            String::from("alacritty"),
+        )];
 
         eval_config_test(contents, expected_keybinds)
     }
@@ -527,7 +542,11 @@ w
                 vec![Modifier::Alt],
                 String::from("alacritty -t \"Terminal\" -e \"tmux\""),
             ),
-            Hotkey::new(Some(evdev::Key::KEY_0), vec![Modifier::Control], String::from("play-song.sh")),
+            Hotkey::new(
+                Some(evdev::Key::KEY_0),
+                vec![Modifier::Control],
+                String::from("play-song.sh"),
+            ),
             Hotkey::new(
                 Some(evdev::Key::KEY_MINUS),
                 vec![Modifier::Super],
@@ -619,8 +638,10 @@ k
         }
         let contents = &contents;
 
-        let expected_result: Vec<Hotkey> =
-            keysyms.iter().map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string())).collect();
+        let expected_result: Vec<Hotkey> = keysyms
+            .iter()
+            .map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string()))
+            .collect();
 
         eval_config_test(contents, expected_result)
     }
@@ -646,8 +667,10 @@ k
         }
         let contents = &contents;
 
-        let expected_result: Vec<Hotkey> =
-            keysyms.iter().map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string())).collect();
+        let expected_result: Vec<Hotkey> = keysyms
+            .iter()
+            .map(|keysym| Hotkey::new(Some(*keysym), vec![], "st".to_string()))
+            .collect();
 
         eval_config_test(contents, expected_result)
     }
@@ -984,7 +1007,11 @@ super + {shift,alt} + {c,d}
                     vec![Modifier::Control],
                     "notify-send are".to_string(),
                 ),
-                Hotkey::new(Some(evdev::Key::KEY_1), vec![Modifier::Super], "echo hello".to_string()),
+                Hotkey::new(
+                    Some(evdev::Key::KEY_1),
+                    vec![Modifier::Super],
+                    "echo hello".to_string(),
+                ),
                 Hotkey::new(Some(evdev::Key::KEY_2), vec![Modifier::Super], "echo how".to_string()),
                 Hotkey::new(Some(evdev::Key::KEY_3), vec![Modifier::Super], "echo are".to_string()),
             ],
@@ -1157,7 +1184,8 @@ super + @~4
         eval_config_test(
             contents,
             vec![
-                Hotkey::new(Some(evdev::Key::KEY_1), vec![Modifier::Super], "1".to_string()).on_release(),
+                Hotkey::new(Some(evdev::Key::KEY_1), vec![Modifier::Super], "1".to_string())
+                    .on_release(),
                 Hotkey::new(Some(evdev::Key::KEY_2), vec![Modifier::Super], "2".to_string()).send(),
                 Hotkey::new(Some(evdev::Key::KEY_3), vec![Modifier::Super], "3".to_string())
                     .on_release()

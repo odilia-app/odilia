@@ -1,13 +1,7 @@
-use serde_json;
 use eyre;
-use tokio::{
-  net::UnixListener,
-  io::AsyncReadExt,
-  fs,
-  sync::mpsc::Sender,
-  sync::broadcast,
-};
 use nix::unistd::Uid;
+use odilia_common::events::ScreenReaderEvent;
+use serde_json;
 use std::{
     env,
     path::Path,
@@ -15,7 +9,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use odilia_common::events::ScreenReaderEvent;
+use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::broadcast, sync::mpsc::Sender};
 
 fn get_log_file_name() -> String {
     let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -35,16 +29,19 @@ fn get_log_file_name() -> String {
         }
         Err(e) => {
             tracing::trace!(
-            "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
-            e
-        );
+                "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
+                e
+            );
 
             format!("~/.local/share/swhks/swhks-{}.log", time)
         }
     }
 }
 
-pub async fn sr_event_receiver(event_sender: Sender<ScreenReaderEvent>, shutdown_rx: &mut broadcast::Receiver<i32>) -> eyre::Result<()> {
+pub async fn sr_event_receiver(
+    event_sender: Sender<ScreenReaderEvent>,
+    shutdown_rx: &mut broadcast::Receiver<i32>,
+) -> eyre::Result<()> {
     //tracing::trace!("Setting process umask.");
     //umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
