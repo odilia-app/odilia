@@ -76,7 +76,10 @@ pub async fn sr_event(
                             tracing::debug!(error = %e, "There was an error with the structural navigation call.");
                         }
                     },
-                    Some(ScreenReaderEvent::StopSpeech) => tracing::trace!("Stopping speech!"),
+                    Some(ScreenReaderEvent::StopSpeech) => {
+                      tracing::debug!("Stopping speech!");
+                      state.speaker.stop();
+                    },
                     Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
                       tracing::debug!("Changing granularity of read text.");
                       let mut sr_granularity = state.granularity.lock().await;
