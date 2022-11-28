@@ -1,41 +1,13 @@
-# using arrow keys will change the granulairty of your text reading.
-~up
-	@odilia {"event":"changeGranularity","args":{"granularity":"line"}}
-~down
-	@odilia {"event":"changeGranularity","args":{"granularity":"line"}}
-~control + right
-	@odilia {"event":"changeGranularity","args":{"granularity":"word"}}
-~control + left
-	@odilia {"event":"changeGranularity","args":{"granularity":"word"}}
-~left
-	@odilia {"event":"changeGranularity","args":{"granularity":"char"}}
-~right
-	@odilia {"event":"changeGranularity","args":{"granularity":"char"}}
-# end of arrow keys
-
-capslock + b
-	@enter browse
-	@odilia {"event":"changeMode","args":{"name":"browse"}}
-capslock + f
-	@enter focus
-	@odilia {"event":"changeMode","args":{"name":"focus"}}
-# Capslock + up = fake cursor movement
-# TODO: use separate fake cursor, only works with 
-capslock + up
-	@odilia {"event":"changeMode","args":{"name":"goup"}}
+include /etc/odilia/common-keys.conf
 
 # all focus mode keys
 mode focus
-capslock + b
-	@enter browse
-	@odilia {"event":"changeMode","args":{"name":"browse"}}
+include /etc/odilia/common-keys.conf
 endmode
 
 # all browse mode keys, including structural nvaigation
 mode browse
-capslock + f
-	@enter focus
-	@odilia {"event":"changeMode","args":{"name":"focus"}}
+include /etc/odilia/common-keys.conf
 shift + i
 	@odilia {"event":"structuralNavigation","args":[{"direction":"Backward"},"ListItem"]}
 i
