@@ -30,6 +30,7 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
+atspi = { version = "0.3.6", default-features = false, features = ["tokio"] }
 clap = { version = "3.1.6", features = ["derive", "wrap_help"] }
 eyre = "0.6.8"
 nix = "0.25.0"
