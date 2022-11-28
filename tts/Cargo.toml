@@ -1,14 +1,15 @@
 [package]
-name = "odilia-tts"
+name = "speech-dispatcher-async"
 version = "0.0.1"
-authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
-description = "Text to speech subsystem for the Odilia screen reader."
-license = "gpl-3" # Not gpl-3-or-later
+authors = ["Tait Hoyem <tait@tait.tech>"]
+description = "A pure-Rust, fully-safe, asyncronous speech dispatcher client."
+license = "gpl-3.0-only" # Not gpl-3-or-later
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
-keywords = ["accessibility", "a11y", "tts", "speech-dispatcher", "linux"]
-categories = ["accessibility", "api-bindings"]
+keywords = ["accessibility", "a11y", "tts", "speech-dispatcher", "linux", "async"]
+categories = ["accessibility", "api-bindings", "async"]
 edition = "2021"
 publish = false
 
 [dependencies]
+ssip-client = { version = "^0.8.1" }
