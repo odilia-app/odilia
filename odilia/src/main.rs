@@ -6,7 +6,10 @@ mod state;
 
 
 
-use std::rc::Rc;
+use std::{
+	rc::Rc,
+	process::exit,
+};
 
 use eyre::WrapErr;
 use futures::future::FutureExt;
@@ -26,7 +29,7 @@ use odilia_common::{
     modes::ScreenReaderMode,
 };
 use odilia_input::sr_event_receiver;
-
+use speech_dispatcher::Priority;
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()>{
     let mut c = signal(SignalKind::interrupt())?;
@@ -44,10 +47,18 @@ async fn main() -> eyre::Result<()> {
     let _args = args::parse();
     let _change_mode = ScreenReaderEvent::ChangeMode(ScreenReaderMode{ name: "Browse".to_string()});
     let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
-    let (shutdown_tx, _) = broadcast::channel(1);
     // Initialize state
     let state = Rc::new(ScreenReaderState::new().await?);
 
+		match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
+			true => tracing::debug!("Welcome message spoken."),
+			false => {
+				tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
+				state.speaker.close();
+				exit(1);
+			},
+		};
+    let (shutdown_tx, _) = broadcast::channel(1);
     let (sr_event_tx, mut sr_event_rx) = mpsc::channel(8);
     // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
     // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
@@ -75,6 +86,6 @@ async fn main() -> eyre::Result<()> {
     } else {
         tracing::debug!("Speech-dispatched has not been stopped; you may see problems when attempting to use it again.");
     }
-    tracing::debug!("Goodbye, Odilia!");
-    Ok(())
+	tracing::debug!("Goodbye, Odilia!");
+	Ok(())
 }
