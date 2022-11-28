@@ -44,7 +44,7 @@ impl KeyboardState {
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor="current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
     env::set_var("RUST_LOG", "sohkd=warn");
@@ -359,7 +359,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
                 // Don't emit command to virtual device if it's from a valid hotkey
                 // TODO: this will make sure that individual capslock keys send without any other modifiers or keys pressed will ALWAYS be consumed. This should be an option.
-                if !command_in_hotkeys && !(keyboard_state.state_keysyms.iter().count() == 0 && keyboard_state.state_modifiers.len() == 1 && keyboard_state.state_modifiers.iter().all(|&m| m == config::Modifier::CapsLock)) {
+                if !command_in_hotkeys && key != evdev::Key::KEY_CAPSLOCK {
                     uinput_device.emit(&[event]).unwrap();
                 }
 

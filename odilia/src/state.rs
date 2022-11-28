@@ -7,7 +7,7 @@ use tokio::sync::Mutex;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
-use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable};
+use atspi::{accessible::AccessibleProxy, cache::CacheProxy, accessible_ext::AccessibleExt, convertable::Convertable, text::TextGranularity};
 use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, types::{TextSelectionArea }};
 
 pub struct ScreenReaderState {
@@ -17,6 +17,7 @@ pub struct ScreenReaderState {
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
+    pub granularity: Mutex<TextGranularity>,
     pub accessible_history: Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>,
     pub cache: Cache,
 }
@@ -67,6 +68,8 @@ impl ScreenReaderState {
         let previous_caret_position = Cell::new(0);
         let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
         let cache = Cache::new();
+
+        let granularity = Mutex::new(TextGranularity::Line);
         Ok(Self {
             atspi,
             dbus,
@@ -74,6 +77,7 @@ impl ScreenReaderState {
             config,
             previous_caret_position,
             mode,
+            granularity,
             accessible_history,
             cache,
         })
@@ -82,9 +86,9 @@ impl ScreenReaderState {
     // TODO: use cache; this will uplift performance MASSIVELY
     pub async fn generate_speech_string(&self, acc: AccessibleProxy<'_>, select: TextSelectionArea) -> zbus::Result<String> {
       let acc_text = acc.to_text().await?;
-      let acc_hyper = acc.to_hyperlink().await?;
+      let _acc_hyper = acc.to_hyperlink().await?;
       let text_length = acc_text.character_count().await?;
-      let full_text = acc_text.get_text(0, text_length).await?;
+      let _full_text = acc_text.get_text(0, text_length).await?;
       let (mut text_selection, start, end) = match select {
         TextSelectionArea::Granular(granular) => acc_text.get_string_at_offset(granular.index, granular.granularity).await?,
         TextSelectionArea::Index(indexed) => (acc_text.get_text(indexed.start, indexed.end).await?, indexed.start, indexed.end),
@@ -183,9 +187,9 @@ fn event_to_match_rule(event: &str) -> String {
     let mut components = event.split(':');
     let interface = components
         .next()
-        .expect("Event should consist of 3 components separated by ':'");
+        .expect("Event should consist of at least 2 components separated by ':'");
     let member = components
         .next()
-        .expect("Event should consist of 3 components separated by ':'");
+        .expect("Event should consist of at least 2 components separated by ':'");
     format!("type='signal',interface='org.a11y.atspi.Event.{interface}',member='{member}'")
 }

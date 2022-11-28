@@ -578,6 +578,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
                 &mod_to_mod_enum,
             )?;
             let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
+            log::trace!("Valid hotkey found: {:#?}", hotkey);
 
             // Override latter
             modes[current_mode].hotkeys.retain(|h| h.keybinding != hotkey.keybinding);
@@ -668,7 +669,7 @@ fn parse_keybind(
 
     let modifiers: Vec<Modifier> = tokens_new
         .iter()
-        .filter_map(|token| match mod_to_mod_enum.get(token.as_str()) {
+        .filter_map(|token| match mod_to_mod_enum.get(strip_at(token.as_str())) {
           Some(m) => Some(*m),
           _ => None,
         })

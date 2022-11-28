@@ -3,7 +3,10 @@ use serde::{
   Deserialize,
 };
 
-use atspi::accessible::Role;
+use atspi::{
+  accessible::Role,
+  text::TextGranularity,
+};
 use crate::modes::ScreenReaderMode;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
@@ -28,5 +31,6 @@ pub enum ScreenReaderEvent {
     Enable(Feature),
     Disable(Feature),
     ChangeMode(ScreenReaderMode),
+    ChangeGranularity(TextGranularity),
     StructuralNavigation(Direction, Role),
 }
