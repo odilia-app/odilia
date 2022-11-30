@@ -697,6 +697,14 @@ pub fn extract_curly_brace(line: &str) -> Vec<String> {
     if !line.contains('{') || !line.contains('}') || !line.is_ascii() {
         return vec![line.to_string()];
     }
+    // if line contains escaped braces, then replace them
+    if line.contains("\\{") || line.contains("\\}") {
+        return vec![line
+          .replace("\\{", "{")
+          .replace("\\}", "}")
+          .to_string()
+        ];
+    }
 
     // go through each character in the line and mark the position of each { and }
     // if a { is not followed by a  }, return the line as is

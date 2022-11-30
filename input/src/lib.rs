@@ -119,11 +119,12 @@ pub async fn sr_event_receiver(
                         // if valid screen reader event
                         match serde_json::from_str::<ScreenReaderEvent>(&response) {
                           Ok(sre) => {
-                            if let Err(err) = event_sender.send(sre).await {
-                              tracing::error!("Error sending ScreenReaderEvent over socket: {}", err);
+                            match  event_sender.send(sre).await {
+                              Err(err) =>  tracing::error!("Error sending ScreenReaderEvent over socket: {}", err),
+                              Ok(_) => tracing::debug!("Sent SR event"),
                             }
                           },
-                          Err(e) => tracing::trace!("Invalid odilia event. {:#?}", e)
+                          Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e)
                         }
                         tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
                     },

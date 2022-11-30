@@ -160,8 +160,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // }
             let arg_devices = arg_devices.collect::<Vec<&str>>();
             evdev::enumerate()
-                .filter(|(_, device)| arg_devices.contains(&device.name().unwrap_or("")))
-                .map(|(_, device)| device)
+                .filter_map(|(_, device)| if arg_devices.contains(&device.name().unwrap_or("")) { Some(device) } else { None })
                 .collect()
         } else {
             log::trace!("Attempting to find all keyboard file descriptors.");

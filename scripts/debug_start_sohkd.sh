@@ -1,1 +1,1 @@
-pkttyagent -p $(echo $$) | pkexec ./target/debug/sohkd --debug
+pkttyagent -p $(echo $$) | pkexec ./target/debug/sohkd --debug --config /etc/odilia/sohkdrc
