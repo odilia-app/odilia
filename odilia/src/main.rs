@@ -1,4 +1,3 @@
-mod args;
 mod cache;
 mod events;
 mod logging;
@@ -35,8 +34,6 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     logging::init();
-    //console_subscriber::init();
-    let _args = args::parse();
     let _change_mode =
         ScreenReaderEvent::ChangeMode(ScreenReaderMode { name: "Browse".to_string() });
     let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
