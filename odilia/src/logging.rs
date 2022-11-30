@@ -35,7 +35,4 @@ pub fn init() {
     if let Err(e) = LogTracer::init() {
         tracing::warn!(error = %e, "Failed to install log facade");
     }
-    if let Err(e) = color_eyre::install() {
-        tracing::warn!(error = %e, "Failed to install error / panic handler");
-    }
 }
