@@ -10,7 +10,6 @@ members = [
 [profile.release]
 lto = "thin"
 codegen-units = 1 # Reduce codegen units for better optimizations (from swhkd)
-strip = true # remove debugging symbols from binaries
 
 [workspace.metadata.release]
 allow-branch = ["main"]
