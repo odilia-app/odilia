@@ -8,7 +8,8 @@ use std::{
     process::{exit, id},
     time::{SystemTime, UNIX_EPOCH},
 };
-use sysinfo::{ProcessExt, System, SystemExt};
+//use sysinfo::{ProcessExt, System, SystemExt};
+use psutil::process::processes;
 use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::broadcast, sync::mpsc::Sender};
 
 fn get_log_file_name() -> String {
@@ -69,13 +70,20 @@ pub async fn sr_event_receiver(
         };
         tracing::debug!("Previous PID: {}", swhks_pid);
 
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == swhks_pid && process.exe() == env::current_exe().unwrap() {
-                tracing::error!("Server is already running!");
-                exit(1);
-            }
+        for proc in processes().expect("Unable to get a list of processes. Perhaps your platform is unsupported.") {
+						match proc {
+							Ok(process) => {
+								if process.pid() == swhks_pid.parse::<u32>().expect("Unable to turn PID into a number. This is usually very bad.") &&
+									 process.exe().expect("Unable to get executable location. This is usually very bad.") == env::current_exe().unwrap() {
+										tracing::error!("Server is already running!");
+										exit(1);
+								}
+							},
+							Err(e) => {
+								tracing::error!("Unable to get process information. This is usually very bad... {}", e);
+								exit(1);
+							}
+						}
         }
     }
 
