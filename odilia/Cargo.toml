@@ -26,7 +26,7 @@ pre-release-replacements = [
 
 [dependencies]
 async-recursion = "^1.0.0"
-atspi = { version = "^0.3.5", default-features = false, features = ["tokio"] }
+atspi.workspace = true
 circular-queue = "^0.2.6"
 evmap = "10.0.2"
 eyre.workspace = true
