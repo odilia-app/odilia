@@ -12,6 +12,11 @@ lto = "thin"
 codegen-units = 1 # Reduce codegen units for better optimizations (from swhkd)
 strip = true # remove debugging symbols from binaries
 
+[profile.dev]
+lto = false
+optimizations = 0
+strip = false
+
 [workspace.metadata.release]
 allow-branch = ["main"]
 # By default, crates will not be released or published
