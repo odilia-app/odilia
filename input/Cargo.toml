@@ -19,6 +19,6 @@ nix.workspace = true
 odilia-common = { path = "../common" }
 once_cell = "1.16.0"
 serde_json.workspace = true
-sysinfo.workspace = true
+sysinfo = { version = "0.26.8", default_features = false }
 tokio.workspace = true
 tracing.workspace = true
