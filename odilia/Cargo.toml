@@ -28,7 +28,6 @@ pre-release-replacements = [
 async-recursion = "^1.0.0"
 atspi = { version = "^0.3.5", default-features = false, features = ["tokio"] }
 circular-queue = "^0.2.6"
-color-eyre = "^0.6.2"
 evmap = "10.0.2"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
