@@ -8,7 +8,7 @@ members = [
 ]
 
 [profile.release]
-lto = "thin"
+lto = true
 codegen-units = 1 # Reduce codegen units for better optimizations (from swhkd)
 
 [workspace.metadata.release]
