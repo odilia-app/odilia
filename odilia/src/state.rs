@@ -1,9 +1,24 @@
 use std::{cell::Cell, fs};
 
+use ssip_client::{
+	fifo::asynchronous_tokio::Builder,
+	ClientName,
+	ClientResult,
+	types::ClientScope,
+	tokio::AsyncClient,
+};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use speech_dispatcher::{Connection as SPDConnection, Priority};
-use tokio::sync::Mutex;
+use tokio::{
+	sync::Mutex,
+	io::{
+		BufReader, BufWriter,
+	},
+	net::unix::{
+		OwnedReadHalf, OwnedWriteHalf,
+	},
+};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
@@ -19,6 +34,7 @@ pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
+		pub ssip: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
@@ -48,6 +64,10 @@ impl ScreenReaderState {
         )
         .wrap_err("Failed to connect to speech-dispatcher")?;
         tracing::debug!("speech dispatcher initialisation successful");
+				let mut ssip = Builder::new().build().await?;
+				let client_setup_success = ssip.set_client_name(ClientName::new("odilia", "speech")).await?
+						.check_client_name_set().await?;
+				tracing::debug!("SSIP client registered with odilia:speech");
 
         tracing::debug!("Reading configuration");
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -74,6 +94,7 @@ impl ScreenReaderState {
             atspi,
             dbus,
             speaker,
+						ssip,
             config,
             previous_caret_position,
             mode,
