@@ -29,7 +29,7 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "^0.3.7", default-features = false, features = ["tokio"] }
+atspi = { version = "0.3.9", default-features = false, features = ["tokio"] }
 eyre = "0.6.8"
 nix = "0.25.0"
 serde_json = "1.0.89"
