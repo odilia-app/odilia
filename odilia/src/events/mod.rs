@@ -81,7 +81,7 @@ pub async fn sr_event(
                     },
                     Some(ScreenReaderEvent::StopSpeech) => {
                       tracing::debug!("Stopping speech!");
-                      state.speaker.stop()?;
+                      let _ = state.stop_speech().await;
                     },
                     Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
                       tracing::debug!("Changing granularity of read text.");

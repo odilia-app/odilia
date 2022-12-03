@@ -36,7 +36,6 @@ pin-utils = "^0.1.0"
 rustc-hash = { version = "^1.1.0", default-features = false }
 serde_json = "1.0.89"
 speech-dispatcher-async = { path = "../tts" }
-speech-dispatcher = "0.16.0"
 ssip-client = { git = "https://gitlab.com/TTWNO/ssip-client", features = ["tokio"] }
 tokio.workspace = true
 tracing-error = "^0.2.0"
