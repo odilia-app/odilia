@@ -4,12 +4,13 @@ use ssip_client::{
 	fifo::asynchronous_tokio::Builder,
 	ClientName,
 	ClientResult,
+	Priority,
 	types::ClientScope,
 	tokio::AsyncClient,
 };
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use speech_dispatcher::{Connection as SPDConnection, Priority};
+use speech_dispatcher::{Connection as SPDConnection};
 use tokio::{
 	sync::Mutex,
 	io::{
@@ -34,7 +35,7 @@ pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
     pub speaker: SPDConnection,
-		pub ssip: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
+		pub ssip: Mutex<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>>,
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
@@ -64,9 +65,10 @@ impl ScreenReaderState {
         )
         .wrap_err("Failed to connect to speech-dispatcher")?;
         tracing::debug!("speech dispatcher initialisation successful");
-				let mut ssip = Builder::new().build().await?;
-				let client_setup_success = ssip.set_client_name(ClientName::new("odilia", "speech")).await?
+				let mut ssip_core = Builder::new().build().await?;
+				let client_setup_success = ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
 						.check_client_name_set().await?;
+				let ssip = Mutex::new(ssip_core);
 				tracing::debug!("SSIP client registered with odilia:speech");
 
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -171,6 +173,19 @@ impl ScreenReaderState {
     }
 
     pub async fn say(&self, priority: Priority, text: String) -> bool {
+				let mut ssip = self.ssip.lock().await;
+				let priority_result = ssip.set_priority(priority).await.unwrap()
+						//.check_receiving_data().await.unwrap()
+						.receive().await.unwrap();
+				tracing::debug!("Prioirty set? {:?}", priority_result);
+				let msg_id = ssip.speak().await.unwrap()
+						.check_receiving_data().await.unwrap()
+						.send_line(&text).await.unwrap()
+						.send_line(".").await.unwrap()
+						.receive_message_id().await.unwrap();
+				tracing::debug!("SSIP msg id: {}", msg_id);
+				true
+				/*
         if text.is_empty() {
             tracing::warn!("blank string, aborting");
             return false;
@@ -178,6 +193,7 @@ impl ScreenReaderState {
         self.speaker.say(priority, &text);
         tracing::trace!("Said: {}", text);
         true
+				*/
     }
 
     pub async fn history_item(

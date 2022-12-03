@@ -16,7 +16,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 mod text_caret_moved {
     use crate::state::ScreenReaderState;
     use atspi::{accessible, convertable::Convertable, events::Event};
-    use speech_dispatcher::Priority;
+    use ssip_client::Priority;
 
     // TODO: left/right vs. up/down, and use generated speech
     pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
@@ -115,7 +115,7 @@ mod state_changed {
         tracing::debug!("Relations: {:?}", relation);
 
         state
-            .say(speech_dispatcher::Priority::Text, format!("{name}, {role}. {description}"))
+            .say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
             .await;
 
         Ok(())

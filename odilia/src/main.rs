@@ -20,7 +20,7 @@ use odilia_common::{
     modes::ScreenReaderMode,
 };
 use odilia_input::sr_event_receiver;
-use speech_dispatcher::Priority;
+use ssip_client::Priority;
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
     let mut c = signal(SignalKind::interrupt())?;
