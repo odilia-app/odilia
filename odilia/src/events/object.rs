@@ -107,11 +107,13 @@ mod state_changed {
         }
         state.update_accessible(sender.to_owned(), path.to_owned()).await;
 
-        let name = accessible.name().await?;
-        let description = accessible.description().await?;
-        let role = accessible.get_localized_role_name().await?;
+        let (name, description, role, relation) = tokio::try_join!(
+        accessible.name(),
+        accessible.description(),
+        accessible.get_localized_role_name(),
+        accessible.get_relation_set(),
+        )?;
         tracing::debug!("Focus event received on: {} with role {}", path, role);
-        let relation = accessible.get_relation_set().await?;
         tracing::debug!("Relations: {:?}", relation);
 
         state

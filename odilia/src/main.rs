@@ -34,6 +34,10 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
     logging::init();
+    // Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.
+    if let  Err(e) = atspi::set_session_accessibility(true).await {
+        tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
+    }
     let _change_mode =
         ScreenReaderEvent::ChangeMode(ScreenReaderMode { name: "Browse".to_string() });
     let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
@@ -43,7 +47,7 @@ async fn main() -> eyre::Result<()> {
     match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
         true => tracing::debug!("Welcome message spoken."),
         false => {
-            tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
+            tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Exiting now.");
             state.speaker.close();
             exit(1);
         }
@@ -55,9 +59,11 @@ async fn main() -> eyre::Result<()> {
     let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(128);
 
     // Register events
-    state.register_event("Object:StateChanged:Focused").await?;
-    state.register_event("Object:TextCaretMoved").await?;
-    state.register_event("Document:LoadComplete").await?;
+    tokio::try_join!(
+    state.register_event("Object:StateChanged:Focused"),
+    state.register_event("Object:TextCaretMoved"),
+    state.register_event("Document:LoadComplete"),
+    )?;
 
     let mut shutdown_rx_atspi_recv = shutdown_tx.subscribe();
     let atspi_event_receiver =

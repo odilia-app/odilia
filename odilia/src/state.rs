@@ -36,10 +36,10 @@ impl ScreenReaderState {
         let dbus = DBusProxy::new(atspi.connection())
             .await
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
-        tracing::debug!("Connecting to speech-dispatcher");
 
         let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
+        tracing::debug!("Connecting to speech-dispatcher");
         let speaker = SPDConnection::open(
             env!("CARGO_PKG_NAME"),
             "main",
@@ -49,6 +49,7 @@ impl ScreenReaderState {
         .wrap_err("Failed to connect to speech-dispatcher")?;
         tracing::debug!("speech dispatcher initialisation successful");
 
+        tracing::debug!("Reading configuration");
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
             "unable to find the odilia config directory according to the xdg dirs specification",
         );

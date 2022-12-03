@@ -68,7 +68,7 @@ pub async fn sr_event(
     state: Rc<ScreenReaderState>,
     sr_events: &mut Receiver<ScreenReaderEvent>,
     shutdown_rx: &mut broadcast::Receiver<i32>,
-) -> zbus::Result<()> {
+) -> eyre::Result<()> {
     loop {
         tokio::select! {
             sr_event = sr_events.recv() => {
@@ -81,7 +81,7 @@ pub async fn sr_event(
                     },
                     Some(ScreenReaderEvent::StopSpeech) => {
                       tracing::debug!("Stopping speech!");
-                      state.speaker.stop();
+                      state.speaker.stop()?;
                     },
                     Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
                       tracing::debug!("Changing granularity of read text.");
