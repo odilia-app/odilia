@@ -4,7 +4,6 @@ mod object;
 use std::{collections::HashMap, rc::Rc};
 
 use futures::stream::StreamExt;
-use speech_dispatcher::Priority;
 use tokio::sync::{
     broadcast,
     mpsc::{Receiver, Sender},
@@ -20,6 +19,7 @@ use atspi::{
     events::Event,
     InterfaceSet,
 };
+use ssip_client::Priority;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
