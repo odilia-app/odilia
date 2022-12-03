@@ -4,13 +4,13 @@ use ssip_client::{
 	fifo::asynchronous_tokio::Builder,
 	ClientName,
 	ClientResult,
+	MessageScope,
 	Priority,
 	types::ClientScope,
 	tokio::AsyncClient,
 };
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use speech_dispatcher::{Connection as SPDConnection};
 use tokio::{
 	sync::Mutex,
 	io::{
@@ -34,7 +34,6 @@ use odilia_common::{
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
-    pub speaker: SPDConnection,
 		pub ssip: Mutex<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>>,
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
@@ -57,19 +56,12 @@ impl ScreenReaderState {
 
         let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
-        let speaker = SPDConnection::open(
-            env!("CARGO_PKG_NAME"),
-            "main",
-            "",
-            speech_dispatcher::Mode::Threaded,
-        )
-        .wrap_err("Failed to connect to speech-dispatcher")?;
-        tracing::debug!("speech dispatcher initialisation successful");
+				tracing::debug!("Attempting to register SSIP client odilia:speech");
 				let mut ssip_core = Builder::new().build().await?;
 				let client_setup_success = ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
 						.check_client_name_set().await?;
 				let ssip = Mutex::new(ssip_core);
-				tracing::debug!("SSIP client registered with odilia:speech");
+				tracing::debug!("SSIP client registered as odilia:speech");
 
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
             "unable to find the odilia config directory according to the xdg dirs specification",
@@ -94,7 +86,6 @@ impl ScreenReaderState {
         Ok(Self {
             atspi,
             dbus,
-            speaker,
 						ssip,
             config,
             previous_caret_position,
@@ -172,6 +163,22 @@ impl ScreenReaderState {
         self.atspi.connection()
     }
 
+		pub async fn stop_speech(&self) -> bool {
+			let mut ssip = self.ssip.lock().await;
+			let cancel_result = ssip.cancel(MessageScope::All).await.unwrap()
+					.receive().await.unwrap();
+			tracing::debug!("Stopping speech? {:?}", cancel_result);
+			true
+		}
+
+		pub async fn close_speech(&self) -> bool {
+			let mut ssip = self.ssip.lock().await;
+			let quit_result = ssip.quit().await.unwrap()
+					.receive().await.unwrap();
+			tracing::debug!("Quit? {:?}", quit_result);
+			true
+		}
+
     pub async fn say(&self, priority: Priority, text: String) -> bool {
 				let mut ssip = self.ssip.lock().await;
 				let priority_result = ssip.set_priority(priority).await.unwrap()
@@ -185,15 +192,6 @@ impl ScreenReaderState {
 						.receive_message_id().await.unwrap();
 				tracing::debug!("SSIP msg id: {}", msg_id);
 				true
-				/*
-        if text.is_empty() {
-            tracing::warn!("blank string, aborting");
-            return false;
-        }
-        self.speaker.say(priority, &text);
-        tracing::trace!("Said: {}", text);
-        true
-				*/
     }
 
     pub async fn history_item(

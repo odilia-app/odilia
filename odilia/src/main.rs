@@ -44,7 +44,7 @@ async fn main() -> eyre::Result<()> {
         true => tracing::debug!("Welcome message spoken."),
         false => {
             tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
-            state.speaker.close();
+            let _ = state.close_speech().await;
             exit(1);
         }
     };
@@ -84,8 +84,7 @@ async fn main() -> eyre::Result<()> {
         odilia_event_processor
     )?;
     tracing::debug!("All listeners have stopped. Running cleanup code.");
-    let _ = state.speaker.cancel_all();
-    if let Ok(_) = state.speaker.stop() {
+    if  state.close_speech().await {
         tracing::debug!("Speech-dispatcher has successfully been stopped.");
     } else {
         tracing::debug!("Speech-dispatched has not been stopped; you may see problems when attempting to use it again.");
