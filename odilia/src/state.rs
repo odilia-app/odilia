@@ -181,16 +181,12 @@ impl ScreenReaderState {
 
     pub async fn say(&self, priority: Priority, text: String) -> bool {
 				let mut ssip = self.ssip.lock().await;
-				let priority_result = ssip.set_priority(priority).await.unwrap()
-						//.check_receiving_data().await.unwrap()
-						.receive().await.unwrap();
-				tracing::debug!("Prioirty set? {:?}", priority_result);
-				let msg_id = ssip.speak().await.unwrap()
+				let _ = ssip.set_priority(priority).await.unwrap().receive().await.unwrap();
+				let _ = ssip.speak().await.unwrap()
 						.check_receiving_data().await.unwrap()
 						.send_line(&text).await.unwrap()
 						.send_line(".").await.unwrap()
-						.receive_message_id().await.unwrap();
-				tracing::debug!("SSIP msg id: {}", msg_id);
+						.receive().await.unwrap();
 				true
     }
 

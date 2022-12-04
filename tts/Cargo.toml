@@ -12,3 +12,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
+ssip-client = { git = "https://gitlab.com/TTWNO/ssip-client", default-features = false, features = ["tokio"] }
+tokio.workspace = true
+tracing.workspace = true
+pin-utils = "0.1.0"

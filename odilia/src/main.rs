@@ -65,6 +65,9 @@ async fn main() -> eyre::Result<()> {
     state.register_event("Document:LoadComplete"),
     )?;
 
+		let mut shutdown_rx_ssip_recv = shutdown_tx.subscribe();
+		/*let ssip_event_receiver = 
+				handle_ssip_commands((*/
     let mut shutdown_rx_atspi_recv = shutdown_tx.subscribe();
     let atspi_event_receiver =
         events::receive(Rc::clone(&state), atspi_event_tx, &mut shutdown_rx_atspi_recv)
