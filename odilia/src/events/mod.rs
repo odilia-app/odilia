@@ -172,8 +172,8 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
             .next()
             .expect("Interface name should contain '.'")
         {
-            "Object" => object::dispatch(&state, event).await?,
-            "Document" => document::dispatch(&state, event).await?,
+            "Object" => object::dispatch(state, event).await?,
+            "Document" => document::dispatch(state, event).await?,
             interface => tracing::debug!(interface, "Ignoring event with unknown interface"),
         }
     }
