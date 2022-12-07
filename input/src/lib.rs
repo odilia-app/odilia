@@ -25,7 +25,7 @@ fn get_log_file_name() -> String {
             tracing::info!(
                 "XDG_DATA_HOME Variable is present, using it's value for default file path."
             );
-            format!("{}/swhks/swhks-{}.log", val, time)
+            format!("{val}/swhks/swhks-{time}.log")
         }
         Err(e) => {
             tracing::trace!(
@@ -33,7 +33,7 @@ fn get_log_file_name() -> String {
                 e
             );
 
-            format!("~/.local/share/swhks/swhks-{}.log", time)
+            format!("~/.local/share/swhks/swhks-{time}.log")
         }
     }
 }
