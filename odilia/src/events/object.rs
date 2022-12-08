@@ -57,7 +57,7 @@ mod text_caret_moved {
             let len = txt.character_count().await?;
             // TODO: improve text readout
             state
-                .say(Priority::Text, format!("{}", txt.get_text(0, len).await?))
+                .say(Priority::Text, (txt.get_text(0, len).await?).to_string())
                 .await;
         }
         Ok(())

@@ -57,9 +57,9 @@ pub async fn structural_navigation(
         let role = next.get_role().await?;
         let len = texti.character_count().await?;
         let text = texti.get_text(0, len).await?;
-        state.say(Priority::Text, format!("{}, {}", text, role)).await;
+        state.say(Priority::Text, format!("{text}, {role}")).await;
     } else {
-        state.say(Priority::Text, format!("No more {}s", role)).await;
+        state.say(Priority::Text, format!("No more {role}s")).await;
     }
     Ok(())
 }
@@ -172,8 +172,8 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
             .next()
             .expect("Interface name should contain '.'")
         {
-            "Object" => object::dispatch(&state, event).await?,
-            "Document" => document::dispatch(&state, event).await?,
+            "Object" => object::dispatch(state, event).await?,
+            "Document" => document::dispatch(state, event).await?,
             interface => tracing::debug!(interface, "Ignoring event with unknown interface"),
         }
     }
