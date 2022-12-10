@@ -8,6 +8,7 @@ use ssip_client::{
 	Priority,
 	types::ClientScope,
 	tokio::AsyncClient,
+  Request as SSIPRequest,
 };
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
@@ -34,7 +35,7 @@ use odilia_common::{
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
-		pub ssip: Mutex<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>>,
+		pub ssip: Sender<SSIPRequest>,
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
@@ -45,7 +46,7 @@ pub struct ScreenReaderState {
 
 impl ScreenReaderState {
     #[tracing::instrument]
-    pub async fn new() -> eyre::Result<ScreenReaderState> {
+    pub async fn new(ssip: Sender<ssip_client::Request>) -> eyre::Result<ScreenReaderState> {
         let atspi = atspi::Connection::open()
             .await
             .wrap_err("Could not connect to at-spi bus")?;
@@ -54,13 +55,6 @@ impl ScreenReaderState {
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
 
         let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
-
-				tracing::debug!("Attempting to register SSIP client odilia:speech");
-				let mut ssip_core = Builder::new().build().await?;
-				let client_setup_success = ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
-						.check_client_name_set().await?;
-				let ssip = Mutex::new(ssip_core);
-				tracing::debug!("SSIP client registered as odilia:speech");
 
         tracing::debug!("Reading configuration");
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -164,29 +158,19 @@ impl ScreenReaderState {
     }
 
 		pub async fn stop_speech(&self) -> bool {
-			let mut ssip = self.ssip.lock().await;
-			let cancel_result = ssip.cancel(MessageScope::All).await.unwrap()
-					.receive().await.unwrap();
-			tracing::debug!("Stopping speech? {:?}", cancel_result);
+      self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await?;
 			true
 		}
 
 		pub async fn close_speech(&self) -> bool {
-			let mut ssip = self.ssip.lock().await;
-			let quit_result = ssip.quit().await.unwrap()
-					.receive().await.unwrap();
-			tracing::debug!("Quit? {:?}", quit_result);
+      self.ssip.send(SSIPRequest::Quit);.await?;
 			true
 		}
 
     pub async fn say(&self, priority: Priority, text: String) -> bool {
-				let mut ssip = self.ssip.lock().await;
-				let _ = ssip.set_priority(priority).await.unwrap().receive().await.unwrap();
-				let _ = ssip.speak().await.unwrap()
-						.check_receiving_data().await.unwrap()
-						.send_line(&text).await.unwrap()
-						.send_line(".").await.unwrap()
-						.receive().await.unwrap();
+        self.ssip.send(SSIPRequest::SetPrioirty(prioirty)).await?;
+        self.ssip.send(SSIPRequest::Speak).await?;
+        self.ssip.send(SSIPRequest::SendLines(Vec::from([text, "."]))).await?;
 				true
     }
 

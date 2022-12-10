@@ -41,8 +41,17 @@ async fn main() -> eyre::Result<()> {
     let _change_mode =
         ScreenReaderEvent::ChangeMode(ScreenReaderMode { name: "Browse".to_string() });
     let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
+    let (shutdown_tx, _) = broadcast::channel(1);
+    let (sr_event_tx, mut sr_event_rx) = mpsc::channel(8);
+    // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
+    // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
+    let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(128);
+    // this is the chanel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then wdaiting for the receiving message can block other long-running operations like structural navigation.
+    // Although in the future, this may possibly be remidied through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
+    // Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
+    let (ssip_req_tx, mut ssip_req_rx) = mpsc::channel(32);
     // Initialize state
-    let state = Rc::new(ScreenReaderState::new().await?);
+    let state = Rc::new(ScreenReaderState::new(&ssip_req_tx).await?);
 
     match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
         true => tracing::debug!("Welcome message spoken."),
@@ -52,11 +61,6 @@ async fn main() -> eyre::Result<()> {
             exit(1);
         }
     };
-    let (shutdown_tx, _) = broadcast::channel(1);
-    let (sr_event_tx, mut sr_event_rx) = mpsc::channel(8);
-    // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
-    // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
-    let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(128);
 
     // Register events
     tokio::try_join!(
