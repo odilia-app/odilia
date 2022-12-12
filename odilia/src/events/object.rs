@@ -7,10 +7,89 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
         match member.as_str() {
             "StateChanged" => state_changed::dispatch(state, event).await?,
             "TextCaretMoved" => text_caret_moved::dispatch(state, event).await?,
+						"ChildrenChanged" => children_changed::dispatch(state, event).await?,
             member => tracing::debug!(member, "Ignoring event with unknown member"),
         }
     }
     Ok(())
+}
+
+mod children_changed {
+	use crate::state::ScreenReaderState;
+	use crate::cache::CacheItem;
+	use atspi::{
+		events::Event,
+		accessible,
+	};
+
+	pub fn get_id_from_path<'a>(path: &str) -> Option<i32> {
+		tracing::debug!("Attempting to get ID from: {}", path);
+		if let Some(id) = path.split('/').next_back() {
+			if let Ok(uid) = id.parse::<i32>() {
+				return Some(uid);
+			} else if (id == "root") {
+				return Some(0);
+			}
+		}
+		None
+	}
+	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+			// Dispatch based on kind
+			match event.kind() {
+					"remove/system" => remove(state, event).await?,
+					"remove" => remove(state, event).await?,
+					"add/system" => add(state, event).await?,
+					"add" => add(state, event).await?,
+					kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+			}
+			Ok(())
+	}
+	pub async fn add(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+		let conn = state.atspi.connection();
+    let sender = event.sender()?.unwrap();
+		let dest = event.path().unwrap();
+		let accessible = accessible::new(&conn, sender, dest.clone()).await?;
+		// all these properties will be fetched in paralell
+		let (app, parent, index, children, ifaces, role, states) = tokio::try_join!(
+			accessible.get_application(),
+			accessible.parent(),
+			accessible.get_index_in_parent(),
+			accessible.child_count(),
+			accessible.get_interfaces(),
+			accessible.get_role(),
+			accessible.get_state(),
+		)?;
+		let object_id = get_id_from_path(&dest).expect("Invalid accessible");
+		let app_id = get_id_from_path(&app.1.to_string()).expect("Invalid accessible");
+		let parent_id = get_id_from_path(&parent.1.to_string()).expect("Invalid accesible");
+		let cache_item = CacheItem {
+				object: object_id,
+				app: app_id,
+				parent: parent_id,
+				index,
+				children,
+				ifaces,
+				role,
+				states
+		};
+
+		// finally, write data to the internal cache
+		let write_by_id = &state.cache.by_id_write;
+		let mut write_by_id = write_by_id.lock().await;
+		write_by_id.insert(object_id, cache_item);
+		tracing::debug!("Add a single item to cache.");
+		Ok(())
+	}
+	pub async fn remove(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+		let path = event.path().expect("No path");
+		let path_id_str = path.split('/').next_back().expect("No ID");
+		let id = path_id_str.parse::<i32>()?;
+		let shared_write = &state.cache.by_id_write;
+		let mut cache = shared_write.lock().await;
+		cache.empty(id);
+		tracing::debug!("Remove a single item from cache.");
+		Ok(())
+	}
 }
 
 mod text_caret_moved {

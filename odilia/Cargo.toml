@@ -32,11 +32,11 @@ eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
 odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
+odilia-tts = { path = "../tts" }
 pin-utils = "^0.1.0"
 rustc-hash = { version = "^1.1.0", default-features = false }
 serde_json = "1.0.89"
-speech-dispatcher-async = { path = "../tts" }
-ssip-client = { git = "https://gitlab.com/TTWNO/ssip-client", default-features = false, features = ["tokio"] }
+ssip-client.workspace = true
 tokio.workspace = true
 tracing-error = "^0.2.0"
 tracing-log = "^0.1.3"

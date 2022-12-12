@@ -7,13 +7,18 @@ use ssip_client::{
 	MessageScope,
 	Priority,
 	types::ClientScope,
-	tokio::AsyncClient,
-  Request as SSIPRequest,
+	tokio::{
+		AsyncClient,
+  	Request as SSIPRequest,
+	},
 };
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use tokio::{
-	sync::Mutex,
+	sync::{
+		Mutex,
+		mpsc::Sender,
+	},
 	io::{
 		BufReader, BufWriter,
 	},
@@ -46,7 +51,7 @@ pub struct ScreenReaderState {
 
 impl ScreenReaderState {
     #[tracing::instrument]
-    pub async fn new(ssip: Sender<ssip_client::Request>) -> eyre::Result<ScreenReaderState> {
+    pub async fn new(ssip: Sender<SSIPRequest>) -> eyre::Result<ScreenReaderState> {
         let atspi = atspi::Connection::open()
             .await
             .wrap_err("Could not connect to at-spi bus")?;
@@ -158,19 +163,32 @@ impl ScreenReaderState {
     }
 
 		pub async fn stop_speech(&self) -> bool {
-      self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await?;
-			true
+      match self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await {
+				Err(_) => false,
+				_ => true
+			}
 		}
 
 		pub async fn close_speech(&self) -> bool {
-      self.ssip.send(SSIPRequest::Quit);.await?;
-			true
+      match self.ssip.send(SSIPRequest::Quit).await {
+				Err(_) => false,
+				_ => true
+			}
 		}
 
     pub async fn say(&self, priority: Priority, text: String) -> bool {
-        self.ssip.send(SSIPRequest::SetPrioirty(prioirty)).await?;
-        self.ssip.send(SSIPRequest::Speak).await?;
-        self.ssip.send(SSIPRequest::SendLines(Vec::from([text, "."]))).await?;
+        match self.ssip.send(SSIPRequest::SetPriority(priority)).await {
+					Err(_) => return false,
+					_ => ()
+				};
+        match self.ssip.send(SSIPRequest::Speak).await {
+					Err(_) => return false,
+					_ => ()
+				};
+        match self.ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await {
+					Err(_) => return false,
+					_ => ()
+				};
 				true
     }
 
@@ -200,7 +218,6 @@ impl ScreenReaderState {
         let mut history = self.accessible_history.lock().await;
         history.push((sender.to_owned(), path.to_owned()));
     }
-
     pub async fn build_cache<'a>(
         &self,
         dest: UniqueName<'a>,

@@ -6,7 +6,10 @@ mod state;
 use std::{process::exit, rc::Rc};
 
 use eyre::WrapErr;
-use futures::future::FutureExt;
+use futures::{
+	future::FutureExt,
+	stream::StreamExt,
+};
 use tokio::{
     signal::unix::{signal, SignalKind},
     sync::broadcast,
@@ -14,13 +17,19 @@ use tokio::{
 };
 
 use crate::state::ScreenReaderState;
-use atspi::accessible::Role;
+use atspi::{
+	accessible::Role,
+	cache::CacheProxy,
+};
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
 };
 use odilia_input::sr_event_receiver;
-use ssip_client::Priority;
+use odilia_tts;
+use ssip_client::{
+	Priority,
+};
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
     let mut c = signal(SignalKind::interrupt())?;
@@ -38,20 +47,18 @@ async fn main() -> eyre::Result<()> {
     if let  Err(e) = atspi::set_session_accessibility(true).await {
         tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
     }
-    let _change_mode =
-        ScreenReaderEvent::ChangeMode(ScreenReaderMode { name: "Browse".to_string() });
-    let _sn = ScreenReaderEvent::StructuralNavigation(Direction::Forward, Role::Heading);
     let (shutdown_tx, _) = broadcast::channel(1);
-    let (sr_event_tx, mut sr_event_rx) = mpsc::channel(8);
+    let (sr_event_tx, mut sr_event_rx) = mpsc::channel(128);
     // this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
     // If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
     let (atspi_event_tx, mut atspi_event_rx) = mpsc::channel(128);
     // this is the chanel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then wdaiting for the receiving message can block other long-running operations like structural navigation.
     // Although in the future, this may possibly be remidied through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
     // Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
-    let (ssip_req_tx, mut ssip_req_rx) = mpsc::channel(32);
+    let (ssip_req_tx, mut ssip_req_rx) = mpsc::channel::<ssip_client::tokio::Request>(128);
     // Initialize state
-    let state = Rc::new(ScreenReaderState::new(&ssip_req_tx).await?);
+    let state = Rc::new(ScreenReaderState::new(ssip_req_tx).await?);
+		let mut ssip = odilia_tts::create_ssip_client().await?;
 
     match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
         true => tracing::debug!("Welcome message spoken."),
@@ -66,12 +73,14 @@ async fn main() -> eyre::Result<()> {
     tokio::try_join!(
     state.register_event("Object:StateChanged:Focused"),
     state.register_event("Object:TextCaretMoved"),
+    state.register_event("Object:ChildrenChanged"),
     state.register_event("Document:LoadComplete"),
     )?;
 
 		let mut shutdown_rx_ssip_recv = shutdown_tx.subscribe();
-		/*let ssip_event_receiver = 
-				handle_ssip_commands((*/
+		let ssip_event_receiver = 
+				odilia_tts::handle_ssip_commands(&mut ssip, ssip_req_rx, &mut shutdown_rx_ssip_recv)
+				.map(|r| r.wrap_err("Could no process SSIP request"));
     let mut shutdown_rx_atspi_recv = shutdown_tx.subscribe();
     let atspi_event_receiver =
         events::receive(Rc::clone(&state), atspi_event_tx, &mut shutdown_rx_atspi_recv)
@@ -94,7 +103,8 @@ async fn main() -> eyre::Result<()> {
         atspi_event_receiver,
         atspi_event_processor,
         odilia_event_receiver,
-        odilia_event_processor
+        odilia_event_processor,
+				ssip_event_receiver,
     )?;
     tracing::debug!("All listeners have stopped. Running cleanup code.");
     if  state.close_speech().await {
