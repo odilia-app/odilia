@@ -1,9 +1,31 @@
 use std::{cell::Cell, fs};
 
+use ssip_client::{
+	fifo::asynchronous_tokio::Builder,
+	ClientName,
+	ClientResult,
+	MessageScope,
+	Priority,
+	types::ClientScope,
+	tokio::{
+		AsyncClient,
+  	Request as SSIPRequest,
+	},
+};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use speech_dispatcher::{Connection as SPDConnection, Priority};
-use tokio::sync::Mutex;
+use tokio::{
+	sync::{
+		Mutex,
+		mpsc::Sender,
+	},
+	io::{
+		BufReader, BufWriter,
+	},
+	net::unix::{
+		OwnedReadHalf, OwnedWriteHalf,
+	},
+};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
 
 use crate::cache::Cache;
@@ -18,7 +40,7 @@ use odilia_common::{
 pub struct ScreenReaderState {
     pub atspi: atspi::Connection,
     pub dbus: DBusProxy<'static>,
-    pub speaker: SPDConnection,
+		pub ssip: Sender<SSIPRequest>,
     pub config: ApplicationConfig,
     pub previous_caret_position: Cell<i32>,
     pub mode: Mutex<ScreenReaderMode>,
@@ -29,7 +51,7 @@ pub struct ScreenReaderState {
 
 impl ScreenReaderState {
     #[tracing::instrument]
-    pub async fn new() -> eyre::Result<ScreenReaderState> {
+    pub async fn new(ssip: Sender<SSIPRequest>) -> eyre::Result<ScreenReaderState> {
         let atspi = atspi::Connection::open()
             .await
             .wrap_err("Could not connect to at-spi bus")?;
@@ -38,16 +60,6 @@ impl ScreenReaderState {
             .wrap_err("Failed to create org.freedesktop.DBus proxy")?;
 
         let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
-
-        tracing::debug!("Connecting to speech-dispatcher");
-        let speaker = SPDConnection::open(
-            env!("CARGO_PKG_NAME"),
-            "main",
-            "",
-            speech_dispatcher::Mode::Threaded,
-        )
-        .wrap_err("Failed to connect to speech-dispatcher")?;
-        tracing::debug!("speech dispatcher initialisation successful");
 
         tracing::debug!("Reading configuration");
         let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -73,7 +85,7 @@ impl ScreenReaderState {
         Ok(Self {
             atspi,
             dbus,
-            speaker,
+						ssip,
             config,
             previous_caret_position,
             mode,
@@ -150,14 +162,34 @@ impl ScreenReaderState {
         self.atspi.connection()
     }
 
+		pub async fn stop_speech(&self) -> bool {
+      match self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await {
+				Err(_) => false,
+				_ => true
+			}
+		}
+
+		pub async fn close_speech(&self) -> bool {
+      match self.ssip.send(SSIPRequest::Quit).await {
+				Err(_) => false,
+				_ => true
+			}
+		}
+
     pub async fn say(&self, priority: Priority, text: String) -> bool {
-        if text.is_empty() {
-            tracing::warn!("blank string, aborting");
-            return false;
-        }
-        self.speaker.say(priority, &text);
-        tracing::trace!("Said: {}", text);
-        true
+        match self.ssip.send(SSIPRequest::SetPriority(priority)).await {
+					Err(_) => return false,
+					_ => ()
+				};
+        match self.ssip.send(SSIPRequest::Speak).await {
+					Err(_) => return false,
+					_ => ()
+				};
+        match self.ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await {
+					Err(_) => return false,
+					_ => ()
+				};
+				true
     }
 
     pub async fn history_item(
@@ -186,7 +218,6 @@ impl ScreenReaderState {
         let mut history = self.accessible_history.lock().await;
         history.push((sender.to_owned(), path.to_owned()));
     }
-
     pub async fn build_cache<'a>(
         &self,
         dest: UniqueName<'a>,

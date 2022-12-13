@@ -4,7 +4,6 @@ mod object;
 use std::{collections::HashMap, rc::Rc};
 
 use futures::stream::StreamExt;
-use speech_dispatcher::Priority;
 use tokio::sync::{
     broadcast,
     mpsc::{Receiver, Sender},
@@ -20,6 +19,7 @@ use atspi::{
     events::Event,
     InterfaceSet,
 };
+use ssip_client::Priority;
 use odilia_common::{
     events::{Direction, ScreenReaderEvent},
     modes::ScreenReaderMode,
@@ -81,7 +81,7 @@ pub async fn sr_event(
                     },
                     Some(ScreenReaderEvent::StopSpeech) => {
                       tracing::debug!("Stopping speech!");
-                      state.speaker.stop()?;
+                      let _ = state.stop_speech().await;
                     },
                     Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
                       tracing::debug!("Changing granularity of read text.");

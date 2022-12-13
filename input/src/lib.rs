@@ -25,7 +25,7 @@ fn get_log_file_name() -> String {
             tracing::info!(
                 "XDG_DATA_HOME Variable is present, using it's value for default file path."
             );
-            format!("{val}/swhks/swhks-{time}.log")
+            format!("{val}/sohks/sohks-{time}.log")
         }
         Err(e) => {
             tracing::trace!(
@@ -33,7 +33,7 @@ fn get_log_file_name() -> String {
                 e
             );
 
-            format!("~/.local/share/swhks/swhks-{time}.log")
+            format!("~/.local/share/sohks/sohks-{time}.log")
         }
     }
 }
@@ -60,19 +60,19 @@ pub async fn sr_event_receiver(
 
     if Path::new(&pid_file_path).exists() {
         tracing::trace!("Reading {} file and checking for running instances.", pid_file_path);
-        let swhks_pid = match fs::read_to_string(&pid_file_path).await {
-            Ok(swhks_pid) => swhks_pid,
+        let sohkds_pid = match fs::read_to_string(&pid_file_path).await {
+            Ok(sohkds_pid) => sohkds_pid,
             Err(e) => {
                 tracing::error!("Unable to read {} to check all running instances", e);
                 exit(1);
             }
         };
-        tracing::debug!("Previous PID: {}", swhks_pid);
+        tracing::debug!("Previous PID: {}", sohkds_pid);
 
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
-            if pid.to_string() == swhks_pid && process.exe() == env::current_exe().unwrap() {
+            if pid.to_string() == sohkds_pid && process.exe() == env::current_exe().unwrap() {
                 tracing::error!("Server is already running!");
                 exit(1);
             }
@@ -148,7 +148,7 @@ fn get_file_paths() -> (String, String) {
                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
             );
 
-            let pid_file_path = format!("{}/swhks.pid", val);
+            let pid_file_path = format!("{}/sohkds.pid", val);
             let sock_file_path = format!("{}/sohkd.sock", val);
 
             (pid_file_path, sock_file_path)
@@ -156,7 +156,7 @@ fn get_file_paths() -> (String, String) {
         Err(e) => {
             tracing::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
 
-            let pid_file_path = format!("/run/user/{}/swhks.pid", Uid::current());
+            let pid_file_path = format!("/run/user/{}/sohkds.pid", Uid::current());
             let sock_file_path = format!("/run/user/{}/sohkd.sock", Uid::current());
 
             (pid_file_path, sock_file_path)

@@ -29,10 +29,12 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.3.9", default-features = false, features = ["tokio"] }
+atspi = { version = "0.3.10", default-features = false, features = ["tokio"] }
 eyre = "0.6.8"
 nix = "0.25.0"
 serde_json = "1.0.89"
+ssip-client = { default-features = false, features = ["tokio"], git = "https://gitlab.com/TTWNO/ssip-client" }
 tokio = { version = "^1.22.0", default-features = false, features = ["sync", "macros", "rt", "signal", "tracing"] }
 tracing = "^0.1.37"
 zbus = { version = "^3.5.0", default-features = false, features = ["tokio"] }
+
