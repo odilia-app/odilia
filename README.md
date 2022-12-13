@@ -26,6 +26,9 @@ cargo build --release
 # Optionally, run this to install Odilia to ~/.cargo/bin:
 cargo install --path .
 sudo ./scripts/setup_permissions.sh
+# You will also want to compile sohkd.
+cd sohkd
+cargo build --release
 ```
 
 ### Udev Permissions
@@ -39,6 +42,17 @@ done by running the [scripts/setup-permissions.sh shell
 script](https://github.com/odilia-app/odilia/blob/main/setup-permissions.sh) included with Odilia. The script adds some
 udev rules, then creates an odilia group. Any users added to this group and the `input` group will be able to run
 Odilia.
+
+## Running
+
+To run Odilia, you should use our script.
+This will ask for your password (if you have sudo permissions) and then launch both Odilia and the key daemon in quiet mode.
+
+```bash
+./scripts/odilia
+# in another terminal
+./scripts/debug_start_sohkd.sh
+```
 
 ## Contributing
 
