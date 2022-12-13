@@ -496,27 +496,27 @@ w
     #[test]
     fn test_real_config_snippet() -> std::io::Result<()> {
         let contents = "
-            # reloads sxhkd configuration:
-            super + Escape
-                pkill -USR1 -x sxhkd ; sxhkd &
+# reloads sxhkd configuration:
+super + Escape
+    pkill -USR1 -x sxhkd ; sxhkd &
 
-            # Launch Terminal
-            super + Return
-                alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"
+# Launch Terminal
+super + Return
+    alacritty -t \"Terminal\" -e \"$HOME/.config/sxhkd/new_tmux_terminal.sh\"
 
-            # terminal emulator (no tmux)
-            super + shift + Return
-                alacritty -t \"Terminal\"
+# terminal emulator (no tmux)
+super + shift + Return
+    alacritty -t \"Terminal\"
 
-            # terminal emulator (new tmux session)
-            alt + Return
-                alacritty -t \"Terminal\" -e \"tmux\"
+# terminal emulator (new tmux session)
+alt + Return
+    alacritty -t \"Terminal\" -e \"tmux\"
 
-            ctrl + 0
-                play-song.sh
+ctrl + 0
+    play-song.sh
 
-            super + minus
-                play-song.sh album
+super + minus
+    play-song.sh album
                                 ";
 
         let expected_result: Vec<Hotkey> = vec![
