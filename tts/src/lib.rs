@@ -46,6 +46,11 @@ pub async fn handle_ssip_commands(client: &mut AsyncClient<BufReader<OwnedReadHa
 				continue;
 			}
 			_ = shutdown_tx.recv() => {
+        tracing::debug!("Attempting to quit SSIP.");
+        let response = client
+          .send(Request::Quit).await.unwrap()
+          .receive().await.unwrap();
+        tracing::debug!("Response from server: {:?}", response);
 				tracing::debug!("SSIP command interpreter is shut down.");
 				break;
 			}
