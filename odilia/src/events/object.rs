@@ -29,7 +29,9 @@ mod children_changed {
 				return Some(uid);
 			} else if (id == "root") {
 				return Some(0);
-			}
+			} else if (id == "null") {
+        return Some(-1);
+      }
 		}
 		None
 	}

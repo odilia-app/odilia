@@ -14,7 +14,9 @@ pub fn get_id_from_path<'a>(path: &str) -> Option<i32> {
 			return Some(uid);
 		} else if (id == "root") {
 			return Some(0);
-		}
+		} else if (id == "null") {
+      return Some(-1);
+    }
 	}
 	None
 }
