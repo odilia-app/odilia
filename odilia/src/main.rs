@@ -106,12 +106,7 @@ async fn main() -> eyre::Result<()> {
         odilia_event_processor,
 				ssip_event_receiver,
     )?;
-    tracing::debug!("All listeners have stopped. Running cleanup code.");
-    if  state.close_speech().await {
-        tracing::debug!("Speech-dispatcher has successfully been stopped.");
-    } else {
-        tracing::debug!("Speech-dispatched has not been stopped; you may see problems when attempting to use it again.");
-    }
+    tracing::debug!("All listeners have stopped.");
     tracing::debug!("Goodbye, Odilia!");
     Ok(())
 }
