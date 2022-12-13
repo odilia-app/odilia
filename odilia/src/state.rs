@@ -1,14 +1,9 @@
 use std::{cell::Cell, fs};
 
 use ssip_client::{
-	fifo::asynchronous_tokio::Builder,
-	ClientName,
-	ClientResult,
 	MessageScope,
 	Priority,
-	types::ClientScope,
 	tokio::{
-		AsyncClient,
   	Request as SSIPRequest,
 	},
 };
@@ -18,12 +13,6 @@ use tokio::{
 	sync::{
 		Mutex,
 		mpsc::Sender,
-	},
-	io::{
-		BufReader, BufWriter,
-	},
-	net::unix::{
-		OwnedReadHalf, OwnedWriteHalf,
 	},
 };
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};

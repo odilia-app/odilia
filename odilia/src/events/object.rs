@@ -27,9 +27,9 @@ mod children_changed {
 		if let Some(id) = path.split('/').next_back() {
 			if let Ok(uid) = id.parse::<i32>() {
 				return Some(uid);
-			} else if (id == "root") {
+			} else if id == "root" {
 				return Some(0);
-			} else if (id == "null") {
+			} else if id == "null" {
         return Some(-1);
       }
 		}

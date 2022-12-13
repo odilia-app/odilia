@@ -18,10 +18,43 @@ use ssip_client::{
 };
 use pin_utils;
 use eyre;
+use std::{
+  thread,
+  time,
+  process::{
+    exit,
+    Command,
+    Stdio,
+  },
+  io::ErrorKind,
+};
 
 pub async fn create_ssip_client() -> eyre::Result<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>> {
   tracing::debug!("Attempting to register SSIP client odilia:speech");
-  let mut ssip_core = Builder::new().build().await?;
+  let mut ssip_core = match Builder::new().build().await {
+     Ok(ssip) => ssip,
+     Err(e) => {
+        match e.kind() {
+          ErrorKind::ConnectionRefused => {
+            tracing::debug!("Speech dispatcher is not active. Attempting to spawn it.");
+            Command::new("speech-dispatcher")
+              .arg("--spawn")
+              .stdin(Stdio::null())
+              .stdout(Stdio::null())
+              .stderr(Stdio::null())
+              .spawn()
+              .expect("Error running `speech-dispatcher --spawn`; this is a fatal error.");
+            tracing::debug!("Attempting to connect to speech-dispatcher again!");
+            thread::sleep(time::Duration::from_millis(500));
+            Builder::new().build().await?
+          },
+          _ => {
+            tracing::debug!("Speech dispatcher could not be started.");
+            exit(1);
+          },
+        }
+     },
+  };
 	tracing::debug!("Client created. Setting name");
   let client_setup_success = ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
       .check_client_name_set().await?;

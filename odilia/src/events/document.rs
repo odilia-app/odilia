@@ -5,16 +5,15 @@ use crate::{
 	cache::CacheItem,
 };
 use atspi::events::Event;
-use std::sync::Arc;
 
 pub fn get_id_from_path<'a>(path: &str) -> Option<i32> {
 	tracing::debug!("Attempting to get ID for: {}", path);
 	if let Some(id) = path.split('/').next_back() {
 		if let Ok(uid) = id.parse::<i32>() {
 			return Some(uid);
-		} else if (id == "root") {
+		} else if id == "root" {
 			return Some(0);
-		} else if (id == "null") {
+		} else if id == "null" {
       return Some(-1);
     }
 	}
@@ -30,7 +29,6 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 		let cache_items: Vec<CacheItem> = entire_cache.into_iter()
 			.map(|item| {
         // defined in xml/Cache.xml
-        let sender = item.object.0.clone();
         let path = item.object.1.to_string();
 				let app_path = item.app.1.clone();
 				let parent_path = item.parent.1.clone();

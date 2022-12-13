@@ -8,7 +8,6 @@ use std::{process::exit, rc::Rc};
 use eyre::WrapErr;
 use futures::{
 	future::FutureExt,
-	stream::StreamExt,
 };
 use tokio::{
     signal::unix::{signal, SignalKind},
@@ -17,14 +16,6 @@ use tokio::{
 };
 
 use crate::state::ScreenReaderState;
-use atspi::{
-	accessible::Role,
-	cache::CacheProxy,
-};
-use odilia_common::{
-    events::{Direction, ScreenReaderEvent},
-    modes::ScreenReaderMode,
-};
 use odilia_input::sr_event_receiver;
 use odilia_tts;
 use ssip_client::{
@@ -55,7 +46,7 @@ async fn main() -> eyre::Result<()> {
     // this is the chanel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then wdaiting for the receiving message can block other long-running operations like structural navigation.
     // Although in the future, this may possibly be remidied through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
     // Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
-    let (ssip_req_tx, mut ssip_req_rx) = mpsc::channel::<ssip_client::tokio::Request>(128);
+    let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client::tokio::Request>(128);
     // Initialize state
     let state = Rc::new(ScreenReaderState::new(ssip_req_tx).await?);
 		let mut ssip = odilia_tts::create_ssip_client().await?;

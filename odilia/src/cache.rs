@@ -1,6 +1,5 @@
 use rustc_hash::FxHasher;
 use tokio::sync::Mutex;
-use std::sync::Arc;
 use atspi::{
 	accessible::Role,
 	InterfaceSet,
