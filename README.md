@@ -1,8 +1,8 @@
 # Odilia Screen Reader
 
-<!-- Todo: Add badges here -->
+[![Build CI](https://github.com/odilia-app/odilia/actions/workflows/ci.yml/badge.svg)](https://github.com/odilia-app/odilia/actions)
 
-## Welcome to Odilia!
+## Welcome to Odilia
 
 Odilia is a screen reader for the Linux desktop.
 It's written in [Rust](https://rust-lang.org), for maximum performance and stability.
@@ -67,4 +67,3 @@ These will be fleshed out as Odilia matures.
 ## License
 
 The Odilia screen reader is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
-
