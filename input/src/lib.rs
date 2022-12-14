@@ -1,7 +1,5 @@
-use eyre;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
-use serde_json;
 use std::{
     env,
     path::Path,

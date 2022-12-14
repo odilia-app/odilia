@@ -22,7 +22,7 @@ mod children_changed {
 		accessible,
 	};
 
-	pub fn get_id_from_path<'a>(path: &str) -> Option<i32> {
+	pub fn get_id_from_path(path: &str) -> Option<i32> {
 		tracing::debug!("Attempting to get ID from: {}", path);
 		if let Some(id) = path.split('/').next_back() {
 			if let Ok(uid) = id.parse::<i32>() {
@@ -50,7 +50,7 @@ mod children_changed {
 		let conn = state.atspi.connection();
     let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
-		let accessible = accessible::new(&conn, sender, dest.clone()).await?;
+		let accessible = accessible::new(conn, sender, dest.clone()).await?;
 		// all these properties will be fetched in paralell
 		let (app, parent, index, children, ifaces, role, states) = tokio::try_join!(
 			accessible.get_application(),

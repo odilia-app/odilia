@@ -5,8 +5,6 @@ use nix::{
     sys::stat::{umask, Mode},
     unistd::{Group, Uid},
 };
-use odilia_common::events::ScreenReaderEvent;
-use serde_json;
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
@@ -83,15 +81,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
         log::debug!("Using config file path: {:#?}", config_file_path);
 
-        let modes = match config::load(&config_file_path) {
+        match config::load(&config_file_path) {
             Err(e) => {
                 log::error!("Config Error: {}", e);
                 exit(1)
             }
             Ok(out) => out,
-        };
-
-        modes
+        }
     };
 
     let mut modes = load_config();
@@ -216,7 +212,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         250
     };
 
-    let mut signals = Signals::new(&[
+    let mut signals = Signals::new([
         SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
         SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
     ])?;
@@ -561,7 +557,7 @@ pub fn setup_sohkd(invoking_uid: u32) {
             log::error!("Unable to write to {}: {}", pidfile, e);
             exit(1);
         }
-    }
+    };
 
     // Check if the user is in input group.
     if check_input_group().is_err() {

@@ -16,8 +16,6 @@ use ssip_client::{
 	fifo::asynchronous_tokio::Builder,
 	ClientName,
 };
-use pin_utils;
-use eyre;
 use std::{
   thread,
   time,
@@ -56,10 +54,10 @@ pub async fn create_ssip_client() -> eyre::Result<AsyncClient<BufReader<OwnedRea
      },
   };
 	tracing::debug!("Client created. Setting name");
-  let client_setup_success = ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
+  ssip_core.set_client_name(ClientName::new("odilia", "speech")).await?
       .check_client_name_set().await?;
   tracing::debug!("SSIP client registered as odilia:speech");
-  return Ok(ssip_core);
+  Ok(ssip_core)
 }
 
 pub async fn handle_ssip_commands(client: &mut AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>, requests: Receiver<Request>, shutdown_tx: &mut broadcast::Receiver<i32>) -> eyre::Result<()> {

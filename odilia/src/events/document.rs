@@ -6,7 +6,7 @@ use crate::{
 };
 use atspi::events::Event;
 
-pub fn get_id_from_path<'a>(path: &str) -> Option<i32> {
+pub fn get_id_from_path(path: &str) -> Option<i32> {
 	tracing::debug!("Attempting to get ID for: {}", path);
 	if let Some(id) = path.split('/').next_back() {
 		if let Ok(uid) = id.parse::<i32>() {
@@ -26,7 +26,9 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
         .build_cache(dest, ObjectPath::try_from("/org/a11y/atspi/cache".to_string())?)
         .await?;
     let entire_cache = cache.get_items().await?;
-		let cache_items: Vec<CacheItem> = entire_cache.into_iter()
+    let write_by_id = &state.cache.by_id_write;
+    let mut write_by_id = write_by_id.lock().await;
+		entire_cache.into_iter()
 			.map(|item| {
         // defined in xml/Cache.xml
         let path = item.object.1.to_string();
@@ -45,13 +47,9 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 					role: item.role,
 					states: item.states
 				}})
-			.collect();
-    let write_by_id = &state.cache.by_id_write;
-    let mut write_by_id = write_by_id.lock().await;
-		cache_items.into_iter()
-			.for_each(|cache_item| {
-				write_by_id.insert(cache_item.object, cache_item);
-			});
+        .for_each(|cache_item| {
+          write_by_id.insert(cache_item.object, cache_item);
+        });
     write_by_id.refresh();
 		tracing::debug!("Add an entire document to cache.");
     Ok(())

@@ -14,12 +14,12 @@ pub enum Error {
     InvalidConfig(ParseError),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ParseError {
     // u32 is the line number where an error occured
     UnknownSymbol(PathBuf, u32),
     InvalidModifier(PathBuf, u32),
-    InvalidKeysym(PathBuf, u32),
+    //InvalidKeysym(PathBuf, u32),
 }
 
 impl From<std::io::Error> for Error {
@@ -34,7 +34,7 @@ impl From<std::io::Error> for Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &*self {
+        match self {
             Error::ConfigNotFound => "Config file not found.".fmt(f),
 
             Error::Io(io_err) => format!("I/O Error while parsing config file: {}", io_err).fmt(f),
@@ -44,11 +44,13 @@ impl fmt::Display for Error {
                     path, line_nr
                 )
                 .fmt(f),
+                /*
                 ParseError::InvalidKeysym(path, line_nr) => format!(
                     "Error parsing config file {:?}. Invalid keysym at line {}.",
                     path, line_nr
                 )
                 .fmt(f),
+                */
                 ParseError::InvalidModifier(path, line_nr) => format!(
                     "Error parsing config file {:?}. Invalid modifier at line {}.",
                     path, line_nr
@@ -67,7 +69,7 @@ pub const MODE_ENTER_STATEMENT: &str = "@enter";
 pub const MODE_ESCAPE_STATEMENT: &str = "@escape";
 pub const ODILIA_SEND_STATEMENT: &str = "@odilia";
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Config {
     pub path: PathBuf,
     pub contents: String,
@@ -660,7 +662,7 @@ fn parse_keybind(
                 return Err(Error::InvalidConfig(ParseError::InvalidModifier(path, line_nr)));
             }
         } else if mod_to_mod_enum.contains_key(token) {
-            // Can't have a modifier that's like a keysym
+            // Can't have a modifier that's like a keysym: commenting this section out allows something like capslock to be used as a modifier.
             /*if token == last_token {
                 return Err(Error::InvalidConfig(ParseError::InvalidKeysym(path, line_nr)));
             }*/
@@ -670,17 +672,11 @@ fn parse_keybind(
     }
 
     // Translate keypress into evdev key
-    let keysym = match key_to_evdev_key.get(last_token) {
-        Some(k) => Some(*k),
-        _ => None,
-    };
+    let keysym = key_to_evdev_key.get(last_token).copied();
 
     let modifiers: Vec<Modifier> = tokens_new
         .iter()
-        .filter_map(|token| match mod_to_mod_enum.get(strip_at(token.as_str())) {
-            Some(m) => Some(*m),
-            _ => None,
-        })
+        .filter_map(|token| mod_to_mod_enum.get(strip_at(token.as_str())).copied())
         .collect();
 
     let mut keybinding = KeyBinding::new(keysym, modifiers);
@@ -702,7 +698,6 @@ pub fn extract_curly_brace(line: &str) -> Vec<String> {
         return vec![line
           .replace("\\{", "{")
           .replace("\\}", "}")
-          .to_string()
         ];
     }
 

@@ -15,7 +15,7 @@ use tokio::{
 		mpsc::Sender,
 	},
 };
-use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath};
+use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use crate::cache::Cache;
 use atspi::{
@@ -84,7 +84,8 @@ impl ScreenReaderState {
         })
     }
 
-    // TODO: use cache; this will uplift performance MASSIVELY
+    // TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
+    #[allow(dead_code)]
     pub async fn generate_speech_string(
         &self,
         acc: AccessibleProxy<'_>,
@@ -129,22 +130,18 @@ impl ScreenReaderState {
     }
 
     pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
-        let match_rule = event_to_match_rule(event);
-        self.add_match_rule(&match_rule).await?;
+        let match_rule = event_to_match_rule(event)?;
+        self.dbus.add_match_rule(match_rule).await?;
         self.atspi.register_event(event).await?;
         Ok(())
     }
 
     #[allow(dead_code)]
     pub async fn deregister_event(&self, event: &str) -> zbus::Result<()> {
-        let match_rule = event_to_match_rule(event);
+        let match_rule = event_to_match_rule(event)?;
+        self.dbus.remove_match_rule(match_rule).await?;
         self.atspi.deregister_event(event).await?;
-        self.dbus.remove_match(&match_rule).await?;
         Ok(())
-    }
-
-    pub async fn add_match_rule(&self, match_rule: &str) -> zbus::fdo::Result<()> {
-        self.dbus.add_match(match_rule).await
     }
 
     pub fn connection(&self) -> &zbus::Connection {
@@ -152,32 +149,23 @@ impl ScreenReaderState {
     }
 
 		pub async fn stop_speech(&self) -> bool {
-      match self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await {
-				Err(_) => false,
-				_ => true
-			}
+      self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await.is_ok()
 		}
 
 		pub async fn close_speech(&self) -> bool {
-      match self.ssip.send(SSIPRequest::Quit).await {
-				Err(_) => false,
-				_ => true
-			}
+      self.ssip.send(SSIPRequest::Quit).await.is_ok()
 		}
 
     pub async fn say(&self, priority: Priority, text: String) -> bool {
-        match self.ssip.send(SSIPRequest::SetPriority(priority)).await {
-					Err(_) => return false,
-					_ => ()
-				};
-        match self.ssip.send(SSIPRequest::Speak).await {
-					Err(_) => return false,
-					_ => ()
-				};
-        match self.ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await {
-					Err(_) => return false,
-					_ => ()
-				};
+        if self.ssip.send(SSIPRequest::SetPriority(priority)).await.is_err() {
+          return false;
+        }
+        if self.ssip.send(SSIPRequest::Speak).await.is_err() {
+          return false;
+				}
+        if self.ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await.is_err() {
+          return false;
+        }
 				true
     }
 
@@ -194,7 +182,7 @@ impl ScreenReaderState {
             .nth(index)
             .expect("Looking for invalid index in accessible history");
         Ok(Some(
-            AccessibleProxy::builder(&self.connection())
+            AccessibleProxy::builder(self.connection())
                 .destination(dest.to_owned())?
                 .path(path)?
                 .build()
@@ -212,7 +200,7 @@ impl ScreenReaderState {
         dest: UniqueName<'a>,
         path: ObjectPath<'a>,
     ) -> zbus::Result<CacheProxy<'a>> {
-        CacheProxy::builder(&self.connection())
+        CacheProxy::builder(self.connection())
             .destination(dest)?
             .path(path)?
             .build()
@@ -221,7 +209,7 @@ impl ScreenReaderState {
 }
 
 /// Converts an at-spi event string ("Object:StateChanged:Focused"), into a DBus match rule ("type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'")
-fn event_to_match_rule(event: &str) -> String {
+fn event_to_match_rule(event: &str) -> zbus::Result<zbus::MatchRule> {
     let mut components = event.split(':');
     let interface = components
         .next()
@@ -229,5 +217,9 @@ fn event_to_match_rule(event: &str) -> String {
     let member = components
         .next()
         .expect("Event should consist of at least 2 components separated by ':'");
-    format!("type='signal',interface='org.a11y.atspi.Event.{interface}',member='{member}'")
+    Ok(MatchRule::builder()
+      .msg_type(MessageType::Signal)
+      .interface(format!("org.a11y.atspi.Event.{interface}"))?
+      .member(member)?
+      .build())
 }

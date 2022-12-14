@@ -17,7 +17,6 @@ use tokio::{
 
 use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
-use odilia_tts;
 use ssip_client::{
 	Priority,
 };
