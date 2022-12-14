@@ -1256,6 +1256,7 @@ mod test_config_display {
         );
     }
 
+    /* disabled due to error type being removed, although it may be added again in the future.
     #[test]
     fn test_invalid_keysm_error() {
         let error = Error::InvalidConfig(ParseError::InvalidKeysym(PathBuf::new(), 7));
@@ -1265,4 +1266,5 @@ mod test_config_display {
             "Error parsing config file \"\". Invalid keysym at line 7."
         );
     }
+    */
 }
