@@ -14,13 +14,13 @@ hard_tabs = true
 
 # imports layout specifies how the import blocks look use xxx::yyy:zzz;
 # vertical will show each import on its own line
-imports_layout = "Vertical"
+#imports_layout = "Vertical"
 # merge_imports will not allow multiple imports from the same library, everything imported from one library should go in the same place.
-merge_imports = true
+#merge_imports = true
 # reorder immports so they are alphabetical
 reorder_imports = true
 # group imports be type: standard, core and alloc, then external, then internal
-group_imports = "StdExternalCrate"
+#group_imports = "StdExternalCrate"
 
 # number of spaces per each tab in editors (they may choose to ignore this declaration)
 tab_spaces = 8
