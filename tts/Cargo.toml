@@ -15,5 +15,4 @@ publish = false
 ssip-client.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-pin-utils = "0.1.0"
 eyre.workspace = true

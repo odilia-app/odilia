@@ -33,7 +33,6 @@ futures = { version = "^0.3.25", default-features = false }
 odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
 odilia-tts = { path = "../tts" }
-pin-utils = "^0.1.0"
 rustc-hash = { version = "^1.1.0", default-features = false }
 serde_json = "1.0.89"
 ssip-client.workspace = true

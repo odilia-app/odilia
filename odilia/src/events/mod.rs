@@ -112,7 +112,7 @@ pub async fn receive(
     shutdown_rx: &mut broadcast::Receiver<i32>,
 ) {
     let events = state.atspi.event_stream();
-    pin_utils::pin_mut!(events);
+    tokio::pin!(events);
     loop {
         tokio::select! {
             event = events.next() => {
