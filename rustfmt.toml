@@ -3,9 +3,25 @@
 
 # This crate is 'unix' only.
 newline_style = "Unix"
-reorder_imports = true
 
 # chain_width; a percentage of maximum width
 # precedes what is implied by `use_small_heuristics"
 chain_width = 70
 use_small_heuristics = "Max"
+
+# hard tabs enforces tab spacing instead of spaces
+hard_tabs = true
+
+# imports layout specifies how the import blocks look use xxx::yyy:zzz;
+# vertical will show each import on its own line
+imports_layout = "Vertical"
+# merge_imports will not allow multiple imports from the same library, everything imported from one library should go in the same place.
+merge_imports = true
+# reorder immports so they are alphabetical
+reorder_imports = true
+# group imports be type: standard, core and alloc, then external, then internal
+group_imports = "StdExternalCrate"
+
+# number of spaces per each tab in editors (they may choose to ignore this declaration)
+tab_spaces = 8
+
