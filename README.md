@@ -55,6 +55,20 @@ This will ask for your password (if you have sudo permissions) and then launch b
 ./scripts/debug_start_sohkd.sh
 ```
 
+## Community
+
+You can find us at the following places:
+
+* [Discord](https://discord.gg/RVpRb9nS6K)
+* IRC: irc.libera.chat
+	* #odilia-dev (development)
+	* #odilia (general)
+	* #odilia-offtopic (off-topic)
+* Matrix: stealthy.club
+	* #odilia-dev (development)
+	* #odilia (general)
+	* #odilia-offtopic (off-topic)
+
 ## Contributing
 
 We are excited to accept new contributions to this project; in fact, we already have!
