@@ -583,7 +583,7 @@ pub fn parse_contents(path: PathBuf, contents: String) -> Result<Vec<Mode>, Erro
                 &mod_to_mod_enum,
             )?;
             let hotkey = Hotkey::from_keybinding(keybinding, command.to_string());
-            log::trace!("Valid hotkey found: {:#?}", hotkey);
+            tracing::trace!("Valid hotkey found: {:#?}", hotkey);
 
             // Override latter
             modes[current_mode]

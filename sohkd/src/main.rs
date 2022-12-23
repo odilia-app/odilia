@@ -24,6 +24,11 @@ use tokio::time::Duration;
 use tokio::time::{sleep, Instant};
 use tokio_stream::{StreamExt, StreamMap};
 
+use tracing_error::ErrorLayer;
+use tracing_log::LogTracer;
+use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_tree::HierarchicalLayer;
+
 mod config;
 mod perms;
 mod uinput;
@@ -42,6 +47,32 @@ impl KeyboardState {
     }
 }
 
+#[cfg(not(release))]
+const DEFAULT_LOG_FILTER: &str = "debug";
+#[cfg(release)]
+const DEFAULT_LOG_FILTER: &'static str = "error";
+
+fn logging_init() {
+    let env_filter = match env::var("ODILIA_LOG").or_else(|_| env::var("RUST_LOG")) {
+        Ok(s) => EnvFilter::from(s),
+        Err(env::VarError::NotPresent) => EnvFilter::from(DEFAULT_LOG_FILTER),
+        Err(e) => {
+            eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {}", e); 
+            EnvFilter::from(DEFAULT_LOG_FILTER)
+        }
+    };  
+    let subscriber = tracing_subscriber::Registry::default()
+        .with(env_filter)
+        .with(ErrorLayer::default())
+        .with(HierarchicalLayer::new(4).with_ansi(false).with_bracketed_fields(true));
+    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+        eprintln!("Warning: Failed to set log handler: {}", e);
+    }
+    if let Err(e) = LogTracer::init() {
+        tracing::warn!(error = %e, "Failed to install log facade");
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = set_command_line_args().get_matches();
@@ -51,18 +82,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         env::set_var("RUST_LOG", "sohkd=trace");
     }
 
-    env_logger::init();
-    log::trace!("Logger initialized.");
+    logging_init();
+    tracing::trace!("Logger initialized.");
 
     let invoking_uid = match env::var("PKEXEC_UID") {
         Ok(uid) => {
             let uid = uid.parse::<u32>().unwrap();
-            log::trace!("Invoking UID: {}", uid);
+            tracing::trace!("Invoking UID: {}", uid);
             uid
         }
         Err(_) => {
-            log::error!("Failed to launch sohkd!!!");
-            log::error!("Make sure to launch the binary with pkexec.");
+            tracing::error!("Failed to launch sohkd!!!");
+            tracing::error!("Make sure to launch the binary with pkexec.");
             exit(1);
         }
     };
@@ -79,11 +110,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             fetch_xdg_config_path()
         };
 
-        log::debug!("Using config file path: {:#?}", config_file_path);
+        tracing::debug!("Using config file path: {:#?}", config_file_path);
 
         match config::load(&config_file_path) {
             Err(e) => {
-                log::error!("Config Error: {}", e);
+                tracing::error!("Config Error: {}", e);
                 exit(1)
             }
             Ok(out) => out,
@@ -95,7 +126,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     macro_rules! send_command {
         ($hotkey: expr, $socket_path: expr) => {
-            log::info!("Hotkey pressed: {:#?}", $hotkey);
+            tracing::info!("Hotkey pressed: {:#?}", $hotkey);
             let command = $hotkey.command;
             let mut commands_to_send = String::new();
             if command.contains('@') {
@@ -110,7 +141,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                                     break;
                                 }
                             }
-                            log::info!(
+                            tracing::info!(
                                 "Entering mode: {}",
                                 modes[mode_stack[mode_stack.len() - 1]].name
                             );
@@ -119,7 +150,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             mode_stack.pop();
                         }
                         config::ODILIA_SEND_STATEMENT => {
-                            log::debug!("Odilia event statement matched");
+                            tracing::debug!("Odilia event statement matched");
                             let odilia_sr_event = cmd.split(' ').nth(1).unwrap();
                             // TODO: check validity on config load
                             commands_to_send.push_str(format!("{odilia_sr_event}").as_str());
@@ -134,10 +165,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 commands_to_send = commands_to_send.strip_suffix("&& ").unwrap().to_string();
             }
             if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
-                log::error!("Failed to send command to sohks through IPC.");
-                log::error!("Please make sure that sohks is running.");
-                log::error!("Socket path is: {:?}", $socket_path);
-                log::error!("Err: {:#?}", e)
+                tracing::error!("Failed to send command to sohks through IPC.");
+                tracing::error!("Please make sure that sohks is running.");
+                tracing::error!("Socket path is: {:?}", $socket_path);
+                tracing::error!("Err: {:#?}", e)
             }
         };
     }
@@ -150,7 +181,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             // for device in arg_devices {
             //     let device_path = Path::new(device);
             //     if let Ok(device_to_use) = Device::open(device_path) {
-            //         log::info!("Using device: {}", device_to_use.name().unwrap_or(device));
+            //         tracing::info!("Using device: {}", device_to_use.name().unwrap_or(device));
             //         keyboard_devices.push(device_to_use);
             //     }
             // }
@@ -159,7 +190,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 .filter_map(|(_, device)| if arg_devices.contains(&device.name().unwrap_or("")) { Some(device) } else { None })
                 .collect()
         } else {
-            log::trace!("Attempting to find all keyboard file descriptors.");
+            tracing::trace!("Attempting to find all keyboard file descriptors.");
             evdev::enumerate()
                 .filter(check_device_is_keyboard)
                 .map(|(_, device)| device)
@@ -168,11 +199,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
 
     if keyboard_devices.is_empty() {
-        log::error!("No valid keyboard device was detected!");
+        tracing::error!("No valid keyboard device was detected!");
         exit(1);
     }
 
-    log::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
+    tracing::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
     // Apparently, having a single uinput device with keys, relative axes and switches
     // prevents some libraries to listen to these events. The easy fix is to have separate
@@ -181,7 +212,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut uinput_device = match uinput::create_uinput_device() {
         Ok(dev) => dev,
         Err(e) => {
-            log::error!("Err: {:#?}", e);
+            tracing::error!("Err: {:#?}", e);
             exit(1);
         }
     };
@@ -189,7 +220,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
         Ok(dev) => dev,
         Err(e) => {
-            log::error!("Err: {:#?}", e);
+            tracing::error!("Err: {:#?}", e);
             exit(1);
         }
     };
@@ -235,7 +266,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // The socket we're sending the commands to.
     let socket_file_path = fetch_xdg_runtime_socket_path();
-    log::debug!("Socket path: {:#?}", socket_file_path);
+    tracing::debug!("Socket path: {:#?}", socket_file_path);
     loop {
         select! {
             _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
@@ -272,7 +303,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                         for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
                             let _ = device.ungrab();
                         }
-                        log::warn!("Received SIGINT signal, exiting...");
+                        tracing::warn!("Received SIGINT signal, exiting...");
                         exit(1);
                     }
 
@@ -281,8 +312,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                             let _ = device.ungrab();
                         }
 
-                        log::warn!("Received signal: {:#?}", signal);
-                        log::warn!("Exiting...");
+                        tracing::warn!("Received signal: {:#?}", signal);
+                        tracing::warn!("Exiting...");
                         exit(1);
                     }
                 }
@@ -365,9 +396,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     continue;
                 }
 
-                log::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
-                log::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
-                log::debug!("hotkey: {:#?}", possible_hotkeys);
+                tracing::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
+                tracing::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
+                tracing::debug!("hotkey: {:#?}", possible_hotkeys);
 
                 for hotkey in possible_hotkeys {
                     // this should check if state_modifiers and hotkey.modifiers have the same elements
@@ -407,15 +438,15 @@ pub fn check_input_group() -> Result<(), Box<dyn Error>> {
             for group in groups {
                 let group = Group::from_gid(*group);
                 if group.unwrap().unwrap().name == "input" {
-                    log::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
-                    log::error!("THIS IS A HUGE SECURITY RISK!!!!");
+                    tracing::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
+                    tracing::error!("THIS IS A HUGE SECURITY RISK!!!!");
                 }
             }
         }
-        log::error!("Consider using `pkexec sohkd ...`");
+        tracing::error!("Consider using `pkexec sohkd ...`");
         exit(1);
     } else {
-        log::warn!("Running sohkd as root!");
+        tracing::warn!("Running sohkd as root!");
         Ok(())
     }
 }
@@ -429,10 +460,10 @@ pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
         if device.name() == Some("sohkd virtual output") {
             return false;
         }
-        log::debug!("Keyboard: {}", device.name().unwrap(),);
+        tracing::debug!("Keyboard: {}", device.name().unwrap(),);
         true
     } else {
-        log::trace!("Other: {}", device.name().unwrap(),);
+        tracing::trace!("Other: {}", device.name().unwrap(),);
         false
     }
 }
@@ -470,11 +501,11 @@ pub fn set_command_line_args() -> Command<'static> {
 pub fn fetch_xdg_config_path() -> PathBuf {
     let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
         Ok(val) => {
-            log::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
+            tracing::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
             Path::new(&val).join("odilia/sohkdrc")
         }
         Err(_) => {
-            log::error!("XDG_CONFIG_HOME has not been set.");
+            tracing::error!("XDG_CONFIG_HOME has not been set.");
             Path::new("/etc/odilia/sohkdrc").to_path_buf()
         }
     };
@@ -484,11 +515,11 @@ pub fn fetch_xdg_config_path() -> PathBuf {
 pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
     match env::var("XDG_RUNTIME_DIR") {
         Ok(val) => {
-            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
+            tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
             Path::new(&val).join("sohkd.sock")
         }
         Err(_) => {
-            log::error!("XDG_RUNTIME_DIR has not been set.");
+            tracing::error!("XDG_RUNTIME_DIR has not been set.");
             Path::new(&format!("/run/user/{}/sohkd.sock", env::var("PKEXEC_UID").unwrap()))
                 .to_path_buf()
         }
@@ -497,54 +528,54 @@ pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
 
 pub fn setup_sohkd(invoking_uid: u32) {
     // Set a sane process umask.
-    log::trace!("Setting process umask.");
+    tracing::trace!("Setting process umask.");
     umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
     // Get the runtime path and create it if needed.
     let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
         Ok(runtime_path) => {
-            log::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
+            tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
             Path::new(&runtime_path).join("sohkd").to_str().unwrap().to_owned()
         }
         Err(_) => {
-            log::error!("XDG_RUNTIME_DIR has not been set.");
+            tracing::error!("XDG_RUNTIME_DIR has not been set.");
             String::from("/run/sohkd/")
         }
     };
     if !Path::new(&runtime_path).exists() {
         match fs::create_dir_all(Path::new(&runtime_path)) {
             Ok(_) => {
-                log::debug!("Created runtime directory.");
+                tracing::debug!("Created runtime directory.");
                 match fs::set_permissions(Path::new(&runtime_path), Permissions::from_mode(0o600)) {
-                    Ok(_) => log::debug!("Set runtime directory to readonly."),
-                    Err(e) => log::error!("Failed to set runtime directory to readonly: {}", e),
+                    Ok(_) => tracing::debug!("Set runtime directory to readonly."),
+                    Err(e) => tracing::error!("Failed to set runtime directory to readonly: {}", e),
                 }
             }
-            Err(e) => log::error!("Failed to create runtime directory: {}", e),
+            Err(e) => tracing::error!("Failed to create runtime directory: {}", e),
         }
     }
 
     // Get the PID file path for instance tracking.
     let pidfile: String = format!("{}sohkd_{}.pid", runtime_path, invoking_uid);
     if Path::new(&pidfile).exists() {
-        log::trace!("Reading {} file and checking for running instances.", pidfile);
+        tracing::trace!("Reading {} file and checking for running instances.", pidfile);
         let sohkd_pid = match fs::read_to_string(&pidfile) {
             Ok(sohkd_pid) => sohkd_pid,
             Err(e) => {
-                log::error!("Unable to read {} to check all running instances", e);
+                tracing::error!("Unable to read {} to check all running instances", e);
                 exit(1);
             }
         };
-        log::debug!("Previous PID: {}", sohkd_pid);
+        tracing::debug!("Previous PID: {}", sohkd_pid);
 
         // Check if sohkd is already running!
         let mut sys = System::new_all();
         sys.refresh_all();
         for (pid, process) in sys.processes() {
             if pid.to_string() == sohkd_pid && process.exe() == env::current_exe().unwrap() {
-                log::error!("Swhkd is already running!");
-                log::error!("pid of existing sohkd process: {}", pid.to_string());
-                log::error!("To close the existing sohkd process, run `sudo killall sohkd`");
+                tracing::error!("Swhkd is already running!");
+                tracing::error!("pid of existing sohkd process: {}", pid.to_string());
+                tracing::error!("To close the existing sohkd process, run `sudo killall sohkd`");
                 exit(1);
             }
         }
@@ -554,7 +585,7 @@ pub fn setup_sohkd(invoking_uid: u32) {
     match fs::write(&pidfile, id().to_string()) {
         Ok(_) => {}
         Err(e) => {
-            log::error!("Unable to write to {}: {}", pidfile, e);
+            tracing::error!("Unable to write to {}: {}", pidfile, e);
             exit(1);
         }
     };

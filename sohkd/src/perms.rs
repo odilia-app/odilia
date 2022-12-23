@@ -21,9 +21,9 @@ pub fn raise_privileges() {
 fn set_initgroups(user: &nix::unistd::User, gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::initgroups(&user.gecos, gid) {
-        Ok(_) => log::debug!("Setting initgroups..."),
+        Ok(_) => tracing::debug!("Setting initgroups..."),
         Err(e) => {
-            log::error!("Failed to set init groups: {:#?}", e);
+            tracing::error!("Failed to set init groups: {:#?}", e);
             exit(1);
         }
     }
@@ -32,9 +32,9 @@ fn set_initgroups(user: &nix::unistd::User, gid: u32) {
 fn set_egid(gid: u32) {
     let gid = Gid::from_raw(gid);
     match nix::unistd::setegid(gid) {
-        Ok(_) => log::debug!("Setting EGID..."),
+        Ok(_) => tracing::debug!("Setting EGID..."),
         Err(e) => {
-            log::error!("Failed to set EGID: {:#?}", e);
+            tracing::error!("Failed to set EGID: {:#?}", e);
             exit(1);
         }
     }
@@ -43,9 +43,9 @@ fn set_egid(gid: u32) {
 fn set_euid(uid: u32) {
     let uid = Uid::from_raw(uid);
     match nix::unistd::seteuid(uid) {
-        Ok(_) => log::debug!("Setting EUID..."),
+        Ok(_) => tracing::debug!("Setting EUID..."),
         Err(e) => {
-            log::error!("Failed to set EUID: {:#?}", e);
+            tracing::error!("Failed to set EUID: {:#?}", e);
             exit(1);
         }
     }
