@@ -3,6 +3,12 @@ use evdev::{
     AttributeSet, Key, RelativeAxisType, SwitchType,
 };
 
+use nix::ioctl_none;
+use std::fs::File;
+use std::os::unix::io::AsRawFd;
+
+ioctl_none!(rfkill_noinput, b'R', 1);
+
 pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error>> {
     let mut keys = AttributeSet::<Key>::new();
     for key in get_all_keys() {
@@ -12,6 +18,21 @@ pub fn create_uinput_device() -> Result<VirtualDevice, Box<dyn std::error::Error
     let mut relative_axes = AttributeSet::<RelativeAxisType>::new();
     for axis in get_all_relative_axes() {
         relative_axes.insert(axis);
+    }
+
+    // We have to disable rfkill-input to avoid blocking all radio devices. When
+    // a new device (virtual or physical) with the SW_RFKILL_ALL capability bit
+    // set appears, rfkill reacts immediately depending on the value bit. This
+    // value bit defaults to unset, which causes rfkill to use its default mode
+    // (which is eop - emergency power off). The uinput API does not give any
+    // way to set the corresponding value bit before creating the device, and we
+    // have no way to avoid rfkill acting upon the device creation or to change
+    // its default mode. Thus, we disable rfkill-input temporarily, hopefully
+    // fast enough that it won't impact anyone. rfkill-input will be enabled
+    // again when the file gets closed.
+    let rfkill_file = File::open("/dev/rfkill")?;
+    unsafe {
+        rfkill_noinput(rfkill_file.as_raw_fd())?;
     }
 
     let device = VirtualDeviceBuilder::new()?
