@@ -26,6 +26,7 @@ cargo build --release
 # Optionally, run this to install Odilia to ~/.cargo/bin:
 cargo install --path .
 sudo ./scripts/setup_permissions.sh
+sudo ./scripts/install_configs.sh
 # You will also want to compile sohkd.
 cd sohkd
 cargo build --release
