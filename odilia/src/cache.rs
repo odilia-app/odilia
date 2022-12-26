@@ -1,7 +1,13 @@
 use rustc_hash::FxHasher;
 use tokio::sync::Mutex;
 use atspi::{
-	accessible::Role,
+	accessible::{
+		Role,
+		AccessibleProxy,
+	},
+	accessible_ext::{
+		AccessibleId,
+	},
 	InterfaceSet,
 	StateSet,
 };
@@ -9,6 +15,30 @@ use evmap::ShallowCopy;
 use std::mem::ManuallyDrop;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
+/// A struct which represents the bare minimum of an accessible for purposes of caching.
+/// This makes some *possibly eronious* assumptions about what the sender is.
+/// TODO: find a better way to store this info where it still imeplements Copy.
+pub struct AccessiblePrimitive {
+	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
+	/// This id will be 0 for "root", and -1 for "null".
+	/// TODO: make this some kind of enum type
+	id: i32,
+	/// Assuming that the sender is ":x.y", this stores the x portion of this sender.
+	sender_pt1: i32,
+	/// Assuming that the sender is ":x.y", this stores the y portion of this sender.
+	sender_pt2: i32,
+}
+/*
+/// This cannot implement a `From<...>` or `To<...>` trait because the functions needed to work with `AccessibleProxy`s is async and Rust does not yet have support for this yet.
+impl AccessiblePrimitive {
+	pub async fn from_accessible(accessible: &AccessibleProxy) -> AccessiblePrimitive {
+		le
+	}
+}
+*/
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
+/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
     // The accessible object (within the application)   (so)
     pub object: i32,
@@ -27,11 +57,23 @@ pub struct CacheItem {
     // The states applicable to the accessible.  au
     pub states: StateSet,
 }
+/// This method is safe *only* because all fields in CacheItem are already Copy.
 impl ShallowCopy for CacheItem {
 	unsafe fn shallow_copy(&self) -> ManuallyDrop<Self> {
 		ManuallyDrop::new(*self)
 	}
 }
+
+/*
+/// We cannot use `TryFrom<CacheItem> for AccessibleProxy` because functions required to generate an AccessibleProxy are async.
+/// This should be rederesed by a future version of Rust.
+/// TODO: convert to native async-trait impl
+impl CacheItem {
+	pub async fn as_accessible<'a>(&self, connection: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
+		atspi::accessible::new(connection, 
+	}
+}
+*/
 
 type FxBuildHasher = std::hash::BuildHasherDefault<FxHasher>;
 pub type FxReadHandleFactory<K, V> = evmap::ReadHandleFactory<K, V, (), FxBuildHasher>;
