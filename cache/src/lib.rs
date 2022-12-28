@@ -37,15 +37,16 @@ pub struct AccessiblePrimitive {
 	sender: String,
 }
 impl AccessiblePrimitive {
-  async fn into_accessible<'a>(&self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
-    let id = self.id.deref().clone();
+  #[allow(dead_code)]
+  async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
+    let id = *self.id.deref();
     let sender = self.sender.clone();
     let path: ObjectPath<'a> = id.try_into()?;
-    Ok(ProxyBuilder::new(conn)
+    ProxyBuilder::new(conn)
       .path(path)?
       .destination(sender)?
       .build()
-      .await?)
+      .await
   }
 }
 impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
@@ -133,7 +134,7 @@ fn copy_into_cache_item(cache_item_with_handle: FxReadGuard<'_, CacheItem>) -> C
 	CacheItem {
 		object: cache_item_with_handle.object.clone(),
 		parent: cache_item_with_handle.parent.clone(),
-		states: cache_item_with_handle.states.clone(),
+		states: cache_item_with_handle.states,
 		role: cache_item_with_handle.role,
 		app: cache_item_with_handle.app.clone(),
 		children: cache_item_with_handle.children,
