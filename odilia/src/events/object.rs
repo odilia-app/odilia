@@ -2,25 +2,22 @@ use crate::state::ScreenReaderState;
 use atspi::events::Event;
 
 pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-    // Dispatch based on member
-    if let Some(member) = event.member() {
-        match member.as_str() {
-            "StateChanged" => state_changed::dispatch(state, event).await?,
-            "TextCaretMoved" => text_caret_moved::dispatch(state, event).await?,
-						"ChildrenChanged" => children_changed::dispatch(state, event).await?,
-            member => tracing::debug!(member, "Ignoring event with unknown member"),
-        }
-    }
-    Ok(())
+	// Dispatch based on member
+	if let Some(member) = event.member() {
+		match member.as_str() {
+			"StateChanged" => state_changed::dispatch(state, event).await?,
+			"TextCaretMoved" => text_caret_moved::dispatch(state, event).await?,
+			"ChildrenChanged" => children_changed::dispatch(state, event).await?,
+			member => tracing::debug!(member, "Ignoring event with unknown member"),
+		}
+	}
+	Ok(())
 }
 
 mod children_changed {
-	use crate::state::ScreenReaderState;
 	use crate::cache::CacheItem;
-	use atspi::{
-		events::Event,
-		accessible,
-	};
+	use crate::state::ScreenReaderState;
+	use atspi::{accessible, events::Event};
 
 	pub fn get_id_from_path(path: &str) -> Option<i32> {
 		tracing::debug!("Attempting to get ID from: {}", path);
@@ -30,25 +27,25 @@ mod children_changed {
 			} else if id == "root" {
 				return Some(0);
 			} else if id == "null" {
-        return Some(-1);
-      }
+				return Some(-1);
+			}
 		}
 		None
 	}
 	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-			// Dispatch based on kind
-			match event.kind() {
-					"remove/system" => remove(state, event).await?,
-					"remove" => remove(state, event).await?,
-					"add/system" => add(state, event).await?,
-					"add" => add(state, event).await?,
-					kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
-			}
-			Ok(())
+		// Dispatch based on kind
+		match event.kind() {
+			"remove/system" => remove(state, event).await?,
+			"remove" => remove(state, event).await?,
+			"add/system" => add(state, event).await?,
+			"add" => add(state, event).await?,
+			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+		}
+		Ok(())
 	}
 	pub async fn add(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 		let conn = state.connection();
-    let sender = event.sender()?.unwrap();
+		let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
 		let accessible = accessible::new(conn, sender, dest.clone()).await?;
 		// all these properties will be fetched in paralell
@@ -66,15 +63,15 @@ mod children_changed {
 		let app_id = get_id_from_path(&app.1.to_string()).expect("Invalid accessible");
 		let parent_id = get_id_from_path(&parent.1.to_string()).expect("Invalid accesible");
 		let cache_item = CacheItem {
-				object: object_id,
-				app: app_id,
-				parent: parent_id,
-				index,
-				children,
-				ifaces: ifaces.into(),
-				role: role.into(),
-				states: states.into(),
-				text,
+			object: object_id,
+			app: app_id,
+			parent: parent_id,
+			index,
+			children,
+			ifaces: ifaces.into(),
+			role: role.into(),
+			states: states.into(),
+			text,
 		};
 
 		// finally, write data to the internal cache
@@ -93,112 +90,114 @@ mod children_changed {
 }
 
 mod text_caret_moved {
-    use crate::state::ScreenReaderState;
-    use atspi::{accessible, convertable::Convertable, events::Event};
-    use ssip_client::Priority;
+	use crate::state::ScreenReaderState;
+	use atspi::{accessible, convertable::Convertable, events::Event};
+	use ssip_client::Priority;
 
-    // TODO: left/right vs. up/down, and use generated speech
-    pub async fn text_cursor_moved(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-        let current_caret_pos = event.detail1();
-        let previous_caret_pos = state.previous_caret_position.get();
-        state.previous_caret_position.set(current_caret_pos);
-        let (_start, _end) = match current_caret_pos > previous_caret_pos {
-            true => (previous_caret_pos, current_caret_pos),
-            false => (current_caret_pos, previous_caret_pos),
-        };
-        let path = if let Some(path) = event.path() {
-            path
-        } else {
-            return Ok(());
-        };
-        let sender = if let Some(sender) = event.sender()? {
-            sender
-        } else {
-            return Ok(());
-        };
-        let conn = state.connection().clone();
-        let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
-        let _last_accessible = match state.history_item(0).await? {
-            Some(acc) => acc,
-            None => return Ok(()),
-        };
-        let last_last_accessible = match state.history_item(1).await? {
-            Some(acc) => acc,
-            None => return Ok(()),
-        };
-        state.update_accessible(sender, path).await;
+	// TODO: left/right vs. up/down, and use generated speech
+	pub async fn text_cursor_moved(
+		state: &ScreenReaderState,
+		event: Event,
+	) -> eyre::Result<()> {
+		let current_caret_pos = event.detail1();
+		let previous_caret_pos = state.previous_caret_position.get();
+		state.previous_caret_position.set(current_caret_pos);
+		let (_start, _end) = match current_caret_pos > previous_caret_pos {
+			true => (previous_caret_pos, current_caret_pos),
+			false => (current_caret_pos, previous_caret_pos),
+		};
+		let path = if let Some(path) = event.path() {
+			path
+		} else {
+			return Ok(());
+		};
+		let sender = if let Some(sender) = event.sender()? {
+			sender
+		} else {
+			return Ok(());
+		};
+		let conn = state.connection().clone();
+		let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
+		let _last_accessible = match state.history_item(0).await? {
+			Some(acc) => acc,
+			None => return Ok(()),
+		};
+		let last_last_accessible = match state.history_item(1).await? {
+			Some(acc) => acc,
+			None => return Ok(()),
+		};
+		state.update_accessible(sender, path).await;
 
-        // in the case that this is not a tab navigation
-        // TODO: algorithm that only triggers this when a tab navigation is known to have not occured. How the fuck am I supposed to know how that works?
-        // Ok, start out with the basics: if a focus event has recently occuredm, there is a good chance that this function is about to get triggered as well. So, for one, a tab navigation GUARENTEES that the last_accessible will be equal to the curent accessible.
-        if accessible == last_last_accessible {
-            let txt = accessible.to_text().await?;
-            let len = txt.character_count().await?;
-            // TODO: improve text readout
-            state
-                .say(Priority::Text, (txt.get_text(0, len).await?).to_string())
-                .await;
-        }
-        Ok(())
-    }
+		// in the case that this is not a tab navigation
+		// TODO: algorithm that only triggers this when a tab navigation is known to have not occured. How the fuck am I supposed to know how that works?
+		// Ok, start out with the basics: if a focus event has recently occuredm, there is a good chance that this function is about to get triggered as well. So, for one, a tab navigation GUARENTEES that the last_accessible will be equal to the curent accessible.
+		if accessible == last_last_accessible {
+			let txt = accessible.to_text().await?;
+			let len = txt.character_count().await?;
+			// TODO: improve text readout
+			state.say(Priority::Text, (txt.get_text(0, len).await?).to_string())
+				.await;
+		}
+		Ok(())
+	}
 
-    pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-        // Dispatch based on kind
-        match event.kind() {
-            "" => text_cursor_moved(state, event).await?,
-            kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
-        }
-        Ok(())
-    }
+	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+		// Dispatch based on kind
+		match event.kind() {
+			"" => text_cursor_moved(state, event).await?,
+			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+		}
+		Ok(())
+	}
 } // end of text_caret_moved
 
 mod state_changed {
-    use crate::state::ScreenReaderState;
-    use atspi::{accessible, events::Event};
+	use crate::state::ScreenReaderState;
+	use atspi::{accessible, events::Event};
 
-    pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-        // Dispatch based on kind
-        match event.kind() {
-            "focused" => focused(state, event).await?,
-            kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
-        }
-        Ok(())
-    }
+	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+		// Dispatch based on kind
+		match event.kind() {
+			"focused" => focused(state, event).await?,
+			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+		}
+		Ok(())
+	}
 
-    pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
-        // Speak the newly focused object
-        let path = if let Some(path) = event.path() {
-            path.to_owned()
-        } else {
-            return Ok(());
-        };
-        let sender = if let Some(sender) = event.sender()? {
-            sender.to_owned()
-        } else {
-            return Ok(());
-        };
-        let conn = state.connection();
-        let accessible = accessible::new(&conn.clone(), sender.clone(), path.clone()).await?;
-        if let Some(curr) = state.history_item(0).await? {
-            if curr == accessible {
-                return Ok(());
-            }
-        }
-        state.update_accessible(sender.to_owned(), path.to_owned()).await;
+	pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
+		// Speak the newly focused object
+		let path = if let Some(path) = event.path() {
+			path.to_owned()
+		} else {
+			return Ok(());
+		};
+		let sender = if let Some(sender) = event.sender()? {
+			sender.to_owned()
+		} else {
+			return Ok(());
+		};
+		let conn = state.connection();
+		let accessible =
+			accessible::new(&conn.clone(), sender.clone(), path.clone()).await?;
+		if let Some(curr) = state.history_item(0).await? {
+			if curr == accessible {
+				return Ok(());
+			}
+		}
+		state.update_accessible(sender.to_owned(), path.to_owned()).await;
 
-        let (name, description, role, relation) = tokio::try_join!(
-        accessible.name(),
-        accessible.description(),
-        accessible.get_localized_role_name(),
-        accessible.get_relation_set(),
-        )?;
-        tracing::debug!("Focus event received on: {} with role {}", path, role);
-        tracing::debug!("Relations: {:?}", relation);
+		let (name, description, role, relation) = tokio::try_join!(
+			accessible.name(),
+			accessible.description(),
+			accessible.get_localized_role_name(),
+			accessible.get_relation_set(),
+		)?;
+		tracing::debug!("Focus event received on: {} with role {}", path, role);
+		tracing::debug!("Relations: {:?}", relation);
 
-        state
-            .say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
-            .await;
+		state.say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
+			.await;
 
-        Ok(())
-    }
+		Ok(())
+	}
 }

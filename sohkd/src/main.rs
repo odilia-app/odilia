@@ -2,21 +2,21 @@ use crate::config::Value;
 use clap::{arg, Command};
 use evdev::{AttributeSet, Device, InputEventKind, Key};
 use nix::{
-    sys::stat::{umask, Mode},
-    unistd::{Group, Uid},
+	sys::stat::{umask, Mode},
+	unistd::{Group, Uid},
 };
 use signal_hook::consts::signal::*;
 use signal_hook_tokio::Signals;
 use std::{
-    collections::{HashMap, HashSet},
-    env,
-    error::Error,
-    fs,
-    fs::Permissions,
-    io::prelude::*,
-    os::unix::{fs::PermissionsExt, net::UnixStream},
-    path::{Path, PathBuf},
-    process::{exit, id},
+	collections::{HashMap, HashSet},
+	env,
+	error::Error,
+	fs,
+	fs::Permissions,
+	io::prelude::*,
+	os::unix::{fs::PermissionsExt, net::UnixStream},
+	path::{Path, PathBuf},
+	process::{exit, id},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::select;
@@ -37,14 +37,17 @@ mod uinput;
 mod tests;
 
 struct KeyboardState {
-    state_modifiers: HashSet<config::Modifier>,
-    state_keysyms: AttributeSet<evdev::Key>,
+	state_modifiers: HashSet<config::Modifier>,
+	state_keysyms: AttributeSet<evdev::Key>,
 }
 
 impl KeyboardState {
-    fn new() -> KeyboardState {
-        KeyboardState { state_modifiers: HashSet::new(), state_keysyms: AttributeSet::new() }
-    }
+	fn new() -> KeyboardState {
+		KeyboardState {
+			state_modifiers: HashSet::new(),
+			state_keysyms: AttributeSet::new(),
+		}
+	}
 }
 
 #[cfg(not(release))]
@@ -53,423 +56,444 @@ const DEFAULT_LOG_FILTER: &str = "debug";
 const DEFAULT_LOG_FILTER: &'static str = "error";
 
 fn logging_init() {
-    let env_filter = match env::var("ODILIA_LOG").or_else(|_| env::var("RUST_LOG")) {
-        Ok(s) => EnvFilter::from(s),
-        Err(env::VarError::NotPresent) => EnvFilter::from(DEFAULT_LOG_FILTER),
-        Err(e) => {
-            eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {}", e); 
-            EnvFilter::from(DEFAULT_LOG_FILTER)
-        }
-    };  
-    let subscriber = tracing_subscriber::Registry::default()
-        .with(env_filter)
-        .with(ErrorLayer::default())
-        .with(HierarchicalLayer::new(4).with_ansi(false).with_bracketed_fields(true));
-    if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
-        eprintln!("Warning: Failed to set log handler: {}", e);
-    }
-    if let Err(e) = LogTracer::init() {
-        tracing::warn!(error = %e, "Failed to install log facade");
-    }
+	let env_filter = match env::var("ODILIA_LOG").or_else(|_| env::var("RUST_LOG")) {
+		Ok(s) => EnvFilter::from(s),
+		Err(env::VarError::NotPresent) => EnvFilter::from(DEFAULT_LOG_FILTER),
+		Err(e) => {
+			eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {}", e);
+			EnvFilter::from(DEFAULT_LOG_FILTER)
+		}
+	};
+	let subscriber = tracing_subscriber::Registry::default()
+		.with(env_filter)
+		.with(ErrorLayer::default())
+		.with(HierarchicalLayer::new(4).with_ansi(false).with_bracketed_fields(true));
+	if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
+		eprintln!("Warning: Failed to set log handler: {}", e);
+	}
+	if let Err(e) = LogTracer::init() {
+		tracing::warn!(error = %e, "Failed to install log facade");
+	}
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn Error>> {
-    let args = set_command_line_args().get_matches();
-    env::set_var("RUST_LOG", "sohkd=warn");
+	let args = set_command_line_args().get_matches();
+	env::set_var("RUST_LOG", "sohkd=warn");
 
-    if args.is_present("debug") {
-        env::set_var("RUST_LOG", "sohkd=trace");
-    }
+	if args.is_present("debug") {
+		env::set_var("RUST_LOG", "sohkd=trace");
+	}
 
-    logging_init();
-    tracing::trace!("Logger initialized.");
+	logging_init();
+	tracing::trace!("Logger initialized.");
 
-    let invoking_uid = match env::var("PKEXEC_UID") {
-        Ok(uid) => {
-            let uid = uid.parse::<u32>().unwrap();
-            tracing::trace!("Invoking UID: {}", uid);
-            uid
-        }
-        Err(_) => {
-            tracing::error!("Failed to launch sohkd!!!");
-            tracing::error!("Make sure to launch the binary with pkexec.");
-            exit(1);
-        }
-    };
+	let invoking_uid = match env::var("PKEXEC_UID") {
+		Ok(uid) => {
+			let uid = uid.parse::<u32>().unwrap();
+			tracing::trace!("Invoking UID: {}", uid);
+			uid
+		}
+		Err(_) => {
+			tracing::error!("Failed to launch sohkd!!!");
+			tracing::error!("Make sure to launch the binary with pkexec.");
+			exit(1);
+		}
+	};
 
-    setup_sohkd(invoking_uid);
+	setup_sohkd(invoking_uid);
 
-    let load_config = || {
-        // Drop privileges to the invoking user.
-        perms::drop_privileges(invoking_uid);
+	let load_config = || {
+		// Drop privileges to the invoking user.
+		perms::drop_privileges(invoking_uid);
 
-        let config_file_path: PathBuf = if args.is_present("config") {
-            Path::new(args.value_of("config").unwrap()).to_path_buf()
-        } else {
-            fetch_xdg_config_path()
-        };
+		let config_file_path: PathBuf = if args.is_present("config") {
+			Path::new(args.value_of("config").unwrap()).to_path_buf()
+		} else {
+			fetch_xdg_config_path()
+		};
 
-        tracing::debug!("Using config file path: {:#?}", config_file_path);
+		tracing::debug!("Using config file path: {:#?}", config_file_path);
 
-        match config::load(&config_file_path) {
-            Err(e) => {
-                tracing::error!("Config Error: {}", e);
-                exit(1)
-            }
-            Ok(out) => out,
-        }
-    };
+		match config::load(&config_file_path) {
+			Err(e) => {
+				tracing::error!("Config Error: {}", e);
+				exit(1)
+			}
+			Ok(out) => out,
+		}
+	};
 
-    let mut modes = load_config();
-    let mut mode_stack: Vec<usize> = vec![0];
+	let mut modes = load_config();
+	let mut mode_stack: Vec<usize> = vec![0];
 
-    macro_rules! send_command {
-        ($hotkey: expr, $socket_path: expr) => {
-            tracing::info!("Hotkey pressed: {:#?}", $hotkey);
-            let command = $hotkey.command;
-            let mut commands_to_send = String::new();
-            if command.contains('@') {
-                let commands = command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
-                for cmd in commands {
-                    match cmd.split(' ').next().unwrap() {
-                        config::MODE_ENTER_STATEMENT => {
-                            let enter_mode = cmd.split(' ').nth(1).unwrap();
-                            for (i, mode) in modes.iter().enumerate() {
-                                if mode.name == enter_mode {
-                                    mode_stack.push(i);
-                                    break;
-                                }
-                            }
-                            tracing::info!(
-                                "Entering mode: {}",
-                                modes[mode_stack[mode_stack.len() - 1]].name
-                            );
-                        }
-                        config::MODE_ESCAPE_STATEMENT => {
-                            mode_stack.pop();
-                        }
-                        config::ODILIA_SEND_STATEMENT => {
-                            tracing::debug!("Odilia event statement matched");
-                            let odilia_sr_event = cmd.split(' ').nth(1).unwrap();
-                            // TODO: check validity on config load
-                            commands_to_send.push_str(format!("{odilia_sr_event}").as_str());
-                        }
-                        _ => commands_to_send.push_str(format!("{cmd} &&").as_str()),
-                    }
-                }
-            } else {
-                commands_to_send = command;
-            }
-            if commands_to_send.ends_with("&& ") {
-                commands_to_send = commands_to_send.strip_suffix("&& ").unwrap().to_string();
-            }
-            if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf()) {
-                tracing::error!("Failed to send command to sohks through IPC.");
-                tracing::error!("Please make sure that sohks is running.");
-                tracing::error!("Socket path is: {:?}", $socket_path);
-                tracing::error!("Err: {:#?}", e)
-            }
-        };
-    }
+	macro_rules! send_command {
+		($hotkey: expr, $socket_path: expr) => {
+			tracing::info!("Hotkey pressed: {:#?}", $hotkey);
+			let command = $hotkey.command;
+			let mut commands_to_send = String::new();
+			if command.contains('@') {
+				let commands =
+					command.split("&&").map(|s| s.trim()).collect::<Vec<_>>();
+				for cmd in commands {
+					match cmd.split(' ').next().unwrap() {
+						config::MODE_ENTER_STATEMENT => {
+							let enter_mode =
+								cmd.split(' ').nth(1).unwrap();
+							for (i, mode) in modes.iter().enumerate() {
+								if mode.name == enter_mode {
+									mode_stack.push(i);
+									break;
+								}
+							}
+							tracing::info!(
+								"Entering mode: {}",
+								modes[mode_stack
+									[mode_stack.len() - 1]]
+									.name
+							);
+						}
+						config::MODE_ESCAPE_STATEMENT => {
+							mode_stack.pop();
+						}
+						config::ODILIA_SEND_STATEMENT => {
+							tracing::debug!(
+								"Odilia event statement matched"
+							);
+							let odilia_sr_event =
+								cmd.split(' ').nth(1).unwrap();
+							// TODO: check validity on config load
+							commands_to_send.push_str(
+								format!("{odilia_sr_event}")
+									.as_str(),
+							);
+						}
+						_ => commands_to_send
+							.push_str(format!("{cmd} &&").as_str()),
+					}
+				}
+			} else {
+				commands_to_send = command;
+			}
+			if commands_to_send.ends_with("&& ") {
+				commands_to_send =
+					commands_to_send.strip_suffix("&& ").unwrap().to_string();
+			}
+			if let Err(e) = socket_write(&commands_to_send, $socket_path.to_path_buf())
+			{
+				tracing::error!("Failed to send command to sohks through IPC.");
+				tracing::error!("Please make sure that sohks is running.");
+				tracing::error!("Socket path is: {:?}", $socket_path);
+				tracing::error!("Err: {:#?}", e)
+			}
+		};
+	}
 
-    // Escalate back to the root user after reading the config file.
-    perms::raise_privileges();
+	// Escalate back to the root user after reading the config file.
+	perms::raise_privileges();
 
-    let keyboard_devices: Vec<Device> = {
-        if let Some(arg_devices) = args.values_of("device") {
-            // for device in arg_devices {
-            //     let device_path = Path::new(device);
-            //     if let Ok(device_to_use) = Device::open(device_path) {
-            //         tracing::info!("Using device: {}", device_to_use.name().unwrap_or(device));
-            //         keyboard_devices.push(device_to_use);
-            //     }
-            // }
-            let arg_devices = arg_devices.collect::<Vec<&str>>();
-            evdev::enumerate()
-                .filter_map(|(_, device)| if arg_devices.contains(&device.name().unwrap_or("")) { Some(device) } else { None })
-                .collect()
-        } else {
-            tracing::trace!("Attempting to find all keyboard file descriptors.");
-            evdev::enumerate()
-                .filter(check_device_is_keyboard)
-                .map(|(_, device)| device)
-                .collect()
-        }
-    };
+	let keyboard_devices: Vec<Device> = {
+		if let Some(arg_devices) = args.values_of("device") {
+			// for device in arg_devices {
+			//     let device_path = Path::new(device);
+			//     if let Ok(device_to_use) = Device::open(device_path) {
+			//         tracing::info!("Using device: {}", device_to_use.name().unwrap_or(device));
+			//         keyboard_devices.push(device_to_use);
+			//     }
+			// }
+			let arg_devices = arg_devices.collect::<Vec<&str>>();
+			evdev::enumerate()
+				.filter_map(|(_, device)| {
+					if arg_devices.contains(&device.name().unwrap_or("")) {
+						Some(device)
+					} else {
+						None
+					}
+				})
+				.collect()
+		} else {
+			tracing::trace!("Attempting to find all keyboard file descriptors.");
+			evdev::enumerate()
+				.filter(check_device_is_keyboard)
+				.map(|(_, device)| device)
+				.collect()
+		}
+	};
 
-    if keyboard_devices.is_empty() {
-        tracing::error!("No valid keyboard device was detected!");
-        exit(1);
-    }
+	if keyboard_devices.is_empty() {
+		tracing::error!("No valid keyboard device was detected!");
+		exit(1);
+	}
 
-    tracing::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
+	tracing::debug!("{} Keyboard device(s) detected.", keyboard_devices.len());
 
-    // Apparently, having a single uinput device with keys, relative axes and switches
-    // prevents some libraries to listen to these events. The easy fix is to have separate
-    // virtual devices, one for keys and relative axes (`uinput_device`) and another one
-    // just for switches (`uinput_switches_device`).
-    let mut uinput_device = match uinput::create_uinput_device() {
-        Ok(dev) => dev,
-        Err(e) => {
-            tracing::error!("Err: {:#?}", e);
-            exit(1);
-        }
-    };
+	// Apparently, having a single uinput device with keys, relative axes and switches
+	// prevents some libraries to listen to these events. The easy fix is to have separate
+	// virtual devices, one for keys and relative axes (`uinput_device`) and another one
+	// just for switches (`uinput_switches_device`).
+	let mut uinput_device = match uinput::create_uinput_device() {
+		Ok(dev) => dev,
+		Err(e) => {
+			tracing::error!("Err: {:#?}", e);
+			exit(1);
+		}
+	};
 
-    let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
-        Ok(dev) => dev,
-        Err(e) => {
-            tracing::error!("Err: {:#?}", e);
-            exit(1);
-        }
-    };
+	let mut uinput_switches_device = match uinput::create_uinput_switches_device() {
+		Ok(dev) => dev,
+		Err(e) => {
+			tracing::error!("Err: {:#?}", e);
+			exit(1);
+		}
+	};
 
-    let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
-        (Key::KEY_LEFTMETA, config::Modifier::Super),
-        (Key::KEY_RIGHTMETA, config::Modifier::Super),
-        (Key::KEY_LEFTALT, config::Modifier::Alt),
-        (Key::KEY_RIGHTALT, config::Modifier::Alt),
-        (Key::KEY_LEFTCTRL, config::Modifier::Control),
-        (Key::KEY_RIGHTCTRL, config::Modifier::Control),
-        (Key::KEY_LEFTSHIFT, config::Modifier::Shift),
-        (Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
-        (Key::KEY_CAPSLOCK, config::Modifier::CapsLock),
-    ]);
+	let modifiers_map: HashMap<Key, config::Modifier> = HashMap::from([
+		(Key::KEY_LEFTMETA, config::Modifier::Super),
+		(Key::KEY_RIGHTMETA, config::Modifier::Super),
+		(Key::KEY_LEFTALT, config::Modifier::Alt),
+		(Key::KEY_RIGHTALT, config::Modifier::Alt),
+		(Key::KEY_LEFTCTRL, config::Modifier::Control),
+		(Key::KEY_RIGHTCTRL, config::Modifier::Control),
+		(Key::KEY_LEFTSHIFT, config::Modifier::Shift),
+		(Key::KEY_RIGHTSHIFT, config::Modifier::Shift),
+		(Key::KEY_CAPSLOCK, config::Modifier::CapsLock),
+	]);
 
-    let repeat_cooldown_duration: u64 = if args.is_present("cooldown") {
-        args.value_of("cooldown").unwrap().parse::<u64>().unwrap()
-    } else {
-        250
-    };
+	let repeat_cooldown_duration: u64 = if args.is_present("cooldown") {
+		args.value_of("cooldown").unwrap().parse::<u64>().unwrap()
+	} else {
+		250
+	};
 
-    let mut signals = Signals::new([
-        SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE, SIGQUIT,
-        SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
-    ])?;
+	let mut signals = Signals::new([
+		SIGUSR1, SIGUSR2, SIGHUP, SIGABRT, SIGBUS, SIGCHLD, SIGCONT, SIGINT, SIGPIPE,
+		SIGQUIT, SIGSYS, SIGTERM, SIGTRAP, SIGTSTP, SIGVTALRM, SIGXCPU, SIGXFSZ,
+	])?;
 
-    let mut execution_is_paused = false;
-    let mut last_hotkey: Option<config::Hotkey> = None;
-    let mut pending_release: bool = false;
-    let mut keyboard_states: Vec<KeyboardState> = Vec::new();
-    let mut keyboard_stream_map = StreamMap::new();
+	let mut execution_is_paused = false;
+	let mut last_hotkey: Option<config::Hotkey> = None;
+	let mut pending_release: bool = false;
+	let mut keyboard_states: Vec<KeyboardState> = Vec::new();
+	let mut keyboard_stream_map = StreamMap::new();
 
-    for (i, mut device) in keyboard_devices.into_iter().enumerate() {
-        let _ = device.grab();
-        keyboard_stream_map.insert(i, device.into_event_stream()?);
-        keyboard_states.push(KeyboardState::new());
-    }
+	for (i, mut device) in keyboard_devices.into_iter().enumerate() {
+		let _ = device.grab();
+		keyboard_stream_map.insert(i, device.into_event_stream()?);
+		keyboard_states.push(KeyboardState::new());
+	}
 
-    // The initial sleep duration is never read because last_hotkey is initialized to None
-    let hotkey_repeat_timer = sleep(Duration::from_millis(0));
-    tokio::pin!(hotkey_repeat_timer);
+	// The initial sleep duration is never read because last_hotkey is initialized to None
+	let hotkey_repeat_timer = sleep(Duration::from_millis(0));
+	tokio::pin!(hotkey_repeat_timer);
 
-    // The socket we're sending the commands to.
-    let socket_file_path = fetch_xdg_runtime_socket_path();
-    tracing::debug!("Socket path: {:#?}", socket_file_path);
-    loop {
-        select! {
-            _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
-                let hotkey = last_hotkey.clone().unwrap();
-                if hotkey.keybinding.on_release {
-                    continue;
-                }
-                send_command!(hotkey.clone(), &socket_file_path);
-                hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
-            }
+	// The socket we're sending the commands to.
+	let socket_file_path = fetch_xdg_runtime_socket_path();
+	tracing::debug!("Socket path: {:#?}", socket_file_path);
+	loop {
+		select! {
+		    _ = &mut hotkey_repeat_timer, if &last_hotkey.is_some() => {
+			let hotkey = last_hotkey.clone().unwrap();
+			if hotkey.keybinding.on_release {
+			    continue;
+			}
+			send_command!(hotkey.clone(), &socket_file_path);
+			hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+		    }
 
-            Some(signal) = signals.next() => {
-                match signal {
-                    SIGUSR1 => {
-                        execution_is_paused = true;
-                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
-                            let _ = device.ungrab();
-                        }
-                    }
+		    Some(signal) = signals.next() => {
+			match signal {
+			    SIGUSR1 => {
+				execution_is_paused = true;
+				for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
+				    let _ = device.ungrab();
+				}
+			    }
 
-                    SIGUSR2 => {
-                        execution_is_paused = false;
-                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
-                            let _ = device.grab();
-                        }
-                    }
+			    SIGUSR2 => {
+				execution_is_paused = false;
+				for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
+				    let _ = device.grab();
+				}
+			    }
 
-                    SIGHUP => {
-                        modes = load_config();
-                        mode_stack = vec![0];
-                    }
+			    SIGHUP => {
+				modes = load_config();
+				mode_stack = vec![0];
+			    }
 
-                    SIGINT => {
-                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
-                            let _ = device.ungrab();
-                        }
-                        tracing::warn!("Received SIGINT signal, exiting...");
-                        exit(1);
-                    }
+			    SIGINT => {
+				for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
+				    let _ = device.ungrab();
+				}
+				tracing::warn!("Received SIGINT signal, exiting...");
+				exit(1);
+			    }
 
-                    _ => {
-                        for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
-                            let _ = device.ungrab();
-                        }
+			    _ => {
+				for (_, mut device) in evdev::enumerate().filter(check_device_is_keyboard) {
+				    let _ = device.ungrab();
+				}
 
-                        tracing::warn!("Received signal: {:#?}", signal);
-                        tracing::warn!("Exiting...");
-                        exit(1);
-                    }
-                }
-            }
+				tracing::warn!("Received signal: {:#?}", signal);
+				tracing::warn!("Exiting...");
+				exit(1);
+			    }
+			}
+		    }
 
-            Some((i, Ok(event))) = keyboard_stream_map.next() => {
-                let keyboard_state = &mut keyboard_states[i];
+		    Some((i, Ok(event))) = keyboard_stream_map.next() => {
+			let keyboard_state = &mut keyboard_states[i];
 
-                let key = match event.kind() {
-                    InputEventKind::Key(keycode) => keycode,
-                    InputEventKind::Switch(_) => {
-                        uinput_switches_device.emit(&[event]).unwrap();
-                        continue
-                    }
-                    _ => {
-                        uinput_device.emit(&[event]).unwrap();
-                        continue
-                    }
-                };
+			let key = match event.kind() {
+			    InputEventKind::Key(keycode) => keycode,
+			    InputEventKind::Switch(_) => {
+				uinput_switches_device.emit(&[event]).unwrap();
+				continue
+			    }
+			    _ => {
+				uinput_device.emit(&[event]).unwrap();
+				continue
+			    }
+			};
 
-                match event.value() {
-                    // Key press
-                    1 => {
-                        if let Some(modifier) = modifiers_map.get(&key) {
-                            keyboard_state.state_modifiers.insert(*modifier);
-                        } else {
-                            keyboard_state.state_keysyms.insert(key);
-                        }
-                    }
+			match event.value() {
+			    // Key press
+			    1 => {
+				if let Some(modifier) = modifiers_map.get(&key) {
+				    keyboard_state.state_modifiers.insert(*modifier);
+				} else {
+				    keyboard_state.state_keysyms.insert(key);
+				}
+			    }
 
-                    // Key release
-                    0 => {
-                        if last_hotkey.is_some() && pending_release {
-                            pending_release = false;
-                            send_command!(last_hotkey.clone().unwrap(), &socket_file_path);
-                            last_hotkey = None;
-                        }
-                        if let Some(modifier) = modifiers_map.get(&key) {
-                            if let Some(hotkey) = &last_hotkey {
-                                if hotkey.modifiers().contains(modifier) {
-                                    last_hotkey = None;
-                                }
-                            }
-                            keyboard_state.state_modifiers.remove(modifier);
-                        } else if keyboard_state.state_keysyms.contains(key) {
-                            if let Some(hotkey) = &last_hotkey {
-                                if hotkey.keysym().is_some() && key == hotkey.keysym().unwrap() {
-                                    last_hotkey = None;
-                                }
-                            }
-                            keyboard_state.state_keysyms.remove(key);
-                        }
-                    }
+			    // Key release
+			    0 => {
+				if last_hotkey.is_some() && pending_release {
+				    pending_release = false;
+				    send_command!(last_hotkey.clone().unwrap(), &socket_file_path);
+				    last_hotkey = None;
+				}
+				if let Some(modifier) = modifiers_map.get(&key) {
+				    if let Some(hotkey) = &last_hotkey {
+					if hotkey.modifiers().contains(modifier) {
+					    last_hotkey = None;
+					}
+				    }
+				    keyboard_state.state_modifiers.remove(modifier);
+				} else if keyboard_state.state_keysyms.contains(key) {
+				    if let Some(hotkey) = &last_hotkey {
+					if hotkey.keysym().is_some() && key == hotkey.keysym().unwrap() {
+					    last_hotkey = None;
+					}
+				    }
+				    keyboard_state.state_keysyms.remove(key);
+				}
+			    }
 
-                    _ => {}
-                }
+			    _ => {}
+			}
 
-                let possible_hotkeys: Vec<&config::Hotkey> = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter()
-                    .filter(|hotkey| hotkey.modifiers().len() == keyboard_state.state_modifiers.len())
-                    .collect();
+			let possible_hotkeys: Vec<&config::Hotkey> = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter()
+			    .filter(|hotkey| hotkey.modifiers().len() == keyboard_state.state_modifiers.len())
+			    .collect();
 
-                let command_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
-                    ((hotkey.keysym().is_some() &&
-                    hotkey.keysym().unwrap().code() == event.code()) ||
-                    hotkey.keysym().is_none() && keyboard_state.state_keysyms.iter().count() == 0) &&
-                        (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
-                        .iter()
-                        .all(|x| hotkey.modifiers().contains(x)) &&
-                    keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
-                    && !hotkey.is_send()
-                        });
+			let command_in_hotkeys = modes[mode_stack[mode_stack.len() - 1]].hotkeys.iter().any(|hotkey| {
+			    ((hotkey.keysym().is_some() &&
+			    hotkey.keysym().unwrap().code() == event.code()) ||
+			    hotkey.keysym().is_none() && keyboard_state.state_keysyms.iter().count() == 0) &&
+				(!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers
+				.iter()
+				.all(|x| hotkey.modifiers().contains(x)) &&
+			    keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
+			    && !hotkey.is_send()
+				});
 
-                // Don't emit command to virtual device if it's from a valid hotkey
-                // TODO: this will make sure that individual capslock keys send without any other modifiers or keys pressed will ALWAYS be consumed. This should be an option.
-                if !command_in_hotkeys && key != evdev::Key::KEY_CAPSLOCK {
-                    uinput_device.emit(&[event]).unwrap();
-                }
+			// Don't emit command to virtual device if it's from a valid hotkey
+			// TODO: this will make sure that individual capslock keys send without any other modifiers or keys pressed will ALWAYS be consumed. This should be an option.
+			if !command_in_hotkeys && key != evdev::Key::KEY_CAPSLOCK {
+			    uinput_device.emit(&[event]).unwrap();
+			}
 
-                if execution_is_paused || possible_hotkeys.is_empty() || last_hotkey.is_some() {
-                    continue;
-                }
+			if execution_is_paused || possible_hotkeys.is_empty() || last_hotkey.is_some() {
+			    continue;
+			}
 
-                tracing::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
-                tracing::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
-                tracing::debug!("hotkey: {:#?}", possible_hotkeys);
+			tracing::debug!("state_modifiers: {:#?}", keyboard_state.state_modifiers);
+			tracing::debug!("state_keysyms: {:#?}", keyboard_state.state_keysyms);
+			tracing::debug!("hotkey: {:#?}", possible_hotkeys);
 
-                for hotkey in possible_hotkeys {
-                    // this should check if state_modifiers and hotkey.modifiers have the same elements
-                    if (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
-                        && keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
-                        && ((hotkey.keysym().is_some()
-                        && keyboard_state.state_keysyms.contains(hotkey.keysym().unwrap()))
-                        || (hotkey.keysym().is_none()
-                        && keyboard_state.state_keysyms.iter().count() == 0 /* no keys are pressed that are not modiiers */))
-                    {
-                        last_hotkey = Some(hotkey.clone());
-                        if pending_release { break; }
-                        if hotkey.is_on_release() {
-                            pending_release = true;
-                            break;
-                        }
-                        send_command!(hotkey.clone(), &socket_file_path);
-                        hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
-                        break;
-                    }
-                }
-            }
-        }
-    }
+			for hotkey in possible_hotkeys {
+			    // this should check if state_modifiers and hotkey.modifiers have the same elements
+			    if (!keyboard_state.state_modifiers.is_empty() && hotkey.modifiers().contains(&config::Modifier::Any) || keyboard_state.state_modifiers.iter().all(|x| hotkey.modifiers().contains(x))
+				&& keyboard_state.state_modifiers.len() == hotkey.modifiers().len())
+				&& ((hotkey.keysym().is_some()
+				&& keyboard_state.state_keysyms.contains(hotkey.keysym().unwrap()))
+				|| (hotkey.keysym().is_none()
+				&& keyboard_state.state_keysyms.iter().count() == 0 /* no keys are pressed that are not modiiers */))
+			    {
+				last_hotkey = Some(hotkey.clone());
+				if pending_release { break; }
+				if hotkey.is_on_release() {
+				    pending_release = true;
+				    break;
+				}
+				send_command!(hotkey.clone(), &socket_file_path);
+				hotkey_repeat_timer.as_mut().reset(Instant::now() + Duration::from_millis(repeat_cooldown_duration));
+				break;
+			    }
+			}
+		    }
+		}
+	}
 }
 
 fn socket_write(command: &str, socket_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    let mut stream = UnixStream::connect(socket_path)?;
-    stream.write_all(command.as_bytes())?;
-    Ok(())
+	let mut stream = UnixStream::connect(socket_path)?;
+	stream.write_all(command.as_bytes())?;
+	Ok(())
 }
 
 pub fn check_input_group() -> Result<(), Box<dyn Error>> {
-    if !Uid::current().is_root() {
-        let groups = nix::unistd::getgroups();
-        for (_, groups) in groups.iter().enumerate() {
-            for group in groups {
-                let group = Group::from_gid(*group);
-                if group.unwrap().unwrap().name == "input" {
-                    tracing::error!("Note: INVOKING USER IS IN INPUT GROUP!!!!");
-                    tracing::error!("THIS IS A HUGE SECURITY RISK!!!!");
-                }
-            }
-        }
-        tracing::error!("Consider using `pkexec sohkd ...`");
-        exit(1);
-    } else {
-        tracing::warn!("Running sohkd as root!");
-        Ok(())
-    }
+	if !Uid::current().is_root() {
+		let groups = nix::unistd::getgroups();
+		for (_, groups) in groups.iter().enumerate() {
+			for group in groups {
+				let group = Group::from_gid(*group);
+				if group.unwrap().unwrap().name == "input" {
+					tracing::error!(
+						"Note: INVOKING USER IS IN INPUT GROUP!!!!"
+					);
+					tracing::error!("THIS IS A HUGE SECURITY RISK!!!!");
+				}
+			}
+		}
+		tracing::error!("Consider using `pkexec sohkd ...`");
+		exit(1);
+	} else {
+		tracing::warn!("Running sohkd as root!");
+		Ok(())
+	}
 }
 
 pub fn check_device_is_keyboard(tup: &(PathBuf, Device)) -> bool {
-    let device = &tup.1;
-    if device
-        .supported_keys()
-        .map_or(false, |keys| keys.contains(Key::KEY_ENTER))
-    {
-        if device.name() == Some("sohkd virtual output") {
-            return false;
-        }
-        tracing::debug!("Keyboard: {}", device.name().unwrap(),);
-        true
-    } else {
-        tracing::trace!("Other: {}", device.name().unwrap(),);
-        false
-    }
+	let device = &tup.1;
+	if device
+		.supported_keys()
+		.map_or(false, |keys| keys.contains(Key::KEY_ENTER))
+	{
+		if device.name() == Some("sohkd virtual output") {
+			return false;
+		}
+		tracing::debug!("Keyboard: {}", device.name().unwrap(),);
+		true
+	} else {
+		tracing::trace!("Other: {}", device.name().unwrap(),);
+		false
+	}
 }
 
 pub fn set_command_line_args() -> Command<'static> {
-    let app = Command::new("sohkd")
+	let app = Command::new("sohkd")
         .version(env!("CARGO_PKG_VERSION"))
         .author(env!("CARGO_PKG_AUTHORS"))
         .about("Simple Wayland HotKey Daemon")
@@ -495,103 +519,122 @@ pub fn set_command_line_args() -> Command<'static> {
                     "Specific keyboard devices to use. Seperate multiple devices with semicolon.",
                 ),
         );
-    app
+	app
 }
 
 pub fn fetch_xdg_config_path() -> PathBuf {
-    let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
-        Ok(val) => {
-            tracing::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
-            Path::new(&val).join("odilia/sohkdrc")
-        }
-        Err(_) => {
-            tracing::error!("XDG_CONFIG_HOME has not been set.");
-            Path::new("/etc/odilia/sohkdrc").to_path_buf()
-        }
-    };
-    config_file_path
+	let config_file_path: PathBuf = match env::var("XDG_CONFIG_HOME") {
+		Ok(val) => {
+			tracing::debug!("XDG_CONFIG_HOME exists: {:#?}", val);
+			Path::new(&val).join("odilia/sohkdrc")
+		}
+		Err(_) => {
+			tracing::error!("XDG_CONFIG_HOME has not been set.");
+			Path::new("/etc/odilia/sohkdrc").to_path_buf()
+		}
+	};
+	config_file_path
 }
 
 pub fn fetch_xdg_runtime_socket_path() -> PathBuf {
-    match env::var("XDG_RUNTIME_DIR") {
-        Ok(val) => {
-            tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
-            Path::new(&val).join("sohkd.sock")
-        }
-        Err(_) => {
-            tracing::error!("XDG_RUNTIME_DIR has not been set.");
-            Path::new(&format!("/run/user/{}/sohkd.sock", env::var("PKEXEC_UID").unwrap()))
-                .to_path_buf()
-        }
-    }
+	match env::var("XDG_RUNTIME_DIR") {
+		Ok(val) => {
+			tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", val);
+			Path::new(&val).join("sohkd.sock")
+		}
+		Err(_) => {
+			tracing::error!("XDG_RUNTIME_DIR has not been set.");
+			Path::new(&format!(
+				"/run/user/{}/sohkd.sock",
+				env::var("PKEXEC_UID").unwrap()
+			))
+			.to_path_buf()
+		}
+	}
 }
 
 pub fn setup_sohkd(invoking_uid: u32) {
-    // Set a sane process umask.
-    tracing::trace!("Setting process umask.");
-    umask(Mode::S_IWGRP | Mode::S_IWOTH);
+	// Set a sane process umask.
+	tracing::trace!("Setting process umask.");
+	umask(Mode::S_IWGRP | Mode::S_IWOTH);
 
-    // Get the runtime path and create it if needed.
-    let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
-        Ok(runtime_path) => {
-            tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
-            Path::new(&runtime_path).join("sohkd").to_str().unwrap().to_owned()
-        }
-        Err(_) => {
-            tracing::error!("XDG_RUNTIME_DIR has not been set.");
-            String::from("/run/sohkd/")
-        }
-    };
-    if !Path::new(&runtime_path).exists() {
-        match fs::create_dir_all(Path::new(&runtime_path)) {
-            Ok(_) => {
-                tracing::debug!("Created runtime directory.");
-                match fs::set_permissions(Path::new(&runtime_path), Permissions::from_mode(0o600)) {
-                    Ok(_) => tracing::debug!("Set runtime directory to readonly."),
-                    Err(e) => tracing::error!("Failed to set runtime directory to readonly: {}", e),
-                }
-            }
-            Err(e) => tracing::error!("Failed to create runtime directory: {}", e),
-        }
-    }
+	// Get the runtime path and create it if needed.
+	let runtime_path: String = match env::var("XDG_RUNTIME_DIR") {
+		Ok(runtime_path) => {
+			tracing::debug!("XDG_RUNTIME_DIR exists: {:#?}", runtime_path);
+			Path::new(&runtime_path).join("sohkd").to_str().unwrap().to_owned()
+		}
+		Err(_) => {
+			tracing::error!("XDG_RUNTIME_DIR has not been set.");
+			String::from("/run/sohkd/")
+		}
+	};
+	if !Path::new(&runtime_path).exists() {
+		match fs::create_dir_all(Path::new(&runtime_path)) {
+			Ok(_) => {
+				tracing::debug!("Created runtime directory.");
+				match fs::set_permissions(
+					Path::new(&runtime_path),
+					Permissions::from_mode(0o600),
+				) {
+					Ok(_) => tracing::debug!(
+						"Set runtime directory to readonly."
+					),
+					Err(e) => tracing::error!(
+						"Failed to set runtime directory to readonly: {}",
+						e
+					),
+				}
+			}
+			Err(e) => tracing::error!("Failed to create runtime directory: {}", e),
+		}
+	}
 
-    // Get the PID file path for instance tracking.
-    let pidfile: String = format!("{}sohkd_{}.pid", runtime_path, invoking_uid);
-    if Path::new(&pidfile).exists() {
-        tracing::trace!("Reading {} file and checking for running instances.", pidfile);
-        let sohkd_pid = match fs::read_to_string(&pidfile) {
-            Ok(sohkd_pid) => sohkd_pid,
-            Err(e) => {
-                tracing::error!("Unable to read {} to check all running instances", e);
-                exit(1);
-            }
-        };
-        tracing::debug!("Previous PID: {}", sohkd_pid);
+	// Get the PID file path for instance tracking.
+	let pidfile: String = format!("{}sohkd_{}.pid", runtime_path, invoking_uid);
+	if Path::new(&pidfile).exists() {
+		tracing::trace!("Reading {} file and checking for running instances.", pidfile);
+		let sohkd_pid = match fs::read_to_string(&pidfile) {
+			Ok(sohkd_pid) => sohkd_pid,
+			Err(e) => {
+				tracing::error!(
+					"Unable to read {} to check all running instances",
+					e
+				);
+				exit(1);
+			}
+		};
+		tracing::debug!("Previous PID: {}", sohkd_pid);
 
-        // Check if sohkd is already running!
-        let mut sys = System::new_all();
-        sys.refresh_all();
-        for (pid, process) in sys.processes() {
-            if pid.to_string() == sohkd_pid && process.exe() == env::current_exe().unwrap() {
-                tracing::error!("Swhkd is already running!");
-                tracing::error!("pid of existing sohkd process: {}", pid.to_string());
-                tracing::error!("To close the existing sohkd process, run `sudo killall sohkd`");
-                exit(1);
-            }
-        }
-    }
+		// Check if sohkd is already running!
+		let mut sys = System::new_all();
+		sys.refresh_all();
+		for (pid, process) in sys.processes() {
+			if pid.to_string() == sohkd_pid
+				&& process.exe() == env::current_exe().unwrap()
+			{
+				tracing::error!("Swhkd is already running!");
+				tracing::error!(
+					"pid of existing sohkd process: {}",
+					pid.to_string()
+				);
+				tracing::error!("To close the existing sohkd process, run `sudo killall sohkd`");
+				exit(1);
+			}
+		}
+	}
 
-    // Write to the pid file.
-    match fs::write(&pidfile, id().to_string()) {
-        Ok(_) => {}
-        Err(e) => {
-            tracing::error!("Unable to write to {}: {}", pidfile, e);
-            exit(1);
-        }
-    };
+	// Write to the pid file.
+	match fs::write(&pidfile, id().to_string()) {
+		Ok(_) => {}
+		Err(e) => {
+			tracing::error!("Unable to write to {}: {}", pidfile, e);
+			exit(1);
+		}
+	};
 
-    // Check if the user is in input group.
-    if check_input_group().is_err() {
-        exit(1);
-    }
+	// Check if the user is in input group.
+	if check_input_group().is_err() {
+		exit(1);
+	}
 }

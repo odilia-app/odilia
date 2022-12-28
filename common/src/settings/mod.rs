@@ -11,25 +11,25 @@ use tini::{Error, Ini};
 /// the only way this config should change is if the configuration file changes, in which case the entire view will be replaced to reflect the fact
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApplicationConfig {
-    speech: SpeechSettings,
-    log: LogSettings,
+	speech: SpeechSettings,
+	log: LogSettings,
 }
 
 impl ApplicationConfig {
-    pub fn new(path: &str) -> Result<Self, Error> {
-        let ini = Ini::from_file(path)?;
-        let rate: i32 = ini.get("speech", "rate").unwrap();
-        let level: String = ini.get("log", "level").unwrap();
-        let speech = SpeechSettings::new(rate);
-        let log = LogSettings::new(level);
-        Ok(Self { speech, log })
-    }
+	pub fn new(path: &str) -> Result<Self, Error> {
+		let ini = Ini::from_file(path)?;
+		let rate: i32 = ini.get("speech", "rate").unwrap();
+		let level: String = ini.get("log", "level").unwrap();
+		let speech = SpeechSettings::new(rate);
+		let log = LogSettings::new(level);
+		Ok(Self { speech, log })
+	}
 
-    pub fn log(&self) -> &LogSettings {
-        &self.log
-    }
+	pub fn log(&self) -> &LogSettings {
+		&self.log
+	}
 
-    pub fn speech(&self) -> &SpeechSettings {
-        &self.speech
-    }
+	pub fn speech(&self) -> &SpeechSettings {
+		&self.speech
+	}
 }
