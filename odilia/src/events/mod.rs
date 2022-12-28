@@ -16,7 +16,7 @@ use atspi::{
 	collection::MatchType,
 	component::ScrollType,
 	convertable::Convertable,
-	events::Event,
+	events::{Event, EventInterfaces},
 	InterfaceSet,
 };
 use odilia_common::{
@@ -171,17 +171,11 @@ pub async fn process(
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
-	if let Some(interface) = event.interface() {
-		match interface
-			.rsplit('.')
-			.next()
-			.expect("Interface name should contain '.'")
-		{
-			"Object" => object::dispatch(state, event).await?,
-			"Document" => document::dispatch(state, event).await?,
-			interface => {
-				tracing::debug!(interface, "Ignoring event with unknown interface")
-			}
+	match event {
+		Event::Interfaces(EventInterfaces::Object(object_event)) => object::dispatch(state, object_event).await?,
+		Event::Interfaces(EventInterfaces::Document(document_event)) => document::dispatch(state, document_event).await?,
+		other_event => {
+			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event)
 		}
 	}
 	Ok(())

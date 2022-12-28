@@ -2,9 +2,13 @@ use zbus::zvariant::ObjectPath;
 use odilia_cache::CacheItem;
 
 use crate::state::ScreenReaderState;
-use atspi::events::Event;
+use atspi::{
+	events::GenericEvent,
+	identify::DocumentEvents,
+	identify::LoadCompleteEvent,
+};
 
-pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+pub async fn load_complete(state: &ScreenReaderState, event: LoadCompleteEvent) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
 	let cache = state
 		.build_cache(
@@ -32,13 +36,11 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 	Ok(())
 }
 
-pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: DocumentEvents) -> eyre::Result<()> {
 	// Dispatch based on member
-	if let Some(member) = event.member() {
-		match member.as_str() {
-			"LoadComplete" => load_complete(state, event).await?,
-			member => tracing::debug!(member, "Ignoring event with unknown member"),
-		}
+	match event {
+		DocumentEvents::LoadComplete(load_complete_event) => load_complete(state, load_complete_event).await?,
+		other_member => tracing::debug!("Ignoring event with unknown member: {:#?}", other_member),
 	}
 	Ok(())
 }

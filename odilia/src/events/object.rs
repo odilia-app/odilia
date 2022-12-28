@@ -1,15 +1,17 @@
 use crate::state::ScreenReaderState;
-use atspi::events::Event;
+use atspi::{
+	identify::{
+		ObjectEvents,
+	},
+};
 
-pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: ObjectEvents) -> eyre::Result<()> {
 	// Dispatch based on member
-	if let Some(member) = event.member() {
-		match member.as_str() {
-			"StateChanged" => state_changed::dispatch(state, event).await?,
-			"TextCaretMoved" => text_caret_moved::dispatch(state, event).await?,
-			"ChildrenChanged" => children_changed::dispatch(state, event).await?,
-			member => tracing::debug!(member, "Ignoring event with unknown member"),
-		}
+	match event {
+		ObjectEvents::StateChanged(state_changed_event) => state_changed::dispatch(state, state_changed_event).await?,
+		ObjectEvents::TextCaretMoved(text_caret_moved_event) => text_caret_moved::dispatch(state, text_caret_moved_event).await?,
+		ObjectEvents::ChildrenChanged(children_changed_event) => children_changed::dispatch(state, children_changed_event).await?,
+		other_member => tracing::debug!("Ignoring event with unknown member: {:#?}", other_member),
 	}
 	Ok(())
 }
@@ -17,9 +19,9 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 mod children_changed {
 	use odilia_cache::CacheItem;
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, events::Event};
+	use atspi::{accessible, events::GenericEvent, identify::ChildrenChangedEvent};
 
-	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+	pub async fn dispatch(state: &ScreenReaderState, event: ChildrenChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
 			"remove/system" => remove(state, event).await?,
@@ -30,11 +32,11 @@ mod children_changed {
 		}
 		Ok(())
 	}
-	pub async fn add(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+	pub async fn add(state: &ScreenReaderState, event: ChildrenChangedEvent) -> eyre::Result<()> {
 		let conn = state.connection();
 		let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
-		let accessible = accessible::new(conn, sender, dest.clone()).await?;
+		let accessible = accessible::new(conn, sender, dest.clone().into()).await?;
 		// all these properties will be fetched in paralell
 		let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
 			accessible.get_application(),
@@ -63,7 +65,7 @@ mod children_changed {
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
-	pub async fn remove(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+	pub async fn remove(state: &ScreenReaderState, event: ChildrenChangedEvent) -> eyre::Result<()> {
 		let path = event.path().expect("All accessibles must have a path");
 		state.cache.remove(path.try_into().unwrap()).await;
 		tracing::debug!("Remove a single item from cache.");
@@ -73,15 +75,15 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, convertable::Convertable, events::Event};
+	use atspi::{accessible, convertable::Convertable, events::GenericEvent, identify::TextCaretMovedEvent};
 	use ssip_client::Priority;
 
 	// TODO: left/right vs. up/down, and use generated speech
 	pub async fn text_cursor_moved(
 		state: &ScreenReaderState,
-		event: Event,
+		event: TextCaretMovedEvent,
 	) -> eyre::Result<()> {
-		let current_caret_pos = event.detail1();
+		let current_caret_pos = event.position();
 		let previous_caret_pos = state.previous_caret_position.get();
 		state.previous_caret_position.set(current_caret_pos);
 		let (_start, _end) = match current_caret_pos > previous_caret_pos {
@@ -93,13 +95,9 @@ mod text_caret_moved {
 		} else {
 			return Ok(());
 		};
-		let sender = if let Some(sender) = event.sender()? {
-			sender
-		} else {
-			return Ok(());
-		};
+		let sender = event.sender()?.unwrap();
 		let conn = state.connection().clone();
-		let accessible = accessible::new(&conn, sender.clone(), path.clone()).await?;
+		let accessible = accessible::new(&conn, sender.clone(), path.clone().into()).await?;
 		let _last_accessible = match state.history_item(0).await? {
 			Some(acc) => acc,
 			None => return Ok(()),
@@ -108,7 +106,7 @@ mod text_caret_moved {
 			Some(acc) => acc,
 			None => return Ok(()),
 		};
-		state.update_accessible(sender, path).await;
+		state.update_accessible(sender, path.into()).await;
 
 		// in the case that this is not a tab navigation
 		// TODO: algorithm that only triggers this when a tab navigation is known to have not occured. How the fuck am I supposed to know how that works?
@@ -123,7 +121,7 @@ mod text_caret_moved {
 		Ok(())
 	}
 
-	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+	pub async fn dispatch(state: &ScreenReaderState, event: TextCaretMovedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
 			"" => text_cursor_moved(state, event).await?,
@@ -135,9 +133,9 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, events::Event};
+	use atspi::{accessible, events::GenericEvent, identify::StateChangedEvent};
 
-	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+	pub async fn dispatch(state: &ScreenReaderState, event: StateChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
 			"focused" => focused(state, event).await?,
@@ -146,27 +144,23 @@ mod state_changed {
 		Ok(())
 	}
 
-	pub async fn focused(state: &ScreenReaderState, event: Event) -> zbus::Result<()> {
+	pub async fn focused(state: &ScreenReaderState, event: StateChangedEvent) -> eyre::Result<()> {
 		// Speak the newly focused object
 		let path = if let Some(path) = event.path() {
 			path.to_owned()
 		} else {
 			return Ok(());
 		};
-		let sender = if let Some(sender) = event.sender()? {
-			sender.to_owned()
-		} else {
-			return Ok(());
-		};
+		let sender = event.sender()?.unwrap();
 		let conn = state.connection();
 		let accessible =
-			accessible::new(&conn.clone(), sender.clone(), path.clone()).await?;
+			accessible::new(&conn.clone(), sender.clone(), path.clone().into()).await?;
 		if let Some(curr) = state.history_item(0).await? {
 			if curr == accessible {
 				return Ok(());
 			}
 		}
-		state.update_accessible(sender.to_owned(), path.to_owned()).await;
+		state.update_accessible(sender.to_owned(), path.to_owned().into()).await;
 
 		let (name, description, role, relation) = tokio::try_join!(
 			accessible.name(),
@@ -174,7 +168,7 @@ mod state_changed {
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
-		tracing::debug!("Focus event received on: {} with role {}", path, role);
+		tracing::debug!("Focus event received on: {:?} with role {}", path, role);
 		tracing::debug!("Relations: {:?}", relation);
 
 		state.say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
