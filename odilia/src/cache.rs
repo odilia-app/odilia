@@ -11,7 +11,8 @@ use atspi::{
 	InterfaceSet,
 	StateSet,
 };
-use evmap::ShallowCopy;
+use evmap::shallow_copy::CopyValue;
+use evmap_derive::ShallowCopy;
 use std::mem::ManuallyDrop;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
@@ -37,7 +38,7 @@ impl AccessiblePrimitive {
 }
 */
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, ShallowCopy)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
     // The accessible object (within the application)   (so)
@@ -51,17 +52,13 @@ pub struct CacheItem {
     // Child count of the accessible  i
     pub children: i32,
     // The exposed interfece(s) set.  as
-    pub ifaces: InterfaceSet,
+    pub ifaces: CopyValue<InterfaceSet>,
     // Accessible role. u
-    pub role: Role,
+    pub role: CopyValue<Role>,
     // The states applicable to the accessible.  au
-    pub states: StateSet,
-}
-/// This method is safe *only* because all fields in CacheItem are already Copy.
-impl ShallowCopy for CacheItem {
-	unsafe fn shallow_copy(&self) -> ManuallyDrop<Self> {
-		ManuallyDrop::new(*self)
-	}
+    pub states: CopyValue<StateSet>,
+		// The text of the accessible.
+		pub text: String,
 }
 
 /*
@@ -99,6 +96,7 @@ fn copy_into_cache_item(cache_item_with_handle: FxReadGuard<'_, CacheItem>) -> C
 		children: cache_item_with_handle.children,
 		ifaces: cache_item_with_handle.ifaces,
 		index: cache_item_with_handle.index,
+		text: cache_item_with_handle.text.clone(),
 	}
 }
 

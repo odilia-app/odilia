@@ -28,6 +28,7 @@ pre-release-replacements = [
 atspi.workspace = true
 circular-queue = "^0.2.6"
 evmap = "10.0.2"
+evmap-derive = "0.2.0"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
 odilia-common = { path = "../common" }

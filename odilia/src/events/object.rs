@@ -19,6 +19,8 @@ mod children_changed {
 	use crate::cache::CacheItem;
 	use atspi::{
 		events::Event,
+		convertable::Convertable,
+		text_ext::TextExt,
 		accessible,
 	};
 
@@ -51,8 +53,9 @@ mod children_changed {
     let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
 		let accessible = accessible::new(conn, sender, dest.clone()).await?;
+		let text_iface = accessible.to_text().await?;
 		// all these properties will be fetched in paralell
-		let (app, parent, index, children, ifaces, role, states) = tokio::try_join!(
+		let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
 			accessible.get_application(),
 			accessible.parent(),
 			accessible.get_index_in_parent(),
@@ -60,6 +63,7 @@ mod children_changed {
 			accessible.get_interfaces(),
 			accessible.get_role(),
 			accessible.get_state(),
+			text_iface.get_text_ext(),
 		)?;
 		let object_id = get_id_from_path(&dest).expect("Invalid accessible");
 		let app_id = get_id_from_path(&app.1.to_string()).expect("Invalid accessible");
@@ -70,9 +74,10 @@ mod children_changed {
 				parent: parent_id,
 				index,
 				children,
-				ifaces,
-				role,
-				states
+				ifaces: ifaces.into(),
+				role: role.into(),
+				states: states.into(),
+				text,
 		};
 
 		// finally, write data to the internal cache
