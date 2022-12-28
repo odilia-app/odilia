@@ -146,8 +146,8 @@ fn get_file_paths() -> (String, String) {
                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
             );
 
-            let pid_file_path = format!("{}/sohkds.pid", val);
-            let sock_file_path = format!("{}/sohkd.sock", val);
+            let pid_file_path = format!("{val}/sohkds.pid");
+            let sock_file_path = format!("{val}/sohkd.sock");
 
             (pid_file_path, sock_file_path)
         }

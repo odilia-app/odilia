@@ -3,18 +3,12 @@ use tokio::sync::Mutex;
 use atspi::{
 	accessible::{
 		Role,
-		AccessibleProxy,
-	},
-	accessible_ext::{
-		AccessibleId,
 	},
 	InterfaceSet,
 	StateSet,
 };
 use evmap::shallow_copy::CopyValue;
 use evmap_derive::ShallowCopy;
-use std::time::Instant;
-use std::mem::ManuallyDrop;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -76,7 +70,7 @@ impl CacheItem {
 type FxBuildHasher = std::hash::BuildHasherDefault<FxHasher>;
 pub type FxReadHandleFactory<K, V> = evmap::ReadHandleFactory<K, V, (), FxBuildHasher>;
 pub type FxWriteHandle<K, V> = evmap::WriteHandle<K, V, (), FxBuildHasher>;
-pub type FxReadGuard<'a, V> = evmap::ReadGuard<'a, V>;
+type FxReadGuard<'a, V> = evmap::ReadGuard<'a, V>;
 
 /// The root of the accessible cache.
 pub struct Cache {
@@ -130,11 +124,13 @@ impl Cache {
 				cache_writer.refresh();
 		}
 		/// get a single item from the cache (note that this copies some integers to a new struct)
+#[allow(dead_code)]
 		pub async fn get(&self, id: i32) -> Option<CacheItem> {
 				let read_handle = self.by_id_read.handle();
 				read_handle.get_one(&id).map(copy_into_cache_item)
 		}
 		/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
+#[allow(dead_code)]
 		pub async fn get_all(&self, ids: Vec<i32>) -> Vec<Option<CacheItem>> {
 				let read_handle = self.by_id_read.handle();
 				ids.iter()
@@ -152,6 +148,7 @@ impl Cache {
 				cache_writer.refresh();
 		}
 		/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
+#[allow(dead_code)]
 		pub async fn remove_all(&self, ids: Vec<i32>) {
 				let mut cache_writer = self.by_id_write.lock().await;
 				ids.into_iter()

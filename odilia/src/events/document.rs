@@ -4,16 +4,7 @@ use crate::{
 	state::ScreenReaderState,
 	cache::CacheItem,
 };
-use atspi::{
-	accessible::{
-		self,
-		AccessibleProxy,
-	},
-	convertable::Convertable,
-	events::Event,
-	text::TextProxy,
-	text_ext::TextExt,
-};
+use atspi::events::Event;
 
 pub fn get_id_from_path(path: &str) -> Option<i32> {
 	tracing::debug!("Attempting to get ID for: {}", path);
@@ -30,9 +21,7 @@ pub fn get_id_from_path(path: &str) -> Option<i32> {
 }
 
 pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-		let conn = state.atspi.connection();
 		let sender = event.sender()?.unwrap();
-    let dest = event.path().unwrap();
     let cache = state
         .build_cache(sender.clone(), ObjectPath::try_from("/org/a11y/atspi/cache".to_string())?)
         .await?;

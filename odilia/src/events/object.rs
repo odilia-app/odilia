@@ -19,8 +19,6 @@ mod children_changed {
 	use crate::cache::CacheItem;
 	use atspi::{
 		events::Event,
-		convertable::Convertable,
-		text_ext::TextExt,
 		accessible,
 	};
 
@@ -49,7 +47,7 @@ mod children_changed {
 			Ok(())
 	}
 	pub async fn add(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-		let conn = state.atspi.connection();
+		let conn = state.connection();
     let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
 		let accessible = accessible::new(conn, sender, dest.clone()).await?;
@@ -80,9 +78,7 @@ mod children_changed {
 		};
 
 		// finally, write data to the internal cache
-		let write_by_id = &state.cache.by_id_write;
-		let mut write_by_id = write_by_id.lock().await;
-		write_by_id.insert(object_id, cache_item);
+		state.cache.add(cache_item).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -90,9 +86,7 @@ mod children_changed {
 		let path = event.path().expect("No path");
 		let path_id_str = path.split('/').next_back().expect("No ID");
 		let id = path_id_str.parse::<i32>()?;
-		let shared_write = &state.cache.by_id_write;
-		let mut cache = shared_write.lock().await;
-		cache.empty(id);
+		state.cache.remove(id).await;
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
 	}
