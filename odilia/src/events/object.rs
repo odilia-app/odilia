@@ -19,19 +19,6 @@ mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{accessible, events::Event};
 
-	pub fn get_id_from_path(path: &str) -> Option<i32> {
-		tracing::debug!("Attempting to get ID from: {}", path);
-		if let Some(id) = path.split('/').next_back() {
-			if let Ok(uid) = id.parse::<i32>() {
-				return Some(uid);
-			} else if id == "root" {
-				return Some(0);
-			} else if id == "null" {
-				return Some(-1);
-			}
-		}
-		None
-	}
 	pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
@@ -59,13 +46,10 @@ mod children_changed {
 			accessible.get_state(),
 			accessible.name(),
 		)?;
-		let object_id = get_id_from_path(&dest).expect("Invalid accessible");
-		let app_id = get_id_from_path(&app.1.to_string()).expect("Invalid accessible");
-		let parent_id = get_id_from_path(&parent.1.to_string()).expect("Invalid accesible");
 		let cache_item = CacheItem {
-			object: object_id,
-			app: app_id,
-			parent: parent_id,
+			object: accessible.try_into().unwrap(),
+			app: app.try_into().unwrap(),
+			parent: parent.try_into().unwrap(),
 			index,
 			children,
 			ifaces: ifaces.into(),
@@ -80,10 +64,8 @@ mod children_changed {
 		Ok(())
 	}
 	pub async fn remove(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-		let path = event.path().expect("No path");
-		let path_id_str = path.split('/').next_back().expect("No ID");
-		let id = path_id_str.parse::<i32>()?;
-		state.cache.remove(id).await;
+		let path = event.path().expect("All accessibles must have a path");
+		state.cache.remove(path.try_into().unwrap()).await;
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
 	}

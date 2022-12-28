@@ -4,20 +4,6 @@ use odilia_cache::CacheItem;
 use crate::state::ScreenReaderState;
 use atspi::events::Event;
 
-pub fn get_id_from_path(path: &str) -> Option<i32> {
-	tracing::debug!("Attempting to get ID for: {}", path);
-	if let Some(id) = path.split('/').next_back() {
-		if let Ok(uid) = id.parse::<i32>() {
-			return Some(uid);
-		} else if id == "root" {
-			return Some(0);
-		} else if id == "null" {
-			return Some(-1);
-		}
-	}
-	None
-}
-
 pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
 	let cache = state
@@ -29,19 +15,10 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 	let entire_cache = cache.get_items().await?;
 	let mut cache_items = Vec::new();
 	for item in entire_cache {
-		let path = item.object.1.to_string();
-		let app_path = item.app.1.clone();
-		let parent_path = item.parent.1.clone();
-		let object_id =
-			get_id_from_path(&path).expect("There should always be an accessible ID");
-		let app_id = get_id_from_path(&app_path)
-			.expect("There should always be an accessible ID");
-		let parent_id = get_id_from_path(&parent_path)
-			.expect("There should always be an accessible ID");
 		cache_items.push(CacheItem {
-			object: object_id,
-			app: app_id,
-			parent: parent_id,
+			object: item.object.try_into().unwrap(),
+			app: item.app.try_into().unwrap(),
+			parent: item.parent.try_into().unwrap(),
 			index: item.index,
 			children: item.children,
 			ifaces: item.ifaces.into(),

@@ -1,78 +1,100 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet};
+use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt, ObjectPathConversionError}, InterfaceSet, StateSet};
 use evmap::shallow_copy::CopyValue;
 use evmap_derive::ShallowCopy;
 use rustc_hash::FxHasher;
 use tokio::sync::Mutex;
-use std::str::FromStr;
+use std::{
+  str::FromStr,
+  ops::Deref
+};
+use zbus::{
+  ProxyBuilder,
+  zvariant::{ObjectPath, OwnedObjectPath},
+};
 
-pub enum ConversionError {
+#[derive(Clone, Debug)]
+pub enum AccessiblePrimitiveConversionError {
   ParseError(<i32 as FromStr>::Err),
+  ObjectConversionError(ObjectPathConversionError),
   NoPathId,
   NoFirstSectionOfSender,
   NoSecondSectionOfSender,
 }
+impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
+  fn from(object_conversion_error: ObjectPathConversionError) -> Self {
+    Self::ObjectConversionError(object_conversion_error)
+  }
+}
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, ShallowCopy)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 /// TODO: find a better way to store this info where it still imeplements Copy.
 pub struct AccessiblePrimitive {
 	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
-	/// This id will be 0 for "root", and -1 for "null".
-	/// TODO: make this some kind of enum type
-	id: AccessibleId,
+	id: CopyValue<AccessibleId>,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	sender: (i32, i32),
+	sender: String,
 }
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-  type Error = ConversionError;
+impl AccessiblePrimitive {
+  async fn into_accessible<'a>(&self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
+    let id = self.id.deref().clone();
+    let sender = self.sender.clone();
+    let path: ObjectPath<'a> = id.try_into()?;
+    Ok(ProxyBuilder::new(conn)
+      .path(path)?
+      .destination(sender)?
+      .build()
+      .await?)
+  }
+}
+impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-    let sender = accessible.destination();
-    let mut sender_str = sender.split(':');
-    let sender_pt1 = match sender_str.next() {
-      Some(p1) => match p1.parse::<i32>() {
-        Ok(p1_num) => p1_num,
-        Err(e) => return Err(ConversionError::ParseError(e)),
-      },
-      None => return Err(ConversionError::NoFirstSectionOfSender),
-    };
-    let sender_pt2 = match sender_str.next() {
-      Some(p2) => match p2.parse::<i32>() {
-        Ok(p2_num) => p2_num,
-        Err(e) => return Err(ConversionError::ParseError(e)),
-      },
-      None => return Err(ConversionError::NoSecondSectionOfSender),
-    };
-    let id = match accessible.get_id() {
-      Some(path_id) => path_id,
-      None => return Err(ConversionError::NoPathId),
-    };
+  fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
+    let accessible_id: AccessibleId = so.1.try_into()?;
     Ok(AccessiblePrimitive {
-      id,
-      sender: (sender_pt1, sender_pt2)
+      id: accessible_id.into(),
+      sender: so.0,
     })
   }
 }
+impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
 
-/*
-/// This cannot implement a `From<...>` or `To<...>` trait because the functions needed to work with `AccessibleProxy`s is async and Rust does not yet have support for this yet.
-impl AccessiblePrimitive {
-	pub async fn from_accessible(accessible: &AccessibleProxy) -> AccessiblePrimitive {
-		le
-	}
+  fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
+    let accessible_id: AccessibleId = so.1.try_into()?;
+    Ok(AccessiblePrimitive {
+      id: accessible_id.into(),
+      sender: so.0,
+    })
+  }
 }
-*/
+impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
+
+  fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+    let sender = accessible.destination().to_string();
+    let id = match accessible.get_id() {
+      Some(path_id) => path_id,
+      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+    };
+    Ok(AccessiblePrimitive {
+      id: id.into(),
+      sender,
+    })
+  }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, ShallowCopy)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)   (so)
-	pub object: i32,
+	pub object: AccessiblePrimitive,
 	// The application (root object(?)    (so)
-	pub app: i32,
+	pub app: AccessiblePrimitive,
 	// The parent object.  (so)
-	pub parent: i32,
+	pub parent: AccessiblePrimitive,
 	// The accessbile index in parent.  i
 	pub index: i32,
 	// Child count of the accessible  i
@@ -87,17 +109,6 @@ pub struct CacheItem {
 	pub text: String,
 }
 
-/*
-/// We cannot use `TryFrom<CacheItem> for AccessibleProxy` because functions required to generate an AccessibleProxy are async.
-/// This should be rederesed by a future version of Rust.
-/// TODO: convert to native async-trait impl
-impl CacheItem {
-	pub async fn as_accessible<'a>(&self, connection: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
-		atspi::accessible::new(connection,
-	}
-}
-*/
-
 type FxBuildHasher = std::hash::BuildHasherDefault<FxHasher>;
 pub type FxReadHandleFactory<K, V> = evmap::ReadHandleFactory<K, V, (), FxBuildHasher>;
 pub type FxWriteHandle<K, V> = evmap::WriteHandle<K, V, (), FxBuildHasher>;
@@ -105,8 +116,14 @@ type FxReadGuard<'a, V> = evmap::ReadGuard<'a, V>;
 
 /// The root of the accessible cache.
 pub struct Cache {
-	pub by_id_read: FxReadHandleFactory<i32, CacheItem>,
-	pub by_id_write: Mutex<FxWriteHandle<i32, CacheItem>>,
+	pub by_id_read: FxReadHandleFactory<AccessibleId, CacheItem>,
+	pub by_id_write: Mutex<FxWriteHandle<AccessibleId, CacheItem>>,
+}
+// clippy wants this
+impl Default for Cache {
+  fn default() -> Self {
+    Self::new()
+  }
 }
 
 /// Copy all info into a plain CacheItem struct.
@@ -114,11 +131,11 @@ pub struct Cache {
 #[inline]
 fn copy_into_cache_item(cache_item_with_handle: FxReadGuard<'_, CacheItem>) -> CacheItem {
 	CacheItem {
-		object: cache_item_with_handle.object,
-		parent: cache_item_with_handle.parent,
-		states: cache_item_with_handle.states,
+		object: cache_item_with_handle.object.clone(),
+		parent: cache_item_with_handle.parent.clone(),
+		states: cache_item_with_handle.states.clone(),
 		role: cache_item_with_handle.role,
-		app: cache_item_with_handle.app,
+		app: cache_item_with_handle.app.clone(),
 		children: cache_item_with_handle.children,
 		ifaces: cache_item_with_handle.ifaces,
 		index: cache_item_with_handle.index,
@@ -144,25 +161,25 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
 		let mut cache_writer = self.by_id_write.lock().await;
-		cache_writer.empty(cache_item.object);
-		cache_writer.insert(cache_item.object, cache_item);
+		cache_writer.empty(*cache_item.object.id.deref());
+		cache_writer.insert(*cache_item.object.id, cache_item);
 		cache_writer.refresh();
 	}
 	/// remove a single cache item
-	pub async fn remove(&self, id: i32) {
+	pub async fn remove(&self, id: AccessibleId) {
 		let mut cache_writer = self.by_id_write.lock().await;
 		cache_writer.empty(id);
 		cache_writer.refresh();
 	}
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
-	pub async fn get(&self, id: i32) -> Option<CacheItem> {
+	pub async fn get(&self, id: &AccessibleId) -> Option<CacheItem> {
 		let read_handle = self.by_id_read.handle();
-		read_handle.get_one(&id).map(copy_into_cache_item)
+		read_handle.get_one(id).map(copy_into_cache_item)
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
-	pub async fn get_all(&self, ids: Vec<i32>) -> Vec<Option<CacheItem>> {
+	pub async fn get_all(&self, ids: Vec<AccessibleId>) -> Vec<Option<CacheItem>> {
 		let read_handle = self.by_id_read.handle();
 		ids.iter()
 			.map(|id| read_handle.get_one(id).map(copy_into_cache_item))
@@ -172,14 +189,14 @@ impl Cache {
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
 		let mut cache_writer = self.by_id_write.lock().await;
 		cache_items.into_iter().for_each(|cache_item| {
-			cache_writer.empty(cache_item.object);
-			cache_writer.insert(cache_item.object, cache_item);
+			cache_writer.empty(*cache_item.object.id.deref());
+			cache_writer.insert(*cache_item.object.id, cache_item);
 		});
 		cache_writer.refresh();
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
-	pub async fn remove_all(&self, ids: Vec<i32>) {
+	pub async fn remove_all(&self, ids: Vec<AccessibleId>) {
 		let mut cache_writer = self.by_id_write.lock().await;
 		ids.into_iter().for_each(|id| {
 			cache_writer.empty(id);
