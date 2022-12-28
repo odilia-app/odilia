@@ -1,8 +1,16 @@
-use atspi::{accessible::Role, InterfaceSet, StateSet};
+use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet};
 use evmap::shallow_copy::CopyValue;
 use evmap_derive::ShallowCopy;
 use rustc_hash::FxHasher;
 use tokio::sync::Mutex;
+use std::str::FromStr;
+
+pub enum ConversionError {
+  ParseError(<i32 as FromStr>::Err),
+  NoPathId,
+  NoFirstSectionOfSender,
+  NoSecondSectionOfSender,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -12,12 +20,41 @@ pub struct AccessiblePrimitive {
 	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
 	/// This id will be 0 for "root", and -1 for "null".
 	/// TODO: make this some kind of enum type
-	id: i32,
-	/// Assuming that the sender is ":x.y", this stores the x portion of this sender.
-	sender_pt1: i32,
-	/// Assuming that the sender is ":x.y", this stores the y portion of this sender.
-	sender_pt2: i32,
+	id: AccessibleId,
+	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
+	sender: (i32, i32),
 }
+impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
+  type Error = ConversionError;
+
+  fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+    let sender = accessible.destination();
+    let mut sender_str = sender.split(':');
+    let sender_pt1 = match sender_str.next() {
+      Some(p1) => match p1.parse::<i32>() {
+        Ok(p1_num) => p1_num,
+        Err(e) => return Err(ConversionError::ParseError(e)),
+      },
+      None => return Err(ConversionError::NoFirstSectionOfSender),
+    };
+    let sender_pt2 = match sender_str.next() {
+      Some(p2) => match p2.parse::<i32>() {
+        Ok(p2_num) => p2_num,
+        Err(e) => return Err(ConversionError::ParseError(e)),
+      },
+      None => return Err(ConversionError::NoSecondSectionOfSender),
+    };
+    let id = match accessible.get_id() {
+      Some(path_id) => path_id,
+      None => return Err(ConversionError::NoPathId),
+    };
+    Ok(AccessiblePrimitive {
+      id,
+      sender: (sender_pt1, sender_pt2)
+    })
+  }
+}
+
 /*
 /// This cannot implement a `From<...>` or `To<...>` trait because the functions needed to work with `AccessibleProxy`s is async and Rust does not yet have support for this yet.
 impl AccessiblePrimitive {
