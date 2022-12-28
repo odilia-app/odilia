@@ -45,9 +45,6 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 				let object_id = get_id_from_path(&path).expect("There should always be an accessible ID");
 				let app_id = get_id_from_path(&app_path).expect("There should always be an accessible ID");
 				let parent_id = get_id_from_path(&parent_path).expect("There should always be an accessible ID");
-				let accessible = accessible::new(&conn, sender.clone(), dest.clone()).await?;
-				let text_iface = accessible.to_text().await?;
-				let text = text_iface.get_text_ext().await?;
 				cache_items.push(CacheItem {
 					object: object_id,
 					app: app_id,
@@ -57,7 +54,7 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 					ifaces: item.ifaces.into(),
 					role: item.role.into(),
 					states: item.states.into(),
-					text
+					text: item.name.clone(),
 				});
 		}
 		state.cache.add_all(cache_items).await;
