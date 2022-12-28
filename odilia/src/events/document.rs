@@ -60,13 +60,7 @@ pub async fn load_complete(state: &ScreenReaderState, event: Event) -> eyre::Res
 					text
 				});
 		}
-    let write_by_id = &state.cache.by_id_write;
-    let mut write_by_id = write_by_id.lock().await;
-		cache_items.into_iter()
-			.for_each(|cache_item| {
-				write_by_id.insert(cache_item.object, cache_item);
-		});
-    write_by_id.refresh();
+		state.cache.add_all(cache_items).await;
 		tracing::debug!("Add an entire document to cache.");
     Ok(())
 }

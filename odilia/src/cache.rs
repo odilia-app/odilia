@@ -13,6 +13,7 @@ use atspi::{
 };
 use evmap::shallow_copy::CopyValue;
 use evmap_derive::ShallowCopy;
+use std::time::Instant;
 use std::mem::ManuallyDrop;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
@@ -142,13 +143,17 @@ impl Cache {
 		}
 		/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
 		pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
+				let now = Instant::now();
 				let mut cache_writer = self.by_id_write.lock().await;
 				cache_items.into_iter()
 					.for_each(|cache_item| {
 						cache_writer.empty(cache_item.object);
 						cache_writer.insert(cache_item.object, cache_item);
 				});
+				let written = now.elapsed();
 				cache_writer.refresh();
+				let done = now.elapsed();
+				tracing::debug!("Written in {:.2?}, refreshed in {:.2?}", written, done);
 		}
 		/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 		pub async fn remove_all(&self, ids: Vec<i32>) {
