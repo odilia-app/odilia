@@ -15,7 +15,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<(
 }
 
 mod children_changed {
-	use crate::cache::CacheItem;
+	use odilia_cache::CacheItem;
 	use crate::state::ScreenReaderState;
 	use atspi::{accessible, events::Event};
 

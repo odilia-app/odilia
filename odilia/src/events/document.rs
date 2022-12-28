@@ -1,6 +1,7 @@
 use zbus::zvariant::ObjectPath;
+use odilia_cache::CacheItem;
 
-use crate::{cache::CacheItem, state::ScreenReaderState};
+use crate::state::ScreenReaderState;
 use atspi::events::Event;
 
 pub fn get_id_from_path(path: &str) -> Option<i32> {

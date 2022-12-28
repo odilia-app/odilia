@@ -1,6 +1,7 @@
 [workspace]
 default-members = ["odilia"]
 members = [
+	"cache",
   "common",
   "input",
   "odilia",

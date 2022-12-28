@@ -1,0 +1,14 @@
+[package]
+name = "odilia-cache"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+atspi.workspace = true
+zbus.workspace = true
+evmap = "10.0.2"
+evmap-derive = "0.2.0"
+tokio.workspace = true
+rustc-hash = { version = "^1.1.0", default-features = false }

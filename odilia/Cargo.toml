@@ -27,14 +27,12 @@ pre-release-replacements = [
 [dependencies]
 atspi.workspace = true
 circular-queue = "^0.2.6"
-evmap = "10.0.2"
-evmap-derive = "0.2.0"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
+odilia-cache = { path = "../cache" }
 odilia-common = { path = "../common" }
 odilia-input = { path = "../input" }
 odilia-tts = { path = "../tts" }
-rustc-hash = { version = "^1.1.0", default-features = false }
 serde_json = "1.0.89"
 ssip-client.workspace = true
 tokio.workspace = true

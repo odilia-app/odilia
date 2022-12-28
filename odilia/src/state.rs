@@ -6,7 +6,7 @@ use ssip_client::{tokio::Request as SSIPRequest, MessageScope, Priority};
 use tokio::sync::{mpsc::Sender, Mutex};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
-use crate::cache::Cache;
+use odilia_cache::Cache;
 use atspi::{
 	accessible::AccessibleProxy, accessible_ext::AccessibleExt, cache::CacheProxy,
 	convertable::Convertable, text::TextGranularity,

@@ -1,4 +1,3 @@
-mod cache;
 mod events;
 mod logging;
 mod state;
