@@ -19,7 +19,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: ObjectEvents) -> eyre::R
 mod children_changed {
 	use odilia_cache::CacheItem;
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, events::GenericEvent, identify::ChildrenChangedEvent};
+	use atspi::{accessible, events::GenericEvent, identify::{object::ChildrenChangedEvent, Signified}};
 
 	pub async fn dispatch(state: &ScreenReaderState, event: ChildrenChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
@@ -36,7 +36,7 @@ mod children_changed {
 		let conn = state.connection();
 		let sender = event.sender()?.unwrap();
 		let dest = event.path().unwrap();
-		let accessible = accessible::new(conn, sender, dest.clone().into()).await?;
+		let accessible = state.new_accessible(sender, dest.clone().into()).await?;
 		// all these properties will be fetched in paralell
 		let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
 			accessible.get_application(),
@@ -75,7 +75,7 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, convertable::Convertable, events::GenericEvent, identify::TextCaretMovedEvent};
+	use atspi::{accessible, convertable::Convertable, events::GenericEvent, identify::{object::TextCaretMovedEvent, Signified}};
 	use ssip_client::Priority;
 
 	// TODO: left/right vs. up/down, and use generated speech
@@ -97,7 +97,7 @@ mod text_caret_moved {
 		};
 		let sender = event.sender()?.unwrap();
 		let conn = state.connection().clone();
-		let accessible = accessible::new(&conn, sender.clone(), path.clone().into()).await?;
+		let accessible = state.new_accessible(sender.clone(), path.clone().into()).await?;
 		let _last_accessible = match state.history_item(0).await? {
 			Some(acc) => acc,
 			None => return Ok(()),
@@ -133,7 +133,7 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible, events::GenericEvent, identify::StateChangedEvent};
+	use atspi::{accessible, events::GenericEvent, identify::{object::StateChangedEvent, Signified}};
 
 	pub async fn dispatch(state: &ScreenReaderState, event: StateChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
@@ -154,7 +154,7 @@ mod state_changed {
 		let sender = event.sender()?.unwrap();
 		let conn = state.connection();
 		let accessible =
-			accessible::new(&conn.clone(), sender.clone(), path.clone().into()).await?;
+			state.new_accessible(sender.clone(), path.clone().into()).await?;
 		if let Some(curr) = state.history_item(0).await? {
 			if curr == accessible {
 				return Ok(());
