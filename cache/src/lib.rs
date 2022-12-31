@@ -23,7 +23,7 @@ pub enum AccessiblePrimitiveConversionError {
 }
 impl fmt::Display for AccessiblePrimitiveConversionError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self)
+		write!(f, "{:?}", self)
 	}
 }
 impl std::error::Error for AccessiblePrimitiveConversionError {}

@@ -14,7 +14,7 @@ impl<T: Into<AtspiError>> From<T> for OdiliaError {
 }
 impl fmt::Display for OdiliaError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self)
+		write!(f, "{:?}", self)
 	}
 }
 
