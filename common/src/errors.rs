@@ -1,4 +1,22 @@
+use std::{error::Error, fmt};
+use atspi::error::AtspiError;
 use smartstring::alias::String as SmartString;
+
+#[derive(Debug)]
+pub enum OdiliaError {
+	AtspiError(AtspiError),
+}
+impl Error for OdiliaError {}
+impl<T: Into<AtspiError>> From<T> for OdiliaError {
+	fn from(err: T) -> OdiliaError {
+		Self::AtspiError(err.into())
+	}
+}
+impl fmt::Display for OdiliaError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self)
+	}
+}
 
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum KeyFromStrError {
