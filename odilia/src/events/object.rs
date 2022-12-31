@@ -51,9 +51,9 @@ mod children_changed {
 			parent: parent.try_into().unwrap(),
 			index,
 			children,
-			ifaces: ifaces.into(),
-			role: role.into(),
-			states: states.into(),
+			ifaces,
+			role,
+			states,
 			text,
 		};
 

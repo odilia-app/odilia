@@ -25,9 +25,9 @@ pub async fn load_complete(state: &ScreenReaderState, event: LoadCompleteEvent) 
 			parent: item.parent.try_into().unwrap(),
 			index: item.index,
 			children: item.children,
-			ifaces: item.ifaces.into(),
-			role: item.role.into(),
-			states: item.states.into(),
+			ifaces: item.ifaces,
+			role: item.role,
+			states: item.states,
 			text: item.name.clone(),
 		});
 	}
