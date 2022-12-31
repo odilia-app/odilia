@@ -12,7 +12,7 @@ use tokio::sync::{
 use crate::state::ScreenReaderState;
 use atspi::{
 	accessible::Role,
-	accessible_ext::{AccessibleExt, MatcherArgs},
+	accessible_ext::{AccessibleExt, MatcherArgs, AccessibleId},
 	collection::MatchType,
 	component::ScrollType,
 	convertable::Convertable,
@@ -22,15 +22,15 @@ use atspi::{
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	modes::ScreenReaderMode,
+	result::OdiliaResult,
 };
 use ssip_client::Priority;
-use zbus::names::UniqueName;
 
 pub async fn structural_navigation(
 	state: &ScreenReaderState,
 	dir: Direction,
 	role: Role,
-) -> zbus::Result<()> {
+) -> OdiliaResult<()> {
 	let curr = match state.history_item(0).await? {
 		Some(acc) => acc,
 		None => return Ok(()),
@@ -54,11 +54,8 @@ pub async fn structural_navigation(
 		let caret_offset = texti.set_caret_offset(0).await?;
 		tracing::debug!("Focused: {}", focused);
 		tracing::debug!("Caret offset: {}", caret_offset);
-		state.update_accessible(
-			UniqueName::try_from(next.destination().as_str())?,
-			next.path().to_owned(),
-		)
-		.await;
+		let id: AccessibleId = curr.path().try_into()?;
+		state.update_accessible(id).await;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
 		let text = texti.get_text(0, len).await?;

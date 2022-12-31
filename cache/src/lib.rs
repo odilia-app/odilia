@@ -1,6 +1,7 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt, ObjectPathConversionError}, InterfaceSet, StateSet, events::GenericEvent};
+use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent, error::ObjectPathConversionError};
 use tokio::sync::RwLock;
 use std::{
+	fmt,
   str::FromStr,
 	sync::Arc,
 	collections::HashMap,
@@ -20,6 +21,12 @@ pub enum AccessiblePrimitiveConversionError {
 	NoSender,
 	ErrSender,
 }
+impl fmt::Display for AccessiblePrimitiveConversionError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self)
+	}
+}
+impl std::error::Error for AccessiblePrimitiveConversionError {}
 impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
   fn from(object_conversion_error: ObjectPathConversionError) -> Self {
     Self::ObjectConversionError(object_conversion_error)

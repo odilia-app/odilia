@@ -6,13 +6,16 @@ use ssip_client::{tokio::Request as SSIPRequest, MessageScope, Priority};
 use tokio::sync::{mpsc::Sender, Mutex};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
-use odilia_cache::Cache;
+use odilia_cache::{
+	Cache,
+};
 use atspi::{
-	accessible::AccessibleProxy, accessible_ext::AccessibleExt, cache::CacheProxy,
+	accessible::AccessibleProxy, accessible_ext::{AccessibleExt, AccessibleId}, cache::CacheProxy,
 	convertable::Convertable, text::TextGranularity,
 };
 use odilia_common::{
 	modes::ScreenReaderMode, settings::ApplicationConfig, types::TextSelectionArea,
+	Result as OdiliaResult,
 };
 
 pub struct ScreenReaderState {
@@ -23,7 +26,7 @@ pub struct ScreenReaderState {
 	pub previous_caret_position: Cell<i32>,
 	pub mode: Mutex<ScreenReaderMode>,
 	pub granularity: Mutex<TextGranularity>,
-	pub accessible_history: Mutex<CircularQueue<(UniqueName<'static>, ObjectPath<'static>)>>,
+	pub accessible_history: Mutex<CircularQueue<AccessibleId>>,
 	pub cache: Cache,
 }
 
@@ -80,7 +83,7 @@ impl ScreenReaderState {
 		&self,
 		acc: AccessibleProxy<'_>,
 		select: TextSelectionArea,
-	) -> zbus::Result<String> {
+	) -> OdiliaResult<String> {
 		let acc_text = acc.to_text().await?;
 		let _acc_hyper = acc.to_hyperlink().await?;
 		let text_length = acc_text.character_count().await?;
@@ -124,7 +127,7 @@ impl ScreenReaderState {
 		Ok(text_selection)
 	}
 
-	pub async fn register_event(&self, event: &str) -> zbus::Result<()> {
+	pub async fn register_event(&self, event: &str) -> OdiliaResult<()> {
 		let match_rule = event_to_match_rule(event)?;
 		self.dbus.add_match_rule(match_rule).await?;
 		self.atspi.register_event(event).await?;
@@ -132,7 +135,7 @@ impl ScreenReaderState {
 	}
 
 	#[allow(dead_code)]
-	pub async fn deregister_event(&self, event: &str) -> zbus::Result<()> {
+	pub async fn deregister_event(&self, event: &str) -> OdiliaResult<()> {
 		let match_rule = event_to_match_rule(event)?;
 		self.dbus.remove_match_rule(match_rule).await?;
 		self.atspi.deregister_event(event).await?;
@@ -168,57 +171,60 @@ impl ScreenReaderState {
 		true
 	}
 
-	pub async fn history_item(
+	pub async fn history_item<'a>(
 		&self,
 		index: usize,
-	) -> zbus::Result<Option<AccessibleProxy<'static>>> {
+	) -> OdiliaResult<Option<AccessibleProxy<'a>>> {
 		let history = self.accessible_history.lock().await;
 		if history.len() <= index {
 			return Ok(None);
 		}
-		let (dest, path) = history
+		let a11y_id = history
 			.iter()
 			.nth(index)
 			.expect("Looking for invalid index in accessible history");
-		Ok(Some(AccessibleProxy::builder(self.connection())
-			.destination(dest.to_owned())?
-			.path(path)?
-			.build()
-			.await?))
+		let a11y_cache_item = match self.cache.get(a11y_id).await {
+			Some(prim) => prim,
+			_ => return Ok(None),
+		};
+		let a11y = a11y_cache_item.object.into_accessible(self.connection()).await?;
+		Ok(Some(a11y))
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, sender: UniqueName<'_>, path: ObjectPath<'_>) {
+	pub async fn update_accessible(&self, new_a11y: AccessibleId) {
 		let mut history = self.accessible_history.lock().await;
-		history.push((sender.to_owned(), path.to_owned()));
+		history.push(new_a11y);
 	}
 	pub async fn build_cache<'a>(
 		&self,
 		dest: UniqueName<'a>,
 		path: ObjectPath<'a>,
-	) -> zbus::Result<CacheProxy<'a>> {
-		CacheProxy::builder(self.connection())
+	) -> OdiliaResult<CacheProxy<'a>> {
+		Ok(CacheProxy::builder(self.connection())
 			.destination(dest)?
 			.path(path)?
 			.build()
-			.await
+			.await?)
 	}
-	pub async fn new_accessible<'a>(
+	pub async fn new_accessible<'a, T: GenericEvent>(
 		&self,
-		dest: UniqueName<'a>,
-		path: ObjectPath<'a>
-	) -> zbus::Result<AccessibleProxy<'a>> {
-		AccessibleProxy::builder(self.connection())
+		event: &T,
+	) -> OdiliaResult<AccessibleProxy<'a>> {
+		let sender = event.sender().unwrap().unwrap().to_owned();
+		let path = event.path().unwrap().to_owned();
+		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)
-			.destination(dest)?
+			.destination(sender)?
 			.path(path)?
 			.build()
-			.await
+			.await?)
 	}
 }
+use atspi::events::GenericEvent;
 
 /// Converts an at-spi event string ("Object:StateChanged:Focused"), into a DBus match rule ("type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'")
-fn event_to_match_rule(event: &str) -> zbus::Result<zbus::MatchRule> {
+fn event_to_match_rule(event: &str) -> OdiliaResult<zbus::MatchRule> {
 	let mut components = event.split(':');
 	let interface = components
 		.next()
