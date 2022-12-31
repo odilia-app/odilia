@@ -73,6 +73,13 @@ pub async fn handle_ssip_commands(
 					continue;
 				}
 				_ = shutdown_tx.recv() => {
+		tracing::debug!("Saying goodbye message.");
+		let _ = client
+			.send(Request::Speak).await.unwrap()
+			.receive().await.unwrap();
+		let _ = client
+			.send(Request::SendLines(Vec::from(["Quitting Odilia".to_string()]))).await.unwrap()
+			.receive().await.unwrap();
 		tracing::debug!("Attempting to quit SSIP.");
 		let response = client
 		  .send(Request::Quit).await.unwrap()
