@@ -90,9 +90,10 @@ pub async fn sr_event(
 			      let mut sr_granularity = state.granularity.lock().await;
 			      *sr_granularity = granularity;
 			    },
-			    Some(ScreenReaderEvent::ChangeMode(ScreenReaderMode { name })) => {
-				tracing::debug!("Changing mode to {:?}", name);
-				//let _ = mode_channel.send(ScreenReaderMode { name }).await;
+			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
+						tracing::debug!("Changing mode to {:?}", new_sr_mode);
+						let mut sr_mode = state.mode.lock().await;
+						*sr_mode = new_sr_mode;
 			    }
 			    _ => { continue; }
 			};
@@ -168,12 +169,15 @@ pub async fn process(
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
-	match event {
+	match &event {
 		Event::Interfaces(EventInterfaces::Object(object_event)) => object::dispatch(state, object_event).await?,
 		Event::Interfaces(EventInterfaces::Document(document_event)) => document::dispatch(state, document_event).await?,
 		other_event => {
 			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event)
 		}
 	}
+	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;
+	//state.update_accessible(accessible_id).await;
+	state.event_history_update(event).await;
 	Ok(())
 }

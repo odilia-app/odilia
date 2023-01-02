@@ -4,11 +4,11 @@ use odilia_cache::CacheItem;
 use crate::state::ScreenReaderState;
 use atspi::{
 	events::GenericEvent,
-	identify::DocumentEvents,
-	identify::LoadCompleteEvent,
+	identify::document::DocumentEvents,
+	identify::document::LoadCompleteEvent,
 };
 
-pub async fn load_complete(state: &ScreenReaderState, event: LoadCompleteEvent) -> eyre::Result<()> {
+pub async fn load_complete(state: &ScreenReaderState, event: &LoadCompleteEvent) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
 	let cache = state
 		.build_cache(
@@ -36,7 +36,7 @@ pub async fn load_complete(state: &ScreenReaderState, event: LoadCompleteEvent) 
 	Ok(())
 }
 
-pub async fn dispatch(state: &ScreenReaderState, event: DocumentEvents) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: &DocumentEvents) -> eyre::Result<()> {
 	// Dispatch based on member
 	match event {
 		DocumentEvents::LoadComplete(load_complete_event) => load_complete(state, load_complete_event).await?,

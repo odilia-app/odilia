@@ -12,6 +12,7 @@ use odilia_cache::{
 use atspi::{
 	accessible::AccessibleProxy, accessible_ext::{AccessibleExt, AccessibleId}, cache::CacheProxy,
 	convertable::Convertable, text::TextGranularity,
+	signify::Signified,
 };
 use odilia_common::{
 	modes::ScreenReaderMode, settings::ApplicationConfig, types::TextSelectionArea,
@@ -27,6 +28,7 @@ pub struct ScreenReaderState {
 	pub mode: Mutex<ScreenReaderMode>,
 	pub granularity: Mutex<TextGranularity>,
 	pub accessible_history: Mutex<CircularQueue<AccessibleId>>,
+	pub event_history: Mutex<CircularQueue<atspi::Event>>,
 	pub cache: Cache,
 }
 
@@ -61,6 +63,7 @@ impl ScreenReaderState {
 
 		let previous_caret_position = Cell::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
+		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Cache::new();
 
 		let granularity = Mutex::new(TextGranularity::Line);
@@ -73,6 +76,7 @@ impl ScreenReaderState {
 			mode,
 			granularity,
 			accessible_history,
+			event_history,
 			cache,
 		})
 	}
@@ -86,8 +90,7 @@ impl ScreenReaderState {
 	) -> OdiliaResult<String> {
 		let acc_text = acc.to_text().await?;
 		let _acc_hyper = acc.to_hyperlink().await?;
-		let text_length = acc_text.character_count().await?;
-		let _full_text = acc_text.get_text(0, text_length).await?;
+		//let _full_text = acc_text.get_text_ext().await?;
 		let (mut text_selection, start, end) = match select {
 			TextSelectionArea::Granular(granular) => {
 				acc_text.get_string_at_offset(granular.index, granular.granularity)
@@ -171,6 +174,22 @@ impl ScreenReaderState {
 		true
 	}
 
+	pub async fn event_history_item(
+		&self,
+		index: usize
+	) -> Option<atspi::Event> {
+		let history = self.event_history.lock().await;
+		history.iter().nth(index).cloned()
+	}
+
+	pub async fn event_history_update(
+		&self,
+		event: atspi::Event,
+	) {
+		let mut history = self.event_history.lock().await;
+		history.push(event);
+	}
+
 	pub async fn history_item<'a>(
 		&self,
 		index: usize,
@@ -207,10 +226,10 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
-	pub async fn new_accessible<'a, T: GenericEvent>(
+	pub async fn new_accessible<T: Signified> (
 		&self,
 		event: &T,
-	) -> OdiliaResult<AccessibleProxy<'a>> {
+	) -> OdiliaResult<AccessibleProxy<'_>> {
 		let sender = event.sender().unwrap().unwrap().to_owned();
 		let path = event.path().unwrap().to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
