@@ -8,6 +8,7 @@ use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, M
 
 use odilia_cache::{
 	Cache,
+	AccessiblePrimitive,
 };
 use atspi::{
 	accessible::AccessibleProxy, accessible_ext::{AccessibleExt, AccessibleId}, cache::CacheProxy,
@@ -27,7 +28,7 @@ pub struct ScreenReaderState {
 	pub previous_caret_position: Cell<i32>,
 	pub mode: Mutex<ScreenReaderMode>,
 	pub granularity: Mutex<TextGranularity>,
-	pub accessible_history: Mutex<CircularQueue<AccessibleId>>,
+	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<atspi::Event>>,
 	pub cache: Cache,
 }
@@ -164,6 +165,10 @@ impl ScreenReaderState {
 		if self.ssip.send(SSIPRequest::Speak).await.is_err() {
 			return false;
 		}
+		// this crashed ssip-client because the connection is automatically stopped when invalid text is sent; since the period character on a line by itself is the stop character, there's not much we can do except filter it out explicitly.
+		if text == ".".to_string() {
+			return false;
+		}
 		if self.ssip
 			.send(SSIPRequest::SendLines(Vec::from([text])))
 			.await
@@ -198,20 +203,19 @@ impl ScreenReaderState {
 		if history.len() <= index {
 			return Ok(None);
 		}
-		let a11y_id = history
-			.iter()
-			.nth(index)
-			.expect("Looking for invalid index in accessible history");
-		let a11y_cache_item = match self.cache.get(a11y_id).await {
-			Some(prim) => prim,
-			_ => return Ok(None),
+		let a11y_prim = {
+			history
+				.iter()
+				.nth(index)
+				.expect("Looking for invalid index in accessible history")
+				.to_owned()
 		};
-		let a11y = a11y_cache_item.object.into_accessible(self.connection()).await?;
+		let a11y = a11y_prim.into_accessible(self.connection()).await?;
 		Ok(Some(a11y))
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, new_a11y: AccessibleId) {
+	pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
 		let mut history = self.accessible_history.lock().await;
 		history.push(new_a11y);
 	}

@@ -30,10 +30,11 @@ pub async fn structural_navigation(
 	state: &ScreenReaderState,
 	dir: Direction,
 	role: Role,
-) -> OdiliaResult<()> {
+) -> OdiliaResult<bool> {
+	tracing::debug!("Structural nav call begins!");
 	let curr = match state.history_item(0).await? {
 		Some(acc) => acc,
-		None => return Ok(()),
+		None => return Ok(false),
 	};
 	let roles = vec![role];
 	let attributes = HashMap::new();
@@ -51,19 +52,18 @@ pub async fn structural_navigation(
 		let texti = next.to_text().await?;
 		let focused = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
+		state.update_accessible(curr.try_into().unwrap()).await;
 		let caret_offset = texti.set_caret_offset(0).await?;
-		tracing::debug!("Focused: {}", focused);
-		tracing::debug!("Caret offset: {}", caret_offset);
-		let id: AccessibleId = curr.path().try_into()?;
-		state.update_accessible(id).await;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
 		let text = texti.get_text(0, len).await?;
+		// saying awaits until it is done talking; you may want to spawn a task
 		state.say(Priority::Text, format!("{text}, {role}")).await;
+		Ok(true)
 	} else {
 		state.say(Priority::Text, format!("No more {role}s")).await;
+		Ok(true)
 	}
-	Ok(())
 }
 
 pub async fn sr_event(
@@ -79,6 +79,8 @@ pub async fn sr_event(
 			    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
 				 if let Err(e) = structural_navigation(&state, dir, role).await {
 				    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
+				} else {
+					tracing::debug!("Structural navigation successful!");
 				}
 			    },
 			    Some(ScreenReaderEvent::StopSpeech) => {

@@ -45,6 +45,7 @@ mod children_changed {
 			accessible.get_state(),
 			accessible.name(),
 		)?;
+		/*
 		let cache_item = CacheItem {
 			object: accessible.try_into().unwrap(),
 			app: app.try_into().unwrap(),
@@ -60,6 +61,7 @@ mod children_changed {
 		// finally, write data to the internal cache
 		state.cache.add(cache_item).await;
 		tracing::debug!("Add a single item to cache.");
+		*/
 		Ok(())
 	}
 	pub async fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
@@ -133,7 +135,7 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible_ext::AccessibleId, identify::{object::StateChangedEvent}, signify::Signified};
+	use atspi::{accessible_ext::{AccessibleId, AccessibleExt}, identify::{object::StateChangedEvent}, signify::Signified};
 
 	pub async fn dispatch(state: &ScreenReaderState, event: &StateChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind
@@ -152,8 +154,6 @@ mod state_changed {
 				return Ok(());
 			}
 		}
-		let id: AccessibleId = accessible.path().try_into()?;
-		state.update_accessible(id).await;
 
 		let (name, description, role, relation) = tokio::try_join!(
 			accessible.name(),
@@ -161,6 +161,8 @@ mod state_changed {
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
+		let id = accessible.get_id();
+		state.update_accessible(accessible.try_into()?).await;
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
 
