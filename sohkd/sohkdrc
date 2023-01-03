@@ -1,16 +1,44 @@
-include /etc/odilia/stop-speech.conf
-include /etc/odilia/arrow-granularities.conf
+~control
+	@odilia \{"event":"stopSpeech"\}
+# use arrow keys for navigation
+~up
+        @odilia \{"event":"changeGranularity","args":"Line"\}
+~down
+        @odilia \{"event":"changeGranularity","args":"Line"\}
+~control + ~right
+        @odilia \{"event":"changeGranularity","args":"Word"\}
+~control + ~left
+        @odilia \{"event":"changeGranularity","args":"Word"\}
+~left
+        @odilia \{"event":"changeGranularity","args":"Char"\}
+~right
+        @odilia \{"event":"changeGranularity","args":"Char"\}
+# end of arrow keys
 capslock + f
-	@odilia {"event":"changeMode","args":{"name":"focus"}}
 	@enter focus
+	@odilia {"event":"changeMode","args":{"name":"focus"}}
 capslock + b
-	@odilia {"event":"changeMode","args":{"name":"browse"}}
 	@enter browse
+	@odilia {"event":"changeMode","args":{"name":"browse"}}
 
 # all focus mode keys
 mode focus
-include /etc/odilia/stop-speech.conf
-include /etc/odilia/arrow-granularities.conf
+~control
+	@odilia \{"event":"stopSpeech"\}
+# use arrow keys for navigation
+~up
+        @odilia \{"event":"changeGranularity","args":"Line"\}
+~down
+        @odilia \{"event":"changeGranularity","args":"Line"\}
+~control + ~right
+        @odilia \{"event":"changeGranularity","args":"Word"\}
+~control + ~left
+        @odilia \{"event":"changeGranularity","args":"Word"\}
+~left
+        @odilia \{"event":"changeGranularity","args":"Char"\}
+~right
+        @odilia \{"event":"changeGranularity","args":"Char"\}
+# end of arrow keys
 capslock + b
 	@odilia {"event":"changeMode","args":{"name":"browse"}}
 	@enter browse
@@ -18,8 +46,8 @@ endmode
 
 # all browse mode keys, including structural nvaigation
 mode browse
-include /etc/odilia/stop-speech.conf
-include /etc/odilia/arrow-granularities.conf
+~control
+	@odilia \{"event":"stopSpeech"\}
 capslock + f
 	@odilia {"event":"changeMode","args":{"name":"focus"}}
 	@enter focus
