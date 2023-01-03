@@ -9,6 +9,7 @@ use std::{
 use zbus::{
   ProxyBuilder,
   zvariant::{ObjectPath, OwnedObjectPath},
+	names::OwnedUniqueName,
 };
 
 #[derive(Clone, Debug)]
@@ -38,9 +39,9 @@ impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
 	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
-	id: AccessibleId,
+	pub id: AccessibleId,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	sender: String,
+	pub sender: String,
 }
 impl AccessiblePrimitive {
   #[allow(dead_code)]
@@ -66,6 +67,25 @@ impl AccessiblePrimitive {
 			sender: sender.to_string(),
 		})
 	}
+}
+impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
+
+  fn try_from(atspi_accessible: atspi::events::Accessible) -> Result<AccessiblePrimitive, Self::Error> {
+		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
+		tuple_converter.try_into()
+  }
+}
+impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
+
+  fn try_from(so: (OwnedUniqueName, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
+    let accessible_id: AccessibleId = so.1.try_into()?;
+    Ok(AccessiblePrimitive {
+      id: accessible_id,
+      sender: so.0.to_string(),
+    })
+  }
 }
 impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
   type Error = AccessiblePrimitiveConversionError;
@@ -139,6 +159,23 @@ pub struct CacheItem {
 	pub states: StateSet,
 	// The text of the accessible.
 	pub text: String,
+}
+impl TryFrom<atspi::cache::CacheItem> for CacheItem {
+	type Error = AccessiblePrimitiveConversionError;
+
+	fn try_from(atspi_cache_item: atspi::cache::CacheItem) -> Result<Self, Self::Error> {
+		Ok(Self {
+			object: atspi_cache_item.object.try_into()?,
+			app: atspi_cache_item.app.try_into()?,
+			parent: atspi_cache_item.parent.try_into()?,
+			index: atspi_cache_item.index,
+			children: atspi_cache_item.children,
+			ifaces: atspi_cache_item.ifaces,
+			role: atspi_cache_item.role,
+			states: atspi_cache_item.states,
+			text: atspi_cache_item.name,
+		})
+	}
 }
 
 /// The root of the accessible cache.

@@ -1,5 +1,6 @@
 mod document;
 mod object;
+mod cache;
 
 use std::{collections::HashMap, rc::Rc};
 
@@ -174,6 +175,7 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	match &event {
 		Event::Interfaces(EventInterfaces::Object(object_event)) => object::dispatch(state, object_event).await?,
 		Event::Interfaces(EventInterfaces::Document(document_event)) => document::dispatch(state, document_event).await?,
+		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
 		other_event => {
 			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event)
 		}

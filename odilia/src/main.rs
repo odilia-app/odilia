@@ -60,6 +60,7 @@ async fn main() -> eyre::Result<()> {
 		state.register_event("Object:TextCaretMoved"),
 		state.register_event("Object:ChildrenChanged"),
 		state.register_event("Document:LoadComplete"),
+		state.add_cache_match_rule(),
 	)?;
 
 	let mut shutdown_rx_ssip_recv = shutdown_tx.subscribe();

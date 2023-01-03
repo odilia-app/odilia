@@ -243,6 +243,14 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
+	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {
+		let cache_rule = MatchRule::builder()
+			.msg_type(MessageType::Signal)
+			.interface("org.a11y.atspi.Cache")?
+			.build();
+		self.dbus.add_match_rule(cache_rule).await?;
+		Ok(())
+	}
 }
 use atspi::events::GenericEvent;
 
