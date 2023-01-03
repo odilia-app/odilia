@@ -45,7 +45,6 @@ mod children_changed {
 			accessible.get_state(),
 			accessible.name(),
 		)?;
-		/*
 		let cache_item = CacheItem {
 			object: accessible.try_into().unwrap(),
 			app: app.try_into().unwrap(),
@@ -61,7 +60,6 @@ mod children_changed {
 		// finally, write data to the internal cache
 		state.cache.add(cache_item).await;
 		tracing::debug!("Add a single item to cache.");
-		*/
 		Ok(())
 	}
 	pub async fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
@@ -74,7 +72,7 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible_ext::AccessibleId, convertable::Convertable, events::GenericEvent, identify::object::TextCaretMovedEvent, signify::Signified};
+	use atspi::{convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified};
 	use ssip_client::Priority;
 
 	/// this must be checked *before* writing an accessible to the hsitory.
@@ -95,10 +93,6 @@ mod text_caret_moved {
 		// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
 		// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
 		// if the accessible is focused after the event happens, then the last_accessible will be different
-		let last_last_accessible = match state.history_item(1).await? {
-			Some(acc) => acc,
-			None => return Ok(true),
-		};
 		let previous_caret_pos = state.previous_caret_position.get();
 		let current_accessible = state.new_accessible(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
@@ -135,7 +129,7 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible_ext::{AccessibleId, AccessibleExt}, identify::{object::StateChangedEvent}, signify::Signified};
+	use atspi::{accessible_ext::{AccessibleExt}, identify::{object::StateChangedEvent}, signify::Signified};
 
 	pub async fn dispatch(state: &ScreenReaderState, event: &StateChangedEvent) -> eyre::Result<()> {
 		// Dispatch based on kind

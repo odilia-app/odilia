@@ -13,7 +13,7 @@ use tokio::sync::{
 use crate::state::ScreenReaderState;
 use atspi::{
 	accessible::Role,
-	accessible_ext::{AccessibleExt, MatcherArgs, AccessibleId},
+	accessible_ext::{AccessibleExt, MatcherArgs},
 	collection::MatchType,
 	component::ScrollType,
 	convertable::Convertable,
@@ -22,7 +22,6 @@ use atspi::{
 };
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
-	modes::ScreenReaderMode,
 	result::OdiliaResult,
 };
 use ssip_client::Priority;
@@ -51,10 +50,10 @@ pub async fn structural_navigation(
 	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
-		let focused = comp.grab_focus().await?;
+		let _ = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
 		state.update_accessible(curr.try_into().unwrap()).await;
-		let caret_offset = texti.set_caret_offset(0).await?;
+		let _ = texti.set_caret_offset(0).await?;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
 		let text = texti.get_text(0, len).await?;

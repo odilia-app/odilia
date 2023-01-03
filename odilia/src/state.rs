@@ -11,7 +11,7 @@ use odilia_cache::{
 	AccessiblePrimitive,
 };
 use atspi::{
-	accessible::AccessibleProxy, accessible_ext::{AccessibleExt, AccessibleId}, cache::CacheProxy,
+	accessible::AccessibleProxy, accessible_ext::{AccessibleExt}, cache::CacheProxy,
 	convertable::Convertable, text::TextGranularity,
 	signify::Signified,
 };
@@ -166,7 +166,7 @@ impl ScreenReaderState {
 			return false;
 		}
 		// this crashed ssip-client because the connection is automatically stopped when invalid text is sent; since the period character on a line by itself is the stop character, there's not much we can do except filter it out explicitly.
-		if text == ".".to_string() {
+		if text == *"." {
 			return false;
 		}
 		if self.ssip
@@ -179,6 +179,7 @@ impl ScreenReaderState {
 		true
 	}
 
+#[allow(dead_code)]
 	pub async fn event_history_item(
 		&self,
 		index: usize
