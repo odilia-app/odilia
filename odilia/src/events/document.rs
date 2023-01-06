@@ -13,25 +13,12 @@ use atspi::{
 };
 
 pub async fn load_complete(state: &ScreenReaderState, event: &LoadCompleteEvent) -> eyre::Result<()> {
-	println!("LOAD COMPLETE STARTS");
 	let sender = event.sender()?.unwrap();
-	println!("GOT SENDER");
-	let accessible: AccessibleProxy = AccessiblePrimitive::from_event(event).unwrap().into_accessible(state.connection()).await?;
-	println!("Turned into accessible");
-	let app: AccessiblePrimitive = accessible.get_application().await?.try_into()?;
-	println!("Became a11y_prim");
-	let application_proxy = app.into_accessible(state.connection()).await?;
-	println!("Became proxy");
-	let name_of_dest = application_proxy.destination().to_string();
-	println!("Got dest");
 	let cache = state.build_cache(
 		UniqueName::try_from(sender.clone())?).await?;
-	println!("Built cache");
 	let entire_cache = cache.get_items().await?;
-	println!("Cache items got!");
 	let mut cache_items = Vec::new();
 	for item in entire_cache {
-		println!("NEW CACHE ITEM: {:#?}", item.object.1);
 		cache_items.push(CacheItem {
 			object: item.object.try_into().unwrap(),
 			app: item.app.try_into().unwrap(),
