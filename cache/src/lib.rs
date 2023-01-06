@@ -120,22 +120,9 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
     };
     Ok(AccessiblePrimitive {
       id,
-      sender,
+      sender: sender.into(),
     })
   }
-}
-use atspi::identify::object::TextCaretMovedEvent;
-impl TryFrom<TextCaretMovedEvent> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(event: TextCaretMovedEvent) -> Result<AccessiblePrimitive, Self::Error> {
-		let sender = event.sender().unwrap().unwrap();
-		let id: AccessibleId = event.path().unwrap().try_into()?;
-		Ok(AccessiblePrimitive {
-			id,
-			sender: sender.to_string(),
-		})
-	}
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -259,5 +246,22 @@ impl Cache {
 		ids.iter().for_each(|id| {
 			cache_writer.remove(id);
 		});
+	}
+
+	/// Edit a mutable CacheItem using a function which returns the edited version.
+	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it. 
+	/// Returns true if the update was successful.
+	pub async fn modify_item<F>(&self, id: &AccessibleId, modify: F) -> bool 
+		where F: Fn(&mut CacheItem) {
+		let mut cache_write = self.by_id.write().await;
+		let cache_item = match cache_write.get_mut(id) {
+			Some(i) => i,
+			None => {
+				println!("THE CACHE HAS THE FOLLOWING ITEMS: {:?}", cache_write.keys());
+				return false;
+			}
+		};
+		modify(cache_item);
+		true
 	}
 }
