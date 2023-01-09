@@ -49,6 +49,10 @@ cargo build && \
 cp ../target/debug/sohkd ~/.cargo/bin/
 ```
 
+### Prerequisite
+
+Perhaps unnecessarily, but you will need to have `speech-dispatcher` installed and running before you can start Odilia.
+
 ### Udev Permissions
 
 Odilia uses the Linux kernel's [evdev interface](https://freedesktop.org/software/libevdev/doc/latest/) to listen for
@@ -66,11 +70,13 @@ Odilia.
 To run Odilia, you should use our script.
 This will ask for your password (if you have sudo permissions) and then launch both Odilia and the key daemon in quiet mode.
 
-The following assumes you are in the workspace root. If you are still in `sohkd`:  ``shell cd .. ```
-(Copy and paste the following on your command line. )
+```shell
+./scripts/odilia
+```
+
+Then launch the hotkey-deamon:
 
 ```shell
-./scripts/odilia & \
 ./scripts/debug_start_sohkd.sh
 ```
 
