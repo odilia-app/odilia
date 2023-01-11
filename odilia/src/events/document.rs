@@ -1,12 +1,10 @@
 use zbus::{
-	zvariant::ObjectPath,
 	names::UniqueName,
 };
-use odilia_cache::{CacheItem, AccessiblePrimitive};
+use odilia_cache::CacheItem;
 
 use crate::state::ScreenReaderState;
 use atspi::{
-	accessible::AccessibleProxy,
 	events::GenericEvent,
 	identify::document::DocumentEvents,
 	identify::document::LoadCompleteEvent,
@@ -20,9 +18,9 @@ pub async fn load_complete(state: &ScreenReaderState, event: &LoadCompleteEvent)
 	let mut cache_items = Vec::new();
 	for item in entire_cache {
 		cache_items.push(CacheItem {
-			object: item.object.try_into().unwrap(),
-			app: item.app.try_into().unwrap(),
-			parent: item.parent.try_into().unwrap(),
+			object: item.object.try_into().expect("Could not create AccessiblePrimitive from parts"),
+			app: item.app.try_into().expect("Could not create AccessiblePrimitive from parts for application"),
+			parent: item.parent.try_into().expect("Could not create AccessiblePrimitive from parts for parent"),
 			index: item.index,
 			children: item.children,
 			ifaces: item.ifaces,

@@ -17,7 +17,6 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 }
 
 mod children_changed {
-	use odilia_cache::CacheItem;
 	use crate::state::ScreenReaderState;
 	use atspi::{events::GenericEvent, identify::{object::ChildrenChangedEvent}, signify::Signified};
 
@@ -34,31 +33,7 @@ mod children_changed {
 	}
 	pub async fn add(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		// all these properties will be fetched in paralell
-		let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
-			accessible.get_application(),
-			accessible.parent(),
-			accessible.get_index_in_parent(),
-			accessible.child_count(),
-			accessible.get_interfaces(),
-			accessible.get_role(),
-			accessible.get_state(),
-			accessible.name(),
-		)?;
-		let cache_item = CacheItem {
-			object: accessible.try_into().unwrap(),
-			app: app.try_into().unwrap(),
-			parent: parent.try_into().unwrap(),
-			index,
-			children,
-			ifaces,
-			role,
-			states,
-			text,
-		};
-
-		// finally, write data to the internal cache
-		state.cache.add(cache_item).await;
+		let _ = state.cache.get_or_create(&accessible).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -143,6 +118,8 @@ mod state_changed {
 	}
 
 	pub async fn dispatch(state: &ScreenReaderState, event: &StateChangedEvent) -> eyre::Result<()> {
+		let accessible = state.new_accessible(event).await?;
+		let _ci = state.cache.get_or_create(&accessible).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
