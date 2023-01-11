@@ -1,8 +1,6 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent, error::ObjectPathConversionError};
+use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent};
 use tokio::sync::RwLock;
 use std::{
-	fmt,
-  str::FromStr,
 	sync::Arc,
 	collections::HashMap,
 };
@@ -11,28 +9,10 @@ use zbus::{
   zvariant::{ObjectPath, OwnedObjectPath},
 	names::OwnedUniqueName,
 };
-
-#[derive(Clone, Debug)]
-pub enum AccessiblePrimitiveConversionError {
-  ParseError(<i32 as FromStr>::Err),
-  ObjectConversionError(ObjectPathConversionError),
-  NoPathId,
-  NoFirstSectionOfSender,
-  NoSecondSectionOfSender,
-	NoSender,
-	ErrSender,
-}
-impl fmt::Display for AccessiblePrimitiveConversionError {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{:?}", self)
-	}
-}
-impl std::error::Error for AccessiblePrimitiveConversionError {}
-impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
-  fn from(object_conversion_error: ObjectPathConversionError) -> Self {
-    Self::ObjectConversionError(object_conversion_error)
-  }
-}
+use odilia_common::{
+	result::OdiliaResult,
+	errors::AccessiblePrimitiveConversionError,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -106,6 +86,21 @@ impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
     Ok(AccessiblePrimitive {
       id: accessible_id,
       sender: so.0,
+    })
+  }
+}
+impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
+  type Error = AccessiblePrimitiveConversionError;
+
+  fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+    let sender = accessible.destination().to_string();
+    let id = match accessible.get_id() {
+      Some(path_id) => path_id,
+      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+    };
+    Ok(AccessiblePrimitive {
+      id,
+      sender: sender.into(),
     })
   }
 }
@@ -264,4 +259,48 @@ impl Cache {
 		modify(cache_item);
 		true
 	}
+
+	/// get a single item from the cache (note that this copies some integers to a new struct).
+	/// If the CacheItem is not found, create one, add it to the cache, and return it.
+	pub async fn get_or_create(&self, accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+		// if the item already exists in the cache, return it
+		if let Some(cache_item) = self.get(&accessible.get_id().expect("Could not get ID from accessible path")).await {
+			return Ok(cache_item);
+		}
+		// otherwise, build a cache item
+		let start = std::time::Instant::now();
+		let cache_item = accessible_to_cache_item(accessible).await?;
+		let end = std::time::Instant::now();
+		let diff = end - start;
+		println!("Time to create cache item: {:?}", diff);
+		// add a clone of it to the cache
+		self.add(copy_into_cache_item(&cache_item)).await;
+		// return that same cache item
+		Ok(cache_item)
+	}
 }
+
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+	let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
+		accessible.get_application(),
+		accessible.parent(),
+		accessible.get_index_in_parent(),
+		accessible.child_count(),
+		accessible.get_interfaces(),
+		accessible.get_role(),
+		accessible.get_state(),
+		accessible.name(),
+	)?;
+	Ok(CacheItem {
+		object: accessible.try_into()?,
+		app: app.try_into()?,
+		parent: parent.try_into()?,
+		index,
+		children,
+		ifaces,
+		role,
+		states,
+		text,
+	})
+}
+
