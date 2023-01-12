@@ -59,6 +59,7 @@ async fn main() -> eyre::Result<()> {
 		state.register_event("Object:StateChanged:Focused"),
 		state.register_event("Object:TextCaretMoved"),
 		state.register_event("Object:ChildrenChanged"),
+		state.register_event("Object:TextChanged"),
 		state.register_event("Document:LoadComplete"),
 		state.add_cache_match_rule(),
 	)?;

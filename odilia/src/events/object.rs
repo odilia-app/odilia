@@ -11,9 +11,34 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 		ObjectEvents::StateChanged(state_changed_event) => state_changed::dispatch(state, state_changed_event).await?,
 		ObjectEvents::TextCaretMoved(text_caret_moved_event) => text_caret_moved::dispatch(state, text_caret_moved_event).await?,
 		ObjectEvents::ChildrenChanged(children_changed_event) => children_changed::dispatch(state, children_changed_event).await?,
+		ObjectEvents::TextChanged(text_changed_event) => text_changed::dispatch(state, text_changed_event).await?,
 		other_member => tracing::debug!("Ignoring event with unknown member: {:#?}", other_member),
 	}
 	Ok(())
+}
+
+mod text_changed {
+	use crate::state::ScreenReaderState;
+	use atspi::{
+		events::GenericEvent,
+		identify::object::TextChangedEvent,
+		signify::Signified
+	};
+	pub async fn dispatch(state: &ScreenReaderState, event: &TextChangedEvent) -> zbus::Result<()> {
+		match event.kind() {
+			"remove" => remove(state, event).await?,
+			"remove/system" => remove(state, event).await?,
+			"add" => add(state, event).await?,
+			"add/system" => add(state, event).await?,
+		}
+		Ok(())
+	}
+	pub async fn add(state: &ScreenReaderState, event: &TextChangedEvent) -> zbus::Result<()> {
+		Ok(())
+	}
+	pub async fn remove(state: &ScreenReaderState, event: &TextChangedEvent) -> zbus::Result<()> {
+		Ok(())
+	}
 }
 
 mod children_changed {
@@ -54,16 +79,16 @@ mod text_caret_moved {
 	/// if this is checked after writing, it may give inaccurate results.
 	/// that said, this is a *guess* and not a guarentee.
 	/// TODO: make this a testable function, anything which queries "state" is not testable
-	async fn is_tab_navigation(state: &ScreenReaderState, event: &TextCaretMovedEvent) -> eyre::Result<bool> {
+	async fn is_tab_navigation(state: &ScreenReaderState, event: &TextCaretMovedEvent, string_len: i32) -> eyre::Result<bool> {
 		let current_caret_pos = event.position();
 		// if the carat position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
-		if current_caret_pos != 0 {
+		if current_caret_pos != 0 && current_caret_pos != string_len {
 			return Ok(false);
 		}
 		// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
 		let last_accessible = match state.history_item(0).await? {
 			Some(acc) => acc,
-			None => return Ok(true),
+			None => return Ok(false),
 		};
 		// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
 		// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
@@ -84,9 +109,11 @@ mod text_caret_moved {
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
 	) -> eyre::Result<()> {
-		if is_tab_navigation(state, event).await? {
+		let text_len = state.new_accessible(event).await?.to_text().await?.character_count().await?;
+		if is_tab_navigation(state, event, text_len).await? {
 			return Ok(());
 		}
+
 		let text = state.new_accessible(event).await?.to_text().await?.get_string_at_offset(event.position(), *state.granularity.lock().await).await?.0;
 		state.say(Priority::Text, text).await;
 		Ok(())
@@ -154,18 +181,34 @@ mod state_changed {
 			}
 		}
 
-		let (name, description, role, relation) = tokio::try_join!(
+		let (name, description, role, relation, attrs, states) = tokio::try_join!(
 			accessible.name(),
 			accessible.description(),
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
+			accessible.get_attributes(),
+			accessible.get_state(),
 		)?;
 		let id = accessible.get_id();
 		state.update_accessible(accessible.try_into()?).await;
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
+		tracing::debug!("Attributes: {:?}", attrs);
+		tracing::debug!("State: {:?}", states);
 
-		state.say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
+		// TODO: there should be a speech generation function
+		if states.contains(State::Visited) {
+			state.say(ssip_client::Priority::Text, format!("{name}, visited link"))
+				.await;
+			return Ok(());
+		}
+		if states.contains(State::Required) {
+			state.say(ssip_client::Priority::Text, format!("{name}, required"))
+				.await;
+			return Ok(());
+		}
+
+		state.say(ssip_client::Priority::Text, format!("{name}, {role}"))
 			.await;
 
 		Ok(())
