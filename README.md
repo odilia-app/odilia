@@ -17,20 +17,41 @@ Try it out! See if it works for you!
 ## Building
 
 To build odilia:
+Copy paste the following on your command line to clone, build and install Odilia on your behalf in `~/.cargo/bin`,
 
-```sh
-git clone https://github.com/odilia-app/odilia
-cd odilia
-cargo build --release
-# At this point the compiled program is at ./target/release/odilia
-# Optionally, run this to install Odilia to ~/.cargo/bin:
-cargo install --path .
-sudo ./scripts/setup_permissions.sh
-sudo ./scripts/install_configs.sh
-# You will also want to compile sohkd.
-cd sohkd
-cargo build --release
+```shell
+git clone https://github.com/odilia-app/odilia  && \
+cd odilia && \
+cargo build --release && \
+cargo install --path odilia
 ```
+
+Odilia requires `uinput` access, the kernel's provisioning to emulate input devices. Furthermore, Odilia requires the user to be in the 'odilia' and 'input' groups.
+Lastly Odilia requires appropriate `evdev` rules, For more information see also:  [Udev Permissions](Sudev-permissions).
+This script will enable these on your behalf:
+
+```shell
+sudo ./scripts/setup_permissions.sh
+```
+
+This script will populate `/etc/odilia` with several configuration files.
+
+```shell
+sudo ./scripts/install_configs.sh`
+```
+
+You will also want to compile and install sohkd.
+(Copy and paste the following on your command line. )
+
+```shell
+cd sohkd && \
+cargo build && \
+cp ../target/debug/sohkd ~/.cargo/bin/
+```
+
+### Prerequisite
+
+Perhaps unnecessarily, but you will need to have `speech-dispatcher` installed and running before you can start Odilia.
 
 ### Udev Permissions
 
@@ -49,9 +70,13 @@ Odilia.
 To run Odilia, you should use our script.
 This will ask for your password (if you have sudo permissions) and then launch both Odilia and the key daemon in quiet mode.
 
-```bash
+```shell
 ./scripts/odilia
-# in another terminal
+```
+
+Then launch the hotkey-deamon:
+
+```shell
 ./scripts/debug_start_sohkd.sh
 ```
 
@@ -61,13 +86,13 @@ You can find us at the following places:
 
 * [Discord](https://discord.gg/RVpRb9nS6K)
 * IRC: irc.libera.chat
-	* #odilia-dev (development)
-	* #odilia (general)
-	* #odilia-offtopic (off-topic)
+  * #odilia-dev (development)
+  * #odilia (general)
+  * #odilia-offtopic (off-topic)
 * Matrix: stealthy.club
-	* #odilia-dev (development)
-	* #odilia (general)
-	* #odilia-offtopic (off-topic)
+  * #odilia-dev (development)
+  * #odilia (general)
+  * #odilia-offtopic (off-topic)
 
 ## Contributing
 
