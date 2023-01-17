@@ -12,7 +12,7 @@ use odilia_cache::{
 };
 use atspi::{
 	accessible::AccessibleProxy, accessible_ext::{AccessibleExt}, cache::CacheProxy,
-	convertable::Convertable, text::TextGranularity,
+	convertable::Convertable, text::Granularity,
 	signify::Signified,
 };
 use odilia_common::{
@@ -27,7 +27,7 @@ pub struct ScreenReaderState {
 	pub config: ApplicationConfig,
 	pub previous_caret_position: Cell<i32>,
 	pub mode: Mutex<ScreenReaderMode>,
-	pub granularity: Mutex<TextGranularity>,
+	pub granularity: Mutex<Granularity>,
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<atspi::Event>>,
 	pub cache: Cache,
@@ -67,7 +67,7 @@ impl ScreenReaderState {
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Cache::new();
 
-		let granularity = Mutex::new(TextGranularity::Line);
+		let granularity = Mutex::new(Granularity::Line);
 		Ok(Self {
 			atspi,
 			dbus,
