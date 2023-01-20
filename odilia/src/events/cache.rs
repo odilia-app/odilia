@@ -1,15 +1,15 @@
 use crate::ScreenReaderState;
 use odilia_cache::AccessiblePrimitive;
 use atspi::events::{
-	CacheEvent,
+	CacheEvents,
 	AddAccessibleEvent,
 	RemoveAccessibleEvent,
 };
 
-pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvent) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {
 	match event {
-		CacheEvent::Add(add_event) => add_accessible(state, add_event).await?,
-		CacheEvent::Remove(rem_event) => remove_accessible(state, rem_event).await?,
+		CacheEvents::Add(add_event) => add_accessible(state, add_event).await?,
+		CacheEvents::Remove(rem_event) => remove_accessible(state, rem_event).await?,
 	}
 	Ok(())
 }
