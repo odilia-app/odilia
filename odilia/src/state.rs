@@ -1,4 +1,4 @@
-use std::{cell::Cell, fs};
+use std::{cell::Cell, fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
@@ -25,7 +25,7 @@ pub struct ScreenReaderState {
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
 	pub config: ApplicationConfig,
-	pub previous_caret_position: Cell<i32>,
+	pub previous_caret_position: AtomicI32,
 	pub mode: Mutex<ScreenReaderMode>,
 	pub granularity: Mutex<Granularity>,
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
@@ -62,7 +62,7 @@ impl ScreenReaderState {
 			.wrap_err("unable to load configuration file")?;
 		tracing::debug!("configuration loaded successfully");
 
-		let previous_caret_position = Cell::new(0);
+		let previous_caret_position = AtomicI32::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Cache::new();

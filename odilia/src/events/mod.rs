@@ -149,11 +149,10 @@ pub async fn process(
 		    event = rx.recv() => {
 			match event {
 			    Some(good_event) => {
-				if let Err(e) = dispatch(&state, good_event).await {
-				    tracing::error!(error = %e, "Could not handle event");
-				} else {
-				    tracing::debug!("Event handled without error");
-				}
+            let state_rc = state.clone();
+            tokio::task::spawn(
+              dispatch_wrapper(&state_rc, good_event)
+            );
 			    },
 			    None => {
 				tracing::debug!("Event was none.");
@@ -167,6 +166,14 @@ pub async fn process(
 		    }
 		}
 	}
+}
+
+async fn dispatch_wrapper(state: &ScreenReaderState, good_event: Event) {
+  if let Err(e) = dispatch(&state, good_event).await {
+      tracing::error!(error = %e, "Could not handle event");
+  } else {
+      tracing::debug!("Event handled without error");
+  }
 }
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
