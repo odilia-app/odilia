@@ -1,3 +1,4 @@
+use serde_plain::Error as SerdePlainError;
 use std::{error::Error, fmt, str::FromStr};
 use atspi::error::AtspiError;
 use smartstring::alias::String as SmartString;
@@ -6,11 +7,36 @@ use smartstring::alias::String as SmartString;
 pub enum OdiliaError {
 	AtspiError(AtspiError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
+	NoAttributeError(String),
+	SerdeError(SerdePlainError),
+	Zbus(zbus::Error),
+	ZbusFdo(zbus::fdo::Error),
+	Zvariant(zbus::zvariant::Error),
 }
 impl Error for OdiliaError {}
-impl<T: Into<AtspiError>> From<T> for OdiliaError {
-	fn from(err: T) -> OdiliaError {
-		Self::AtspiError(err.into())
+impl From<zbus::fdo::Error> for OdiliaError {
+	fn from(spe: zbus::fdo::Error) -> Self {
+		Self::ZbusFdo(spe)
+	}
+}
+impl From<zbus::Error> for OdiliaError {
+	fn from(spe: zbus::Error) -> Self {
+		Self::Zbus(spe)
+	}
+}
+impl From<zbus::zvariant::Error> for OdiliaError {
+	fn from(spe: zbus::zvariant::Error) -> Self {
+		Self::Zvariant(spe)
+	}
+}
+impl From<SerdePlainError> for OdiliaError {
+	fn from(spe: SerdePlainError) -> Self {
+		Self::SerdeError(spe)
+	}
+}
+impl From<AtspiError> for OdiliaError {
+	fn from(err: AtspiError) -> OdiliaError {
+		Self::AtspiError(err)
 	}
 }
 impl fmt::Display for OdiliaError {
