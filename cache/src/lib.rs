@@ -1,4 +1,4 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent};
+use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, text_ext::TextExt, InterfaceSet, StateSet, events::GenericEvent, convertable::Convertable};
 use tokio::sync::RwLock;
 use std::{
 	sync::Arc,
@@ -289,7 +289,15 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_interfaces(),
 		accessible.get_role(),
 		accessible.get_state(),
-		accessible.name(),
+		async {
+			// if it implements the Text interface
+			match accessible.to_text().await {
+				// get *all* the text
+				Ok(text_iface) => text_iface.get_text_ext().await,
+				// otherwise, use the name instaed
+				Err(_) => accessible.name().await
+			}
+		},
 	)?;
 	Ok(CacheItem {
 		object: accessible.try_into()?,
