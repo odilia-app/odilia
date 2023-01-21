@@ -46,6 +46,7 @@ mod children_changed {
 }
 
 mod text_caret_moved {
+  use std::sync::atomic::Ordering;
 	use crate::state::ScreenReaderState;
 	use atspi::{convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified};
 	use ssip_client::Priority;
@@ -68,7 +69,7 @@ mod text_caret_moved {
 		// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
 		// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
 		// if the accessible is focused after the event happens, then the last_accessible will be different
-		let previous_caret_pos = state.previous_caret_position.get();
+		let previous_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
 		let current_accessible = state.new_accessible(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
 		if previous_caret_pos != 0 &&

@@ -2,7 +2,7 @@ mod document;
 mod object;
 mod cache;
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, sync::Arc};
 
 use futures::stream::StreamExt;
 use tokio::sync::{
@@ -67,7 +67,7 @@ pub async fn structural_navigation(
 }
 
 pub async fn sr_event(
-	state: Rc<ScreenReaderState>,
+	state: Arc<ScreenReaderState>,
 	sr_events: &mut Receiver<ScreenReaderEvent>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,
 ) -> eyre::Result<()> {
@@ -112,7 +112,7 @@ pub async fn sr_event(
 
 //#[tracing::instrument(level = "debug"i, skip(state))]
 pub async fn receive(
-	state: Rc<ScreenReaderState>,
+	state: Arc<ScreenReaderState>,
 	tx: Sender<Event>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,
 ) {
@@ -140,7 +140,7 @@ pub async fn receive(
 
 //#[tracing::instrument(level = "debug")]
 pub async fn process(
-	state: Rc<ScreenReaderState>,
+	state: Arc<ScreenReaderState>,
 	rx: &mut Receiver<Event>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,
 ) {
@@ -149,11 +149,10 @@ pub async fn process(
 		    event = rx.recv() => {
 			match event {
 			    Some(good_event) => {
-				if let Err(e) = dispatch(&state, good_event).await {
-				    tracing::error!(error = %e, "Could not handle event");
-				} else {
-				    tracing::debug!("Event handled without error");
-				}
+            let state_arc = Arc::clone(&state);
+            tokio::task::spawn(
+              dispatch_wrapper(state_arc, good_event)
+            );
 			    },
 			    None => {
 				tracing::debug!("Event was none.");
@@ -167,6 +166,14 @@ pub async fn process(
 		    }
 		}
 	}
+}
+
+async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
+  if let Err(e) = dispatch(&state, good_event).await {
+      tracing::error!(error = %e, "Could not handle event");
+  } else {
+      tracing::debug!("Event handled without error");
+  }
 }
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {

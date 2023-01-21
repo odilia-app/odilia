@@ -2,7 +2,7 @@ mod events;
 mod logging;
 mod state;
 
-use std::{process::exit, rc::Rc};
+use std::{process::exit, sync::Arc};
 
 use eyre::WrapErr;
 use futures::future::FutureExt;
@@ -42,7 +42,7 @@ async fn main() -> eyre::Result<()> {
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client::tokio::Request>(128);
 	// Initialize state
-	let state = Rc::new(ScreenReaderState::new(ssip_req_tx).await?);
+	let state = Arc::new(ScreenReaderState::new(ssip_req_tx).await?);
 	let mut ssip = odilia_tts::create_ssip_client().await?;
 
 	match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
@@ -72,11 +72,11 @@ async fn main() -> eyre::Result<()> {
 	.map(|r| r.wrap_err("Could no process SSIP request"));
 	let mut shutdown_rx_atspi_recv = shutdown_tx.subscribe();
 	let atspi_event_receiver =
-		events::receive(Rc::clone(&state), atspi_event_tx, &mut shutdown_rx_atspi_recv)
+		events::receive(Arc::clone(&state), atspi_event_tx, &mut shutdown_rx_atspi_recv)
 			.map(|_| Ok::<_, eyre::Report>(()));
 	let mut shutdown_rx_atspi_proc_recv = shutdown_tx.subscribe();
 	let atspi_event_processor = events::process(
-		Rc::clone(&state),
+		Arc::clone(&state),
 		&mut atspi_event_rx,
 		&mut shutdown_rx_atspi_proc_recv,
 	)
@@ -86,7 +86,7 @@ async fn main() -> eyre::Result<()> {
 		.map(|r| r.wrap_err("Could not process Odilia events"));
 	let mut shutdown_rx_odilia_proc_recv = shutdown_tx.subscribe();
 	let odilia_event_processor = events::sr_event(
-		Rc::clone(&state),
+		Arc::clone(&state),
 		&mut sr_event_rx,
 		&mut shutdown_rx_odilia_proc_recv,
 	)

@@ -100,7 +100,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
     };
     Ok(AccessiblePrimitive {
       id,
-      sender: sender.into(),
+      sender
     })
   }
 }
@@ -115,7 +115,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
     };
     Ok(AccessiblePrimitive {
       id,
-      sender: sender.into(),
+      sender
     })
   }
 }
