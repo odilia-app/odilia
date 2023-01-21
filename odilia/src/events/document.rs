@@ -1,6 +1,3 @@
-use zbus::{
-	names::UniqueName,
-};
 use odilia_cache::CacheItem;
 
 use crate::state::ScreenReaderState;
@@ -12,8 +9,7 @@ use atspi::{
 
 pub async fn load_complete(state: &ScreenReaderState, event: &LoadCompleteEvent) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
-	let cache = state.build_cache(
-		UniqueName::try_from(sender.clone())?).await?;
+	let cache = state.build_cache(sender.clone()).await?;
 	let entire_cache = cache.get_items().await?;
 	let mut cache_items = Vec::new();
 	for item in entire_cache {

@@ -1,4 +1,4 @@
-use std::{cell::Cell, fs, sync::atomic::AtomicI32};
+use std::{fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
