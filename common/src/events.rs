@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::modes::ScreenReaderMode;
-use atspi::{accessible::Role, text::TextGranularity};
+use atspi::{accessible::Role, text::Granularity};
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum Feature {
@@ -25,6 +25,6 @@ pub enum ScreenReaderEvent {
 	Enable(Feature),
 	Disable(Feature),
 	ChangeMode(ScreenReaderMode),
-	ChangeGranularity(TextGranularity),
+	ChangeGranularity(Granularity),
 	StructuralNavigation(Direction, Role),
 }

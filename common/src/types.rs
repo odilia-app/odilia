@@ -1,4 +1,4 @@
-use atspi::text::TextGranularity;
+use atspi::text::Granularity;
 use zbus::zvariant::OwnedObjectPath;
 
 pub type Accessible = (String, OwnedObjectPath);
@@ -9,7 +9,7 @@ pub struct IndexesSelection {
 }
 pub struct GranularSelection {
 	pub index: i32,
-	pub granularity: TextGranularity,
+	pub granularity: Granularity,
 }
 
 pub enum TextSelectionArea {
