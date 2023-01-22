@@ -184,9 +184,9 @@ mod text_changed {
 		let insert_has_not_occured = insert && !selection_matches_update;
 		let remove_has_not_occured = !insert && selection_matches_update;
 		if insert_has_not_occured {
-			state.cache.modify_item(&item.object.id, update_string_insert(start_pos, update_length, &updated_text)).await;
+			state.cache.modify_item(&cache_item.object.id, update_string_insert(start_pos, update_length, &updated_text)).await;
 		} else if remove_has_not_occured {
-			state.cache.modify_item(&item.object.id, move |cache_item| {
+			state.cache.modify_item(&cache_item.object.id, move |cache_item| {
 				cache_item.text = cache_item.text.char_indices()
 					.filter_map(get_string_without_bounds(start_pos, update_length)).collect();
 			}).await;
