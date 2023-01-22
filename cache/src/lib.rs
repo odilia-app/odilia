@@ -247,7 +247,7 @@ impl Cache {
 	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it. 
 	/// Returns true if the update was successful.
 	pub async fn modify_item<F>(&self, id: &AccessibleId, modify: F) -> bool 
-		where F: Fn(&mut CacheItem) {
+		where F: FnOnce(&mut CacheItem) {
 		let mut cache_write = self.by_id.write().await;
 		let cache_item = match cache_write.get_mut(id) {
 			Some(i) => i,
