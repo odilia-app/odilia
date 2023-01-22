@@ -27,7 +27,5 @@ pub enum AriaLive {
 	Other(String),
 }
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
-#[serde(transparent)]
-pub struct AriaAtomic(bool);
+pub type AriaAtomic = bool;
 
