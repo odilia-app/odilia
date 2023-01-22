@@ -252,7 +252,7 @@ impl Cache {
 		let cache_item = match cache_write.get_mut(id) {
 			Some(i) => i,
 			None => {
-				println!("THE CACHE HAS THE FOLLOWING ITEMS: {:?}", cache_write.keys());
+				tracing::trace!("The cache has the following items: {:?}", cache_write.keys());
 				return false;
 			}
 		};
@@ -272,7 +272,7 @@ impl Cache {
 		let cache_item = accessible_to_cache_item(accessible).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
-		println!("Time to create cache item: {:?}", diff);
+		tracing::debug!("Time to create cache item: {:?}", diff);
 		// add a clone of it to the cache
 		self.add(copy_into_cache_item(&cache_item)).await;
 		// return that same cache item
