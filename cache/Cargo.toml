@@ -10,3 +10,4 @@ atspi.workspace = true
 zbus.workspace = true
 tokio.workspace = true
 odilia-common = { path = "../common" }
+tracing.workspace = true
