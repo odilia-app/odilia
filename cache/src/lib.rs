@@ -1,4 +1,4 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent};
+use atspi::{AccessibleId, accessible::{Accessible, Role}, accessible_ext::{AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent};
 use tokio::sync::RwLock;
 use std::{
 	sync::Arc,
@@ -11,124 +11,17 @@ use zbus::{
 };
 use odilia_common::{
 	result::OdiliaResult,
-	errors::AccessiblePrimitiveConversionError,
 };
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-/// A struct which represents the bare minimum of an accessible for purposes of caching.
-/// This makes some *possibly eronious* assumptions about what the sender is.
-pub struct AccessiblePrimitive {
-	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
-	pub id: AccessibleId,
-	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	pub sender: String,
-}
-impl AccessiblePrimitive {
-  #[allow(dead_code)]
-  pub async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
-    let id = self.id;
-    let sender = self.sender.clone();
-    let path: ObjectPath<'a> = id.try_into()?;
-    ProxyBuilder::new(conn)
-      .path(path)?
-      .destination(sender)?
-      .build()
-      .await
-  }
-	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> {
-		let sender = match event.sender() {
-			Ok(Some(s)) => s,
-			Ok(None) => return Err(AccessiblePrimitiveConversionError::NoSender),
-			Err(_) => return Err(AccessiblePrimitiveConversionError::ErrSender),
-		};
-		let id: AccessibleId = event.path().unwrap().try_into()?;
-		Ok(Self {
-			id,
-			sender: sender.to_string(),
-		})
-	}
-}
-impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(atspi_accessible: atspi::events::Accessible) -> Result<AccessiblePrimitive, Self::Error> {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.try_into()
-  }
-}
-impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(so: (OwnedUniqueName, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0.to_string(),
-    })
-  }
-}
-impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0,
-    })
-  }
-}
-impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0,
-    })
-  }
-}
-impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-    let sender = accessible.destination().to_string();
-    let id = match accessible.get_id() {
-      Some(path_id) => path_id,
-      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
-    };
-    Ok(AccessiblePrimitive {
-      id,
-      sender: sender.into(),
-    })
-  }
-}
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
-
-  fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-    let sender = accessible.destination().to_string();
-    let id = match accessible.get_id() {
-      Some(path_id) => path_id,
-      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
-    };
-    Ok(AccessiblePrimitive {
-      id,
-      sender: sender.into(),
-    })
-  }
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)   (so)
-	pub object: AccessiblePrimitive,
+	pub object: AccessibleId,
 	// The application (root object(?)    (so)
-	pub app: AccessiblePrimitive,
+	pub app: AccessibleId,
 	// The parent object.  (so)
-	pub parent: AccessiblePrimitive,
+	pub parent: AccessibleId,
 	// The accessbile index in parent.  i
 	pub index: i32,
 	// Child count of the accessible  i
@@ -141,23 +34,6 @@ pub struct CacheItem {
 	pub states: StateSet,
 	// The text of the accessible.
 	pub text: String,
-}
-impl TryFrom<atspi::cache::CacheItem> for CacheItem {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(atspi_cache_item: atspi::cache::CacheItem) -> Result<Self, Self::Error> {
-		Ok(Self {
-			object: atspi_cache_item.object.try_into()?,
-			app: atspi_cache_item.app.try_into()?,
-			parent: atspi_cache_item.parent.try_into()?,
-			index: atspi_cache_item.index,
-			children: atspi_cache_item.children,
-			ifaces: atspi_cache_item.ifaces,
-			role: atspi_cache_item.role,
-			states: atspi_cache_item.states,
-			text: atspi_cache_item.name,
-		})
-	}
 }
 
 /// The root of the accessible cache.
@@ -206,7 +82,7 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
 		let mut cache_writer = self.by_id.write().await;
-		cache_writer.insert(cache_item.object.id, cache_item);
+		cache_writer.insert(cache_item.object, cache_item);
 	}
 	/// remove a single cache item
 	pub async fn remove(&self, id: &AccessibleId) {
@@ -231,7 +107,7 @@ impl Cache {
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
 		let mut cache_writer = self.by_id.write().await;
 		cache_items.into_iter().for_each(|cache_item| {
-			cache_writer.insert(cache_item.object.id, cache_item);
+			cache_writer.insert(cache_item.object, cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -262,9 +138,9 @@ impl Cache {
 
 	/// get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
-	pub async fn get_or_create(&self, accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create<T: Accessible>(&self, accessible: &T) -> Result<CacheItem, T::Error> {
 		// if the item already exists in the cache, return it
-		if let Some(cache_item) = self.get(&accessible.get_id().expect("Could not get ID from accessible path")).await {
+		if let Some(cache_item) = self.get(&accessible.accessible_id().await?).await {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -280,7 +156,7 @@ impl Cache {
 	}
 }
 
-pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+pub async fn accessible_to_cache_item<T: Accessible>(accessible: &T) -> Result<CacheItem, T::Error> {
 	let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
@@ -292,9 +168,9 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.name(),
 	)?;
 	Ok(CacheItem {
-		object: accessible.try_into()?,
-		app: app.try_into()?,
-		parent: parent.try_into()?,
+		object: accessible.accessible_id().await?,
+		app: app.accessible_id().await?,
+		parent: parent.accessible_id().await?,
 		index,
 		children,
 		ifaces,
