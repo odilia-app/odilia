@@ -1,13 +1,8 @@
-use atspi::{AccessibleId, accessible::{Accessible, Role}, accessible_ext::{AccessibleExt}, InterfaceSet, StateSet, events::GenericEvent};
+use atspi::{AccessibleId, accessible::{Accessible, AccessibleProxy, Role}, InterfaceSet, StateSet};
 use tokio::sync::RwLock;
 use std::{
 	sync::Arc,
 	collections::HashMap,
-};
-use zbus::{
-  ProxyBuilder,
-  zvariant::{ObjectPath, OwnedObjectPath},
-	names::OwnedUniqueName,
 };
 use odilia_common::{
 	result::OdiliaResult,
@@ -16,6 +11,10 @@ use odilia_common::{
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
+  // the accessible ID from the path: /org/a11y/atspi/accessible/ID
+  pub id: AccessibleId,
+  // the sender, usually an X11 window ID.
+  pub sender: String,
 	// The accessible object (within the application)   (so)
 	pub object: AccessibleId,
 	// The application (root object(?)    (so)
@@ -48,10 +47,12 @@ impl Default for Cache {
 }
 
 /// Copy all info into a plain CacheItem struct.
-/// This is very cheap, and the locking overhead will vastly outstrip making this a non-copy struct.
+/// This is fairly cheap, and the locking overhead will vastly outstrip making this a non-copy struct.
 #[inline]
 fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 	CacheItem {
+    id: cache_item_with_handle.id,
+    sender: cache_item_with_handle.sender.clone(),
 		object: cache_item_with_handle.object.clone(),
 		parent: cache_item_with_handle.parent.clone(),
 		states: cache_item_with_handle.states,
@@ -138,7 +139,7 @@ impl Cache {
 
 	/// get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
-	pub async fn get_or_create<T: Accessible>(&self, accessible: &T) -> Result<CacheItem, T::Error> {
+	pub async fn get_or_create(&self, accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(&accessible.accessible_id().await?).await {
 			return Ok(cache_item);
@@ -156,10 +157,11 @@ impl Cache {
 	}
 }
 
-pub async fn accessible_to_cache_item<T: Accessible>(accessible: &T) -> Result<CacheItem, T::Error> {
-	let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
-		accessible.get_application(),
-		accessible.parent(),
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+	let (id, app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
+    accessible.accessible_id(),
+		Accessible::get_application(accessible),
+		Accessible::parent(accessible),
 		accessible.get_index_in_parent(),
 		accessible.child_count(),
 		accessible.get_interfaces(),
@@ -167,7 +169,10 @@ pub async fn accessible_to_cache_item<T: Accessible>(accessible: &T) -> Result<C
 		accessible.get_state(),
 		accessible.name(),
 	)?;
+  let sender = accessible.destination().to_string();
 	Ok(CacheItem {
+    id,
+    sender,
 		object: accessible.accessible_id().await?,
 		app: app.accessible_id().await?,
 		parent: parent.accessible_id().await?,
