@@ -351,7 +351,7 @@ mod test {
 	fn parse_key_binding() {
 		// simple
 		let kb: KeyBinding = "Odilia+h".parse().unwrap();
-		println!("{:?}", kb);
+		println!("{kb:?}");
 		assert_eq!(kb.key, Some(Key::Other('h')));
 		assert_eq!(kb.mods, Modifiers::ODILIA);
 		assert_eq!(kb.repeat, 1);
