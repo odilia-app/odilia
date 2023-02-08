@@ -60,7 +60,7 @@ fn logging_init() {
 		Ok(s) => EnvFilter::from(s),
 		Err(env::VarError::NotPresent) => EnvFilter::from(DEFAULT_LOG_FILTER),
 		Err(e) => {
-			eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {}", e);
+			eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {e}");
 			EnvFilter::from(DEFAULT_LOG_FILTER)
 		}
 	};
@@ -69,7 +69,7 @@ fn logging_init() {
 		.with(ErrorLayer::default())
 		.with(HierarchicalLayer::new(4).with_ansi(false).with_bracketed_fields(true));
 	if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
-		eprintln!("Warning: Failed to set log handler: {}", e);
+		eprintln!("Warning: Failed to set log handler: {e}");
 	}
 	if let Err(e) = LogTracer::init() {
 		tracing::warn!(error = %e, "Failed to install log facade");
@@ -591,7 +591,7 @@ pub fn setup_sohkd(invoking_uid: u32) {
 	}
 
 	// Get the PID file path for instance tracking.
-	let pidfile: String = format!("{}sohkd_{}.pid", runtime_path, invoking_uid);
+	let pidfile: String = format!("{runtime_path}sohkd_{invoking_uid}.pid");
 	if Path::new(&pidfile).exists() {
 		tracing::trace!("Reading {} file and checking for running instances.", pidfile);
 		let sohkd_pid = match fs::read_to_string(&pidfile) {

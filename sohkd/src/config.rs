@@ -38,12 +38,11 @@ impl fmt::Display for Error {
 			Error::ConfigNotFound => "Config file not found.".fmt(f),
 
 			Error::Io(io_err) => {
-				format!("I/O Error while parsing config file: {}", io_err).fmt(f)
+				format!("I/O Error while parsing config file: {io_err}").fmt(f)
 			}
 			Error::InvalidConfig(parse_err) => match parse_err {
 				ParseError::UnknownSymbol(path, line_nr) => format!(
-                    "Error parsing config file {:?}. Unknown symbol at line {}.",
-                    path, line_nr
+                    "Error parsing config file {path:?}. Unknown symbol at line {line_nr}."
                 )
 				.fmt(f),
 				/*
@@ -54,8 +53,7 @@ impl fmt::Display for Error {
 				.fmt(f),
 				*/
 				ParseError::InvalidModifier(path, line_nr) => format!(
-                    "Error parsing config file {:?}. Invalid modifier at line {}.",
-                    path, line_nr
+                    "Error parsing config file {path:?}. Invalid modifier at line {line_nr}."
                 )
 				.fmt(f),
 			},

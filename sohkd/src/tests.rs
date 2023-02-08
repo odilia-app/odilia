@@ -59,16 +59,14 @@ mod test_config {
 				expected_hotkeys_mut.remove(index);
 			} else {
 				panic!(
-                    "unexpected hotkey {:#?} found in result\nExpected result:\n{:#?}",
-                    hotkey, expected_hotkeys_mut
+                    "unexpected hotkey {hotkey:#?} found in result\nExpected result:\n{expected_hotkeys_mut:#?}"
                 );
 			}
 		}
 
 		if !expected_hotkeys_mut.is_empty() {
 			panic!(
-				"Some hotkeys were not returned by the actual result:\n{:#?}",
-				expected_hotkeys_mut
+				"Some hotkeys were not returned by the actual result:\n{expected_hotkeys_mut:#?}"
 			);
 		}
 
@@ -94,8 +92,7 @@ mod test_config {
 		// Check the ParseError enum type
 		if result != parse_error_type {
 			panic!(
-				"ParseError: Expected `{:?}`, found `{:?}`",
-				parse_error_type, result
+				"ParseError: Expected `{parse_error_type:?}`, found `{result:?}`"
 			);
 		}
 
@@ -655,7 +652,7 @@ k
 
 		let mut contents = String::new();
 		for symbol in &symbols {
-			contents.push_str(&format!("{}\n    st\n", symbol));
+			contents.push_str(&format!("{symbol}\n    st\n"));
 		}
 		let contents = &contents;
 
@@ -684,7 +681,7 @@ k
 
 		let mut contents = String::new();
 		for symbol in &symbols {
-			contents.push_str(&format!("{}\n    st\n", symbol));
+			contents.push_str(&format!("{symbol}\n    st\n"));
 		}
 		let contents = &contents;
 
@@ -1333,8 +1330,8 @@ mod test_config_display {
 	fn test_display_io_error() {
 		let error = Error::Io(io::Error::from(io::ErrorKind::UnexpectedEof));
 
-		if !format!("{}", error).contains("unexpected end of file") {
-			panic!("Error message was '{}", error);
+		if !format!("{error}").contains("unexpected end of file") {
+			panic!("Error message was '{error}");
 		}
 	}
 
@@ -1343,7 +1340,7 @@ mod test_config_display {
 		let error = Error::InvalidConfig(ParseError::UnknownSymbol(PathBuf::new(), 10));
 
 		assert_eq!(
-			format!("{}", error),
+			format!("{error}"),
 			"Error parsing config file \"\". Unknown symbol at line 10."
 		);
 	}
@@ -1353,7 +1350,7 @@ mod test_config_display {
 		let error = Error::InvalidConfig(ParseError::InvalidModifier(PathBuf::new(), 25));
 
 		assert_eq!(
-			format!("{}", error),
+			format!("{error}"),
 			"Error parsing config file \"\". Invalid modifier at line 25."
 		);
 	}
