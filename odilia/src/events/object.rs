@@ -1,48 +1,60 @@
 use crate::state::ScreenReaderState;
-use atspi::{
-	identify::{
-		object::ObjectEvents,
-	},
-};
+use atspi::identify::object::ObjectEvents;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<()> {
 	// Dispatch based on member
 	match event {
-		ObjectEvents::StateChanged(state_changed_event) => state_changed::dispatch(state, state_changed_event).await?,
-		ObjectEvents::TextCaretMoved(text_caret_moved_event) => text_caret_moved::dispatch(state, text_caret_moved_event).await?,
-		ObjectEvents::TextChanged(text_changed_event) => text_changed::dispatch(state, text_changed_event).await?,
-		ObjectEvents::ChildrenChanged(children_changed_event) => children_changed::dispatch(state, children_changed_event).await?,
-		other_member => tracing::debug!("Ignoring event with unknown member: {:#?}", other_member),
+		ObjectEvents::StateChanged(state_changed_event) => {
+			state_changed::dispatch(state, state_changed_event).await?
+		}
+		ObjectEvents::TextCaretMoved(text_caret_moved_event) => {
+			text_caret_moved::dispatch(state, text_caret_moved_event).await?
+		}
+		ObjectEvents::TextChanged(text_changed_event) => {
+			text_changed::dispatch(state, text_changed_event).await?
+		}
+		ObjectEvents::ChildrenChanged(children_changed_event) => {
+			children_changed::dispatch(state, children_changed_event).await?
+		}
+		other_member => {
+			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member)
+		}
 	}
 	Ok(())
 }
 
 mod text_changed {
-	use std::collections::HashMap;
+	use crate::state::ScreenReaderState;
+	use atspi::{identify::object::TextChangedEvent, signify::Signified};
 	use odilia_cache::CacheItem;
 	use odilia_common::{
-		types::{
-			AriaLive,
-			AriaAtomic,
-		},
-		result::OdiliaResult,
 		errors::OdiliaError,
+		result::OdiliaResult,
+		types::{AriaAtomic, AriaLive},
 	};
-	use crate::{
-		state::ScreenReaderState,
-	};
-	use atspi::{identify::object::TextChangedEvent, signify::Signified};
 	use ssip_client::Priority;
+	use std::collections::HashMap;
 
 	#[inline]
-	pub fn update_string_insert(start_pos: usize, update_length: usize, updated_text: &str) -> impl Fn(&mut CacheItem) + '_ {
+	pub fn update_string_insert(
+		start_pos: usize,
+		update_length: usize,
+		updated_text: &str,
+	) -> impl Fn(&mut CacheItem) + '_ {
 		move |cache_item| {
-			tracing::trace!("Insert into \"{}\"({:?} @ {}+{} should insert \"{}\"", cache_item.text, cache_item.object.id, start_pos, update_length, updated_text);
+			tracing::trace!(
+				"Insert into \"{}\"({:?} @ {}+{} should insert \"{}\"",
+				cache_item.text,
+				cache_item.object.id,
+				start_pos,
+				update_length,
+				updated_text
+			);
 			let char_num = cache_item.text.chars().count();
 			let prepend = start_pos == 0;
 			let append = start_pos >= char_num;
 			// if the end of the inserted string will go past the end of the original string
-			let insert_and_append = start_pos+update_length >= char_num;
+			let insert_and_append = start_pos + update_length >= char_num;
 			cache_item.text = if prepend {
 				append_to_object(updated_text, &cache_item.text)
 			} else if append {
@@ -50,31 +62,38 @@ mod text_changed {
 			} else if insert_and_append {
 				insert_at_index(&cache_item.text, updated_text, start_pos)
 			} else {
-				insert_at_range(&cache_item.text, updated_text, start_pos, start_pos+update_length)
+				insert_at_range(
+					&cache_item.text,
+					updated_text,
+					start_pos,
+					start_pos + update_length,
+				)
 			}
 		}
 	}
 
 	#[inline]
 	pub fn append_to_object(original: &str, to_append: &str) -> String {
-		let mut new_text = original.chars()
-			.collect::<Vec<char>>();
+		let mut new_text = original.chars().collect::<Vec<char>>();
 		new_text.extend(to_append.chars());
 		new_text.into_iter().collect()
 	}
 
 	#[inline]
 	pub fn insert_at_index(original: &str, to_splice: &str, index: usize) -> String {
-		let mut new_text = original.chars()
-			.collect::<Vec<char>>();
+		let mut new_text = original.chars().collect::<Vec<char>>();
 		new_text.splice(index.., to_splice.chars());
 		new_text.into_iter().collect()
 	}
 
 	#[inline]
-	pub fn insert_at_range(original: &str, to_splice: &str, start: usize, end: usize) -> String {
-		let mut new_text = original.chars()
-			.collect::<Vec<char>>();
+	pub fn insert_at_range(
+		original: &str,
+		to_splice: &str,
+		start: usize,
+		end: usize,
+	) -> String {
+		let mut new_text = original.chars().collect::<Vec<char>>();
 		new_text.splice(start..end, to_splice.chars());
 		new_text.into_iter().collect()
 	}
@@ -85,9 +104,7 @@ mod text_changed {
 	pub fn get_live_state(attributes: &HashMap<String, String>) -> OdiliaResult<AriaLive> {
 		match attributes.get("live") {
 			None => Err(OdiliaError::NoAttributeError("live".to_string())),
-			Some(live) => {
-				Ok(serde_plain::from_str(live)?)
-			}
+			Some(live) => Ok(serde_plain::from_str(live)?),
 		}
 	}
 
@@ -107,33 +124,44 @@ mod text_changed {
 	pub fn get_atomic_state(attributes: &HashMap<String, String>) -> OdiliaResult<AriaAtomic> {
 		match attributes.get("atomic") {
 			None => Err(OdiliaError::NoAttributeError("atomic".to_string())),
-			Some(atomic) => {
-				Ok(serde_plain::from_str(atomic)?)
-			}
+			Some(atomic) => Ok(serde_plain::from_str(atomic)?),
 		}
 	}
 
-	pub fn get_string_within_bounds(start_pos: usize, update_length: usize) -> impl Fn((usize, char)) -> Option<char> {
+	pub fn get_string_within_bounds(
+		start_pos: usize,
+		update_length: usize,
+	) -> impl Fn((usize, char)) -> Option<char> {
 		move |(index, chr)| {
 			let is_after_start = index >= start_pos;
 			let is_before_end = index <= start_pos + update_length;
 			if is_after_start && is_before_end {
 				Some(chr)
-			} else { None }
+			} else {
+				None
+			}
 		}
 	}
 
-	pub fn get_string_without_bounds(start_pos: usize, update_length: usize) -> impl Fn((usize, char)) -> Option<char> {
+	pub fn get_string_without_bounds(
+		start_pos: usize,
+		update_length: usize,
+	) -> impl Fn((usize, char)) -> Option<char> {
 		move |(index, chr)| {
 			let is_before_start = index < start_pos;
 			let is_after_end = index > start_pos + update_length;
 			if is_before_start || is_after_end {
 				Some(chr)
-			} else { None }
+			} else {
+				None
+			}
 		}
 	}
 
-	pub async fn dispatch(state: &ScreenReaderState, event: &TextChangedEvent) -> eyre::Result<()> {
+	pub async fn dispatch(
+		state: &ScreenReaderState,
+		event: &TextChangedEvent,
+	) -> eyre::Result<()> {
 		let kind = event.kind();
 		match kind {
 			"insert/system" => insert_or_delete(state, event, true).await?,
@@ -144,8 +172,13 @@ mod text_changed {
 		};
 		Ok(())
 	}
-	
-	pub async fn speak_insertion(state: &ScreenReaderState, event: &TextChangedEvent, attributes: &HashMap<String, String>, cache_text: &str) -> OdiliaResult<()> {
+
+	pub async fn speak_insertion(
+		state: &ScreenReaderState,
+		event: &TextChangedEvent,
+		attributes: &HashMap<String, String>,
+		cache_text: &str,
+	) -> OdiliaResult<()> {
 		// note, you should update the text before this happens, since this could potentially end the function
 		let live = get_live_state(attributes)?;
 		let atomic = get_atomic_state(attributes)?;
@@ -164,12 +197,17 @@ mod text_changed {
 	/// The `insert` boolean, if set to true, will update the text in the cache.
 	/// If it is set to false, the selection will be removed.
 	/// The [`TextChangedEvent::kind`] value will *NOT* be checked by this function.
-	pub async fn insert_or_delete(state: &ScreenReaderState, event: &TextChangedEvent, insert: bool) -> eyre::Result<()> {
+	pub async fn insert_or_delete(
+		state: &ScreenReaderState,
+		event: &TextChangedEvent,
+		insert: bool,
+	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
 		let cache_item = state.cache.get_or_create(&accessible).await?;
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
-		let (start_pos, update_length) = (event.start_pos() as usize, event.length() as usize);
+		let (start_pos, update_length) =
+			(event.start_pos() as usize, event.length() as usize);
 		// if this is an insert, figure out if we shuld announce anything, then speak it;
 		// only after should we try to update the cache
 		if insert {
@@ -177,19 +215,37 @@ mod text_changed {
 			let _ = speak_insertion(state, event, &attributes, &current_text).await;
 		}
 
-		let text_selection_from_cache: String = current_text.char_indices()
+		let text_selection_from_cache: String = current_text
+			.char_indices()
 			.filter_map(get_string_within_bounds(start_pos, update_length))
 			.collect();
 		let selection_matches_update = text_selection_from_cache == updated_text;
 		let insert_has_not_occured = insert && !selection_matches_update;
 		let remove_has_not_occured = !insert && selection_matches_update;
 		if insert_has_not_occured {
-			state.cache.modify_item(&cache_item.object.id, update_string_insert(start_pos, update_length, &updated_text)).await;
+			state.cache
+				.modify_item(
+					&cache_item.object.id,
+					update_string_insert(
+						start_pos,
+						update_length,
+						&updated_text,
+					),
+				)
+				.await;
 		} else if remove_has_not_occured {
-			state.cache.modify_item(&cache_item.object.id, move |cache_item| {
-				cache_item.text = cache_item.text.char_indices()
-					.filter_map(get_string_without_bounds(start_pos, update_length)).collect();
-			}).await;
+			state.cache
+				.modify_item(&cache_item.object.id, move |cache_item| {
+					cache_item.text = cache_item
+						.text
+						.char_indices()
+						.filter_map(get_string_without_bounds(
+							start_pos,
+							update_length,
+						))
+						.collect();
+				})
+				.await;
 		}
 		Ok(())
 	}
@@ -197,9 +253,14 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{events::GenericEvent, identify::{object::ChildrenChangedEvent}, signify::Signified};
+	use atspi::{
+		events::GenericEvent, identify::object::ChildrenChangedEvent, signify::Signified,
+	};
 
-	pub async fn dispatch(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
+	pub async fn dispatch(
+		state: &ScreenReaderState,
+		event: &ChildrenChangedEvent,
+	) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
 			"remove/system" => remove(state, event).await?,
@@ -210,13 +271,19 @@ mod children_changed {
 		}
 		Ok(())
 	}
-	pub async fn add(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
+	pub async fn add(
+		state: &ScreenReaderState,
+		event: &ChildrenChangedEvent,
+	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
 		let _ = state.cache.get_or_create(&accessible).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
-	pub async fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
+	pub async fn remove(
+		state: &ScreenReaderState,
+		event: &ChildrenChangedEvent,
+	) -> eyre::Result<()> {
 		let path = event.path().expect("All accessibles must have a path").try_into()?;
 		state.cache.remove(&path).await;
 		tracing::debug!("Remove a single item from cache.");
@@ -225,16 +292,21 @@ mod children_changed {
 }
 
 mod text_caret_moved {
-  use std::sync::atomic::Ordering;
 	use crate::state::ScreenReaderState;
-	use atspi::{convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified};
+	use atspi::{
+		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified,
+	};
 	use ssip_client::Priority;
+	use std::sync::atomic::Ordering;
 
 	/// this must be checked *before* writing an accessible to the hsitory.
 	/// if this is checked after writing, it may give inaccurate results.
 	/// that said, this is a *guess* and not a guarentee.
 	/// TODO: make this a testable function, anything which queries "state" is not testable
-	async fn is_tab_navigation(state: &ScreenReaderState, event: &TextCaretMovedEvent) -> eyre::Result<bool> {
+	async fn is_tab_navigation(
+		state: &ScreenReaderState,
+		event: &TextCaretMovedEvent,
+	) -> eyre::Result<bool> {
 		let current_caret_pos = event.position();
 		// if the carat position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
 		if current_caret_pos != 0 {
@@ -251,8 +323,7 @@ mod text_caret_moved {
 		let previous_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
 		let current_accessible = state.new_accessible(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
-		if previous_caret_pos != 0 &&
-			current_accessible == last_accessible {
+		if previous_caret_pos != 0 && current_accessible == last_accessible {
 			return Ok(false);
 		}
 		// otherwise, it probably was a tab navigation
@@ -267,12 +338,22 @@ mod text_caret_moved {
 		if is_tab_navigation(state, event).await? {
 			return Ok(());
 		}
-		let text = state.new_accessible(event).await?.to_text().await?.get_string_at_offset(event.position(), *state.granularity.lock().await).await?.0;
+		let text = state
+			.new_accessible(event)
+			.await?
+			.to_text()
+			.await?
+			.get_string_at_offset(event.position(), *state.granularity.lock().await)
+			.await?
+			.0;
 		state.say(Priority::Text, text).await;
 		Ok(())
 	}
 
-	pub async fn dispatch(state: &ScreenReaderState, event: &TextCaretMovedEvent) -> eyre::Result<()> {
+	pub async fn dispatch(
+		state: &ScreenReaderState,
+		event: &TextCaretMovedEvent,
+	) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
 			"" => text_cursor_moved(state, event).await?,
@@ -284,28 +365,49 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible_ext::{AccessibleExt, AccessibleId}, identify::{object::StateChangedEvent}, signify::Signified, State};
-	use odilia_cache::{AccessiblePrimitive};
+	use atspi::{
+		accessible_ext::{AccessibleExt, AccessibleId},
+		identify::object::StateChangedEvent,
+		signify::Signified,
+		State,
+	};
+	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
 	/// This writes to the value in-place, and does not clone any values.
-	pub async fn update_state(state: &ScreenReaderState, a11y_id: &AccessibleId, state_changed: State, active: bool) -> eyre::Result<bool> {
+	pub async fn update_state(
+		state: &ScreenReaderState,
+		a11y_id: &AccessibleId,
+		state_changed: State,
+		active: bool,
+	) -> eyre::Result<bool> {
 		if active {
-			Ok(state.cache.modify_item(a11y_id, |cache_item| cache_item.states.remove(state_changed)).await)
+			Ok(state.cache
+				.modify_item(a11y_id, |cache_item| {
+					cache_item.states.remove(state_changed)
+				})
+				.await)
 		} else {
-			Ok(state.cache.modify_item(a11y_id, |cache_item| cache_item.states.insert(state_changed)).await)
+			Ok(state.cache
+				.modify_item(a11y_id, |cache_item| {
+					cache_item.states.insert(state_changed)
+				})
+				.await)
 		}
 	}
 
-	pub async fn dispatch(state: &ScreenReaderState, event: &StateChangedEvent) -> eyre::Result<()> {
+	pub async fn dispatch(
+		state: &ScreenReaderState,
+		event: &StateChangedEvent,
+	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
 		let _ci = state.cache.get_or_create(&accessible).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
 				tracing::error!("Not able to deserialize state: {}", event.kind());
-				return Err(e.into())
-			},
+				return Err(e.into());
+			}
 		};
 		let state_value = event.enabled() == 1;
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
@@ -320,14 +422,20 @@ mod state_changed {
 		// enabled can only be 1 or 0, but is not a boolean over dbus
 		match (state_type, event.enabled() == 1) {
 			(State::Focused, true) => focused(state, event).await?,
-			(state, enabled) => tracing::debug!("Ignoring state_changed event with unknown kind: {:?}/{}", state, enabled),
+			(state, enabled) => tracing::debug!(
+				"Ignoring state_changed event with unknown kind: {:?}/{}",
+				state,
+				enabled
+			),
 		}
 		Ok(())
 	}
 
-	pub async fn focused(state: &ScreenReaderState, event: &StateChangedEvent) -> eyre::Result<()> {
-		let accessible =
-			state.new_accessible(event).await?;
+	pub async fn focused(
+		state: &ScreenReaderState,
+		event: &StateChangedEvent,
+	) -> eyre::Result<()> {
+		let accessible = state.new_accessible(event).await?;
 		if let Some(curr) = state.history_item(0).await? {
 			if curr == accessible {
 				return Ok(());

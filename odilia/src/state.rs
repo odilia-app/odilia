@@ -6,15 +6,11 @@ use ssip_client::{tokio::Request as SSIPRequest, MessageScope, Priority};
 use tokio::sync::{mpsc::Sender, Mutex};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
-use odilia_cache::{
-	Cache,
-	AccessiblePrimitive,
-};
 use atspi::{
-	accessible::AccessibleProxy, accessible_ext::{AccessibleExt}, cache::CacheProxy,
-	convertable::Convertable, text::Granularity,
-	signify::Signified,
+	accessible::AccessibleProxy, accessible_ext::AccessibleExt, cache::CacheProxy,
+	convertable::Convertable, signify::Signified, text::Granularity,
 };
+use odilia_cache::{AccessiblePrimitive, Cache};
 use odilia_common::{
 	modes::ScreenReaderMode, settings::ApplicationConfig, types::TextSelectionArea,
 	Result as OdiliaResult,
@@ -179,19 +175,13 @@ impl ScreenReaderState {
 		true
 	}
 
-#[allow(dead_code)]
-	pub async fn event_history_item(
-		&self,
-		index: usize
-	) -> Option<atspi::Event> {
+	#[allow(dead_code)]
+	pub async fn event_history_item(&self, index: usize) -> Option<atspi::Event> {
 		let history = self.event_history.lock().await;
 		history.iter().nth(index).cloned()
 	}
 
-	pub async fn event_history_update(
-		&self,
-		event: atspi::Event,
-	) {
+	pub async fn event_history_update(&self, event: atspi::Event) {
 		let mut history = self.event_history.lock().await;
 		history.push(event);
 	}
@@ -205,8 +195,7 @@ impl ScreenReaderState {
 			return Ok(None);
 		}
 		let a11y_prim = {
-			history
-				.iter()
+			history.iter()
 				.nth(index)
 				.expect("Looking for invalid index in accessible history")
 				.to_owned()
@@ -220,10 +209,7 @@ impl ScreenReaderState {
 		let mut history = self.accessible_history.lock().await;
 		history.push(new_a11y);
 	}
-	pub async fn build_cache<'a>(
-		&self,
-		dest: UniqueName<'a>,
-	) -> OdiliaResult<CacheProxy<'a>> {
+	pub async fn build_cache<'a>(&self, dest: UniqueName<'a>) -> OdiliaResult<CacheProxy<'a>> {
 		println!("CACHE SENDER: {dest}");
 		Ok(CacheProxy::builder(self.connection())
 			.destination(dest)?
@@ -231,7 +217,7 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
-	pub async fn new_accessible<T: Signified> (
+	pub async fn new_accessible<T: Signified>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {

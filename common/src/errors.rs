@@ -1,7 +1,7 @@
-use serde_plain::Error as SerdePlainError;
-use std::{error::Error, fmt, str::FromStr};
 use atspi::error::AtspiError;
+use serde_plain::Error as SerdePlainError;
 use smartstring::alias::String as SmartString;
+use std::{error::Error, fmt, str::FromStr};
 
 #[derive(Debug)]
 pub enum OdiliaError {
@@ -47,11 +47,11 @@ impl fmt::Display for OdiliaError {
 
 #[derive(Clone, Debug)]
 pub enum AccessiblePrimitiveConversionError {
-  ParseError(<i32 as FromStr>::Err),
-  ObjectConversionError(atspi::error::ObjectPathConversionError),
-  NoPathId,
-  NoFirstSectionOfSender,
-  NoSecondSectionOfSender,
+	ParseError(<i32 as FromStr>::Err),
+	ObjectConversionError(atspi::error::ObjectPathConversionError),
+	NoPathId,
+	NoFirstSectionOfSender,
+	NoSecondSectionOfSender,
 	NoSender,
 	ErrSender,
 }
@@ -67,9 +67,9 @@ impl fmt::Display for AccessiblePrimitiveConversionError {
 }
 impl std::error::Error for AccessiblePrimitiveConversionError {}
 impl From<atspi::error::ObjectPathConversionError> for AccessiblePrimitiveConversionError {
-  fn from(object_conversion_error: atspi::error::ObjectPathConversionError) -> Self {
-    Self::ObjectConversionError(object_conversion_error)
-  }
+	fn from(object_conversion_error: atspi::error::ObjectPathConversionError) -> Self {
+		Self::ObjectConversionError(object_conversion_error)
+	}
 }
 
 #[derive(Debug, Clone, thiserror::Error)]

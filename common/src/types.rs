@@ -1,5 +1,5 @@
-use serde::{self, Serialize, Deserialize};
 use atspi::text::Granularity;
+use serde::{self, Deserialize, Serialize};
 use zbus::zvariant::OwnedObjectPath;
 
 pub type Accessible = (String, OwnedObjectPath);
@@ -19,7 +19,7 @@ pub enum TextSelectionArea {
 }
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
-#[serde(rename_all="lowercase", untagged)]
+#[serde(rename_all = "lowercase", untagged)]
 pub enum AriaLive {
 	Off,
 	Assertive,
@@ -28,4 +28,3 @@ pub enum AriaLive {
 }
 
 pub type AriaAtomic = bool;
-

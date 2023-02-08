@@ -1,6 +1,6 @@
+mod cache;
 mod document;
 mod object;
-mod cache;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -146,41 +146,45 @@ pub async fn process(
 ) {
 	loop {
 		tokio::select! {
-		    event = rx.recv() => {
-			match event {
-			    Some(good_event) => {
-            let state_arc = Arc::clone(&state);
-            tokio::task::spawn(
-              dispatch_wrapper(state_arc, good_event)
-            );
-			    },
-			    None => {
-				tracing::debug!("Event was none.");
-			    }
-			};
-			continue;
+			event = rx.recv() => {
+			    match event {
+				Some(good_event) => {
+		let state_arc = Arc::clone(&state);
+		tokio::task::spawn(
+		  dispatch_wrapper(state_arc, good_event)
+		);
+				},
+				None => {
+				    tracing::debug!("Event was none.");
+				}
+			    };
+			    continue;
+			}
+			_ = shutdown_rx.recv() => {
+			    tracing::debug!("process function is done");
+			    break;
+			}
 		    }
-		    _ = shutdown_rx.recv() => {
-			tracing::debug!("process function is done");
-			break;
-		    }
-		}
 	}
 }
 
 async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
-  if let Err(e) = dispatch(&state, good_event).await {
-      tracing::error!(error = %e, "Could not handle event");
-  } else {
-      tracing::debug!("Event handled without error");
-  }
+	if let Err(e) = dispatch(&state, good_event).await {
+		tracing::error!(error = %e, "Could not handle event");
+	} else {
+		tracing::debug!("Event handled without error");
+	}
 }
 
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
 	match &event {
-		Event::Interfaces(EventInterfaces::Object(object_event)) => object::dispatch(state, object_event).await?,
-		Event::Interfaces(EventInterfaces::Document(document_event)) => document::dispatch(state, document_event).await?,
+		Event::Interfaces(EventInterfaces::Object(object_event)) => {
+			object::dispatch(state, object_event).await?
+		}
+		Event::Interfaces(EventInterfaces::Document(document_event)) => {
+			document::dispatch(state, document_event).await?
+		}
 		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
 		other_event => {
 			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event)

@@ -1,17 +1,18 @@
-use atspi::{accessible::{Role, AccessibleProxy}, accessible_ext::{AccessibleId, AccessibleExt}, text_ext::TextExt, InterfaceSet, StateSet, events::GenericEvent, convertable::Convertable};
+use atspi::{
+	accessible::{AccessibleProxy, Role},
+	accessible_ext::{AccessibleExt, AccessibleId},
+	convertable::Convertable,
+	events::GenericEvent,
+	text_ext::TextExt,
+	InterfaceSet, StateSet,
+};
+use odilia_common::{errors::AccessiblePrimitiveConversionError, result::OdiliaResult};
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
-use std::{
-	sync::Arc,
-	collections::HashMap,
-};
 use zbus::{
-  ProxyBuilder,
-  zvariant::{ObjectPath, OwnedObjectPath},
 	names::OwnedUniqueName,
-};
-use odilia_common::{
-	result::OdiliaResult,
-	errors::AccessiblePrimitiveConversionError,
+	zvariant::{ObjectPath, OwnedObjectPath},
+	ProxyBuilder,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -24,100 +25,87 @@ pub struct AccessiblePrimitive {
 	pub sender: String,
 }
 impl AccessiblePrimitive {
-  #[allow(dead_code)]
-  pub async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>> {
-    let id = self.id;
-    let sender = self.sender.clone();
-    let path: ObjectPath<'a> = id.try_into()?;
-    ProxyBuilder::new(conn)
-      .path(path)?
-      .destination(sender)?
-      .build()
-      .await
-  }
-	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> {
+	#[allow(dead_code)]
+	pub async fn into_accessible<'a>(
+		self,
+		conn: &zbus::Connection,
+	) -> zbus::Result<AccessibleProxy<'a>> {
+		let id = self.id;
+		let sender = self.sender.clone();
+		let path: ObjectPath<'a> = id.try_into()?;
+		ProxyBuilder::new(conn).path(path)?.destination(sender)?.build().await
+	}
+	pub fn from_event<T: GenericEvent>(
+		event: &T,
+	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = match event.sender() {
 			Ok(Some(s)) => s,
 			Ok(None) => return Err(AccessiblePrimitiveConversionError::NoSender),
 			Err(_) => return Err(AccessiblePrimitiveConversionError::ErrSender),
 		};
 		let id: AccessibleId = event.path().unwrap().try_into()?;
-		Ok(Self {
-			id,
-			sender: sender.to_string(),
-		})
+		Ok(Self { id, sender: sender.to_string() })
 	}
 }
 impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(atspi_accessible: atspi::events::Accessible) -> Result<AccessiblePrimitive, Self::Error> {
+	fn try_from(
+		atspi_accessible: atspi::events::Accessible,
+	) -> Result<AccessiblePrimitive, Self::Error> {
 		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
 		tuple_converter.try_into()
-  }
+	}
 }
 impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(so: (OwnedUniqueName, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0.to_string(),
-    })
-  }
+	fn try_from(
+		so: (OwnedUniqueName, OwnedObjectPath),
+	) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible_id: AccessibleId = so.1.try_into()?;
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.to_string() })
+	}
 }
 impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0,
-    })
-  }
+	fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible_id: AccessibleId = so.1.try_into()?;
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0 })
+	}
 }
 impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
-    let accessible_id: AccessibleId = so.1.try_into()?;
-    Ok(AccessiblePrimitive {
-      id: accessible_id,
-      sender: so.0,
-    })
-  }
+	fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible_id: AccessibleId = so.1.try_into()?;
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0 })
+	}
 }
 impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-    let sender = accessible.destination().to_string();
-    let id = match accessible.get_id() {
-      Some(path_id) => path_id,
-      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
-    };
-    Ok(AccessiblePrimitive {
-      id,
-      sender
-    })
-  }
+	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let sender = accessible.destination().to_string();
+		let id = match accessible.get_id() {
+			Some(path_id) => path_id,
+			None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+		};
+		Ok(AccessiblePrimitive { id, sender })
+	}
 }
 impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-  type Error = AccessiblePrimitiveConversionError;
+	type Error = AccessiblePrimitiveConversionError;
 
-  fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-    let sender = accessible.destination().to_string();
-    let id = match accessible.get_id() {
-      Some(path_id) => path_id,
-      None => return Err(AccessiblePrimitiveConversionError::NoPathId),
-    };
-    Ok(AccessiblePrimitive {
-      id,
-      sender
-    })
-  }
+	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let sender = accessible.destination().to_string();
+		let id = match accessible.get_id() {
+			Some(path_id) => path_id,
+			None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+		};
+		Ok(AccessiblePrimitive { id, sender })
+	}
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -166,9 +154,9 @@ pub struct Cache {
 }
 // clippy wants this
 impl Default for Cache {
-  fn default() -> Self {
-    Self::new()
-  }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 /// Copy all info into a plain CacheItem struct.
@@ -199,9 +187,7 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new() -> Self {
-		Self {
-			by_id: Arc::new(RwLock::new(HashMap::new()))
-		}
+		Self { by_id: Arc::new(RwLock::new(HashMap::new())) }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
@@ -244,15 +230,20 @@ impl Cache {
 	}
 
 	/// Edit a mutable CacheItem using a function which returns the edited version.
-	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it. 
+	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it.
 	/// Returns true if the update was successful.
-	pub async fn modify_item<F>(&self, id: &AccessibleId, modify: F) -> bool 
-		where F: FnOnce(&mut CacheItem) {
+	pub async fn modify_item<F>(&self, id: &AccessibleId, modify: F) -> bool
+	where
+		F: FnOnce(&mut CacheItem),
+	{
 		let mut cache_write = self.by_id.write().await;
 		let cache_item = match cache_write.get_mut(id) {
 			Some(i) => i,
 			None => {
-				tracing::trace!("The cache has the following items: {:?}", cache_write.keys());
+				tracing::trace!(
+					"The cache has the following items: {:?}",
+					cache_write.keys()
+				);
 				return false;
 			}
 		};
@@ -262,9 +253,15 @@ impl Cache {
 
 	/// get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
-	pub async fn get_or_create(&self, accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create(
+		&self,
+		accessible: &AccessibleProxy<'_>,
+	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
-		if let Some(cache_item) = self.get(&accessible.get_id().expect("Could not get ID from accessible path")).await {
+		if let Some(cache_item) = self
+			.get(&accessible.get_id().expect("Could not get ID from accessible path"))
+			.await
+		{
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -295,7 +292,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 				// get *all* the text
 				Ok(text_iface) => text_iface.get_text_ext().await,
 				// otherwise, use the name instaed
-				Err(_) => accessible.name().await
+				Err(_) => accessible.name().await,
 			}
 		},
 	)?;
@@ -311,4 +308,3 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		text,
 	})
 }
-

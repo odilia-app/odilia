@@ -91,9 +91,7 @@ mod test_config {
 
 		// Check the ParseError enum type
 		if result != parse_error_type {
-			panic!(
-				"ParseError: Expected `{parse_error_type:?}`, found `{result:?}`"
-			);
+			panic!("ParseError: Expected `{parse_error_type:?}`, found `{result:?}`");
 		}
 
 		Ok(())
