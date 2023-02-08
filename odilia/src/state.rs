@@ -224,7 +224,7 @@ impl ScreenReaderState {
 		&self,
 		dest: UniqueName<'a>,
 	) -> OdiliaResult<CacheProxy<'a>> {
-		println!("CACHE SENDER: {}", dest);
+		println!("CACHE SENDER: {dest}");
 		Ok(CacheProxy::builder(self.connection())
 			.destination(dest)?
 			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
