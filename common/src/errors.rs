@@ -41,7 +41,7 @@ impl From<AtspiError> for OdiliaError {
 }
 impl fmt::Display for OdiliaError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{:?}", self)
+		write!(f, "{self:?}")
 	}
 }
 
@@ -62,7 +62,7 @@ impl From<AccessiblePrimitiveConversionError> for OdiliaError {
 }
 impl fmt::Display for AccessiblePrimitiveConversionError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{:?}", self)
+		write!(f, "{self:?}")
 	}
 }
 impl std::error::Error for AccessiblePrimitiveConversionError {}
