@@ -1,10 +1,11 @@
 use crate::ScreenReaderState;
-use odilia_cache::AccessiblePrimitive;
 use atspi::events::{
+  GenericEvent,
 	CacheEvents,
 	AddAccessibleEvent,
 	RemoveAccessibleEvent,
 };
+use odilia_cache::atspi_cache_item_to_odilia_cache_item;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {
 	match event {
@@ -15,12 +16,12 @@ pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::R
 }
 
 pub async fn add_accessible(state: &ScreenReaderState, event: &AddAccessibleEvent) -> eyre::Result<()> {
-	let cache_item = event.to_owned().into_item().try_into()?;
+	let cache_item = atspi_cache_item_to_odilia_cache_item(state.atspi.connection(), event.to_owned().into_item()).await?;
 	state.cache.add(cache_item).await;
 	Ok(())
 }
 pub async fn remove_accessible(state: &ScreenReaderState, event: &RemoveAccessibleEvent) -> eyre::Result<()> {
-	let accessible_prim: AccessiblePrimitive = event.to_owned().into_accessible().try_into()?;
-	state.cache.remove(&accessible_prim.id).await;
+	let id = event.path().expect("Could not get path for remove accessible event; this should never happen.").try_into()?;
+	state.cache.remove(&id).await;
 	Ok(())
 }

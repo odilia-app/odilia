@@ -73,7 +73,7 @@ mod text_caret_moved {
 		let current_accessible = state.new_accessible(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
 		if previous_caret_pos != 0 &&
-			current_accessible == last_accessible {
+			current_accessible.accessible_id().await? == last_accessible.id {
 			return Ok(false);
 		}
 		// otherwise, it probably was a tab navigation
@@ -105,8 +105,7 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{accessible_ext::{AccessibleExt, AccessibleId}, identify::{object::StateChangedEvent}, signify::Signified, State};
-	use odilia_cache::{AccessiblePrimitive};
+	use atspi::{accessible_ext::{AccessibleExt}, identify::{object::StateChangedEvent}, signify::Signified, State, AccessibleId, events::GenericEvent};
 
 	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -129,11 +128,11 @@ mod state_changed {
 			},
 		};
 		let state_value = event.enabled() == 1;
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		// update cache with state of item
-		match update_state(state, &a11y_prim.id, a11y_state, state_value).await {
-			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
-			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
+    let id = event.path().expect("Can not reteive a path from this event. This should never happen.").try_into()?;
+		match update_state(state, &id, a11y_state, state_value).await {
+			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", id),
+			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", id, a11y_state),
 			Err(e) => return Err(e),
 		};
 		// Dispatch based on kind
@@ -150,19 +149,19 @@ mod state_changed {
 		let accessible =
 			state.new_accessible(event).await?;
 		if let Some(curr) = state.history_item(0).await? {
-			if curr == accessible {
+			if curr.id == accessible.accessible_id().await? {
 				return Ok(());
 			}
 		}
 
-		let (name, description, role, relation) = tokio::try_join!(
+		let (id, name, description, role, relation) = tokio::try_join!(
+      accessible.accessible_id(),
 			accessible.name(),
 			accessible.description(),
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
-		let id = accessible.get_id();
-		state.update_accessible(accessible.try_into()?).await;
+		state.update_accessible(accessible).await;
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
 

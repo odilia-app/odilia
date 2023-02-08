@@ -1,7 +1,4 @@
 use atspi::text::Granularity;
-use zbus::zvariant::OwnedObjectPath;
-
-pub type Accessible = (String, OwnedObjectPath);
 
 pub struct IndexesSelection {
 	pub start: i32,

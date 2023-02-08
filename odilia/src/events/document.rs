@@ -1,10 +1,14 @@
 use zbus::{
 	names::UniqueName,
 };
-use odilia_cache::CacheItem;
+use odilia_cache::{
+  CacheItem,
+  atspi_cache_item_to_odilia_cache_item,
+};
 
 use crate::state::ScreenReaderState;
 use atspi::{
+  AccessibleId,
 	events::GenericEvent,
 	identify::document::DocumentEvents,
 	identify::document::LoadCompleteEvent,
@@ -17,17 +21,8 @@ pub async fn load_complete(state: &ScreenReaderState, event: &LoadCompleteEvent)
 	let entire_cache = cache.get_items().await?;
 	let mut cache_items = Vec::new();
 	for item in entire_cache {
-		cache_items.push(CacheItem {
-			object: item.object.try_into().expect("Could not create AccessiblePrimitive from parts"),
-			app: item.app.try_into().expect("Could not create AccessiblePrimitive from parts for application"),
-			parent: item.parent.try_into().expect("Could not create AccessiblePrimitive from parts for parent"),
-			index: item.index,
-			children: item.children,
-			ifaces: item.ifaces,
-			role: item.role,
-			states: item.states,
-			text: item.name.clone(),
-		});
+    let odilia_cache_item = atspi_cache_item_to_odilia_cache_item(state.atspi.connection(), item).await?;
+		cache_items.push(odilia_cache_item);
 	}
 	state.cache.add_all(cache_items).await;
 	tracing::debug!("Add an entire document to cache.");

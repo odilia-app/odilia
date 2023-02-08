@@ -8,10 +8,10 @@ use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, M
 
 use odilia_cache::{
 	Cache,
-	AccessiblePrimitive,
+  CacheItem,
 };
 use atspi::{
-	accessible::AccessibleProxy, accessible_ext::{AccessibleExt}, cache::CacheProxy,
+	accessible::{AccessibleProxy, ObjectPair}, accessible_ext::{AccessibleExt}, cache::CacheProxy,
 	convertable::Convertable, text::Granularity,
 	signify::Signified,
 };
@@ -28,7 +28,7 @@ pub struct ScreenReaderState {
 	pub previous_caret_position: AtomicI32,
 	pub mode: Mutex<ScreenReaderMode>,
 	pub granularity: Mutex<Granularity>,
-	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
+	pub accessible_history: Mutex<CircularQueue<ObjectPair>>,
 	pub event_history: Mutex<CircularQueue<atspi::Event>>,
 	pub cache: Cache,
 }
@@ -199,26 +199,29 @@ impl ScreenReaderState {
 	pub async fn history_item<'a>(
 		&self,
 		index: usize,
-	) -> OdiliaResult<Option<AccessibleProxy<'a>>> {
+	) -> OdiliaResult<Option<CacheItem>> {
 		let history = self.accessible_history.lock().await;
 		if history.len() <= index {
 			return Ok(None);
 		}
-		let a11y_prim = {
-			history
+		let object_pair = match history
 				.iter()
 				.nth(index)
-				.expect("Looking for invalid index in accessible history")
-				.to_owned()
-		};
-		let a11y = a11y_prim.into_accessible(self.connection()).await?;
-		Ok(Some(a11y))
+        .to_owned() {
+      Some(id) => id,
+      None => {
+        return Ok(None);
+      },
+    };
+    let cache_item = self.cache.get(object_pair.1).await;
+		Ok(cache_item)
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
+	pub async fn update_accessible<T: TryInto<ObjectPair>>(&self, new_a11y: T) -> OdiliaResult<()> {
 		let mut history = self.accessible_history.lock().await;
-		history.push(new_a11y);
+		history.push(new_a11y.try_into()?);
+    Ok(())
 	}
 	pub async fn build_cache<'a>(
 		&self,

@@ -1,4 +1,4 @@
-use atspi::{AccessibleId, accessible::{Accessible, AccessibleProxy, Role}, InterfaceSet, StateSet};
+use atspi::{AccessibleId, convertable::Convertable, accessible::{Accessible, ObjectPair, AccessibleProxy, Role}, InterfaceSet, StateSet, text_ext::TextExt};
 use tokio::sync::RwLock;
 use std::{
 	sync::Arc,
@@ -6,6 +6,11 @@ use std::{
 };
 use odilia_common::{
 	result::OdiliaResult,
+  errors::OdiliaError,
+};
+use zbus::{
+  zvariant::OwnedObjectPath,
+  Connection,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -15,8 +20,6 @@ pub struct CacheItem {
   pub id: AccessibleId,
   // the sender, usually an X11 window ID.
   pub sender: String,
-	// The accessible object (within the application)   (so)
-	pub object: AccessibleId,
 	// The application (root object(?)    (so)
 	pub app: AccessibleId,
 	// The parent object.  (so)
@@ -24,7 +27,9 @@ pub struct CacheItem {
 	// The accessbile index in parent.  i
 	pub index: i32,
 	// Child count of the accessible  i
-	pub children: i32,
+	pub child_count: i32,
+  // Children IDs.
+  pub children: Vec<AccessibleId>,
 	// The exposed interfece(s) set.  as
 	pub ifaces: InterfaceSet,
 	// Accessible role. u
@@ -33,6 +38,12 @@ pub struct CacheItem {
 	pub states: StateSet,
 	// The text of the accessible.
 	pub text: String,
+}
+impl TryInto<ObjectPair> for CacheItem {
+  type Error = OdiliaError;
+  fn try_into(self) -> OdiliaResult<ObjectPair> {
+    Ok((self.sender, self.id))
+  }
 }
 
 /// The root of the accessible cache.
@@ -53,12 +64,12 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 	CacheItem {
     id: cache_item_with_handle.id,
     sender: cache_item_with_handle.sender.clone(),
-		object: cache_item_with_handle.object.clone(),
-		parent: cache_item_with_handle.parent.clone(),
+		parent: cache_item_with_handle.parent,
 		states: cache_item_with_handle.states,
 		role: cache_item_with_handle.role,
-		app: cache_item_with_handle.app.clone(),
-		children: cache_item_with_handle.children,
+		app: cache_item_with_handle.app,
+		child_count: cache_item_with_handle.child_count,
+    children: cache_item_with_handle.children.clone(),
 		ifaces: cache_item_with_handle.ifaces,
 		index: cache_item_with_handle.index,
 		text: cache_item_with_handle.text.clone(),
@@ -83,7 +94,7 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
 		let mut cache_writer = self.by_id.write().await;
-		cache_writer.insert(cache_item.object, cache_item);
+		cache_writer.insert(cache_item.id, cache_item);
 	}
 	/// remove a single cache item
 	pub async fn remove(&self, id: &AccessibleId) {
@@ -92,9 +103,10 @@ impl Cache {
 	}
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
-	pub async fn get(&self, id: &AccessibleId) -> Option<CacheItem> {
+	pub async fn get<T: TryInto<AccessibleId>>(&self, to_id: T) -> Option<CacheItem> {
 		let read_handle = self.by_id.read().await;
-		read_handle.get(id).cloned()
+    let id = to_id.try_into().ok()?;
+		read_handle.get(&id).cloned()
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
@@ -108,7 +120,7 @@ impl Cache {
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
 		let mut cache_writer = self.by_id.write().await;
 		cache_items.into_iter().for_each(|cache_item| {
-			cache_writer.insert(cache_item.object, cache_item);
+			cache_writer.insert(cache_item.id, cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -141,7 +153,7 @@ impl Cache {
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
 	pub async fn get_or_create(&self, accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
-		if let Some(cache_item) = self.get(&accessible.accessible_id().await?).await {
+		if let Some(cache_item) = self.get(accessible.accessible_id().await?).await {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -158,7 +170,7 @@ impl Cache {
 }
 
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (id, app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
+	let (id, app, parent, index, child_count, ifaces, role, states, text, children) = tokio::try_join!(
     accessible.accessible_id(),
 		Accessible::get_application(accessible),
 		Accessible::parent(accessible),
@@ -168,16 +180,20 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_role(),
 		accessible.get_state(),
 		accessible.name(),
+    Accessible::get_children(accessible),
 	)?;
   let sender = accessible.destination().to_string();
+  let child_ids = children.iter()
+    .map(|l| l.path().try_into().unwrap())
+  .collect();
 	Ok(CacheItem {
     id,
     sender,
-		object: accessible.accessible_id().await?,
 		app: app.accessible_id().await?,
 		parent: parent.accessible_id().await?,
 		index,
-		children,
+		child_count,
+    children: child_ids,
 		ifaces,
 		role,
 		states,
@@ -185,3 +201,35 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 	})
 }
 
+pub async fn create_accessible_proxy_from_atspi_cache_item<'a>(connection: &Connection, cache_item: &atspi::cache::CacheItem) -> OdiliaResult<AccessibleProxy<'a>> {
+  Ok(AccessibleProxy::builder(connection)
+    .path(OwnedObjectPath::try_from(cache_item.object.1.to_string())?)?
+    .destination(cache_item.object.0.clone())?
+    .build()
+    .await?)
+}
+
+pub async fn atspi_cache_item_to_odilia_cache_item(connection: &Connection, cache_item: atspi::cache::CacheItem) -> OdiliaResult<CacheItem> {
+  let accessible = create_accessible_proxy_from_atspi_cache_item(connection, &cache_item).await?;
+  let text_iface = accessible.to_text().await?;
+	let (text, children) = (
+    text_iface.get_all_text().await?,
+    Accessible::get_children(&accessible).await?,
+	);
+  let child_ids = children.iter()
+    .map(|l| l.path().try_into().unwrap())
+  .collect();
+	Ok(CacheItem {
+    id: cache_item.object.1,
+    sender: cache_item.object.0,
+		app: cache_item.app.1,
+		parent: cache_item.parent.1,
+		index: cache_item.index,
+		child_count: cache_item.children,
+    children: child_ids,
+		ifaces: cache_item.ifaces,
+		role: cache_item.role,
+		states: cache_item.states,
+		text,
+	})
+}

@@ -25,6 +25,7 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use ssip_client::Priority;
+use odilia_cache::CacheItem;
 
 pub async fn structural_navigation(
 	state: &ScreenReaderState,
@@ -52,7 +53,7 @@ pub async fn structural_navigation(
 		let texti = next.to_text().await?;
 		let _ = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
-		state.update_accessible(curr.try_into().unwrap()).await;
+		state.update_accessible(curr).await;
 		let _ = texti.set_caret_offset(0).await?;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
