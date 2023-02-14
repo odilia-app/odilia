@@ -56,7 +56,7 @@ You will also want to compile and install sohkd.
 ```shell
 cd sohkd && \
 cargo build --release && \
-cargo install --path sohkd
+cargo install --path .
 ```
 
 ## Running
