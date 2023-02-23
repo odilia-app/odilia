@@ -16,7 +16,7 @@ use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
 use ssip_client::Priority;
 
-use atspi::events::{HasMatchRule, HasRegistryEventString};
+
 use atspi::identify::{document, object};
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
