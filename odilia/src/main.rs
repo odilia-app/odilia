@@ -16,6 +16,9 @@ use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
 use ssip_client::Priority;
 
+
+use atspi::identify::{document, object};
+
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
 	let mut c = signal(SignalKind::interrupt())?;
 	tracing::debug!("Watching for Ctrl+C");
@@ -56,11 +59,11 @@ async fn main() -> eyre::Result<()> {
 
 	// Register events
 	tokio::try_join!(
-		state.register_event("Object:StateChanged"),
-		state.register_event("Object:TextCaretMoved"),
-		state.register_event("Object:ChildrenChanged"),
-		state.register_event("Object:TextChanged"),
-		state.register_event("Document:LoadComplete"),
+		state.register_event::<object::StateChangedEvent>(),
+		state.register_event::<object::TextCaretMovedEvent>(),
+		state.register_event::<object::ChildrenChangedEvent>(),
+		state.register_event::<object::TextChangedEvent>(),
+		state.register_event::<document::LoadCompleteEvent>(),
 		state.add_cache_match_rule(),
 	)?;
 
