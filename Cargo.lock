@@ -153,27 +153,34 @@ checksum = "debc29dde2e69f9e47506b525f639ed42300fc014a3e007832592448fa8e4599"
 
 [[package]]
 name = "atspi"
-version = "0.10.1"
-source = "git+https://github.com/odilia-app/atspi?branch=main#7fc8c1d03a5840c1ca6b0d2ac03960da0b488c52"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a4fe2da6b2e09c74e9f13f52afb8634f77540e3fc93bdc8a136841a09cce61b"
 dependencies = [
- "async-recursion",
  "async-trait",
  "atspi-macros",
  "enumflags2",
  "futures-lite",
  "serde",
+ "static_assertions",
  "tracing",
  "zbus",
- "zbus_names",
 ]
 
 [[package]]
 name = "atspi-macros"
-version = "0.2.0"
-source = "git+https://github.com/odilia-app/atspi?branch=main#7fc8c1d03a5840c1ca6b0d2ac03960da0b488c52"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6432c4e25d26a53ca417bb61794f87ab2445b2468fdbd74ede295455a0fac2f0"
 dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
  "quote",
+ "regex",
+ "serde",
  "syn",
+ "zbus",
+ "zvariant",
 ]
 
 [[package]]
@@ -1093,6 +1100,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-xml-rs"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0bf1ba0696ccf0872866277143ff1fd14d22eec235d2b23702f95e6660f7dfa"
+dependencies = [
+ "log",
+ "serde",
+ "thiserror",
+ "xml-rs",
+]
+
+[[package]]
 name = "serde_derive"
 version = "1.0.152"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1797,13 +1816,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "xml-rs"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d2d7d3948613f75c98fd9328cfdcc45acc4d360655289d0a7d4ec931392200a3"
+
+[[package]]
 name = "zbus"
 version = "3.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f770930448dd412a4a7131dd968a8e6df0064db4d7916fbbd2d6c3f26b566938"
 dependencies = [
  "async-broadcast",
+ "async-executor",
+ "async-io",
+ "async-lock",
  "async-recursion",
+ "async-task",
  "async-trait",
  "byteorder",
  "derivative",
@@ -1820,6 +1849,7 @@ dependencies = [
  "ordered-stream",
  "rand",
  "serde",
+ "serde-xml-rs",
  "serde_repr",
  "sha1",
  "static_assertions",

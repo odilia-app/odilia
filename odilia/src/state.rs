@@ -14,7 +14,7 @@ use atspi::{
 	events::{HasMatchRule, HasRegistryEventString},
 	signify::Signified,
 	text::Granularity,
-	AccessibilityBus,
+	AccessibilityConnection,
 };
 use odilia_cache::{AccessiblePrimitive, Cache};
 use odilia_common::{
@@ -23,7 +23,7 @@ use odilia_common::{
 };
 
 pub struct ScreenReaderState {
-	pub atspi: AccessibilityBus,
+	pub atspi: AccessibilityConnection,
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
 	pub config: ApplicationConfig,
@@ -38,7 +38,7 @@ pub struct ScreenReaderState {
 impl ScreenReaderState {
 	#[tracing::instrument]
 	pub async fn new(ssip: Sender<SSIPRequest>) -> eyre::Result<ScreenReaderState> {
-		let atspi = AccessibilityBus::open()
+		let atspi = AccessibilityConnection::open()
 			.await
 			.wrap_err("Could not connect to at-spi bus")?;
 		let dbus = DBusProxy::new(atspi.connection())
