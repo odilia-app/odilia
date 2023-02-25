@@ -370,7 +370,8 @@ dependencies = [
 [[package]]
 name = "criterion"
 version = "0.4.0"
-source = "git+https://github.com/bheisler/criterion.rs?rev=refs/pull/656/head#102d8e134adc0023df8bba35ae0dec3f611734a2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e7c76e09c1aae2bc52b3d2f29e13c6572553b30c4aa1b8a49fd70de6412654cb"
 dependencies = [
  "anes",
  "atty",
@@ -380,8 +381,8 @@ dependencies = [
  "criterion-plot",
  "futures",
  "itertools",
+ "lazy_static",
  "num-traits",
- "once_cell",
  "oorandom",
  "plotters",
  "rayon",
@@ -397,7 +398,8 @@ dependencies = [
 [[package]]
 name = "criterion-plot"
 version = "0.5.0"
-source = "git+https://github.com/bheisler/criterion.rs?rev=refs/pull/656/head#102d8e134adc0023df8bba35ae0dec3f611734a2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
 dependencies = [
  "cast",
  "itertools",
