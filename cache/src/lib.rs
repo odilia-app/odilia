@@ -9,7 +9,8 @@ use atspi::{
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use odilia_common::{errors::AccessiblePrimitiveConversionError, errors::OdiliaError, result::OdiliaResult};
+use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError}, result::OdiliaResult};
+use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 use zbus::{
@@ -18,7 +19,7 @@ use zbus::{
 	ProxyBuilder,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
@@ -125,7 +126,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	}
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)   (so)
@@ -166,6 +167,7 @@ impl TryFrom<atspi::cache::CacheItem> for CacheItem {
 }
 
 /// The root of the accessible cache.
+#[derive(Clone)]
 pub struct Cache {
 	pub by_id: Arc<RwLock<HashMap<AccessibleId, CacheItem>>>,
 }
