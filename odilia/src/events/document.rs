@@ -1,10 +1,9 @@
-use odilia_cache::CacheItem;
-
 use crate::state::ScreenReaderState;
 use atspi::{
 	events::GenericEvent, identify::document::DocumentEvents,
 	identify::document::LoadCompleteEvent,
 };
+use odilia_cache::CacheItem;
 
 pub async fn load_complete(
 	state: &ScreenReaderState,
@@ -12,10 +11,10 @@ pub async fn load_complete(
 ) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
 	let cache = state.build_cache(sender.clone()).await?;
+	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;
-	let mut cache_items = Vec::new();
 	for item in entire_cache {
-		cache_items.push(CacheItem {
+		state.cache.add(CacheItem {
 			object: item
 				.object
 				.try_into()
@@ -32,9 +31,8 @@ pub async fn load_complete(
 			role: item.role,
 			states: item.states,
 			text: item.name.clone(),
-		});
+		}).await;
 	}
-	state.cache.add_all(cache_items).await;
 	tracing::debug!("Add an entire document to cache.");
 	Ok(())
 }
