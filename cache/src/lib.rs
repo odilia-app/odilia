@@ -1,12 +1,14 @@
+//#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
+
 use atspi::{
 	accessible::{AccessibleProxy, Role},
-	accessible_ext::{AccessibleExt, AccessibleId},
+	accessible_id::{HasAccessibleId, AccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use odilia_common::{errors::AccessiblePrimitiveConversionError, result::OdiliaResult};
+use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError}, result::OdiliaResult};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
@@ -38,13 +40,20 @@ impl AccessiblePrimitive {
 	}
 	pub fn from_event<T: GenericEvent>(
 		event: &T,
-	) -> Result<Self, AccessiblePrimitiveConversionError> {
+	) -> Result<Self, OdiliaError> {
 		let sender = match event.sender() {
 			Ok(Some(s)) => s,
-			Ok(None) => return Err(AccessiblePrimitiveConversionError::NoSender),
-			Err(_) => return Err(AccessiblePrimitiveConversionError::ErrSender),
+			Ok(None) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoSender)),
+			Err(_) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::ErrSender)),
 		};
-		let id: AccessibleId = event.path().unwrap().try_into()?;
+		let path = match event.path() {
+			Some(path) => path,
+			None => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoPathId)),
+		};
+		let id: AccessibleId = match path.try_into() {
+			Ok(id) => id,
+			Err(e) => return Err(OdiliaError::Zvariant(e)),
+		};
 		Ok(Self { id, sender: sender.to_string() })
 	}
 }
@@ -76,8 +85,15 @@ impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
 		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0 })
 	}
 }
-impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
+impl TryFrom<(String, AccessibleId)> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
+
+	fn try_from(so: (String, AccessibleId)) -> Result<AccessiblePrimitive, Self::Error> {
+		Ok(AccessiblePrimitive { id: so.1, sender: so.0 })
+	}
+}
+impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
+	type Error = OdiliaError;
 
 	fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id: AccessibleId = so.1.try_into()?;
@@ -89,9 +105,9 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().to_string();
-		let id = match accessible.get_id() {
-			Some(path_id) => path_id,
-			None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+		let id = match accessible.id() {
+			Ok(path_id) => path_id,
+			Err(_) => return Err(AccessiblePrimitiveConversionError::NoPathId),
 		};
 		Ok(AccessiblePrimitive { id, sender })
 	}
@@ -101,9 +117,9 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().to_string();
-		let id = match accessible.get_id() {
-			Some(path_id) => path_id,
-			None => return Err(AccessiblePrimitiveConversionError::NoPathId),
+		let id = match accessible.id() {
+			Ok(path_id) => path_id,
+			Err(_) => return Err(AccessiblePrimitiveConversionError::NoPathId),
 		};
 		Ok(AccessiblePrimitive { id, sender })
 	}
@@ -261,7 +277,7 @@ impl Cache {
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self
-			.get(&accessible.get_id().expect("Could not get ID from accessible path"))
+			.get(&accessible.id().expect("Could not get ID from accessible path"))
 			.await
 		{
 			return Ok(cache_item);
@@ -280,7 +296,7 @@ impl Cache {
 }
 
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (app, parent, index, children, ifaces, role, states, text) = tokio::try_join!(
+	let (app, parent, index, children, ifaces, role, states) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
 		accessible.get_index_in_parent(),
@@ -288,16 +304,14 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_interfaces(),
 		accessible.get_role(),
 		accessible.get_state(),
-		async {
-			// if it implements the Text interface
-			match accessible.to_text().await {
-				// get *all* the text
-				Ok(text_iface) => text_iface.get_text_ext().await,
-				// otherwise, use the name instaed
-				Err(_) => accessible.name().await,
-			}
-		},
 	)?;
+	// if it implements the Text interface
+	let text = match accessible.to_text().await {
+		// get *all* the text
+		Ok(text_iface) => text_iface.get_all_text().await,
+		// otherwise, use the name instaed
+		Err(_) => Ok(accessible.name().await?),
+	}?;
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.try_into()?,

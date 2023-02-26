@@ -12,6 +12,7 @@ pub enum OdiliaError {
 	Zbus(zbus::Error),
 	ZbusFdo(zbus::fdo::Error),
 	Zvariant(zbus::zvariant::Error),
+	InfallibleConversion(std::convert::Infallible),
 }
 impl Error for OdiliaError {}
 impl From<zbus::fdo::Error> for OdiliaError {

@@ -30,7 +30,7 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { git = "https://github.com/odilia-app/atspi", branch = "main", default-features = false, features = ["tokio"] }
+atspi = { version = "0.11.0", features = ["tokio", "unstable-traits"] }
 eyre = "0.6.8"
 nix = "0.25.0"
 serde_json = "1.0.89"

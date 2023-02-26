@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use atspi::accessible_ext::AccessibleId;
+use atspi::accessible_id::AccessibleId;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{Cache, CacheItem};
 use rand::seq::SliceRandom;

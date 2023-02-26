@@ -366,7 +366,8 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_ext::{AccessibleExt, AccessibleId},
+		accessible_ext::AccessibleExt,
+		accessible_id::{AccessibleId, HasAccessibleId},
 		identify::object::StateChangedEvent,
 		signify::Signified,
 		State,
@@ -448,7 +449,7 @@ mod state_changed {
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
-		let id = accessible.get_id();
+		let id = accessible.id();
 		state.update_accessible(accessible.try_into()?).await;
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
