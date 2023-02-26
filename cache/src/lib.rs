@@ -2,7 +2,6 @@
 
 use atspi::{
 	accessible::{AccessibleProxy, Role},
-	accessible_ext::AccessibleExt,
 	accessible_id::{HasAccessibleId, AccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
