@@ -366,7 +366,6 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_ext::AccessibleExt,
 		accessible_id::{AccessibleId, HasAccessibleId},
 		identify::object::StateChangedEvent,
 		signify::Signified,

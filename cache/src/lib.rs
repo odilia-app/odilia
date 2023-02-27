@@ -1,16 +1,19 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
+use std::{collections::HashMap, sync::Arc};
 
 use atspi::{
 	accessible::{AccessibleProxy, Role},
-	accessible_ext::AccessibleExt,
-	accessible_id::{HasAccessibleId, AccessibleId},
+	accessible_id::{AccessibleId, HasAccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use odilia_common::{errors::AccessiblePrimitiveConversionError, errors::OdiliaError, result::OdiliaResult};
-use std::{collections::HashMap, sync::Arc};
+use odilia_common::{
+	errors::{AccessiblePrimitiveConversionError, OdiliaError},
+	result::OdiliaResult,
+};
+use serde::{Deserialize, Serialize};
 use tokio::sync::RwLock;
 use zbus::{
 	names::OwnedUniqueName,
@@ -18,7 +21,7 @@ use zbus::{
 	ProxyBuilder,
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
@@ -38,17 +41,27 @@ impl AccessiblePrimitive {
 		let path: ObjectPath<'a> = id.try_into()?;
 		ProxyBuilder::new(conn).path(path)?.destination(sender)?.build().await
 	}
-	pub fn from_event<T: GenericEvent>(
-		event: &T,
-	) -> Result<Self, OdiliaError> {
+	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, OdiliaError> {
 		let sender = match event.sender() {
 			Ok(Some(s)) => s,
-			Ok(None) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoSender)),
-			Err(_) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::ErrSender)),
+			Ok(None) => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::NoSender,
+				))
+			}
+			Err(_) => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::ErrSender,
+				))
+			}
 		};
 		let path = match event.path() {
 			Some(path) => path,
-			None => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoPathId)),
+			None => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::NoPathId,
+				))
+			}
 		};
 		let id: AccessibleId = match path.try_into() {
 			Ok(id) => id,
@@ -125,7 +138,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	}
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)   (so)
@@ -166,6 +179,7 @@ impl TryFrom<atspi::cache::CacheItem> for CacheItem {
 }
 
 /// The root of the accessible cache.
+#[derive(Clone)]
 pub struct Cache {
 	pub by_id: Arc<RwLock<HashMap<AccessibleId, CacheItem>>>,
 }

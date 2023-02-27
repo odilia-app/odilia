@@ -11,7 +11,7 @@ use atspi::{
 	accessible_ext::AccessibleExt,
 	cache::CacheProxy,
 	convertable::Convertable,
-	events::{HasMatchRule, HasRegistryEventString},
+	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
 	signify::Signified,
 	text::Granularity,
 	AccessibilityConnection,
@@ -242,21 +242,4 @@ impl ScreenReaderState {
 		self.dbus.add_match_rule(cache_rule).await?;
 		Ok(())
 	}
-}
-use atspi::events::GenericEvent;
-
-/// Converts an at-spi event string ("Object:StateChanged:Focused"), into a DBus match rule ("type='signal',interface='org.a11y.atspi.Event.Object',member='StateChanged'")
-fn event_to_match_rule(event: &str) -> OdiliaResult<zbus::MatchRule> {
-	let mut components = event.split(':');
-	let interface = components
-		.next()
-		.expect("Event should consist of at least 2 components separated by ':'");
-	let member = components
-		.next()
-		.expect("Event should consist of at least 2 components separated by ':'");
-	Ok(MatchRule::builder()
-		.msg_type(MessageType::Signal)
-		.interface(format!("org.a11y.atspi.Event.{interface}"))?
-		.member(member)?
-		.build())
 }
