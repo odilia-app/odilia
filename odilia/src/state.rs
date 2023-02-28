@@ -18,7 +18,7 @@ use atspi::{
 };
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::OdiliaError, modes::ScreenReaderMode, settings::ApplicationConfig,
+	errors::{OdiliaError, CacheError}, modes::ScreenReaderMode, settings::ApplicationConfig,
 	types::TextSelectionArea, Result as OdiliaResult,
 };
 use std::sync::Arc;
@@ -83,6 +83,33 @@ impl ScreenReaderState {
 			event_history,
 			cache,
 		})
+	}
+
+	pub async fn get_or_create_atspi_cache_item_to_cache(&self, atspi_cache_item: atspi::cache::CacheItem) -> OdiliaResult<CacheItem> {
+		let prim = atspi_cache_item.object.clone().try_into()?;
+		if self.cache.get(&prim).await.is_none() {
+			self.cache.add(
+				CacheItem::from_atspi_cache_item(
+					atspi_cache_item,
+					Arc::clone(&self.cache),
+					self.atspi.connection(),
+				).await?
+			).await;
+		}
+		self.cache.get(&prim).await.ok_or(CacheError::NoItem.into())
+	}
+	pub async fn get_or_create_event_object_to_cache<T: Signified>(&self, event: &T) -> OdiliaResult<CacheItem> {
+		let prim = AccessiblePrimitive::from_event(event)?;
+		if self.cache.get(&prim).await.is_none() {
+			self.cache.add(
+				CacheItem::from_atspi_event(
+					event,
+					Arc::clone(&self.cache),
+					self.atspi.connection(),
+				).await?
+			).await;
+		}
+		self.cache.get(&prim).await.ok_or(CacheError::NoItem.into())
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
@@ -228,8 +255,7 @@ impl ScreenReaderState {
 			.path(accessible.id.to_string())?
 			.build()
 			.await?;
-		let cloned_arc = Arc::clone(&self.cache);
-		self.cache.get_or_create(&accessible_proxy, &cloned_arc).await
+		self.cache.get_or_create(&accessible_proxy, Arc::clone(&self.cache)).await
 	}
 	pub async fn new_accessible<T: Signified>(
 		&self,

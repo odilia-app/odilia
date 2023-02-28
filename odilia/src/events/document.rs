@@ -1,12 +1,8 @@
 use crate::state::ScreenReaderState;
 use atspi::{
 	events::GenericEvent, identify::document::DocumentEvents,
-	identify::document::LoadCompleteEvent, accessible::AccessibleProxy,
+	identify::document::LoadCompleteEvent,
 };
-use odilia_cache::{CacheItem, AccessiblePrimitive};
-use odilia_common::errors::AccessiblePrimitiveConversionError;
-
-use std::sync::Arc;
 
 pub async fn load_complete(
 	state: &ScreenReaderState,
@@ -17,8 +13,7 @@ pub async fn load_complete(
 	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;
 	for item in entire_cache {
-		let odilia_cache_item = CacheItem::from_atspi_cache_item(item, Arc::clone(&state.cache), state.atspi.connection()).await?;
-		state.cache.add(odilia_cache_item).await;
+		state.get_or_create_atspi_cache_item_to_cache(item).await?;
 	}
 	tracing::debug!("Add an entire document to cache.");
 	Ok(())

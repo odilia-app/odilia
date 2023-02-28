@@ -1,7 +1,6 @@
 use crate::ScreenReaderState;
 use atspi::events::{AddAccessibleEvent, CacheEvents, RemoveAccessibleEvent};
-use odilia_cache::{AccessiblePrimitive, CacheItem};
-use std::sync::Arc;
+use odilia_cache::AccessiblePrimitive;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {
 	match event {
@@ -18,12 +17,7 @@ pub async fn add_accessible(
 	let atspi_cache_item = event
 		.to_owned()
 		.into_item();
-	let odilia_cache_item = CacheItem::from_atspi_cache_item(
-		atspi_cache_item,
-		Arc::clone(&state.cache),
-		state.atspi.connection()
-	).await?;
-	state.cache.add(odilia_cache_item).await;
+	state.get_or_create_atspi_cache_item_to_cache(atspi_cache_item).await?;
 	Ok(())
 }
 pub async fn remove_accessible(

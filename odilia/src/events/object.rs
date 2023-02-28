@@ -35,7 +35,6 @@ mod text_changed {
 	use ssip_client::Priority;
 	use std::{
 		collections::HashMap,
-		sync::Arc,
 	};
 
 	#[inline]
@@ -206,7 +205,7 @@ mod text_changed {
 		insert: bool,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let cache_item = state.cache.get_or_create(&accessible, &Arc::clone(&state.cache)).await?;
+		let cache_item = state.get_or_create_event_object_to_cache(event).await?;
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
@@ -257,7 +256,7 @@ mod text_changed {
 mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		events::GenericEvent, identify::object::ChildrenChangedEvent, signify::Signified,
+		identify::object::ChildrenChangedEvent, signify::Signified,
 	};
 	use odilia_cache::AccessiblePrimitive;
 	use std::sync::Arc;
@@ -281,8 +280,7 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let arc_clone = Arc::clone(&state.cache);
-		let _ = state.cache.get_or_create(&accessible, &arc_clone).await;
+		let _ = state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -301,7 +299,7 @@ mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use odilia_cache::CacheItem;
 	use atspi::{
-		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified, AccessibleId
+		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified
 	};
 	use ssip_client::Priority;
 	use std::{
@@ -406,7 +404,7 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_id::{AccessibleId, HasAccessibleId},
+		accessible_id::HasAccessibleId,
 		identify::object::StateChangedEvent,
 		signify::Signified,
 		State,
@@ -442,7 +440,7 @@ mod state_changed {
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ci = state.cache.get_or_create(&accessible, &Arc::clone(&state.cache)).await?;
+		let _ci = state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
