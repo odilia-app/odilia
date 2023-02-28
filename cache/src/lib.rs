@@ -1,5 +1,6 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
 
+use dashmap::DashMap;
 use atspi::{
 	accessible::{AccessibleProxy, Accessible, Role},
 	accessible_id::{HasAccessibleId, AccessibleId},
@@ -20,8 +21,8 @@ use zbus::{
 };
 
 type CacheKey = AccessiblePrimitive;
-type InnerCacheType = HashMap<CacheKey, CacheItem>;
-type ConcurrentSafeCacheType = RwLock<InnerCacheType>;
+type InnerCacheType = DashMap<CacheKey, CacheItem>;
+type ConcurrentSafeCacheType = InnerCacheType;
 type ThreadSafeCacheType = Arc<ConcurrentSafeCacheType>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -280,45 +281,39 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new() -> Self {
-		Self { by_id: Arc::new(RwLock::new(HashMap::new())) }
+		Self { by_id: Arc::new(DashMap::new()) }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
-		let mut cache_writer = self.by_id.write().await;
-		cache_writer.insert(cache_item.object.clone(), cache_item);
+		self.by_id.insert(cache_item.object.clone(), cache_item);
 	}
 	/// remove a single cache item
 	pub async fn remove(&self, id: &CacheKey) {
-		let mut cache_writer = self.by_id.write().await;
-		cache_writer.remove(id);
+		self.by_id.remove(id);
 	}
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
 	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		let read_handle = self.by_id.read().await;
-		read_handle.get(id).cloned()
+		self.by_id.get(id).as_deref().cloned()
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
 	pub async fn get_all(&self, ids: &Vec<CacheKey>) -> Vec<Option<CacheItem>> {
-		let read_handle = self.by_id.read().await;
 		ids.iter()
-			.map(|id| read_handle.get(id).map(copy_into_cache_item))
+			.map(|id| self.by_id.get(id).as_deref().cloned())
 			.collect()
 	}
 	/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
-		let mut cache_writer = self.by_id.write().await;
 		cache_items.into_iter().for_each(|cache_item| {
-			cache_writer.insert(cache_item.object.clone(), cache_item);
+			self.by_id.insert(cache_item.object.clone(), cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
 	pub async fn remove_all(&self, ids: Vec<CacheKey>) {
-		let mut cache_writer = self.by_id.write().await;
 		ids.iter().for_each(|id| {
-			cache_writer.remove(id);
+			self.by_id.remove(id);
 		});
 	}
 
@@ -329,18 +324,17 @@ impl Cache {
 	where
 		F: FnOnce(&mut CacheItem),
 	{
-		let mut cache_write = self.by_id.write().await;
-		let cache_item = match cache_write.get_mut(id) {
+		let mut cache_item = match self.by_id.get_mut(id) {
 			Some(i) => i,
 			None => {
 				tracing::trace!(
-					"The cache has the following items: {:?}",
-					cache_write.keys()
+					"The cache does not contain the requested item: {:?}",
+					id
 				);
 				return false;
 			}
 		};
-		modify(cache_item);
+		modify(&mut cache_item);
 		true
 	}
 

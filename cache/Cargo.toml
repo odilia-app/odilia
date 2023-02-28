@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 atspi.workspace = true
 odilia-common = { path = "../common" }
+dashmap = "5.4.0"
 serde = "1.0.147"
 tokio.workspace = true
 tracing.workspace = true
