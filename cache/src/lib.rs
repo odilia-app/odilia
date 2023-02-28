@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc, sync::Weak};
 use tokio::sync::RwLock;
 use zbus::{
+	CacheProperties,
 	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
 	ProxyBuilder,
@@ -43,7 +44,7 @@ impl AccessiblePrimitive {
 		let id = self.id;
 		let sender = self.sender.clone();
 		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn).path(path)?.destination(sender)?.build().await
+		ProxyBuilder::new(conn).path(path)?.destination(sender)?.cache_properties(CacheProperties::No).build().await
 	}
 	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, OdiliaError> {
 		let sender = match event.sender() {
@@ -167,7 +168,7 @@ pub struct CacheItem {
 	pub children: Vec<AccessiblePrimitive>,
 
 	#[serde(skip)]
-	pub cache: Weak<ConcurrentSafeCacheType>,
+	pub cache: Weak<Cache>,
 }
 /*
 impl TryFrom<atspi::cache::CacheItem> for CacheItem {
@@ -188,6 +189,31 @@ impl TryFrom<atspi::cache::CacheItem> for CacheItem {
 	}
 }
 */
+impl CacheItem {
+	pub async fn from_atspi_cache_item(atspi_cache_item: atspi::cache::CacheItem, cache: Arc<Cache>, connection: &zbus::Connection) -> OdiliaResult<Self> {
+		let children_primitives: Vec<AccessiblePrimitive> = AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
+			.into_accessible(connection)
+			.await?
+			.get_children()
+			.await?
+			.into_iter()
+			.map(|child_object_pair| child_object_pair.try_into())
+			.collect::<Result<Vec<AccessiblePrimitive>, AccessiblePrimitiveConversionError>>()?;
+		Ok(Self {
+			object: atspi_cache_item.object.try_into()?,
+			app: atspi_cache_item.app.try_into()?,
+			parent: atspi_cache_item.parent.try_into()?,
+			index: atspi_cache_item.index,
+			children_num: atspi_cache_item.children,
+			interfaces: atspi_cache_item.ifaces,
+			role: atspi_cache_item.role,
+			states: atspi_cache_item.states,
+			text: atspi_cache_item.name,
+			cache: Arc::downgrade(&cache),
+			children: children_primitives,
+		})
+	}
+}
 
 macro_rules! strong_cache {
 	($cache_ref:expr) => {
@@ -234,21 +260,10 @@ impl Accessible for CacheItem {
 */
 
 /// The root of the accessible cache.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Cache {
 	pub by_id: ThreadSafeCacheType,
-}
-impl From<ThreadSafeCacheType> for Cache {
-	fn from(lock: ThreadSafeCacheType) -> Cache {
-		Cache { by_id: lock }
-	}
-}
-
-// clippy wants this
-impl Default for Cache {
-	fn default() -> Self {
-		Self::new()
-	}
+	pub connection: zbus::Connection,
 }
 
 /// Copy all info into a plain CacheItem struct.
@@ -280,8 +295,8 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 /// This is because before inserting, the incomming bucket is cleared (there will never be duplicate accessibles or accessibles at different states stored in the same bucket).
 impl Cache {
 	/// create a new, fresh cache
-	pub fn new() -> Self {
-		Self { by_id: Arc::new(DashMap::new()) }
+	pub fn new(conn: zbus::Connection) -> Self {
+		Self { by_id: Arc::new(DashMap::new()), connection: conn }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
@@ -343,6 +358,7 @@ impl Cache {
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
+		weak: &Arc<Self>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
@@ -354,7 +370,7 @@ impl Cache {
 		}
 		// otherwise, build a cache item
 		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(accessible, self).await?;
+		let cache_item = accessible_to_cache_item(accessible, weak).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
@@ -365,7 +381,7 @@ impl Cache {
 	}
 }
 
-pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: &Cache) -> OdiliaResult<CacheItem> {
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: &Arc<Cache>) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
@@ -383,7 +399,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: &
 		// otherwise, use the name instaed
 		Err(_) => Ok(accessible.name().await?),
 	}?;
-	let weak_cache = Arc::downgrade(&cache.by_id);
+	let weak_cache = Arc::downgrade(cache);
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.try_into()?,

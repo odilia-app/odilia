@@ -33,7 +33,10 @@ mod text_changed {
 		types::{AriaAtomic, AriaLive},
 	};
 	use ssip_client::Priority;
-	use std::collections::HashMap;
+	use std::{
+		collections::HashMap,
+		sync::Arc,
+	};
 
 	#[inline]
 	pub fn update_string_insert(
@@ -203,7 +206,7 @@ mod text_changed {
 		insert: bool,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let cache_item = state.cache.get_or_create(&accessible).await?;
+		let cache_item = state.cache.get_or_create(&accessible, &Arc::clone(&state.cache)).await?;
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
@@ -225,7 +228,7 @@ mod text_changed {
 		if insert_has_not_occured {
 			state.cache
 				.modify_item(
-					&cache_item.object.id,
+					&cache_item.object,
 					update_string_insert(
 						start_pos,
 						update_length,
@@ -235,7 +238,7 @@ mod text_changed {
 				.await;
 		} else if remove_has_not_occured {
 			state.cache
-				.modify_item(&cache_item.object.id, move |cache_item| {
+				.modify_item(&cache_item.object, move |cache_item| {
 					cache_item.text = cache_item
 						.text
 						.char_indices()
@@ -256,6 +259,8 @@ mod children_changed {
 	use atspi::{
 		events::GenericEvent, identify::object::ChildrenChangedEvent, signify::Signified,
 	};
+	use odilia_cache::AccessiblePrimitive;
+	use std::sync::Arc;
 
 	pub async fn dispatch(
 		state: &ScreenReaderState,
@@ -276,7 +281,8 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ = state.cache.get_or_create(&accessible).await;
+		let arc_clone = Arc::clone(&state.cache);
+		let _ = state.cache.get_or_create(&accessible, &arc_clone).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -284,8 +290,8 @@ mod children_changed {
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
-		let path = event.path().expect("All accessibles must have a path").try_into()?;
-		state.cache.remove(&path).await;
+		let prim = AccessiblePrimitive::from_event(event)?;
+		state.cache.remove(&prim).await;
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
 	}
@@ -406,24 +412,25 @@ mod state_changed {
 		State,
 	};
 	use odilia_cache::AccessiblePrimitive;
+	use std::sync::Arc;
 
 	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
 	/// This writes to the value in-place, and does not clone any values.
 	pub async fn update_state(
 		state: &ScreenReaderState,
-		a11y_id: &AccessibleId,
+		a11y: &AccessiblePrimitive,
 		state_changed: State,
 		active: bool,
 	) -> eyre::Result<bool> {
 		if active {
 			Ok(state.cache
-				.modify_item(a11y_id, |cache_item| {
+				.modify_item(a11y, |cache_item| {
 					cache_item.states.remove(state_changed)
 				})
 				.await)
 		} else {
 			Ok(state.cache
-				.modify_item(a11y_id, |cache_item| {
+				.modify_item(a11y, |cache_item| {
 					cache_item.states.insert(state_changed)
 				})
 				.await)
@@ -435,7 +442,7 @@ mod state_changed {
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ci = state.cache.get_or_create(&accessible).await?;
+		let _ci = state.cache.get_or_create(&accessible, &Arc::clone(&state.cache)).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
@@ -446,7 +453,7 @@ mod state_changed {
 		let state_value = event.enabled() == 1;
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		// update cache with state of item
-		match update_state(state, &a11y_prim.id, a11y_state, state_value).await {
+		match update_state(state, &a11y_prim, a11y_state, state_value).await {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
 			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
 			Err(e) => return Err(e),
