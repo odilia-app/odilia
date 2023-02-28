@@ -11,7 +11,7 @@ use atspi::{
 	InterfaceSet, StateSet,
 };
 use async_trait::async_trait;
-use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError}, result::OdiliaResult};
+use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError,CacheError}, result::OdiliaResult};
 use serde::{Deserialize, Serialize};
 use std::{sync::Arc, sync::Weak};
 use zbus::{
@@ -170,25 +170,6 @@ pub struct CacheItem {
 	#[serde(skip)]
 	pub cache: Weak<Cache>,
 }
-/*
-impl TryFrom<atspi::cache::CacheItem> for CacheItem {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(atspi_cache_item: atspi::cache::CacheItem) -> Result<Self, Self::Error> {
-		Ok(Self {
-			object: atspi_cache_item.object.try_into()?,
-			app: atspi_cache_item.app.try_into()?,
-			parent: atspi_cache_item.parent.try_into()?,
-			index: atspi_cache_item.index,
-			children: atspi_cache_item.children,
-			interfaces: atspi_cache_item.interfaces,
-			role: atspi_cache_item.role,
-			states: atspi_cache_item.states,
-			text: atspi_cache_item.name,
-		})
-	}
-}
-*/
 impl CacheItem {
 	pub async fn from_atspi_event<T: Signified>(event: &T, cache: Arc<Cache>, connection: &zbus::Connection) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
@@ -224,28 +205,25 @@ impl CacheItem {
 
 macro_rules! strong_cache {
 	($cache_ref:expr) => {
-		match Weak::upgrade($cache_ref) {
-			None => return Err(CacheError::NotAvailable.into()),
-			Some(cache) => cache,
-		}.into()
+		Weak::upgrade($cache_ref)
+			.ok_or(OdiliaError::Cache(CacheError::NotAvailable))?
 	}
 }
 
-/*
 #[async_trait]
 impl Accessible for CacheItem {
 	type Error = OdiliaError;
 
 	async fn get_application(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Cache = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
 		derefed_cache.get(&self.app).await.ok_or(CacheError::NoItem.into())
 	}
 	async fn parent(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Cache = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
 		derefed_cache.get(&self.parent).await.ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
-		let derefed_cache: Cache = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
 		derefed_cache.get_all(&self.children).await
 			.iter()
 			.map(|child| child.ok_or(CacheError::NoItem.into()))
@@ -264,7 +242,6 @@ impl Accessible for CacheItem {
 		Ok(self.interfaces)
 	}
 }
-*/
 
 /// The root of the accessible cache.
 #[derive(Clone, Debug)]
