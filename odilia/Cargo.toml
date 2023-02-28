@@ -45,6 +45,9 @@ tracing.workspace = true
 xdg = "2.4.1"
 zbus.workspace = true
 
+[dev-dependencies]
+lazy_static = "1.4.0"
+
 [features]
 
 #[build-dependencies]

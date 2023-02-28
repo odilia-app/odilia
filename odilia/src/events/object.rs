@@ -293,11 +293,45 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
+	use odilia_cache::CacheItem;
 	use atspi::{
-		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified,
+		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified, AccessibleId
 	};
 	use ssip_client::Priority;
-	use std::sync::atomic::Ordering;
+	use std::{
+		sync::atomic::Ordering,
+		cmp::{max, min},
+	};
+
+	pub fn new_position(
+		new_item: CacheItem,
+		old_item: CacheItem,
+		new_position: u32,
+		old_position: u32,
+		new_text: String,
+	) -> String {
+		let new_id = new_item.object.id;
+		let old_id = old_item.object.id;
+		let new_pos = usize::try_from(new_position).unwrap();
+		let old_pos = usize::try_from(old_position).unwrap();
+		
+		// unknwon
+		if new_id != old_id {
+			return String::new();
+		}
+		let first_position = isize::try_from(
+			max(new_position, old_position),
+		);
+		let last_position = isize::try_from(
+			min(new_position, old_position),
+		);
+		// if there is one character between the old and new position
+		if new_pos.abs_diff(old_pos) == 1 {
+			return new_text.get(new_pos..new_pos+1).unwrap().to_string()
+		}
+		String::new()
+	}
+
 
 	/// this must be checked *before* writing an accessible to the hsitory.
 	/// if this is checked after writing, it may give inaccurate results.
@@ -458,5 +492,84 @@ mod state_changed {
 			.await;
 
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use lazy_static::lazy_static;
+	use crate::events::object::text_caret_moved::new_position;
+	use odilia_cache::{
+		CacheItem,
+		AccessiblePrimitive,
+	};
+	use atspi::{
+		accessible::Role,
+		accessible_id::AccessibleId,
+		Interface,
+		InterfaceSet,
+		State,
+		StateSet,
+	};
+	
+	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance.";
+	lazy_static! {
+		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
+			object: AccessiblePrimitive {
+				id: AccessibleId::Number(1),
+				sender: ":1.2".to_string(),
+			},
+			app: AccessiblePrimitive {
+				id: AccessibleId::Root,
+				sender: ":1.2".to_string(),
+			},
+			parent: AccessiblePrimitive {
+				id: AccessibleId::Number(1),
+				sender: ":1.2".to_string(),
+			},
+			index: 323,
+			children: 0,
+			ifaces: InterfaceSet::new(
+				Interface::Accessible | Interface::Collection | Interface::Component | Interface::Hyperlink | Interface::Hypertext | Interface::Text
+			),
+			role: Role::Paragraph,
+			states: StateSet::new(
+				State::Enabled | State::Opaque | State::Showing | State::Visible
+			),
+			text: A11Y_PARAGRAPH_STRING.to_string(),
+		};
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 3] = [
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 4, 3, A11Y_PARAGRAPH_STRING , "A"),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 4, A11Y_PARAGRAPH_STRING , " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 0, 3, A11Y_PARAGRAPH_STRING , "The"),
+		];
+	}
+
+	macro_rules! check_answer_values {
+		($idx:literal) => {
+			assert_eq!(
+				new_position(
+					ANSWER_VALUES[$idx].0.clone(),
+					ANSWER_VALUES[$idx].1.clone(),
+					ANSWER_VALUES[$idx].2,
+					ANSWER_VALUES[$idx].3,
+					ANSWER_VALUES[$idx].4.to_string(),
+				),
+				ANSWER_VALUES[$idx].5.to_string()
+			);
+		}
+	}
+
+	#[test]
+	fn test_text_navigation_one_letter() {
+		check_answer_values!(0);
+	}
+	#[test]
+	fn test_text_navigation_one_letter_back() {
+		check_answer_values!(1);
+	}
+	#[test]
+	fn test_text_navigation_one_word() {
+		check_answer_values!(2);
 	}
 }
