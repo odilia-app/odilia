@@ -3,7 +3,7 @@
 use dashmap::DashMap;
 use atspi::{
 	signify::Signified,
-	accessible::{AccessibleProxy, Accessible, Role},
+	accessible::{AccessibleProxy, Accessible, Role, RelationType},
 	accessible_id::{HasAccessibleId, AccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
@@ -13,7 +13,7 @@ use atspi::{
 use async_trait::async_trait;
 use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError,CacheError}, result::OdiliaResult};
 use serde::{Deserialize, Serialize};
-use std::{sync::Arc, sync::Weak};
+use std::{collections::HashMap, sync::Arc, sync::Weak};
 use zbus::{
 	CacheProperties,
 	names::OwnedUniqueName,
@@ -209,6 +209,14 @@ macro_rules! strong_cache {
 			.ok_or(OdiliaError::Cache(CacheError::NotAvailable))?
 	}
 }
+macro_rules! as_accessible {
+	($self:expr) => {
+		{
+			let cache = strong_cache!(&$self.cache);
+			$self.object.clone().into_accessible(&cache.connection).await?
+		}
+	}
+}
 
 #[async_trait]
 impl Accessible for CacheItem {
@@ -225,7 +233,7 @@ impl Accessible for CacheItem {
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
 		derefed_cache.get_all(&self.children).await
-			.iter()
+			.into_iter()
 			.map(|child| child.ok_or(CacheError::NoItem.into()))
 			.collect()
 	}
@@ -240,6 +248,53 @@ impl Accessible for CacheItem {
 	}
 	async fn get_interfaces(&self) -> Result<InterfaceSet, Self::Error> {
 		Ok(self.interfaces)
+	}
+	async fn get_attributes(&self) -> Result<HashMap<String, String>, Self::Error> {
+		Ok(as_accessible!(self).get_attributes().await?)
+	}
+	async fn name(&self) -> Result<String, Self::Error> {
+		Ok(as_accessible!(self).name().await?)
+	}
+	async fn locale(&self) -> Result<String, Self::Error> {
+		Ok(as_accessible!(self).locale().await?)
+	}
+	async fn description(&self) -> Result<String, Self::Error> {
+		Ok(as_accessible!(self).description().await?)
+	}
+	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, Self::Error> {
+		let cache = strong_cache!(&self.cache);
+		as_accessible!(self).get_relation_set().await?
+			.into_iter()
+			.map(|(relation, object_pairs)| (
+				relation,
+				object_pairs
+					.into_iter()
+					.map(|object_pair| {
+							cache.get_blocking(
+								&object_pair.try_into()?
+							).ok_or(OdiliaError::Cache(CacheError::NoItem))
+					})
+					.collect::<Result<Vec<Self>, OdiliaError>>()
+			))
+			.map(|(relation, result_selfs)| {
+				Ok((relation, result_selfs?))
+			})
+			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
+	}
+	async fn get_role_name(&self) -> Result<String, Self::Error> {
+		Ok(as_accessible!(self).get_role_name().await?)
+	}
+	async fn get_state(&self) -> Result<StateSet, Self::Error> {
+		Ok(self.states)
+	}
+	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
+		self.get_children().await?.get(idx as usize).ok_or(CacheError::NoItem.into()).cloned()
+	}
+	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
+		Ok(as_accessible!(self).get_localized_role_name().await?)
+	}
+	async fn accessible_id(&self) -> Result<AccessibleId, Self::Error> {
+		Ok(self.object.id.clone())
 	}
 }
 
@@ -293,6 +348,11 @@ impl Cache {
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
 	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+		self.by_id.get(id).as_deref().cloned()
+	}
+	/// get a single item from the cache (note that this copies some integers to a new struct)
+	#[allow(dead_code)]
+	pub fn get_blocking(&self, id: &CacheKey) -> Option<CacheItem> {
 		self.by_id.get(id).as_deref().cloned()
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
