@@ -1,22 +1,28 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
 
 use atspi::{
-	accessible::{AccessibleProxy, Role},
+	accessible::{AccessibleProxy, Accessible, Role},
 	accessible_id::{HasAccessibleId, AccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError}, result::OdiliaResult};
+use async_trait::async_trait;
+use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError,CacheError}, result::OdiliaResult};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, sync::Weak};
 use tokio::sync::RwLock;
 use zbus::{
 	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
 	ProxyBuilder,
 };
+
+type CacheKey = AccessiblePrimitive;
+type InnerCacheType = HashMap<CacheKey, CacheItem>;
+type ConcurrentSafeCacheType = RwLock<InnerCacheType>;
+type ThreadSafeCacheType = Arc<ConcurrentSafeCacheType>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -125,7 +131,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	}
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)   (so)
@@ -137,16 +143,22 @@ pub struct CacheItem {
 	// The accessbile index in parent.  i
 	pub index: i32,
 	// Child count of the accessible  i
-	pub children: i32,
+	pub children_num: i32,
 	// The exposed interfece(s) set.  as
-	pub ifaces: InterfaceSet,
+	pub interfaces: InterfaceSet,
 	// Accessible role. u
 	pub role: Role,
 	// The states applicable to the accessible.  au
 	pub states: StateSet,
 	// The text of the accessible.
 	pub text: String,
+	// The children (ids) of the accessible.
+	pub children: Vec<AccessiblePrimitive>,
+
+	#[serde(skip)]
+	pub cache: Weak<ConcurrentSafeCacheType>,
 }
+/*
 impl TryFrom<atspi::cache::CacheItem> for CacheItem {
 	type Error = AccessiblePrimitiveConversionError;
 
@@ -157,19 +169,70 @@ impl TryFrom<atspi::cache::CacheItem> for CacheItem {
 			parent: atspi_cache_item.parent.try_into()?,
 			index: atspi_cache_item.index,
 			children: atspi_cache_item.children,
-			ifaces: atspi_cache_item.ifaces,
+			interfaces: atspi_cache_item.interfaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 		})
 	}
 }
+*/
+
+macro_rules! strong_cache {
+	($cache_ref:expr) => {
+		match Weak::upgrade($cache_ref) {
+			None => return Err(CacheError::NotAvailable.into()),
+			Some(cache) => cache,
+		}.into()
+	}
+}
+
+/*
+#[async_trait]
+impl Accessible for CacheItem {
+	type Error = OdiliaError;
+
+	async fn get_application(&self) -> Result<Self, Self::Error> {
+		let derefed_cache: Cache = strong_cache!(&self.cache);
+		derefed_cache.get(&self.app).await.ok_or(CacheError::NoItem.into())
+	}
+	async fn parent(&self) -> Result<Self, Self::Error> {
+		let derefed_cache: Cache = strong_cache!(&self.cache);
+		derefed_cache.get(&self.parent).await.ok_or(CacheError::NoItem.into())
+	}
+	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
+		let derefed_cache: Cache = strong_cache!(&self.cache);
+		derefed_cache.get_all(&self.children).await
+			.iter()
+			.map(|child| child.ok_or(CacheError::NoItem.into()))
+			.collect()
+	}
+	async fn child_count(&self) -> Result<i32, Self::Error> {
+		Ok(self.children_num)
+	}
+	async fn get_index_in_parent(&self) -> Result<i32, Self::Error> {
+		Ok(self.index)
+	}
+	async fn get_role(&self) -> Result<Role, Self::Error> {
+		Ok(self.role)
+	}
+	async fn get_interfaces(&self) -> Result<InterfaceSet, Self::Error> {
+		Ok(self.interfaces)
+	}
+}
+*/
 
 /// The root of the accessible cache.
 #[derive(Clone)]
 pub struct Cache {
-	pub by_id: Arc<RwLock<HashMap<AccessibleId, CacheItem>>>,
+	pub by_id: ThreadSafeCacheType,
 }
+impl From<ThreadSafeCacheType> for Cache {
+	fn from(lock: ThreadSafeCacheType) -> Cache {
+		Cache { by_id: lock }
+	}
+}
+
 // clippy wants this
 impl Default for Cache {
 	fn default() -> Self {
@@ -187,10 +250,12 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 		states: cache_item_with_handle.states,
 		role: cache_item_with_handle.role,
 		app: cache_item_with_handle.app.clone(),
-		children: cache_item_with_handle.children,
-		ifaces: cache_item_with_handle.ifaces,
+		children_num: cache_item_with_handle.children_num,
+		interfaces: cache_item_with_handle.interfaces,
 		index: cache_item_with_handle.index,
 		text: cache_item_with_handle.text.clone(),
+		children: cache_item_with_handle.children.clone(),
+		cache: Weak::clone(&cache_item_with_handle.cache),
 	}
 }
 
@@ -210,22 +275,22 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub async fn add(&self, cache_item: CacheItem) {
 		let mut cache_writer = self.by_id.write().await;
-		cache_writer.insert(cache_item.object.id, cache_item);
+		cache_writer.insert(cache_item.object.clone(), cache_item);
 	}
 	/// remove a single cache item
-	pub async fn remove(&self, id: &AccessibleId) {
+	pub async fn remove(&self, id: &CacheKey) {
 		let mut cache_writer = self.by_id.write().await;
 		cache_writer.remove(id);
 	}
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
-	pub async fn get(&self, id: &AccessibleId) -> Option<CacheItem> {
+	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		let read_handle = self.by_id.read().await;
 		read_handle.get(id).cloned()
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
-	pub async fn get_all(&self, ids: Vec<AccessibleId>) -> Vec<Option<CacheItem>> {
+	pub async fn get_all(&self, ids: &Vec<CacheKey>) -> Vec<Option<CacheItem>> {
 		let read_handle = self.by_id.read().await;
 		ids.iter()
 			.map(|id| read_handle.get(id).map(copy_into_cache_item))
@@ -235,12 +300,12 @@ impl Cache {
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
 		let mut cache_writer = self.by_id.write().await;
 		cache_items.into_iter().for_each(|cache_item| {
-			cache_writer.insert(cache_item.object.id, cache_item);
+			cache_writer.insert(cache_item.object.clone(), cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
-	pub async fn remove_all(&self, ids: Vec<AccessibleId>) {
+	pub async fn remove_all(&self, ids: Vec<CacheKey>) {
 		let mut cache_writer = self.by_id.write().await;
 		ids.iter().for_each(|id| {
 			cache_writer.remove(id);
@@ -250,7 +315,7 @@ impl Cache {
 	/// Edit a mutable CacheItem using a function which returns the edited version.
 	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it.
 	/// Returns true if the update was successful.
-	pub async fn modify_item<F>(&self, id: &AccessibleId, modify: F) -> bool
+	pub async fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
@@ -276,15 +341,16 @@ impl Cache {
 		accessible: &AccessibleProxy<'_>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
+		let primitive = accessible.try_into()?;
 		if let Some(cache_item) = self
-			.get(&accessible.id().expect("Could not get ID from accessible path"))
+			.get(&primitive)
 			.await
 		{
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
 		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(accessible).await?;
+		let cache_item = accessible_to_cache_item(accessible, self).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
@@ -295,8 +361,8 @@ impl Cache {
 	}
 }
 
-pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (app, parent, index, children, ifaces, role, states) = tokio::try_join!(
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: &Cache) -> OdiliaResult<CacheItem> {
+	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
 		accessible.get_index_in_parent(),
@@ -304,6 +370,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_interfaces(),
 		accessible.get_role(),
 		accessible.get_state(),
+		accessible.get_children(),
 	)?;
 	// if it implements the Text interface
 	let text = match accessible.to_text().await {
@@ -312,15 +379,20 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		// otherwise, use the name instaed
 		Err(_) => Ok(accessible.name().await?),
 	}?;
+	let weak_cache = Arc::downgrade(&cache.by_id);
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.try_into()?,
 		parent: parent.try_into()?,
 		index,
-		children,
-		ifaces,
+		children_num,
+		interfaces,
 		role,
 		states,
 		text,
+		children: children.into_iter()
+			.map(|child| AccessiblePrimitive::try_from(child))
+			.collect::<Result<Vec<AccessiblePrimitive>, _>>()?,
+		cache: weak_cache,
 	})
 }
