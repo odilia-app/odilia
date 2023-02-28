@@ -249,6 +249,7 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
+#[allow(dead_code)]
 	pub async fn get_or_create_cache_item(&self, accessible: AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		let accessible_proxy = AccessibleProxy::builder(self.atspi.connection())
 			.destination(accessible.sender)?

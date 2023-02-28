@@ -294,7 +294,7 @@ impl Accessible for CacheItem {
 		Ok(as_accessible!(self).get_localized_role_name().await?)
 	}
 	async fn accessible_id(&self) -> Result<AccessibleId, Self::Error> {
-		Ok(self.object.id.clone())
+		Ok(self.object.id)
 	}
 }
 

@@ -307,6 +307,8 @@ mod text_caret_moved {
 		cmp::{max, min},
 	};
 
+#[allow(dead_code)]
+#[allow(unused_variables)]
 	pub fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
