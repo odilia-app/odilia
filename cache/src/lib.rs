@@ -44,17 +44,27 @@ impl AccessiblePrimitive {
 		let path: ObjectPath<'a> = id.try_into()?;
 		ProxyBuilder::new(conn).path(path)?.destination(sender)?.build().await
 	}
-	pub fn from_event<T: GenericEvent>(
-		event: &T,
-	) -> Result<Self, OdiliaError> {
+	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, OdiliaError> {
 		let sender = match event.sender() {
 			Ok(Some(s)) => s,
-			Ok(None) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoSender)),
-			Err(_) => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::ErrSender)),
+			Ok(None) => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::NoSender,
+				))
+			}
+			Err(_) => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::ErrSender,
+				))
+			}
 		};
 		let path = match event.path() {
 			Some(path) => path,
-			None => return Err(OdiliaError::PrimitiveConversionError(AccessiblePrimitiveConversionError::NoPathId)),
+			None => {
+				return Err(OdiliaError::PrimitiveConversionError(
+					AccessiblePrimitiveConversionError::NoPathId,
+				))
+			}
 		};
 		let id: AccessibleId = match path.try_into() {
 			Ok(id) => id,

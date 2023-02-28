@@ -17,6 +17,13 @@ async fn add_all(cache: &Cache, items: Vec<CacheItem>) {
 	cache.add_all(items).await;
 }
 
+/// Load the given items into cache via repeated `Cache::add`.
+async fn add(cache: &Cache, items: Vec<CacheItem>) {
+	for item in items {
+		cache.add(item).await;
+	}
+}
+
 /// For each child, fetch it and all of its ancestors via `Cache::get`.
 //
 // Note: may be able to reduce noise by just doing the deepest child
@@ -35,27 +42,24 @@ async fn traverse_cache(cache: &Cache, children: Vec<AccessibleId>) {
 }
 
 /// Observe throughput of reads (`Cache::get`) while writing to cache
-/// (`Cache::add_all`).
-//
-// Important note: does anyone ever actually read from this cache? :confused:
-// The closest I can find is a call to `cache.get_or_create` which happens when
-// `ObjectEvents::TextChanged`, but this appears to be with the intention of
-// writing to the cache.
+/// (`Cache::add`).
 async fn reads_while_writing(cache: &Cache, ids: Vec<AccessibleId>, items: Vec<CacheItem>) {
 	let cache_1 = cache.clone();
 	let mut write_handle = tokio::spawn(async move {
-		cache_1.add_all(items).await;
+		for item in items {
+			cache_1.add(item).await;
+		}
 	});
 	let cache_2 = cache.clone();
 	let mut read_handle = tokio::spawn(async move {
 		for id in ids {
-			cache_2.get(&id).await.unwrap(); // make sure we were able to read it
+			cache_2.get(&id).await;
 		}
 	});
 	let mut write_finished = false;
 	loop {
 		select! {
-		    // we don't care when the add_all finishes, keep looping
+		    // we don't care when the write finishes, keep looping
 		    _ = &mut write_handle, if !write_finished => write_finished = true,
 		    // return as soon as we're done with these reads
 		    _ = &mut read_handle => break
@@ -84,13 +88,11 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	// this one is noisy; input might just be unreasonably large for benchmarking.
-	// possibly remove.
 	let cache = Cache::new();
-	group.bench_function(BenchmarkId::new("add_all", "wcag-guidelines"), |b| {
+	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| wcag_items.clone(),
-			|items: Vec<CacheItem>| add_all(&cache, items),
+			|| zbus_items.clone(),
+			|items: Vec<CacheItem>| add(&cache, items),
 			BatchSize::SmallInput,
 		);
 	});

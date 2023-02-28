@@ -137,3 +137,4 @@ jobs:
           user_name: github-actions
           user_email: actions@github.com
           publish_branch: main
+        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
