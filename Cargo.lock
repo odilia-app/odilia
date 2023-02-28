@@ -951,6 +951,7 @@ dependencies = [
  "circular-queue",
  "eyre",
  "futures",
+ "lazy_static",
  "odilia-cache",
  "odilia-common",
  "odilia-input",
@@ -972,6 +973,7 @@ dependencies = [
 name = "odilia-cache"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "atspi",
  "criterion",
  "odilia-common",
