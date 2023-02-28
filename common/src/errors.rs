@@ -35,6 +35,11 @@ impl From<zbus::fdo::Error> for OdiliaError {
 		Self::ZbusFdo(spe)
 	}
 }
+impl From<std::convert::Infallible> for OdiliaError {
+	fn from(infallible: std::convert::Infallible) -> Self {
+		Self::InfallibleConversion(infallible)
+	}
+}
 impl From<CacheError> for OdiliaError {
 	fn from(cache_error: CacheError) -> Self {
 		Self::Cache(cache_error)
