@@ -17,36 +17,8 @@ pub async fn load_complete(
 	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;
 	for item in entire_cache {
-		let children_object_pairs: Vec<AccessiblePrimitive> = AccessibleProxy::builder(state.atspi.connection())
-			.destination(item.object.0.clone())?
-			.path(item.object.1.clone())?
-			.build()
-			.await?
-			.get_children()
-			.await?
-			.into_iter()
-			.map(|child_object_pair| child_object_pair.try_into())
-			.collect::<Result<Vec<AccessiblePrimitive>, AccessiblePrimitiveConversionError>>()?;
-		state.cache.add(CacheItem {
-			object: item
-				.object
-				.try_into()
-				.expect("Could not create AccessiblePrimitive from parts"),
-			app: item.app.try_into().expect(
-				"Could not create AccessiblePrimitive from parts for application",
-			),
-			parent: item.parent.try_into().expect(
-				"Could not create AccessiblePrimitive from parts for parent",
-			),
-			index: item.index,
-			children_num: item.children,
-			interfaces: item.ifaces,
-			role: item.role,
-			states: item.states,
-			text: item.name.clone(),
-			children: children_object_pairs,
-			cache: Arc::downgrade(&Arc::clone(&state.cache)),
-		}).await;
+		let odilia_cache_item = CacheItem::from_atspi_cache_item(item, Arc::clone(&state.cache), state.atspi.connection()).await?;
+		state.cache.add(odilia_cache_item).await;
 	}
 	tracing::debug!("Add an entire document to cache.");
 	Ok(())
