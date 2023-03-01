@@ -481,15 +481,21 @@ mod state_changed {
 #[cfg(test)]
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
+	use tokio_test::block_on;
 	use atspi::{
 		accessible::Role, accessible_id::AccessibleId, Interface, InterfaceSet, State,
-		StateSet,
+		StateSet, AccessibilityConnection,
 	};
 	use lazy_static::lazy_static;
-	use odilia_cache::{AccessiblePrimitive, CacheItem};
+	use odilia_cache::{AccessiblePrimitive, CacheItem, Cache};
+	use std::sync::Arc;
 
 	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance.";
 	lazy_static! {
+		static ref ZBUS_CONN: AccessibilityConnection = block_on(
+			AccessibilityConnection::open()
+		).unwrap();
+		static ref CACHE_ARC: Arc<Cache> = Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
 			object: AccessiblePrimitive {
 				id: AccessibleId::Number(1),
@@ -504,8 +510,8 @@ mod tests {
 				sender: ":1.2".to_string(),
 			},
 			index: 323,
-			children: 0,
-			ifaces: InterfaceSet::new(
+			children_num: 0,
+			interfaces: InterfaceSet::new(
 				Interface::Accessible
 					| Interface::Collection | Interface::Component
 					| Interface::Hyperlink | Interface::Hypertext
@@ -516,6 +522,8 @@ mod tests {
 				State::Enabled | State::Opaque | State::Showing | State::Visible
 			),
 			text: A11Y_PARAGRAPH_STRING.to_string(),
+			children: Vec::new(),
+			cache: Arc::downgrade(&CACHE_ARC),
 		};
 		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 3] = [
 			(
