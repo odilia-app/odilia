@@ -49,7 +49,7 @@ impl AccessiblePrimitive {
 		let path: ObjectPath<'a> = id.try_into()?;
 		ProxyBuilder::new(conn)
 			.path(path)?
-			.destination(sender.as_str().to_owned())?
+			.destination(sender)?
 			.cache_properties(CacheProperties::No)
 			.build()
 			.await
@@ -80,7 +80,7 @@ impl AccessiblePrimitive {
 			Ok(id) => id,
 			Err(e) => return Err(OdiliaError::Zvariant(e)),
 		};
-		Ok(Self { id, sender: sender.as_str().into() })
+		Ok(Self { id, sender: sender.to_string() })
 	}
 }
 impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
@@ -100,7 +100,7 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 		so: (OwnedUniqueName, OwnedObjectPath),
 	) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.as_str().into() })
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.to_string() })
 	}
 }
 impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
@@ -108,14 +108,14 @@ impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
 
 	fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.into() })
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0 })
 	}
 }
 impl TryFrom<(String, AccessibleId)> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
 	fn try_from(so: (String, AccessibleId)) -> Result<AccessiblePrimitive, Self::Error> {
-		Ok(AccessiblePrimitive { id: so.1, sender: so.0.into() })
+		Ok(AccessiblePrimitive { id: so.1, sender: so.0 })
 	}
 }
 impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
@@ -123,14 +123,14 @@ impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 
 	fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.into() })
+		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0 })
 	}
 }
 impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let sender = accessible.destination().as_str().into();
+		let sender = accessible.destination().to_string();
 		let id = match accessible.id() {
 			Ok(path_id) => path_id,
 			Err(_) => return Err(AccessiblePrimitiveConversionError::NoPathId),
@@ -142,7 +142,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let sender = accessible.destination().as_str().into();
+		let sender = accessible.destination().to_string();
 		let id = match accessible.id() {
 			Ok(path_id) => path_id,
 			Err(_) => return Err(AccessiblePrimitiveConversionError::NoPathId),
