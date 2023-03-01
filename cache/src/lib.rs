@@ -1,5 +1,6 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
 
+use fxhash::FxBuildHasher;
 use async_trait::async_trait;
 use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
@@ -24,7 +25,7 @@ use zbus::{
 };
 
 type CacheKey = AccessiblePrimitive;
-type InnerCacheType = DashMap<CacheKey, CacheItem>;
+type InnerCacheType = DashMap<CacheKey, CacheItem, FxBuildHasher>;
 type ConcurrentSafeCacheType = InnerCacheType;
 type ThreadSafeCacheType = Arc<ConcurrentSafeCacheType>;
 
@@ -357,7 +358,7 @@ fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(conn: zbus::Connection) -> Self {
-		Self { by_id: Arc::new(DashMap::new()), connection: conn }
+		Self { by_id: Arc::new(DashMap::default()), connection: conn }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
