@@ -262,7 +262,7 @@ impl ScreenReaderState {
 		accessible: AccessiblePrimitive,
 	) -> OdiliaResult<CacheItem> {
 		let accessible_proxy = AccessibleProxy::builder(self.atspi.connection())
-			.destination(accessible.sender)?
+			.destination(accessible.sender.as_str())?
 			.path(accessible.id.to_string())?
 			.build()
 			.await?;
