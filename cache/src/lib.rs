@@ -221,15 +221,15 @@ impl Accessible for CacheItem {
 
 	async fn get_application(&self) -> Result<Self, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.app).await.ok_or(CacheError::NoItem.into())
+		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
 	async fn parent(&self) -> Result<Self, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.parent).await.ok_or(CacheError::NoItem.into())
+		derefed_cache.get(&self.parent).ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get_all(&self.children).await
+		derefed_cache.get_all(&self.children)
 			.into_iter()
 			.map(|child| child.ok_or(CacheError::NoItem.into()))
 			.collect()
@@ -267,7 +267,7 @@ impl Accessible for CacheItem {
 				object_pairs
 					.into_iter()
 					.map(|object_pair| {
-							cache.get_blocking(
+							cache.get(
 								&object_pair.try_into()?
 							).ok_or(OdiliaError::Cache(CacheError::NoItem))
 					})
@@ -335,39 +335,34 @@ impl Cache {
 		Self { by_id: Arc::new(DashMap::new()), connection: conn }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
-	pub async fn add(&self, cache_item: CacheItem) {
+	pub fn add(&self, cache_item: CacheItem) {
 		self.by_id.insert(cache_item.object.clone(), cache_item);
 	}
 	/// remove a single cache item
-	pub async fn remove(&self, id: &CacheKey) {
+	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
 	/// get a single item from the cache (note that this copies some integers to a new struct)
 	#[allow(dead_code)]
-	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		self.by_id.get(id).as_deref().cloned()
-	}
-	/// get a single item from the cache (note that this copies some integers to a new struct)
-	#[allow(dead_code)]
-	pub fn get_blocking(&self, id: &CacheKey) -> Option<CacheItem> {
+	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		self.by_id.get(id).as_deref().cloned()
 	}
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
-	pub async fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
+	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter()
 			.map(|id| self.by_id.get(id).as_deref().cloned())
 			.collect()
 	}
 	/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
-	pub async fn add_all(&self, cache_items: Vec<CacheItem>) {
+	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
 		cache_items.into_iter().for_each(|cache_item| {
 			self.by_id.insert(cache_item.object.clone(), cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
-	pub async fn remove_all(&self, ids: Vec<CacheKey>) {
+	pub fn remove_all(&self, ids: Vec<CacheKey>) {
 		ids.iter().for_each(|id| {
 			self.by_id.remove(id);
 		});
@@ -376,7 +371,7 @@ impl Cache {
 	/// Edit a mutable CacheItem using a function which returns the edited version.
 	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it.
 	/// Returns true if the update was successful.
-	pub async fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
+	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
@@ -405,7 +400,6 @@ impl Cache {
 		let primitive = accessible.try_into()?;
 		if let Some(cache_item) = self
 			.get(&primitive)
-			.await
 		{
 			return Ok(cache_item);
 		}
@@ -416,7 +410,7 @@ impl Cache {
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
 		// add a clone of it to the cache
-		self.add(copy_into_cache_item(&cache_item)).await;
+		self.add(copy_into_cache_item(&cache_item));
 		// return that same cache item
 		Ok(cache_item)
 	}
