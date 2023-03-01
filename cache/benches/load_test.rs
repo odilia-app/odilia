@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use atspi::{accessible_id::AccessibleId, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use odilia_cache::{Cache, CacheItem, AccessiblePrimitive};
+use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use rand::seq::SliceRandom;
 use tokio::select;
 use tokio_test::block_on;
@@ -70,9 +70,7 @@ async fn reads_while_writing(cache: &Cache, ids: Vec<AccessiblePrimitive>, items
 
 fn cache_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
-	let a11y = block_on(
-		AccessibilityConnection::open()
-	).unwrap();
+	let a11y = block_on(AccessibilityConnection::open()).unwrap();
 	let zbus_connection = a11y.connection();
 
 	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");
@@ -107,7 +105,8 @@ fn cache_benchmark(c: &mut Criterion) {
 		let children = all_items
 			.iter()
 			.filter_map(|item| {
-				(item.parent.id != AccessibleId::Null).then_some(item.object.clone())
+				(item.parent.id != AccessibleId::Null)
+					.then_some(item.object.clone())
 			})
 			.collect();
 		let cache = Cache::new(zbus_connection.clone());

@@ -481,21 +481,21 @@ mod state_changed {
 #[cfg(test)]
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
-	use tokio_test::block_on;
 	use atspi::{
-		accessible::Role, accessible_id::AccessibleId, Interface, InterfaceSet, State,
-		StateSet, AccessibilityConnection,
+		accessible::Role, accessible_id::AccessibleId, AccessibilityConnection, Interface,
+		InterfaceSet, State, StateSet,
 	};
 	use lazy_static::lazy_static;
-	use odilia_cache::{AccessiblePrimitive, CacheItem, Cache};
+	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 	use std::sync::Arc;
+	use tokio_test::block_on;
 
 	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance.";
 	lazy_static! {
-		static ref ZBUS_CONN: AccessibilityConnection = block_on(
-			AccessibilityConnection::open()
-		).unwrap();
-		static ref CACHE_ARC: Arc<Cache> = Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
+		static ref ZBUS_CONN: AccessibilityConnection =
+			block_on(AccessibilityConnection::open()).unwrap();
+		static ref CACHE_ARC: Arc<Cache> =
+			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
 			object: AccessiblePrimitive {
 				id: AccessibleId::Number(1),
