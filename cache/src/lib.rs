@@ -1,24 +1,26 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
 
-use dashmap::DashMap;
+use async_trait::async_trait;
 use atspi::{
-	signify::Signified,
-	accessible::{AccessibleProxy, Accessible, Role, RelationType},
-	accessible_id::{HasAccessibleId, AccessibleId},
+	accessible::{Accessible, AccessibleProxy, RelationType, Role},
+	accessible_id::{AccessibleId, HasAccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
+	signify::Signified,
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use async_trait::async_trait;
-use odilia_common::{errors::{AccessiblePrimitiveConversionError,OdiliaError,CacheError}, result::OdiliaResult};
+use dashmap::DashMap;
+use odilia_common::{
+	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
+	result::OdiliaResult,
+};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, sync::Arc, sync::Weak};
 use zbus::{
-	CacheProperties,
 	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
-	ProxyBuilder,
+	CacheProperties, ProxyBuilder,
 };
 
 type CacheKey = AccessiblePrimitive;
@@ -44,7 +46,12 @@ impl AccessiblePrimitive {
 		let id = self.id;
 		let sender = self.sender.clone();
 		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn).path(path)?.destination(sender)?.cache_properties(CacheProperties::No).build().await
+		ProxyBuilder::new(conn)
+			.path(path)?
+			.destination(sender)?
+			.cache_properties(CacheProperties::No)
+			.build()
+			.await
 	}
 	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, OdiliaError> {
 		let sender = match event.sender() {
@@ -171,22 +178,31 @@ pub struct CacheItem {
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-	pub async fn from_atspi_event<T: Signified>(event: &T, cache: Weak<Cache>, connection: &zbus::Connection) -> OdiliaResult<Self> {
+	pub async fn from_atspi_event<T: Signified>(
+		event: &T,
+		cache: Weak<Cache>,
+		connection: &zbus::Connection,
+	) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		accessible_to_cache_item(
-			&a11y_prim.into_accessible(connection).await?,
-			cache
-		).await
+		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
 	}
-	pub async fn from_atspi_cache_item(atspi_cache_item: atspi::cache::CacheItem, cache: Weak<Cache>, connection: &zbus::Connection) -> OdiliaResult<Self> {
-		let children_primitives: Vec<AccessiblePrimitive> = AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
-			.into_accessible(connection)
-			.await?
-			.get_children()
-			.await?
-			.into_iter()
-			.map(|child_object_pair| child_object_pair.try_into())
-			.collect::<Result<Vec<AccessiblePrimitive>, AccessiblePrimitiveConversionError>>()?;
+	pub async fn from_atspi_cache_item(
+		atspi_cache_item: atspi::cache::CacheItem,
+		cache: Weak<Cache>,
+		connection: &zbus::Connection,
+	) -> OdiliaResult<Self> {
+		let children_primitives: Vec<AccessiblePrimitive> =
+			AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
+				.into_accessible(connection)
+				.await?
+				.get_children()
+				.await?
+				.into_iter()
+				.map(|child_object_pair| child_object_pair.try_into())
+				.collect::<Result<
+					Vec<AccessiblePrimitive>,
+					AccessiblePrimitiveConversionError,
+				>>()?;
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
 			app: atspi_cache_item.app.try_into()?,
@@ -211,8 +227,7 @@ async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'
 
 #[inline]
 fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
-	Weak::upgrade(weak_cache)
-		.ok_or(OdiliaError::Cache(CacheError::NotAvailable))
+	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
 }
 
 #[async_trait]
@@ -229,7 +244,8 @@ impl Accessible for CacheItem {
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get_all(&self.children)
+		derefed_cache
+			.get_all(&self.children)
 			.into_iter()
 			.map(|child| child.ok_or(CacheError::NoItem.into()))
 			.collect()
@@ -260,22 +276,27 @@ impl Accessible for CacheItem {
 	}
 	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, Self::Error> {
 		let cache = strong_cache(&self.cache)?;
-		as_accessible(self).await?.get_relation_set().await?
+		as_accessible(self)
+			.await?
+			.get_relation_set()
+			.await?
 			.into_iter()
-			.map(|(relation, object_pairs)| (
-				relation,
-				object_pairs
-					.into_iter()
-					.map(|object_pair| {
-							cache.get(
-								&object_pair.try_into()?
-							).ok_or(OdiliaError::Cache(CacheError::NoItem))
-					})
-					.collect::<Result<Vec<Self>, OdiliaError>>()
-			))
-			.map(|(relation, result_selfs)| {
-				Ok((relation, result_selfs?))
+			.map(|(relation, object_pairs)| {
+				(
+					relation,
+					object_pairs
+						.into_iter()
+						.map(|object_pair| {
+							cache.get(&object_pair.try_into()?).ok_or(
+								OdiliaError::Cache(
+									CacheError::NoItem,
+								),
+							)
+						})
+						.collect::<Result<Vec<Self>, OdiliaError>>(),
+				)
 			})
+			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
 	async fn get_role_name(&self) -> Result<String, Self::Error> {
@@ -285,7 +306,11 @@ impl Accessible for CacheItem {
 		Ok(self.states)
 	}
 	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
-		self.get_children().await?.get(idx as usize).ok_or(CacheError::NoItem.into()).cloned()
+		self.get_children()
+			.await?
+			.get(idx as usize)
+			.ok_or(CacheError::NoItem.into())
+			.cloned()
 	}
 	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.get_localized_role_name().await?)
@@ -350,9 +375,7 @@ impl Cache {
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
-		ids.iter()
-			.map(|id| self.by_id.get(id).as_deref().cloned())
-			.collect()
+		ids.iter().map(|id| self.by_id.get(id).as_deref().cloned()).collect()
 	}
 	/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
@@ -398,9 +421,7 @@ impl Cache {
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
-		if let Some(cache_item) = self
-			.get(&primitive)
-		{
+		if let Some(cache_item) = self.get(&primitive) {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -416,7 +437,10 @@ impl Cache {
 	}
 }
 
-pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: Weak<Cache>) -> OdiliaResult<CacheItem> {
+pub async fn accessible_to_cache_item(
+	accessible: &AccessibleProxy<'_>,
+	cache: Weak<Cache>,
+) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
@@ -444,7 +468,8 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>, cache: W
 		role,
 		states,
 		text,
-		children: children.into_iter()
+		children: children
+			.into_iter()
 			.map(AccessiblePrimitive::try_from)
 			.collect::<Result<Vec<AccessiblePrimitive>, _>>()?,
 		cache,

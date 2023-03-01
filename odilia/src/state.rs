@@ -18,8 +18,11 @@ use atspi::{
 };
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{OdiliaError, CacheError}, modes::ScreenReaderMode, settings::ApplicationConfig,
-	types::TextSelectionArea, Result as OdiliaResult,
+	errors::{CacheError, OdiliaError},
+	modes::ScreenReaderMode,
+	settings::ApplicationConfig,
+	types::TextSelectionArea,
+	Result as OdiliaResult,
 };
 use std::sync::Arc;
 
@@ -85,29 +88,33 @@ impl ScreenReaderState {
 		})
 	}
 
-	pub async fn get_or_create_atspi_cache_item_to_cache(&self, atspi_cache_item: atspi::cache::CacheItem) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create_atspi_cache_item_to_cache(
+		&self,
+		atspi_cache_item: atspi::cache::CacheItem,
+	) -> OdiliaResult<CacheItem> {
 		let prim = atspi_cache_item.object.clone().try_into()?;
 		if self.cache.get(&prim).is_none() {
-			self.cache.add(
-				CacheItem::from_atspi_cache_item(
-					atspi_cache_item,
-					Arc::downgrade(&Arc::clone(&self.cache)),
-					self.atspi.connection(),
-				).await?
-			);
+			self.cache.add(CacheItem::from_atspi_cache_item(
+				atspi_cache_item,
+				Arc::downgrade(&Arc::clone(&self.cache)),
+				self.atspi.connection(),
+			)
+			.await?);
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
-	pub async fn get_or_create_event_object_to_cache<T: Signified>(&self, event: &T) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create_event_object_to_cache<T: Signified>(
+		&self,
+		event: &T,
+	) -> OdiliaResult<CacheItem> {
 		let prim = AccessiblePrimitive::from_event(event)?;
 		if self.cache.get(&prim).is_none() {
-			self.cache.add(
-				CacheItem::from_atspi_event(
-					event,
-					Arc::downgrade(&Arc::clone(&self.cache)),
-					self.atspi.connection(),
-				).await?
-			);
+			self.cache.add(CacheItem::from_atspi_event(
+				event,
+				Arc::downgrade(&Arc::clone(&self.cache)),
+				self.atspi.connection(),
+			)
+			.await?);
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
@@ -249,14 +256,19 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
-#[allow(dead_code)]
-	pub async fn get_or_create_cache_item(&self, accessible: AccessiblePrimitive) -> OdiliaResult<CacheItem> {
+	#[allow(dead_code)]
+	pub async fn get_or_create_cache_item(
+		&self,
+		accessible: AccessiblePrimitive,
+	) -> OdiliaResult<CacheItem> {
 		let accessible_proxy = AccessibleProxy::builder(self.atspi.connection())
 			.destination(accessible.sender)?
 			.path(accessible.id.to_string())?
 			.build()
 			.await?;
-		self.cache.get_or_create(&accessible_proxy, Arc::downgrade(&Arc::clone(&self.cache))).await
+		self.cache
+			.get_or_create(&accessible_proxy, Arc::downgrade(&Arc::clone(&self.cache)))
+			.await
 	}
 	pub async fn new_accessible<T: Signified>(
 		&self,

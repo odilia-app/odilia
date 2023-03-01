@@ -14,10 +14,9 @@ pub async fn add_accessible(
 	state: &ScreenReaderState,
 	event: &AddAccessibleEvent,
 ) -> eyre::Result<()> {
-	let atspi_cache_item = event
-		.to_owned()
-		.into_item();
-	state.get_or_create_atspi_cache_item_to_cache(atspi_cache_item).await?;
+	let atspi_cache_item = event.to_owned().into_item();
+	state.get_or_create_atspi_cache_item_to_cache(atspi_cache_item)
+		.await?;
 	Ok(())
 }
 pub async fn remove_accessible(
