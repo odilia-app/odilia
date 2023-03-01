@@ -410,7 +410,6 @@ mod state_changed {
 		State,
 	};
 	use odilia_cache::AccessiblePrimitive;
-	use std::sync::Arc;
 
 	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -437,8 +436,6 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
-		let _ci = state.cache.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache))).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
@@ -447,8 +444,8 @@ mod state_changed {
 			}
 		};
 		let state_value = event.enabled() == 1;
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		// update cache with state of item
+		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		match update_state(state, &a11y_prim, a11y_state, state_value).await {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
 			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
