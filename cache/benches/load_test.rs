@@ -131,7 +131,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			.collect::<Vec<_>>();
 		group.throughput(criterion::Throughput::Elements(size));
 		group.bench_function(BenchmarkId::new("reads_while_writing", size), |b| {
-			b.iter_batched(
+			b.to_async(&rt).iter_batched(
 				|| (sample.clone(), all_items.clone()),
 				|(ids, items)| async {
 					reads_while_writing(&cache, ids, items).await
