@@ -233,8 +233,7 @@ mod text_changed {
 						update_length,
 						&updated_text,
 					),
-				)
-				.await;
+				);
 		} else if remove_has_not_occured {
 			state.cache
 				.modify_item(&cache_item.object, move |cache_item| {
@@ -246,8 +245,7 @@ mod text_changed {
 							update_length,
 						))
 						.collect();
-				})
-				.await;
+				});
 		}
 		Ok(())
 	}
@@ -289,7 +287,7 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		let prim = AccessiblePrimitive::from_event(event)?;
-		state.cache.remove(&prim).await;
+		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
 	}
@@ -426,14 +424,12 @@ mod state_changed {
 			Ok(state.cache
 				.modify_item(a11y, |cache_item| {
 					cache_item.states.remove(state_changed)
-				})
-				.await)
+				}))
 		} else {
 			Ok(state.cache
 				.modify_item(a11y, |cache_item| {
 					cache_item.states.insert(state_changed)
-				})
-				.await)
+				}))
 		}
 	}
 

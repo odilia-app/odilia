@@ -87,29 +87,29 @@ impl ScreenReaderState {
 
 	pub async fn get_or_create_atspi_cache_item_to_cache(&self, atspi_cache_item: atspi::cache::CacheItem) -> OdiliaResult<CacheItem> {
 		let prim = atspi_cache_item.object.clone().try_into()?;
-		if self.cache.get(&prim).await.is_none() {
+		if self.cache.get(&prim).is_none() {
 			self.cache.add(
 				CacheItem::from_atspi_cache_item(
 					atspi_cache_item,
 					Arc::downgrade(&Arc::clone(&self.cache)),
 					self.atspi.connection(),
 				).await?
-			).await;
+			);
 		}
-		self.cache.get(&prim).await.ok_or(CacheError::NoItem.into())
+		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
 	pub async fn get_or_create_event_object_to_cache<T: Signified>(&self, event: &T) -> OdiliaResult<CacheItem> {
 		let prim = AccessiblePrimitive::from_event(event)?;
-		if self.cache.get(&prim).await.is_none() {
+		if self.cache.get(&prim).is_none() {
 			self.cache.add(
 				CacheItem::from_atspi_event(
 					event,
 					Arc::downgrade(&Arc::clone(&self.cache)),
 					self.atspi.connection(),
 				).await?
-			).await;
+			);
 		}
-		self.cache.get(&prim).await.ok_or(CacheError::NoItem.into())
+		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.

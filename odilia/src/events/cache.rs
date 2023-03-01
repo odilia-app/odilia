@@ -25,6 +25,6 @@ pub async fn remove_accessible(
 	event: &RemoveAccessibleEvent,
 ) -> eyre::Result<()> {
 	let accessible_prim: AccessiblePrimitive = event.to_owned().into_accessible().try_into()?;
-	state.cache.remove(&accessible_prim).await;
+	state.cache.remove(&accessible_prim);
 	Ok(())
 }
