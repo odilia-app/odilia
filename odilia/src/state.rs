@@ -91,7 +91,7 @@ impl ScreenReaderState {
 			self.cache.add(
 				CacheItem::from_atspi_cache_item(
 					atspi_cache_item,
-					Arc::clone(&self.cache),
+					Arc::downgrade(&Arc::clone(&self.cache)),
 					self.atspi.connection(),
 				).await?
 			).await;
@@ -104,7 +104,7 @@ impl ScreenReaderState {
 			self.cache.add(
 				CacheItem::from_atspi_event(
 					event,
-					Arc::clone(&self.cache),
+					Arc::downgrade(&Arc::clone(&self.cache)),
 					self.atspi.connection(),
 				).await?
 			).await;
@@ -256,7 +256,7 @@ impl ScreenReaderState {
 			.path(accessible.id.to_string())?
 			.build()
 			.await?;
-		self.cache.get_or_create(&accessible_proxy, Arc::clone(&self.cache)).await
+		self.cache.get_or_create(&accessible_proxy, Arc::downgrade(&Arc::clone(&self.cache))).await
 	}
 	pub async fn new_accessible<T: Signified>(
 		&self,

@@ -280,7 +280,7 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ = state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await;
+		let _ = state.cache.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache))).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -442,7 +442,7 @@ mod state_changed {
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ci = state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await?;
+		let _ci = state.cache.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache))).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
