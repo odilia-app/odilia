@@ -203,19 +203,16 @@ impl CacheItem {
 	}
 }
 
-macro_rules! strong_cache {
-	($cache_ref:expr) => {
-		Weak::upgrade($cache_ref)
-			.ok_or(OdiliaError::Cache(CacheError::NotAvailable))?
-	}
+#[inline]
+async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'_>> {
+	let cache = strong_cache(&cache_item.cache)?;
+	Ok(cache_item.object.clone().into_accessible(&cache.connection).await?)
 }
-macro_rules! as_accessible {
-	($self:expr) => {
-		{
-			let cache = strong_cache!(&$self.cache);
-			$self.object.clone().into_accessible(&cache.connection).await?
-		}
-	}
+
+#[inline]
+fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
+	Weak::upgrade(weak_cache)
+		.ok_or(OdiliaError::Cache(CacheError::NotAvailable))
 }
 
 #[async_trait]
@@ -223,15 +220,15 @@ impl Accessible for CacheItem {
 	type Error = OdiliaError;
 
 	async fn get_application(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).await.ok_or(CacheError::NoItem.into())
 	}
 	async fn parent(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.parent).await.ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache!(&self.cache);
+		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get_all(&self.children).await
 			.into_iter()
 			.map(|child| child.ok_or(CacheError::NoItem.into()))
@@ -250,20 +247,20 @@ impl Accessible for CacheItem {
 		Ok(self.interfaces)
 	}
 	async fn get_attributes(&self) -> Result<HashMap<String, String>, Self::Error> {
-		Ok(as_accessible!(self).get_attributes().await?)
+		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
 	async fn name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible!(self).name().await?)
+		Ok(as_accessible(self).await?.name().await?)
 	}
 	async fn locale(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible!(self).locale().await?)
+		Ok(as_accessible(self).await?.locale().await?)
 	}
 	async fn description(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible!(self).description().await?)
+		Ok(as_accessible(self).await?.description().await?)
 	}
 	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, Self::Error> {
-		let cache = strong_cache!(&self.cache);
-		as_accessible!(self).get_relation_set().await?
+		let cache = strong_cache(&self.cache)?;
+		as_accessible(self).await?.get_relation_set().await?
 			.into_iter()
 			.map(|(relation, object_pairs)| (
 				relation,
@@ -282,7 +279,7 @@ impl Accessible for CacheItem {
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
 	async fn get_role_name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible!(self).get_role_name().await?)
+		Ok(as_accessible(self).await?.get_role_name().await?)
 	}
 	async fn get_state(&self) -> Result<StateSet, Self::Error> {
 		Ok(self.states)
@@ -291,7 +288,7 @@ impl Accessible for CacheItem {
 		self.get_children().await?.get(idx as usize).ok_or(CacheError::NoItem.into()).cloned()
 	}
 	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible!(self).get_localized_role_name().await?)
+		Ok(as_accessible(self).await?.get_localized_role_name().await?)
 	}
 	async fn accessible_id(&self) -> Result<AccessibleId, Self::Error> {
 		Ok(self.object.id)
