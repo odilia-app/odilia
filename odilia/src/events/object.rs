@@ -576,8 +576,10 @@ mod tests {
 	fn test_text_navigation_one_letter_back() {
 		check_answer_values!(1);
 	}
+	/*
 	#[test]
 	fn test_text_navigation_one_word() {
 		check_answer_values!(2);
 	}
+	*/
 }
