@@ -1,6 +1,5 @@
 //#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
 
-use fxhash::FxBuildHasher;
 use async_trait::async_trait;
 use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
@@ -12,6 +11,7 @@ use atspi::{
 	InterfaceSet, StateSet,
 };
 use dashmap::DashMap;
+use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
 	result::OdiliaResult,
