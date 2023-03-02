@@ -45,6 +45,10 @@ tracing.workspace = true
 xdg = "2.4.1"
 zbus.workspace = true
 
+[dev-dependencies]
+lazy_static = "1.4.0"
+tokio-test = "0.4.2"
+
 [features]
 
 #[build-dependencies]

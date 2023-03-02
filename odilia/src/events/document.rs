@@ -3,7 +3,6 @@ use atspi::{
 	events::GenericEvent, identify::document::DocumentEvents,
 	identify::document::LoadCompleteEvent,
 };
-use odilia_cache::CacheItem;
 
 pub async fn load_complete(
 	state: &ScreenReaderState,
@@ -14,24 +13,7 @@ pub async fn load_complete(
 	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;
 	for item in entire_cache {
-		state.cache.add(CacheItem {
-			object: item
-				.object
-				.try_into()
-				.expect("Could not create AccessiblePrimitive from parts"),
-			app: item.app.try_into().expect(
-				"Could not create AccessiblePrimitive from parts for application",
-			),
-			parent: item.parent.try_into().expect(
-				"Could not create AccessiblePrimitive from parts for parent",
-			),
-			index: item.index,
-			children: item.children,
-			ifaces: item.ifaces,
-			role: item.role,
-			states: item.states,
-			text: item.name.clone(),
-		}).await;
+		state.get_or_create_atspi_cache_item_to_cache(item).await?;
 	}
 	tracing::debug!("Add an entire document to cache.");
 	Ok(())

@@ -16,11 +16,15 @@ use atspi::{
 	text::Granularity,
 	AccessibilityConnection,
 };
-use odilia_cache::{AccessiblePrimitive, Cache};
+use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::OdiliaError, modes::ScreenReaderMode, settings::ApplicationConfig,
-	types::TextSelectionArea, Result as OdiliaResult,
+	errors::{CacheError, OdiliaError},
+	modes::ScreenReaderMode,
+	settings::ApplicationConfig,
+	types::TextSelectionArea,
+	Result as OdiliaResult,
 };
+use std::sync::Arc;
 
 pub struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
@@ -32,7 +36,7 @@ pub struct ScreenReaderState {
 	pub granularity: Mutex<Granularity>,
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<atspi::Event>>,
-	pub cache: Cache,
+	pub cache: Arc<Cache>,
 }
 
 impl ScreenReaderState {
@@ -67,7 +71,7 @@ impl ScreenReaderState {
 		let previous_caret_position = AtomicI32::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Cache::new();
+		let cache = Arc::new(Cache::new(atspi.connection().to_owned()));
 
 		let granularity = Mutex::new(Granularity::Line);
 		Ok(Self {
@@ -82,6 +86,37 @@ impl ScreenReaderState {
 			event_history,
 			cache,
 		})
+	}
+
+	pub async fn get_or_create_atspi_cache_item_to_cache(
+		&self,
+		atspi_cache_item: atspi::cache::CacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let prim = atspi_cache_item.object.clone().try_into()?;
+		if self.cache.get(&prim).is_none() {
+			self.cache.add(CacheItem::from_atspi_cache_item(
+				atspi_cache_item,
+				Arc::downgrade(&Arc::clone(&self.cache)),
+				self.atspi.connection(),
+			)
+			.await?);
+		}
+		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
+	}
+	pub async fn get_or_create_event_object_to_cache<T: Signified>(
+		&self,
+		event: &T,
+	) -> OdiliaResult<CacheItem> {
+		let prim = AccessiblePrimitive::from_event(event)?;
+		if self.cache.get(&prim).is_none() {
+			self.cache.add(CacheItem::from_atspi_event(
+				event,
+				Arc::downgrade(&Arc::clone(&self.cache)),
+				self.atspi.connection(),
+			)
+			.await?);
+		}
+		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
@@ -220,6 +255,20 @@ impl ScreenReaderState {
 			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
 			.build()
 			.await?)
+	}
+	#[allow(dead_code)]
+	pub async fn get_or_create_cache_item(
+		&self,
+		accessible: AccessiblePrimitive,
+	) -> OdiliaResult<CacheItem> {
+		let accessible_proxy = AccessibleProxy::builder(self.atspi.connection())
+			.destination(accessible.sender.as_str())?
+			.path(accessible.id.to_string())?
+			.build()
+			.await?;
+		self.cache
+			.get_or_create(&accessible_proxy, Arc::downgrade(&Arc::clone(&self.cache)))
+			.await
 	}
 	pub async fn new_accessible<T: Signified>(
 		&self,

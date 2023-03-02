@@ -14,15 +14,16 @@ pub async fn add_accessible(
 	state: &ScreenReaderState,
 	event: &AddAccessibleEvent,
 ) -> eyre::Result<()> {
-	let cache_item = event.to_owned().into_item().try_into()?;
-	state.cache.add(cache_item).await;
+	let atspi_cache_item = event.to_owned().into_item();
+	state.get_or_create_atspi_cache_item_to_cache(atspi_cache_item)
+		.await?;
 	Ok(())
 }
 pub async fn remove_accessible(
 	state: &ScreenReaderState,
 	event: &RemoveAccessibleEvent,
 ) -> eyre::Result<()> {
-	let accessible_prim: AccessiblePrimitive = event.to_owned().into_accessible().try_into()?;
-	state.cache.remove(&accessible_prim.id).await;
+	let accessible_prim: AccessiblePrimitive = AccessiblePrimitive::from_event(event)?;
+	state.cache.remove(&accessible_prim);
 	Ok(())
 }

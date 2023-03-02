@@ -12,12 +12,37 @@ pub enum OdiliaError {
 	Zbus(zbus::Error),
 	ZbusFdo(zbus::fdo::Error),
 	Zvariant(zbus::zvariant::Error),
+	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
 }
+#[derive(Debug)]
+pub enum CacheError {
+	NotAvailable,
+	NoItem,
+}
+impl std::fmt::Display for CacheError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
+			Self::NoItem => f.write_str("No item in cache found."),
+		}
+	}
+}
+impl std::error::Error for CacheError {}
 impl Error for OdiliaError {}
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {
 		Self::ZbusFdo(spe)
+	}
+}
+impl From<std::convert::Infallible> for OdiliaError {
+	fn from(infallible: std::convert::Infallible) -> Self {
+		Self::InfallibleConversion(infallible)
+	}
+}
+impl From<CacheError> for OdiliaError {
+	fn from(cache_error: CacheError) -> Self {
+		Self::Cache(cache_error)
 	}
 }
 impl From<zbus::Error> for OdiliaError {

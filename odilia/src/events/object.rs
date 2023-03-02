@@ -203,7 +203,7 @@ mod text_changed {
 		insert: bool,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let cache_item = state.cache.get_or_create(&accessible).await?;
+		let cache_item = state.get_or_create_event_object_to_cache(event).await?;
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
@@ -223,29 +223,21 @@ mod text_changed {
 		let insert_has_not_occured = insert && !selection_matches_update;
 		let remove_has_not_occured = !insert && selection_matches_update;
 		if insert_has_not_occured {
-			state.cache
-				.modify_item(
-					&cache_item.object.id,
-					update_string_insert(
+			state.cache.modify_item(
+				&cache_item.object,
+				update_string_insert(start_pos, update_length, &updated_text),
+			);
+		} else if remove_has_not_occured {
+			state.cache.modify_item(&cache_item.object, move |cache_item| {
+				cache_item.text = cache_item
+					.text
+					.char_indices()
+					.filter_map(get_string_without_bounds(
 						start_pos,
 						update_length,
-						&updated_text,
-					),
-				)
-				.await;
-		} else if remove_has_not_occured {
-			state.cache
-				.modify_item(&cache_item.object.id, move |cache_item| {
-					cache_item.text = cache_item
-						.text
-						.char_indices()
-						.filter_map(get_string_without_bounds(
-							start_pos,
-							update_length,
-						))
-						.collect();
-				})
-				.await;
+					))
+					.collect();
+			});
 		}
 		Ok(())
 	}
@@ -253,9 +245,9 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{
-		events::GenericEvent, identify::object::ChildrenChangedEvent, signify::Signified,
-	};
+	use atspi::{identify::object::ChildrenChangedEvent, signify::Signified};
+	use odilia_cache::AccessiblePrimitive;
+	use std::sync::Arc;
 
 	pub async fn dispatch(
 		state: &ScreenReaderState,
@@ -276,7 +268,10 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
-		let _ = state.cache.get_or_create(&accessible).await;
+		let _ = state
+			.cache
+			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
+			.await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -284,8 +279,8 @@ mod children_changed {
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
-		let path = event.path().expect("All accessibles must have a path").try_into()?;
-		state.cache.remove(&path).await;
+		let prim = AccessiblePrimitive::from_event(event)?;
+		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
 	}
@@ -296,8 +291,39 @@ mod text_caret_moved {
 	use atspi::{
 		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified,
 	};
+	use odilia_cache::CacheItem;
 	use ssip_client::Priority;
-	use std::sync::atomic::Ordering;
+	use std::{
+		cmp::{max, min},
+		sync::atomic::Ordering,
+	};
+
+	#[allow(dead_code)]
+	#[allow(unused_variables)]
+	pub fn new_position(
+		new_item: CacheItem,
+		old_item: CacheItem,
+		new_position: u32,
+		old_position: u32,
+		new_text: String,
+	) -> String {
+		let new_id = new_item.object.id;
+		let old_id = old_item.object.id;
+		let new_pos = usize::try_from(new_position).unwrap();
+		let old_pos = usize::try_from(old_position).unwrap();
+
+		// unknwon
+		if new_id != old_id {
+			return String::new();
+		}
+		let first_position = isize::try_from(max(new_position, old_position));
+		let last_position = isize::try_from(min(new_position, old_position));
+		// if there is one character between the old and new position
+		if new_pos.abs_diff(old_pos) == 1 {
+			return new_text.get(new_pos..new_pos + 1).unwrap().to_string();
+		}
+		String::new()
+	}
 
 	/// this must be checked *before* writing an accessible to the hsitory.
 	/// if this is checked after writing, it may give inaccurate results.
@@ -366,10 +392,8 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_id::{AccessibleId, HasAccessibleId},
-		identify::object::StateChangedEvent,
-		signify::Signified,
-		State,
+		accessible_id::HasAccessibleId, identify::object::StateChangedEvent,
+		signify::Signified, State,
 	};
 	use odilia_cache::AccessiblePrimitive;
 
@@ -377,22 +401,18 @@ mod state_changed {
 	/// This writes to the value in-place, and does not clone any values.
 	pub async fn update_state(
 		state: &ScreenReaderState,
-		a11y_id: &AccessibleId,
+		a11y: &AccessiblePrimitive,
 		state_changed: State,
 		active: bool,
 	) -> eyre::Result<bool> {
 		if active {
-			Ok(state.cache
-				.modify_item(a11y_id, |cache_item| {
-					cache_item.states.remove(state_changed)
-				})
-				.await)
+			Ok(state.cache.modify_item(a11y, |cache_item| {
+				cache_item.states.remove(state_changed)
+			}))
 		} else {
-			Ok(state.cache
-				.modify_item(a11y_id, |cache_item| {
-					cache_item.states.insert(state_changed)
-				})
-				.await)
+			Ok(state.cache.modify_item(a11y, |cache_item| {
+				cache_item.states.insert(state_changed)
+			}))
 		}
 	}
 
@@ -400,8 +420,6 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
-		let _ci = state.cache.get_or_create(&accessible).await?;
 		let a11y_state: State = match serde_plain::from_str(event.kind()) {
 			Ok(s) => s,
 			Err(e) => {
@@ -410,9 +428,9 @@ mod state_changed {
 			}
 		};
 		let state_value = event.enabled() == 1;
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		// update cache with state of item
-		match update_state(state, &a11y_prim.id, a11y_state, state_value).await {
+		let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		match update_state(state, &a11y_prim, a11y_state, state_value).await {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
 			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
 			Err(e) => return Err(e),
@@ -458,4 +476,110 @@ mod state_changed {
 
 		Ok(())
 	}
+}
+
+#[cfg(test)]
+mod tests {
+	use crate::events::object::text_caret_moved::new_position;
+	use atspi::{
+		accessible::Role, accessible_id::AccessibleId, AccessibilityConnection, Interface,
+		InterfaceSet, State, StateSet,
+	};
+	use lazy_static::lazy_static;
+	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+	use std::sync::Arc;
+	use tokio_test::block_on;
+
+	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance.";
+	lazy_static! {
+		static ref ZBUS_CONN: AccessibilityConnection =
+			block_on(AccessibilityConnection::open()).unwrap();
+		static ref CACHE_ARC: Arc<Cache> =
+			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
+		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
+			object: AccessiblePrimitive {
+				id: AccessibleId::Number(1),
+				sender: ":1.2".to_string(),
+			},
+			app: AccessiblePrimitive {
+				id: AccessibleId::Root,
+				sender: ":1.2".to_string(),
+			},
+			parent: AccessiblePrimitive {
+				id: AccessibleId::Number(1),
+				sender: ":1.2".to_string(),
+			},
+			index: 323,
+			children_num: 0,
+			interfaces: InterfaceSet::new(
+				Interface::Accessible
+					| Interface::Collection | Interface::Component
+					| Interface::Hyperlink | Interface::Hypertext
+					| Interface::Text
+			),
+			role: Role::Paragraph,
+			states: StateSet::new(
+				State::Enabled | State::Opaque | State::Showing | State::Visible
+			),
+			text: A11Y_PARAGRAPH_STRING.to_string(),
+			children: Vec::new(),
+			cache: Arc::downgrade(&CACHE_ARC),
+		};
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 3] = [
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				4,
+				3,
+				A11Y_PARAGRAPH_STRING,
+				"A"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				3,
+				4,
+				A11Y_PARAGRAPH_STRING,
+				" "
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				0,
+				3,
+				A11Y_PARAGRAPH_STRING,
+				"The"
+			),
+		];
+	}
+
+	macro_rules! check_answer_values {
+		($idx:literal) => {
+			assert_eq!(
+				new_position(
+					ANSWER_VALUES[$idx].0.clone(),
+					ANSWER_VALUES[$idx].1.clone(),
+					ANSWER_VALUES[$idx].2,
+					ANSWER_VALUES[$idx].3,
+					ANSWER_VALUES[$idx].4.to_string(),
+				),
+				ANSWER_VALUES[$idx].5.to_string()
+			);
+		};
+	}
+
+	#[test]
+	fn test_text_navigation_one_letter() {
+		check_answer_values!(0);
+	}
+	#[test]
+	fn test_text_navigation_one_letter_back() {
+		check_answer_values!(1);
+	}
+	/*
+	#[test]
+	fn test_text_navigation_one_word() {
+		check_answer_values!(2);
+	}
+	*/
 }
