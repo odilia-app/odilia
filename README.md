@@ -21,7 +21,7 @@ Perhaps unnecessarily, but you will need to have `speech-dispatcher` installed a
 to test that speech dispatcher is indeed working properly, try running this command:
 
 ```shell
-sppd-say "hello, world!"
+spd-say "hello, world!"
 ```
 
 if you heard a voice saying "hello, world!", you can proceed to installing. Otherwise, check if sound  is working on the computer in general, try looking for error outputs especially in the logs, then consult your distro packagers and ask them about how it's supposed to be set up and what could be wrong, perhaps you have to do something else before it's fully workingh, for example adding yourself to a speech group or other distro specific mechanisms
