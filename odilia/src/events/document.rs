@@ -9,7 +9,7 @@ pub async fn load_complete(
 	event: &LoadCompleteEvent,
 ) -> eyre::Result<()> {
 	let sender = event.sender()?.unwrap();
-	let cache = state.build_cache(sender.clone()).await?;
+	let cache = state.build_cache(sender).await?;
 	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;
 	for item in entire_cache {
