@@ -113,7 +113,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		cache.add_all(all_items);
 		(cache, children)
 	});
-	group.bench_function(BenchmarkId::new("traverse_cache", "zbus-docs"), |b| {
+	group.bench_function(BenchmarkId::new("traverse_cache", "wcag-items"), |b| {
 		b.iter_batched(
 			|| children.clone(),
 			|cs| traverse_cache(&cache, cs),
