@@ -47,7 +47,7 @@ sudo ./scripts/setup_permissions.sh
 This script will populate `/etc/odilia` with several configuration files, which are required for the well functioning of the screenreader. You have to run it as root because it has to write to /etc, which is protected from regular user access, no other reasons are involved
 
 ```shell
-sudo ./scripts/install_configs.sh`
+sudo ./scripts/install_configs.sh
 ```
 
 You will also want to compile and install sohkd.
