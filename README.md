@@ -37,13 +37,6 @@ cargo build --release && \
 cargo install --path odilia
 ```
 
-Odilia requires `uinput` access, the kernel's provisioning to emulate input devices. Furthermore, it requires the user to be in the 'odilia' and 'input' groups, as well as appropriate `evdev` rules to be installed on the device. For more information, see also: [Udev Permissions](Sudev-permissions).
-This script will set those on your behalf as well
-
-```shell
-sudo ./scripts/setup_permissions.sh
-```
-
 This script will populate `/etc/odilia` with several configuration files, which are required for the well functioning of the screenreader. You have to run it as root because it has to write to /etc, which is protected from regular user access, no other reasons are involved
 
 ```shell
@@ -67,13 +60,6 @@ This will ask for your password (if you have root permissions) and then launch b
 ```shell
 ./scripts/odilia
 ```
-
-## Udev Permissions
-
-Odilia uses the Linux kernel's [evdev interface](https://freedesktop.org/software/libevdev/doc/latest/) to listen for and redirect events from input devices, such as your keyboard and mouse.
-
-Evdev is normally a privileged interface, since any application that can access it could use it for malicious purposes, for example, creating a keylogger. For this reason, to run Odilia, you must give yourself access to evdev. This can be done by running the [scripts/setup-permissions.sh shell
-script](https://github.com/odilia-app/odilia/blob/main/setup-permissions.sh) included with Odilia. The script adds some udev rules, then creates an odilia group. Any users added to this group and the `input` group will be able to run Odilia.
 
 ## Community
 
