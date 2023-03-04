@@ -1,5 +1,3 @@
-//#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
-
 use async_trait::async_trait;
 use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
@@ -17,6 +15,7 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex; // TODO ensure no Mutexes held across .await points before merging. only lock the mutex on non-async methods!!
 use std::{collections::HashMap, sync::Arc, sync::Weak};
 use zbus::{
 	names::OwnedUniqueName,
@@ -25,9 +24,9 @@ use zbus::{
 };
 
 type CacheKey = AccessiblePrimitive;
-type InnerCacheType = DashMap<CacheKey, CacheItem, FxBuildHasher>;
-type ConcurrentSafeCacheType = InnerCacheType;
-type ThreadSafeCacheType = Arc<ConcurrentSafeCacheType>;
+type InnerCache = DashMap<CacheKey, Arc<Mutex<CacheItem>>, FxBuildHasher>;
+// TODO we currently pass around an Arc<Cache>, which results in Arc<Arc<InnerCache>>; reduce this to one level!
+type ThreadSafeCache = Arc<InnerCache>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -324,7 +323,7 @@ impl Accessible for CacheItem {
 /// The root of the accessible cache.
 #[derive(Clone, Debug)]
 pub struct Cache {
-	pub by_id: ThreadSafeCacheType,
+	pub by_id: ThreadSafeCache,
 	pub connection: zbus::Connection,
 }
 
@@ -341,28 +340,50 @@ impl Cache {
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self { by_id: Arc::new(DashMap::default()), connection: conn }
 	}
-	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
+    /// add a single new item to the cache. Note that this will empty the bucket
+    /// before inserting the `CacheItem` into the cache (this is so there is
+    /// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
-		self.by_id.insert(cache_item.object.clone(), cache_item);
+        let id = cache_item.object.clone();
+        self.add_ref(id, Arc::new(Mutex::new(cache_item)));
 	}
-	/// remove a single cache item
+
+    fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
+		self.by_id.insert(id, cache_item);
+    }
+
+	/// Remove a single cache item
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
-	/// get a single item from the cache (note that this copies some integers to a new struct)
+	/// Get a single item (mutable via lock) from the cache.
+    // For now this is kept private, as it would be easy to naively deadlock if
+    // someone does a chain of `get_raw`s on parent->child->parent, etc.
 	#[allow(dead_code)]
-	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+	fn get_raw(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
+
+    /// Get a single item from the cache.
+    ///
+    /// This will allow you to get the item without holding any locks to it,
+    /// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
+	#[allow(dead_code)]
+	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+		self.by_id.get(id).map(|entry| entry.lock().unwrap().clone())
+	}
+
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
-		ids.iter().map(|id| self.by_id.get(id).as_deref().cloned()).collect()
+		ids.iter().map(|id| self.get(id)).collect()
 	}
-	/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
+
+    /// Bulk add many items to the cache; only one accessible should ever be
+    /// associated with an id.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
 		cache_items.into_iter().for_each(|cache_item| {
-			self.by_id.insert(cache_item.object.clone(), cache_item);
+            self.add(cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -373,14 +394,19 @@ impl Cache {
 		});
 	}
 
-	/// Edit a mutable CacheItem using a function which returns the edited version.
-	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it.
-	/// Returns true if the update was successful.
+    /// Edit a mutable CacheItem using a function which returns the edited
+    /// version. Returns true if the update was successful.
+    ///
+    /// Note: an exclusive lock will be placed for the entire length of the
+    /// passed function, so don't do any compute in it.
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
-		let mut cache_item = match self.by_id.get_mut(id) {
+        // I wonder if `get_mut` vs `get` makes any difference here? I suppose
+        // it will just rely on the dashmap write access vs mutex lock access.
+        // Let's default to the fairness of the mutex.
+		let entry = match self.by_id.get(id) {
 			Some(i) => i,
 			None => {
 				tracing::trace!(
@@ -390,6 +416,7 @@ impl Cache {
 				return false;
 			}
 		};
+        let mut cache_item = (*entry).lock().unwrap();
 		modify(&mut cache_item);
 		true
 	}
