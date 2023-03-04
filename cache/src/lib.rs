@@ -158,7 +158,7 @@ pub struct CacheItem {
 	// The application (root object(?)    (so)
 	pub app: AccessiblePrimitive,
 	// The parent object.  (so)
-	pub parent: AccessiblePrimitive,
+	pub parent: CacheRef,
 	// The accessbile index in parent.  i
 	pub index: i32,
 	// Child count of the accessible  i
@@ -206,7 +206,7 @@ impl CacheItem {
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
 			app: atspi_cache_item.app.try_into()?,
-			parent: atspi_cache_item.parent.try_into()?,
+			parent: CacheRef::new(atspi_cache_item.parent.try_into()?),
 			index: atspi_cache_item.index,
 			children_num: atspi_cache_item.children,
 			interfaces: atspi_cache_item.ifaces,
@@ -216,6 +216,35 @@ impl CacheItem {
 			cache,
 			children: children_primitives,
 		})
+	}
+}
+
+/// A composition of an accessible ID and (possibly) a reference
+/// to its `CacheItem`, if the item has not been dropped from the cache yet.
+/// TODO if desirable, we could make one direction strong references (e.g. have
+/// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
+/// BUT - is it even desirable to keep an item pinned in an Arc from its
+/// releatives after it has been removed from the cache?
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CacheRef {
+	pub key: CacheKey,
+	#[serde(skip)]
+	item: Weak<Mutex<CacheItem>>,
+}
+
+impl CacheRef {
+	pub fn new(key: AccessiblePrimitive) -> Self {
+		Self { key, item: Weak::new() }
+	}
+
+	pub fn clone_inner(&self) -> Option<CacheItem> {
+		self.item.upgrade().as_ref().map(clone_arc_mutex)
+	}
+}
+
+impl From<AccessiblePrimitive> for CacheRef {
+	fn from(value: AccessiblePrimitive) -> Self {
+		Self::new(value)
 	}
 }
 
@@ -239,8 +268,11 @@ impl Accessible for CacheItem {
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
 	async fn parent(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.parent).ok_or(CacheError::NoItem.into())
+		let parent_item = self
+			.parent
+			.clone_inner()
+			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
+		parent_item.ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
@@ -328,49 +360,46 @@ pub struct Cache {
 }
 
 /// An internal cache used within Odilia.
-/// This contains (mostly) all accessibles in the entire accessibility tree, and they are referenced by their IDs.
-/// When setting or getting information from the cache, be sure to use the most appropriate function.
-/// For example, you would not want to remove individual items using the `remove()` function.
-/// You should use the `remove_all()` function to acheive this, since this will only lock the cache mutex once, remove all ids, then refresh the cache.
-/// If you are having issues with incorrect or invalid accessibles trying to be accessed, this is code is probably the issue.
-/// This implementation is not very efficient, but it is very safe:
-/// This is because before inserting, the incomming bucket is cleared (there will never be duplicate accessibles or accessibles at different states stored in the same bucket).
+///
+/// This contains (mostly) all accessibles in the entire accessibility tree, and
+/// they are referenced by their IDs. If you are having issues with incorrect or
+/// invalid accessibles trying to be accessed, this is code is probably the issue.
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self { by_id: Arc::new(DashMap::default()), connection: conn }
 	}
-    /// add a single new item to the cache. Note that this will empty the bucket
-    /// before inserting the `CacheItem` into the cache (this is so there is
-    /// never two items with the same ID stored in the cache at the same time).
+	/// add a single new item to the cache. Note that this will empty the bucket
+	/// before inserting the `CacheItem` into the cache (this is so there is
+	/// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
-        let id = cache_item.object.clone();
-        self.add_ref(id, Arc::new(Mutex::new(cache_item)));
+		let id = cache_item.object.clone();
+		self.add_ref(id, Arc::new(Mutex::new(cache_item)));
 	}
 
-    fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
+	fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
 		self.by_id.insert(id, cache_item);
-    }
+	}
 
 	/// Remove a single cache item
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
 	/// Get a single item (mutable via lock) from the cache.
-    // For now this is kept private, as it would be easy to naively deadlock if
-    // someone does a chain of `get_raw`s on parent->child->parent, etc.
+	// For now this is kept private, as it would be easy to naively deadlock if
+	// someone does a chain of `get_raw`s on parent->child->parent, etc.
 	#[allow(dead_code)]
 	fn get_raw(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
 
-    /// Get a single item from the cache.
-    ///
-    /// This will allow you to get the item without holding any locks to it,
-    /// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
+	/// Get a single item from the cache.
+	///
+	/// This will allow you to get the item without holding any locks to it,
+	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[allow(dead_code)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		self.by_id.get(id).map(|entry| entry.lock().unwrap().clone())
+		self.by_id.get(id).as_deref().map(clone_arc_mutex)
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -379,11 +408,11 @@ impl Cache {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
 
-    /// Bulk add many items to the cache; only one accessible should ever be
-    /// associated with an id.
+	/// Bulk add many items to the cache; only one accessible should ever be
+	/// associated with an id.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
 		cache_items.into_iter().for_each(|cache_item| {
-            self.add(cache_item);
+			self.add(cache_item);
 		});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -394,18 +423,18 @@ impl Cache {
 		});
 	}
 
-    /// Edit a mutable CacheItem using a function which returns the edited
-    /// version. Returns true if the update was successful.
-    ///
-    /// Note: an exclusive lock will be placed for the entire length of the
-    /// passed function, so don't do any compute in it.
+	/// Edit a mutable CacheItem using a function which returns the edited
+	/// version. Returns true if the update was successful.
+	///
+	/// Note: an exclusive lock will be placed for the entire length of the
+	/// passed function, so don't do any compute in it.
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
-        // I wonder if `get_mut` vs `get` makes any difference here? I suppose
-        // it will just rely on the dashmap write access vs mutex lock access.
-        // Let's default to the fairness of the mutex.
+		// I wonder if `get_mut` vs `get` makes any difference here? I suppose
+		// it will just rely on the dashmap write access vs mutex lock access.
+		// Let's default to the fairness of the mutex.
 		let entry = match self.by_id.get(id) {
 			Some(i) => i,
 			None => {
@@ -416,7 +445,7 @@ impl Cache {
 				return false;
 			}
 		};
-        let mut cache_item = (*entry).lock().unwrap();
+		let mut cache_item = (*entry).lock().unwrap();
 		modify(&mut cache_item);
 		true
 	}
@@ -470,7 +499,7 @@ pub async fn accessible_to_cache_item(
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.try_into()?,
-		parent: parent.try_into()?,
+		parent: CacheRef::new(parent.try_into()?),
 		index,
 		children_num,
 		interfaces,
@@ -483,4 +512,8 @@ pub async fn accessible_to_cache_item(
 			.collect::<Result<Vec<AccessiblePrimitive>, _>>()?,
 		cache,
 	})
+}
+
+fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
+	arc.lock().unwrap().clone()
 }

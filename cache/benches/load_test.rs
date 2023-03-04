@@ -19,6 +19,8 @@ fn add_all(cache: &Cache, items: Vec<CacheItem>) {
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
+/// Note: now that concurrency is handled by dashmap and there is no outer lock
+/// on the hashmap, this should be the same as `add_all`.
 fn add(cache: &Cache, items: Vec<CacheItem>) {
 	for item in items {
 		cache.add(item);
@@ -31,11 +33,11 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 fn traverse_cache(cache: &Cache, children: Vec<AccessiblePrimitive>) {
 	// for each child, try going up to the root
 	for child in children {
-		let mut id = child;
+		let mut key = child;
 		loop {
-			let item = cache.get(&id).unwrap();
-			id = item.parent;
-			if matches!(id.id, AccessibleId::Root) {
+			let item = cache.get(&key).unwrap();
+			key = item.parent.key;
+			if matches!(key.id, AccessibleId::Root) {
 				break;
 			}
 		}
@@ -105,7 +107,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		let children = all_items
 			.iter()
 			.filter_map(|item| {
-				(item.parent.id != AccessibleId::Null)
+				(item.parent.key.id != AccessibleId::Null)
 					.then_some(item.object.clone())
 			})
 			.collect();
