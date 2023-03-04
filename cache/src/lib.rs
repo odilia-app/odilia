@@ -328,25 +328,6 @@ pub struct Cache {
 	pub connection: zbus::Connection,
 }
 
-/// Copy all info into a plain CacheItem struct.
-/// This is very cheap, and the locking overhead will vastly outstrip making this a non-copy struct.
-#[inline]
-fn copy_into_cache_item(cache_item_with_handle: &CacheItem) -> CacheItem {
-	CacheItem {
-		object: cache_item_with_handle.object.clone(),
-		parent: cache_item_with_handle.parent.clone(),
-		states: cache_item_with_handle.states,
-		role: cache_item_with_handle.role,
-		app: cache_item_with_handle.app.clone(),
-		children_num: cache_item_with_handle.children_num,
-		interfaces: cache_item_with_handle.interfaces,
-		index: cache_item_with_handle.index,
-		text: cache_item_with_handle.text.clone(),
-		children: cache_item_with_handle.children.clone(),
-		cache: Weak::clone(&cache_item_with_handle.cache),
-	}
-}
-
 /// An internal cache used within Odilia.
 /// This contains (mostly) all accessibles in the entire accessibility tree, and they are referenced by their IDs.
 /// When setting or getting information from the cache, be sure to use the most appropriate function.
@@ -432,7 +413,7 @@ impl Cache {
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
 		// add a clone of it to the cache
-		self.add(copy_into_cache_item(&cache_item));
+		self.add(cache_item.clone());
 		// return that same cache item
 		Ok(cache_item)
 	}
