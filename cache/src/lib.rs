@@ -484,7 +484,7 @@ impl Cache {
 		let children = {
 			let mut item = item_arc.lock().unwrap();
 
-			// Populate parent's ref
+			// Populate this item's parent ref
 			if let Some(parent_arc) = cache.get(&item.parent.key).as_deref() {
 				item.parent.item = Arc::downgrade(parent_arc);
 			}
@@ -494,8 +494,9 @@ impl Cache {
 		// Next update the existing children to point to this item
 		let item_ref = Arc::downgrade(&item_arc);
 		for child_key in &children {
-			if let Some(child) = cache.get(child_key).as_deref() {
-				child.lock().unwrap().parent.item = Weak::clone(&item_ref);
+			if let Some(child_arc) = cache.get(child_key).as_deref() {
+				let mut child = child_arc.lock().unwrap();
+				child.parent.item = Weak::clone(&item_ref);
 			}
 		}
 	}

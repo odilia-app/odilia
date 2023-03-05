@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use atspi::{accessible::Accessible, accessible_id::AccessibleId, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_common::errors::{CacheError, OdiliaError};
 use rand::seq::SliceRandom;
 use tokio::select;
 use tokio_test::block_on;
@@ -35,7 +36,17 @@ async fn traverse_cache(children: Vec<CacheItem>) {
 	for child in children {
 		let mut item = child;
 		loop {
-			item = item.parent().await.unwrap();
+			item = match item.parent().await {
+				Ok(item) => item,
+				Err(OdiliaError::Cache(CacheError::NoItem)) => {
+					// Missing item from cache; this happens often.
+					// I guess the document load event didn't have quite everything at once.
+					break;
+				}
+				Err(e) => {
+					panic!("Odilia error {:?}", e);
+				}
+			};
 			if matches!(item.object.id, AccessibleId::Root) {
 				break;
 			}
