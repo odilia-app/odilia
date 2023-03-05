@@ -1,8 +1,9 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
-use atspi::{accessible_id::AccessibleId, AccessibilityConnection};
+use atspi::{accessible::Accessible, accessible_id::AccessibleId, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_common::errors::{CacheError, OdiliaError};
 use rand::seq::SliceRandom;
 use tokio::select;
 use tokio_test::block_on;
@@ -19,6 +20,8 @@ fn add_all(cache: &Cache, items: Vec<CacheItem>) {
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
+/// Note: now that concurrency is handled by dashmap and there is no outer lock
+/// on the hashmap, this should be the same as `add_all`.
 fn add(cache: &Cache, items: Vec<CacheItem>) {
 	for item in items {
 		cache.add(item);
@@ -28,14 +31,23 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 /// For each child, fetch it and all of its ancestors via `Cache::get`.
 //
 // Note: may be able to reduce noise by just doing the deepest child
-fn traverse_cache(cache: &Cache, children: Vec<AccessiblePrimitive>) {
+async fn traverse_cache(children: Vec<CacheItem>) {
 	// for each child, try going up to the root
 	for child in children {
-		let mut id = child;
+		let mut item = child;
 		loop {
-			let item = cache.get(&id).unwrap();
-			id = item.parent;
-			if matches!(id.id, AccessibleId::Root) {
+			item = match item.parent().await {
+				Ok(item) => item,
+				Err(OdiliaError::Cache(CacheError::NoItem)) => {
+					// Missing item from cache; this happens often.
+					// I guess the document load event didn't have quite everything at once.
+					break;
+				}
+				Err(e) => {
+					panic!("Odilia error {:?}", e);
+				}
+			};
+			if matches!(item.object.id, AccessibleId::Root) {
 				break;
 			}
 		}
@@ -82,41 +94,64 @@ fn cache_benchmark(c: &mut Criterion) {
 		.noise_threshold(0.03) // def 0.01
 		.measurement_time(Duration::from_secs(15));
 
-	let cache = Cache::new(zbus_connection.clone());
+	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
-		b.iter_batched(
-			|| zbus_items.clone(),
-			|items: Vec<CacheItem>| add_all(&cache, items),
+		b.to_async(&rt).iter_batched(
+			|| {
+				zbus_items
+					.clone()
+					.into_iter()
+					.map(|mut item| {
+						item.cache = Arc::downgrade(&cache);
+						item
+					})
+					.collect()
+			},
+			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
-	let cache = Cache::new(zbus_connection.clone());
+	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
-		b.iter_batched(
-			|| zbus_items.clone(),
-			|items: Vec<CacheItem>| add(&cache, items),
+		b.to_async(&rt).iter_batched(
+			|| {
+				zbus_items
+					.clone()
+					.into_iter()
+					.map(|mut item| {
+						item.cache = Arc::downgrade(&cache);
+						item
+					})
+					.collect()
+			},
+			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
-	let (cache, children): (Cache, Vec<AccessiblePrimitive>) = rt.block_on(async {
-		let all_items = wcag_items.clone();
-		let children = all_items
-			.iter()
-			.filter_map(|item| {
-				(item.parent.id != AccessibleId::Null)
-					.then_some(item.object.clone())
+	let (_cache, children): (Arc<Cache>, Vec<CacheItem>) = rt.block_on(async {
+		let cache = Arc::new(Cache::new(zbus_connection.clone()));
+		let all_items: Vec<CacheItem> = wcag_items
+			.clone()
+			.into_iter()
+			.map(|mut item| {
+				item.cache = Arc::downgrade(&cache);
+				item
 			})
 			.collect();
-		let cache = Cache::new(zbus_connection.clone());
+		let children = all_items
+			.clone()
+			.into_iter()
+			.filter(|item| item.parent.id != AccessibleId::Null)
+			.collect();
 		cache.add_all(all_items);
 		(cache, children)
 	});
 	group.bench_function(BenchmarkId::new("traverse_cache", "wcag-items"), |b| {
-		b.iter_batched(
+		b.to_async(&rt).iter_batched(
 			|| children.clone(),
-			|cs| traverse_cache(&cache, cs),
+			|cs| async { traverse_cache(cs).await },
 			BatchSize::SmallInput,
 		);
 	});
