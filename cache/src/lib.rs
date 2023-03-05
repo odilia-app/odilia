@@ -384,7 +384,7 @@ impl Cache {
 	fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
 		self.by_id.insert(id, Arc::clone(&cache_item));
 		let cache = Arc::clone(&self.by_id);
-		tokio::task::spawn_blocking(move || Self::populate_references(cache, cache_item));
+		Self::populate_references(cache, cache_item);
 	}
 
 	/// Remove a single cache item
