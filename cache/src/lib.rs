@@ -15,7 +15,7 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, sync::Weak};
+use std::{collections::HashMap, sync::Arc, sync::Weak, time::Duration};
 use std::{
 	sync::{mpsc, Condvar, Mutex},
 	thread,
@@ -381,6 +381,7 @@ pub struct Cache {
 	// I don't really want this to be bounded but otherwise we can't impl
 	// Accessible, as Cache wouldn't be Sync.
 	ref_task_sender: mpsc::SyncSender<Arc<Mutex<CacheItem>>>,
+	ref_shutdown_sender: Arc<Mutex<bool>>,
 }
 
 // N.B.: we are using std Mutexes internally here, within the cache hashmap
@@ -389,13 +390,17 @@ pub struct Cache {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(connection: zbus::Connection) -> Self {
-		let (ref_task_sender, task_recv) = mpsc::sync_channel(100000); // :/
+		let (ref_task_sender, task_recv) = mpsc::sync_channel(100000000); // :/
 		let in_use = Arc::new((Mutex::new(0), Condvar::new()));
 		let in_use_2 = Arc::clone(&in_use);
 		let by_id = Arc::new(DashMap::default());
 		let by_id_2 = Arc::clone(&by_id);
-		thread::spawn(move || populate_references(in_use_2, by_id_2, task_recv));
-		Self { by_id, connection, in_use, ref_task_sender }
+		let ref_shutdown_sender = Arc::new(Mutex::new(false));
+		let ref_shutdown_sender_2 = Arc::clone(&ref_shutdown_sender);
+		thread::spawn(move || {
+			populate_references(in_use_2, by_id_2, task_recv, ref_shutdown_sender_2)
+		});
+		Self { by_id, connection, in_use, ref_task_sender, ref_shutdown_sender }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
@@ -456,7 +461,7 @@ impl Cache {
 
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
-    // TODO: is it better to mark in use for the entirety of a document load?
+	// TODO: is it better to mark in use for the entirety of a document load?
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
 		cache_items.into_iter().for_each(|cache_item| {
 			self.add(cache_item);
@@ -578,22 +583,34 @@ fn populate_references(
 	in_use_arc: Arc<(Mutex<usize>, Condvar)>,
 	cache: ThreadSafeCache,
 	tasks: mpsc::Receiver<Arc<Mutex<CacheItem>>>,
+	shutdown_sender: Arc<Mutex<bool>>,
 ) {
 	// Wait until no one is using the cache
 	// But don't hold the lock! Let someone else start in between our tasks,
 	// whenever they want. In other words, _this_ thread has low priority.
+	enum Action {
+		Continue,
+		Break,
+	}
 	let wait_until_not_in_use = || {
 		let (lock, cvar) = &*in_use_arc;
 		let mut in_use = lock.lock().unwrap();
 		while *in_use > 0 {
-			in_use = cvar.wait(in_use).unwrap();
+			let res = cvar.wait_timeout(in_use, Duration::from_millis(100)).unwrap();
+			in_use = res.0;
+			if res.1.timed_out() && *shutdown_sender.lock().unwrap() {
+				return Action::Break;
+			}
 		}
+		Action::Continue
 	};
 	// Keep trying to process incoming tasks until the channel hangs up (e.g.
 	// when cache is dropped)
-	while let Ok(item_arc) = tasks.recv() {
+	'tasks: while let Ok(item_arc) = tasks.recv() {
 		// First update this item's parent ref
-		wait_until_not_in_use();
+		if let Action::Break = wait_until_not_in_use() {
+			break 'tasks;
+		}
 		let mut item = item_arc.lock().unwrap();
 		if let Some(parent_arc) = cache.get(&item.parent.key).as_deref() {
 			item.parent.item = Arc::downgrade(parent_arc);
@@ -604,10 +621,19 @@ fn populate_references(
 		// Next update the existing children to point to this item
 		let item_ref = Arc::downgrade(&item_arc);
 		for child_key in &children {
-			wait_until_not_in_use();
+			if let Action::Break = wait_until_not_in_use() {
+				break 'tasks;
+			}
 			if let Some(child) = cache.get(child_key).as_deref() {
 				child.lock().unwrap().parent.item = Weak::clone(&item_ref);
 			}
 		}
+	}
+}
+
+impl Drop for Cache {
+	fn drop(&mut self) {
+		let mut shutdown = self.ref_shutdown_sender.lock().unwrap();
+		*shutdown = true;
 	}
 }
