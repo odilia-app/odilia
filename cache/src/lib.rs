@@ -15,8 +15,11 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex; // TODO ensure no Mutexes held across .await points before merging. only lock the mutex on non-async methods!!
 use std::{collections::HashMap, sync::Arc, sync::Weak};
+use std::{
+	sync::{mpsc, Condvar, Mutex},
+	thread,
+};
 use zbus::{
 	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
@@ -25,7 +28,8 @@ use zbus::{
 
 type CacheKey = AccessiblePrimitive;
 type InnerCache = DashMap<CacheKey, Arc<Mutex<CacheItem>>, FxBuildHasher>;
-// TODO we currently pass around an Arc<Cache>, which results in Arc<Arc<InnerCache>>; reduce this to one level!
+// TODO we currently pass around an Arc<Cache>, which results in
+// Arc<Arc<InnerCache>>; we should reduce this to one level
 type ThreadSafeCache = Arc<InnerCache>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -153,13 +157,13 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
-	// The accessible object (within the application)   (so)
+	// The accessible object (within the application)	(so)
 	pub object: AccessiblePrimitive,
-	// The application (root object(?)    (so)
+	// The application (root object(?)	  (so)
 	pub app: AccessiblePrimitive,
 	// The parent object.  (so)
 	pub parent: CacheRef,
-	// The accessbile index in parent.  i
+	// The accessbile index in parent.	i
 	pub index: i32,
 	// Child count of the accessible  i
 	pub children_num: i32,
@@ -352,22 +356,46 @@ impl Accessible for CacheItem {
 	}
 }
 
-/// The root of the accessible cache.
-#[derive(Clone, Debug)]
-pub struct Cache {
-	pub by_id: ThreadSafeCache,
-	pub connection: zbus::Connection,
-}
-
 /// An internal cache used within Odilia.
 ///
 /// This contains (mostly) all accessibles in the entire accessibility tree, and
 /// they are referenced by their IDs. If you are having issues with incorrect or
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
+//
+// Note: When the cache is created, we start a worker thread that populates
+// references to parents and children. This is all pretty non-async, especially
+// with dashmap as the backing source, so we're using std thread and sync
+// primitives rather than tokio.
+//
+// Other option would just be to shoot off short-lived tokio tasks rather than
+// queue tasks to OS thread. (Or tokio blocking tasks, since these are mostly
+// CPU-bound.)
+//
+// Yet another variant: drop the cond var complexity and just do the work; it
+// may not be necessary.
+#[derive(Clone, Debug)]
+pub struct Cache {
+	by_id: ThreadSafeCache,
+	connection: zbus::Connection,
+	in_use: Arc<(Mutex<usize>, Condvar)>,
+	// I don't really want this to be bounded but otherwise we can't impl
+	// Accessible, as Cache wouldn't be Sync.
+	ref_task_sender: mpsc::SyncSender<Arc<Mutex<CacheItem>>>,
+}
+
+// N.B.: we are using std Mutexes internally here, within the cache hashmap
+// entries. When adding async methods, take care not to hold these mutexes
+// across .await points.
 impl Cache {
 	/// create a new, fresh cache
-	pub fn new(conn: zbus::Connection) -> Self {
-		Self { by_id: Arc::new(DashMap::default()), connection: conn }
+	pub fn new(connection: zbus::Connection) -> Self {
+		let (ref_task_sender, task_recv) = mpsc::sync_channel(100000); // :/
+		let in_use = Arc::new((Mutex::new(0), Condvar::new()));
+		let in_use_2 = Arc::clone(&in_use);
+		let by_id = Arc::new(DashMap::default());
+		let by_id_2 = Arc::clone(&by_id);
+		thread::spawn(move || populate_references(in_use_2, by_id_2, task_recv));
+		Self { by_id, connection, in_use, ref_task_sender }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
@@ -378,7 +406,25 @@ impl Cache {
 	}
 
 	fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
-		self.by_id.insert(id, cache_item);
+		self.mark_in_use();
+		self.by_id.insert(id, Arc::clone(&cache_item));
+		self.ref_task_sender
+			.send(cache_item)
+			.expect("cache ref populating task has failed!");
+		self.mark_not_in_use();
+	}
+
+	fn mark_in_use(&self) {
+		let (lock, _) = &*self.in_use;
+		let mut in_use = lock.lock().unwrap();
+		*in_use += 1;
+	}
+
+	fn mark_not_in_use(&self) {
+		let (lock, cvar) = &*self.in_use;
+		let mut in_use = lock.lock().unwrap();
+		*in_use -= 1;
+		cvar.notify_all();
 	}
 
 	/// Remove a single cache item
@@ -387,9 +433,9 @@ impl Cache {
 	}
 	/// Get a single item (mutable via lock) from the cache.
 	// For now this is kept private, as it would be easy to naively deadlock if
-	// someone does a chain of `get_raw`s on parent->child->parent, etc.
+	// someone does a chain of `get_ref`s on parent->child->parent, etc.
 	#[allow(dead_code)]
-	fn get_raw(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
+	fn get_ref(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
 
@@ -410,6 +456,7 @@ impl Cache {
 
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
+    // TODO: is it better to mark in use for the entirety of a document load?
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
 		cache_items.into_iter().for_each(|cache_item| {
 			self.add(cache_item);
@@ -423,20 +470,21 @@ impl Cache {
 		});
 	}
 
-	/// Edit a mutable CacheItem using a function which returns the edited
-	/// version. Returns true if the update was successful.
+	/// Edit a mutable CacheItem. Returns true if the update was successful.
 	///
-	/// Note: an exclusive lock will be placed for the entire length of the
-	/// passed function, so don't do any compute in it.
+	/// Note: an exclusive lock for the given cache item will be placed for the
+	/// entire length of the passed function, so try to avoid any compute in it.
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
+		self.mark_in_use();
 		// I wonder if `get_mut` vs `get` makes any difference here? I suppose
 		// it will just rely on the dashmap write access vs mutex lock access.
 		// Let's default to the fairness of the mutex.
 		let entry = match self.by_id.get(id) {
-			Some(i) => i,
+			// Drop the dashmap reference immediately, at the expense of an Arc clone.
+			Some(i) => (*i).clone(),
 			None => {
 				tracing::trace!(
 					"The cache does not contain the requested item: {:?}",
@@ -445,12 +493,13 @@ impl Cache {
 				return false;
 			}
 		};
-		let mut cache_item = (*entry).lock().unwrap();
+		let mut cache_item = entry.lock().unwrap();
 		modify(&mut cache_item);
+		self.mark_not_in_use();
 		true
 	}
 
-	/// get a single item from the cache (note that this copies some integers to a new struct).
+	/// Get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
 	pub async fn get_or_create(
 		&self,
@@ -516,4 +565,49 @@ pub async fn accessible_to_cache_item(
 
 fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
 	arc.lock().unwrap().clone()
+}
+
+/// Populate references forever.
+///
+/// Starts a loop that, whenever the cache is not in use, uses the time to
+/// populate the weak references. The references to populate are informed by the
+/// queue of incoming cache items.
+//
+// TODO maybe this should be immortal, panic-happy, and loud in logs.
+fn populate_references(
+	in_use_arc: Arc<(Mutex<usize>, Condvar)>,
+	cache: ThreadSafeCache,
+	tasks: mpsc::Receiver<Arc<Mutex<CacheItem>>>,
+) {
+	// Wait until no one is using the cache
+	// But don't hold the lock! Let someone else start in between our tasks,
+	// whenever they want. In other words, _this_ thread has low priority.
+	let wait_until_not_in_use = || {
+		let (lock, cvar) = &*in_use_arc;
+		let mut in_use = lock.lock().unwrap();
+		while *in_use > 0 {
+			in_use = cvar.wait(in_use).unwrap();
+		}
+	};
+	// Keep trying to process incoming tasks until the channel hangs up (e.g.
+	// when cache is dropped)
+	while let Ok(item_arc) = tasks.recv() {
+		// First update this item's parent ref
+		wait_until_not_in_use();
+		let mut item = item_arc.lock().unwrap();
+		if let Some(parent_arc) = cache.get(&item.parent.key).as_deref() {
+			item.parent.item = Arc::downgrade(parent_arc);
+		}
+		let children = item.children.clone();
+		drop(item); // drop the lock
+
+		// Next update the existing children to point to this item
+		let item_ref = Arc::downgrade(&item_arc);
+		for child_key in &children {
+			wait_until_not_in_use();
+			if let Some(child) = cache.get(child_key).as_deref() {
+				child.lock().unwrap().parent.item = Weak::clone(&item_ref);
+			}
+		}
+	}
 }

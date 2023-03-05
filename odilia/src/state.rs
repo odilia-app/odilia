@@ -267,7 +267,7 @@ impl ScreenReaderState {
 			.build()
 			.await?;
 		self.cache
-			.get_or_create(&accessible_proxy, Arc::downgrade(&Arc::clone(&self.cache)))
+			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
 			.await
 	}
 	pub async fn new_accessible<T: Signified>(
