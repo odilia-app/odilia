@@ -61,8 +61,8 @@ pub async fn sr_event_receiver(
 			"Reading {} file and checking for running instances.",
 			pid_file_path
 		);
-		let sohkds_pid = match fs::read_to_string(&pid_file_path).await {
-			Ok(sohkds_pid) => sohkds_pid,
+		let odilias_pid = match fs::read_to_string(&pid_file_path).await {
+			Ok(odilias_pid) => odilias_pid,
 			Err(e) => {
 				tracing::error!(
 					"Unable to read {} to check all running instances",
@@ -71,12 +71,12 @@ pub async fn sr_event_receiver(
 				exit(1);
 			}
 		};
-		tracing::debug!("Previous PID: {}", sohkds_pid);
+		tracing::debug!("Previous PID: {}", odilias_pid);
 
 		let mut sys = System::new_all();
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
-			if pid.to_string() == sohkds_pid
+			if pid.to_string() == odilias_pid
 				&& process.exe() == env::current_exe().unwrap()
 			{
 				tracing::error!("Server is already running!");
@@ -157,16 +157,16 @@ fn get_file_paths() -> (String, String) {
                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
             );
 
-			let pid_file_path = format!("{val}/sohkds.pid");
-			let sock_file_path = format!("{val}/sohkd.sock");
+			let pid_file_path = format!("{val}/odilias.pid");
+			let sock_file_path = format!("{val}/odilia.sock");
 
 			(pid_file_path, sock_file_path)
 		}
 		Err(e) => {
 			tracing::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
 
-			let pid_file_path = format!("/run/user/{}/sohkds.pid", Uid::current());
-			let sock_file_path = format!("/run/user/{}/sohkd.sock", Uid::current());
+			let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
+			let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
 
 			(pid_file_path, sock_file_path)
 		}
