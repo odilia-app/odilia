@@ -86,18 +86,18 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	let cache = Cache::new(zbus_connection.clone());
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
-		b.iter_batched(
+		b.to_async(&rt).iter_batched(
 			|| zbus_items.clone(),
-			|items: Vec<CacheItem>| add_all(&cache, items),
+			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
 	let cache = Cache::new(zbus_connection.clone());
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
-		b.iter_batched(
+		b.to_async(&rt).iter_batched(
 			|| zbus_items.clone(),
-			|items: Vec<CacheItem>| add(&cache, items),
+			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
@@ -116,9 +116,9 @@ fn cache_benchmark(c: &mut Criterion) {
 		(cache, children)
 	});
 	group.bench_function(BenchmarkId::new("traverse_cache", "wcag-items"), |b| {
-		b.iter_batched(
+		b.to_async(&rt).iter_batched(
 			|| children.clone(),
-			|cs| traverse_cache(&cache, cs),
+			|cs| async { traverse_cache(&cache, cs) },
 			BatchSize::SmallInput,
 		);
 	});
