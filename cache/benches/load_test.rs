@@ -34,22 +34,14 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 async fn traverse_cache(children: Vec<CacheItem>) {
 	// for each child, try going up to the root
 	for child in children {
-		let mut item = child;
+		let mut item_ref = Arc::new(std::sync::Mutex::new(child));
 		loop {
-			item = match item.parent().await {
-				Ok(item) => item,
-				Err(OdiliaError::Cache(CacheError::NoItem)) => {
-					// Missing item from cache; this happens often.
-					// I guess the document load event didn't have quite everything at once.
-					break;
-				}
-				Err(e) => {
-					panic!("Odilia error {:?}", e);
-				}
-			};
+      let item_ref_clone = Arc::clone(&item_ref);
+			let item = item_ref_clone.lock().expect("Could not lock parent reference");
 			if matches!(item.object.id, AccessibleId::Root) {
 				break;
 			}
+      item_ref = item.parent_ref().expect("Could not get parent reference");
 		}
 	}
 }
