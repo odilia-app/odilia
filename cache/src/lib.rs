@@ -388,7 +388,9 @@ impl Cache {
 	/// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
 		let id = cache_item.object.clone();
-		self.by_id.insert(id, Arc::new(Mutex::new(cache_item)));
+    let arc_item = Arc::new(Mutex::new(cache_item));
+		self.by_id.insert(id.clone(), Arc::clone(&arc_item));
+    self.add_ref(id, Arc::clone(&arc_item));
 	}
 
 	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
@@ -429,13 +431,12 @@ impl Cache {
 		cache_items.clone().into_iter().for_each(|cache_item| {
 			self.add(cache_item);
 		});
-    // after all items are added, update the cache items with references to their various parent/childs
-		cache_items.into_iter().for_each(|cache_item_| {
-      let cache = Arc::clone(&self.by_id);
-      let cache_item = cache.get(&cache_item_.object).unwrap();
-      let arc = Arc::clone(&cache_item);
-      Self::populate_references(Arc::clone(&cache), arc);
-		});
+    for item in self.by_id.iter() {
+      Self::populate_references(Arc::clone(&self.by_id), Arc::clone(item.value()));
+    }
+    for item in self.by_id.iter() {
+      Self::populate_references(Arc::clone(&self.by_id), Arc::clone(item.value()));
+    }
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]

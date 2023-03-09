@@ -84,7 +84,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	group.sample_size(500) // def 100
 		.significance_level(0.05) // def 0.05
 		.noise_threshold(0.03) // def 0.01
-		.measurement_time(Duration::from_secs(15));
+		.measurement_time(Duration::from_secs(20));
 
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
