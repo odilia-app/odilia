@@ -175,9 +175,9 @@ fn cache_benchmark(c: &mut Criterion) {
 			.by_id
 			.iter()
 			.filter_map(|entry| {
-				if matches!(
+				if !matches!(
 					entry.lock().unwrap().parent.key.id,
-					AccessibleId::Number(_)
+					AccessibleId::Null
 				) {
 					Some(Arc::clone(&entry))
 				} else {
