@@ -437,6 +437,8 @@ impl Cache {
 				self.by_id.insert(id, Arc::clone(&arc));
 				arc
 			})
+			.collect::<Vec<_>>() // Insert all items before populating
+			.into_iter()
 			.for_each(|item| {
 				Self::populate_references(&self.by_id, item);
 			});
