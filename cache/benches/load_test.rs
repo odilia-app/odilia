@@ -1,9 +1,9 @@
 use std::{sync::Arc, time::Duration};
 
-use atspi::{accessible::Accessible, accessible_id::AccessibleId, AccessibilityConnection};
+use atspi::{accessible_id::AccessibleId, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
-use odilia_common::errors::{CacheError, OdiliaError};
+
 use rand::seq::SliceRandom;
 use tokio::select;
 use tokio_test::block_on;
@@ -36,12 +36,12 @@ async fn traverse_cache(children: Vec<CacheItem>) {
 	for child in children {
 		let mut item_ref = Arc::new(std::sync::Mutex::new(child));
 		loop {
-      let item_ref_clone = Arc::clone(&item_ref);
+			let item_ref_clone = Arc::clone(&item_ref);
 			let item = item_ref_clone.lock().expect("Could not lock parent reference");
 			if matches!(item.object.id, AccessibleId::Root) {
 				break;
 			}
-      item_ref = item.parent_ref().expect("Could not get parent reference");
+			item_ref = item.parent_ref().expect("Could not get parent reference");
 		}
 	}
 }

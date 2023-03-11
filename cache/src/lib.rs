@@ -180,16 +180,25 @@ pub struct CacheItem {
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-  pub fn parent_ref(&self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
-    let parent_ref = Weak::upgrade(&self.parent.item);
-    if parent_ref.is_some() {
-      return Ok(parent_ref.unwrap());
-    }
-    let cache = strong_cache(&self.cache)?;
-    let arc_mut_parent = cache.get_ref(&self.parent.key.clone()).unwrap();
-    cache.add_ref(self.parent.key.clone(), Arc::clone(&arc_mut_parent));
-    Ok(Arc::clone(&arc_mut_parent))
-  }
+	pub fn parent_ref(&self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
+		let parent_ref = Weak::upgrade(&self.parent.item);
+		match parent_ref {
+			Some(p) => Ok(p),
+			None => {
+				let cache = strong_cache(&self.cache)?;
+				let arc_mut_parent = cache
+					.get_ref(&self.parent.key.clone())
+					.ok_or(CacheError::NoItem)?;
+				Cache::populate_references(
+					Arc::clone(&cache.by_id),
+					Arc::clone(&arc_mut_parent),
+				);
+				// would need &mut self
+				//self.parent.item = Arc::downgrade(&arc_mut_parent);
+				Ok(arc_mut_parent)
+			}
+		}
+	}
 	pub async fn from_atspi_event<T: Signified>(
 		event: &T,
 		cache: Weak<Cache>,
@@ -388,9 +397,7 @@ impl Cache {
 	/// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
 		let id = cache_item.object.clone();
-    let arc_item = Arc::new(Mutex::new(cache_item));
-		self.by_id.insert(id.clone(), Arc::clone(&arc_item));
-    self.add_ref(id, Arc::clone(&arc_item));
+		self.add_ref(id, Arc::new(Mutex::new(cache_item)));
 	}
 
 	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
@@ -428,15 +435,18 @@ impl Cache {
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
-		cache_items.clone().into_iter().for_each(|cache_item| {
-			self.add(cache_item);
-		});
-    for item in self.by_id.iter() {
-      Self::populate_references(Arc::clone(&self.by_id), Arc::clone(item.value()));
-    }
-    for item in self.by_id.iter() {
-      Self::populate_references(Arc::clone(&self.by_id), Arc::clone(item.value()));
-    }
+		cache_items
+			.into_iter()
+			.map(|cache_item| {
+				let id = cache_item.object.clone();
+				let arc = Arc::new(Mutex::new(cache_item));
+				self.by_id.insert(id, Arc::clone(&arc));
+				arc
+			})
+			.for_each(|item| {
+				let cache = Arc::clone(&self.by_id);
+				Self::populate_references(cache, item);
+			});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
