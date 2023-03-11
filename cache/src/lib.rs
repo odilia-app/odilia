@@ -189,6 +189,7 @@ impl CacheItem {
 				let arc_mut_parent = cache
 					.get_ref(&self.parent.key.clone())
 					.ok_or(CacheError::NoItem)?;
+                println!("PARENT EXISTS BUT NOT LINKED!");
 				Cache::populate_references(
 					&cache.by_id,
 					Arc::clone(&arc_mut_parent),
