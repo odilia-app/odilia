@@ -13,7 +13,7 @@ use atspi::{
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use dashmap::DashMap;
+use dashmap::{DashMap, mapref::entry::Entry};
 use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
@@ -402,8 +402,8 @@ impl Cache {
 	}
 
 	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
-		self.by_id.insert(id, Arc::clone(&cache_item));
-		Self::populate_references(&self.by_id, cache_item);
+		let arc = self.insert_or_modify(id, cache_item);
+		Self::populate_references(&self.by_id, arc);
 	}
 
 	/// Remove a single cache item
@@ -439,9 +439,7 @@ impl Cache {
 			.into_iter()
 			.map(|cache_item| {
 				let id = cache_item.object.clone();
-				let arc = Arc::new(Mutex::new(cache_item));
-				self.by_id.insert(id, Arc::clone(&arc));
-				arc
+				self.insert_or_modify(id, Arc::new(Mutex::new(cache_item)))
 			})
 			.for_each(|item| {
 				Self::populate_references(&self.by_id, item);
@@ -481,6 +479,25 @@ impl Cache {
 		modify(&mut cache_item);
 		true
 	}
+
+    /// Use this function in place of `self.by_id.insert` to ensure existing
+    /// refs get updated properly.
+    /// Warning: if you are passing the reference to be used elsewhere, use the
+    /// returned value, which might point to the existing item!
+    fn insert_or_modify(&self, id: CacheKey, item_arc: Arc<Mutex<CacheItem>>) -> Arc<Mutex<CacheItem>> {
+        match self.by_id.entry(id) {
+            Entry::Vacant(e) => {
+                e.insert(Arc::clone(&item_arc));
+                item_arc
+            }
+            Entry::Occupied(e) => {
+                let existing_arc = Arc::clone(e.get());
+                let mut item = e.get().lock().unwrap();
+                *item = clone_arc_mutex(&item_arc);
+                existing_arc
+            }
+        }
+    }
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
