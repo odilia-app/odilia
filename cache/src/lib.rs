@@ -190,7 +190,7 @@ impl CacheItem {
 					.get_ref(&self.parent.key.clone())
 					.ok_or(CacheError::NoItem)?;
 				Cache::populate_references(
-					Arc::clone(&cache.by_id),
+					&cache.by_id,
 					Arc::clone(&arc_mut_parent),
 				);
 				// would need &mut self
@@ -402,8 +402,7 @@ impl Cache {
 
 	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
 		self.by_id.insert(id, Arc::clone(&cache_item));
-		let cache = Arc::clone(&self.by_id);
-		Self::populate_references(cache, cache_item);
+		Self::populate_references(&self.by_id, cache_item);
 	}
 
 	/// Remove a single cache item
@@ -444,8 +443,7 @@ impl Cache {
 				arc
 			})
 			.for_each(|item| {
-				let cache = Arc::clone(&self.by_id);
-				Self::populate_references(cache, item);
+				Self::populate_references(&self.by_id, item);
 			});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -507,7 +505,7 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	fn populate_references(cache: ThreadSafeCache, item_arc: Arc<Mutex<CacheItem>>) {
+	fn populate_references(cache: &ThreadSafeCache, item_arc: Arc<Mutex<CacheItem>>) {
 		let children = {
 			let mut item = item_arc.lock().unwrap();
 
