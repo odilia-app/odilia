@@ -13,7 +13,7 @@ use atspi::{
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
 };
-use dashmap::{DashMap, mapref::entry::Entry};
+use dashmap::{mapref::entry::Entry, DashMap};
 use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
@@ -180,7 +180,7 @@ pub struct CacheItem {
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-	pub fn parent_ref(&self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
+	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
 		let parent_ref = Weak::upgrade(&self.parent.item);
 		match parent_ref {
 			Some(p) => Ok(p),
@@ -189,13 +189,7 @@ impl CacheItem {
 				let arc_mut_parent = cache
 					.get_ref(&self.parent.key.clone())
 					.ok_or(CacheError::NoItem)?;
-                println!("PARENT EXISTS BUT NOT LINKED!");
-				Cache::populate_references(
-					&cache.by_id,
-					Arc::clone(&arc_mut_parent),
-				);
-				// would need &mut self
-				//self.parent.item = Arc::downgrade(&arc_mut_parent);
+				self.parent.item = Arc::downgrade(&arc_mut_parent);
 				Ok(arc_mut_parent)
 			}
 		}
@@ -480,24 +474,29 @@ impl Cache {
 		true
 	}
 
-    /// Use this function in place of `self.by_id.insert` to ensure existing
-    /// refs get updated properly.
-    /// Warning: if you are passing the reference to be used elsewhere, use the
-    /// returned value, which might point to the existing item!
-    fn insert_or_modify(&self, id: CacheKey, item_arc: Arc<Mutex<CacheItem>>) -> Arc<Mutex<CacheItem>> {
-        match self.by_id.entry(id) {
-            Entry::Vacant(e) => {
-                e.insert(Arc::clone(&item_arc));
-                item_arc
-            }
-            Entry::Occupied(e) => {
-                let existing_arc = Arc::clone(e.get());
-                let mut item = e.get().lock().unwrap();
-                *item = clone_arc_mutex(&item_arc);
-                existing_arc
-            }
-        }
-    }
+	/// Use this function in place of `self.by_id.insert` to ensure existing
+	/// refs get updated properly.
+	/// Warning: if you are passing the reference to be used elsewhere, use the
+	/// returned value, which might point to the existing item rather than the
+	/// new one passed in!
+	fn insert_or_modify(
+		&self,
+		id: CacheKey,
+		item_arc: Arc<Mutex<CacheItem>>,
+	) -> Arc<Mutex<CacheItem>> {
+		match self.by_id.entry(id) {
+			Entry::Vacant(e) => {
+				e.insert(Arc::clone(&item_arc));
+				item_arc
+			}
+			Entry::Occupied(e) => {
+				let existing_arc = Arc::clone(e.get());
+				let mut item = e.get().lock().unwrap();
+				*item = clone_arc_mutex(&item_arc);
+				existing_arc
+			}
+		}
+	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
@@ -584,6 +583,6 @@ pub async fn accessible_to_cache_item(
 	})
 }
 
-fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
+pub fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
 	arc.lock().unwrap().clone()
 }
