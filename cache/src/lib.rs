@@ -515,29 +515,35 @@ impl Cache {
 		let item_wk_ref = Arc::downgrade(&item_arc);
 
 		let mut item = item_arc.lock().unwrap();
-		let ix = usize::try_from(item.index).expect("child has invalid index");
+		let ix_opt = usize::try_from(item.index)
+			.map_err(|_| {
+				tracing::debug!("Item has invalid index: {}", item.index);
+			})
+			.ok();
 
 		if let Some(parent_ref) = cache.get(&item.parent.key).as_deref() {
 			// Populate this item's parent ref
 			item.parent.item = Arc::downgrade(parent_ref);
 			// Populate parent's ref to this item
-			let mut parent = parent_ref.lock().unwrap();
-			let mut parent_ref_to_this_item = parent.children.get_mut(ix);
-			match parent_ref_to_this_item.as_mut() {
-				Some(i) => {
-					if i.key != item.object {
-						tracing::warn!(
-							"Parent mismatched child at index {}",
+			if let Some(ix) = ix_opt {
+				let mut parent = parent_ref.lock().unwrap();
+				match parent.children.get_mut(ix).as_mut() {
+					Some(i) => {
+						if i.key != item.object {
+							tracing::debug!(
+                                "Parent cache item mismatched child at index {}",
+                                ix
+                            );
+						} else {
+							i.item = Weak::clone(&item_wk_ref);
+						}
+					}
+					None => {
+						tracing::debug!(
+							"Parent cache item missing child at index {}",
 							ix
 						);
-						println!("Parent mismatched child at index {}", ix);
-					} else {
-						i.item = Weak::clone(&item_wk_ref);
 					}
-				}
-				None => {
-					tracing::warn!("Parent missing child at index {}", ix);
-					println!("Parent missing child at index {}", ix);
 				}
 			}
 		}
