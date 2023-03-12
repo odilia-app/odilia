@@ -143,12 +143,12 @@ fn cache_benchmark(c: &mut Criterion) {
 		let children = all_items
 			.clone()
 			.into_iter()
-			.filter(|item| item.parent.id != AccessibleId::Null)
+			.filter(|item| item.children.is_empty())
 			.collect();
 		cache.add_all(all_items);
 		(cache, children)
 	});
-	group.bench_function(BenchmarkId::new("traverse_cache", "wcag-items"), |b| {
+	group.bench_function(BenchmarkId::new("traverse_up", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| children.clone(),
 			|cs| async { traverse_cache(cs).await },
