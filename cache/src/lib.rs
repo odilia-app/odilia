@@ -522,48 +522,49 @@ impl Cache {
 			})
 			.ok();
 
+		// Update this item's children references
+		let mut child_arcs = Vec::with_capacity(item.children.len());
 		for child_ref in item.children.iter_mut() {
 			if let Some(child_arc) = cache.get(&child_ref.key).as_deref() {
-				// Update this item's child_ref
 				child_ref.item = Arc::downgrade(child_arc);
-				// Update the child to point to this item as parent
-				let mut child = child_arc.lock().unwrap();
-				child.parent.item = Weak::clone(&item_wk_ref);
+				child_arcs.push(Arc::clone(child_arc));
 			}
 		}
-
-		// Drop item while we update parent to avoid deadlocking
-		drop(item);
-
-		let parent_wk_ref = cache.get(&parent_key).as_deref().map(|parent_ref| {
-			// Populate parent's ref to this item
-			if let Some(ix) = ix_opt {
-				let mut parent = parent_ref.lock().unwrap();
-				match parent.children.get_mut(ix).as_mut() {
-					Some(i) if i.key == item_key => {
-						i.item = Weak::clone(&item_wk_ref);
-					}
-					Some(_) => {
-						tracing::debug!(
-                            "Parent cache item mismatched child at index {}",
-                            ix
-                        );
-					}
-					None => {
-						tracing::debug!(
-                            "Parent cache item missing child at index {}",
-                            ix
-                        );
-					}
-				}
-			}
-			Arc::downgrade(parent_ref)
+		// Update this item's parent reference
+		let parent_ref_opt = cache.get(&parent_key).as_deref().map(|parent_ref| {
+			item.parent.item = Arc::downgrade(parent_ref);
+			Arc::clone(parent_ref)
 		});
 
-		// One more lock to populate this item's parent ref
-		if let Some(parent) = parent_wk_ref {
-			let mut item = item_ref.lock().unwrap();
-			item.parent.item = parent;
+		// Drop item while we update parent/children to avoid deadlocking
+		drop(item);
+
+		// Update children to point to this item as parent
+		for child_arc in child_arcs {
+			let mut child = child_arc.lock().unwrap();
+			child.parent.item = Weak::clone(&item_wk_ref);
+		}
+
+		// Populate parent's ref to this item as child
+		if let Some((parent_ref, ix)) = parent_ref_opt.zip(ix_opt) {
+			let mut parent = parent_ref.lock().unwrap();
+			match parent.children.get_mut(ix).as_mut() {
+				Some(i) if i.key == item_key => {
+					i.item = Weak::clone(&item_wk_ref);
+				}
+				Some(_) => {
+					tracing::debug!(
+						"Parent cache item mismatched child at index {}",
+						ix
+					);
+				}
+				None => {
+					tracing::debug!(
+						"Parent cache item missing child at index {}",
+						ix
+					);
+				}
+			}
 		}
 	}
 }

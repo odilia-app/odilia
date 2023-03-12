@@ -19,13 +19,13 @@ macro_rules! load_items {
 }
 
 /// Load the given items into cache via `Cache::add_all`.
+/// This is different from `add` in that it postpones populating references
+/// until after all items have been added.
 fn add_all(cache: &Cache, items: Vec<CacheItem>) {
 	cache.add_all(items);
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
-/// Note: now that concurrency is handled by dashmap and there is no outer lock
-/// on the hashmap, this should be the same as `add_all`.
 fn add(cache: &Cache, items: Vec<CacheItem>) {
 	for item in items {
 		cache.add(item);
