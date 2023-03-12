@@ -32,18 +32,8 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 	}
 }
 
-// TODO change these to traverse_up_* thrpts with
-//
-//depth: 17, child: /org/a11y/atspi/accessible/14018
-//depth: 19, child: /org/a11y/atspi/accessible/15363
-//depth: 22, child: /org/a11y/atspi/accessible/17090
-//depth: 24, child: /org/a11y/atspi/accessible/16896
-//depth: 28, child: /org/a11y/atspi/accessible/16290
-//
-// then add a structural nav traversal
-
 /// For each child, fetch all of its ancestors via `CacheItem::parent_ref`.
-async fn traverse_cache_refs(children: Vec<Arc<Mutex<CacheItem>>>) {
+async fn traverse_up_refs(children: Vec<Arc<Mutex<CacheItem>>>) {
 	// for each child, try going up to the root
 	for child_ref in children {
 		let mut item_ref = child_ref;
@@ -60,7 +50,7 @@ async fn traverse_cache_refs(children: Vec<Arc<Mutex<CacheItem>>>) {
 
 /// For each child, fetch all of its ancestors in full (cloned) via
 /// `Accessible::parent`.
-async fn traverse_cache(children: Vec<CacheItem>) {
+async fn traverse_up(children: Vec<CacheItem>) {
 	// for each child, try going up to the root
 	for child in children {
 		let mut item = child;
@@ -175,10 +165,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			.by_id
 			.iter()
 			.filter_map(|entry| {
-				if !matches!(
-					entry.lock().unwrap().parent.key.id,
-					AccessibleId::Null
-				) {
+				if entry.lock().unwrap().children.is_empty() {
 					Some(Arc::clone(&entry))
 				} else {
 					None
@@ -187,18 +174,18 @@ fn cache_benchmark(c: &mut Criterion) {
 			.collect();
 		(cache, children)
 	});
-	group.bench_function(BenchmarkId::new("traverse_cache_refs", "wcag-items"), |b| {
+	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| children.clone(),
-			|cs| async { traverse_cache_refs(cs).await },
+			|cs| async { traverse_up_refs(cs).await },
 			BatchSize::SmallInput,
 		);
 	});
 
-	group.bench_function(BenchmarkId::new("traverse_cache", "wcag-items"), |b| {
+	group.bench_function(BenchmarkId::new("traverse_up", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| children.iter().map(clone_arc_mutex).collect(),
-			|cs| async { traverse_cache(cs).await },
+			|cs| async { traverse_up(cs).await },
 			BatchSize::SmallInput,
 		);
 	});
