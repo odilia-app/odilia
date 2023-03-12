@@ -74,6 +74,14 @@ async fn traverse_up(children: Vec<CacheItem>) {
 	}
 }
 
+/// Depth first traversal
+fn traverse_depth_first(root: CacheItem) -> Result<(), OdiliaError> {
+	for child in root.get_children()? {
+		traverse_depth_first(child)?;
+	}
+	Ok(())
+}
+
 /// Observe throughput of reads (`Cache::get`) while writing to cache
 /// (`Cache::add`).
 async fn reads_while_writing(cache: &Cache, ids: Vec<AccessiblePrimitive>, items: Vec<CacheItem>) {
@@ -150,7 +158,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let (_cache, children): (Arc<Cache>, Vec<Arc<Mutex<CacheItem>>>) = rt.block_on(async {
+	let (cache, children): (Arc<Cache>, Vec<Arc<Mutex<CacheItem>>>) = rt.block_on(async {
 		let cache = Arc::new(Cache::new(zbus_connection.clone()));
 		let all_items: Vec<CacheItem> = wcag_items
 			.clone()
@@ -186,6 +194,20 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(&rt).iter_batched(
 			|| children.iter().map(clone_arc_mutex).collect(),
 			|cs| async { traverse_up(cs).await },
+			BatchSize::SmallInput,
+		);
+	});
+
+	group.bench_function(BenchmarkId::new("traverse_depth_first", "wcag-items"), |b| {
+		b.iter_batched(
+			|| {
+				cache.get(&AccessiblePrimitive {
+					id: AccessibleId::Root,
+					sender: ":1.22".into(),
+				})
+				.unwrap()
+			},
+			traverse_depth_first,
 			BatchSize::SmallInput,
 		);
 	});

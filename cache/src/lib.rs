@@ -233,6 +233,15 @@ impl CacheItem {
 			children: children_primitives,
 		})
 	}
+	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
+		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
+		let children = self
+			.children
+			.iter()
+			.map(|key| derefed_cache.get(key).ok_or(CacheError::NoItem))
+			.collect::<Result<Vec<_>, _>>()?;
+		Ok(children)
+	}
 }
 
 /// A composition of an accessible ID and (possibly) a reference
@@ -291,12 +300,7 @@ impl Accessible for CacheItem {
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache
-			.get_all(&self.children)
-			.into_iter()
-			.map(|child| child.ok_or(CacheError::NoItem.into()))
-			.collect()
+		self.get_children()
 	}
 	async fn child_count(&self) -> Result<i32, Self::Error> {
 		Ok(self.children_num)
@@ -354,7 +358,7 @@ impl Accessible for CacheItem {
 		Ok(self.states)
 	}
 	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
-		self.get_children()
+		<Self as Accessible>::get_children(self)
 			.await?
 			.get(idx as usize)
 			.ok_or(CacheError::NoItem.into())
