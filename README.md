@@ -81,6 +81,36 @@ We are excited to accept new contributions to this project; in fact, we already 
 
 We do not have any specific contribution guidelines or codes of conduct for now, however most likely these will be fleshed out as Odilia matures more.
 
+### Performance Benchmarking
+
+If you'd like detailed performance benchmarks, we recommend using the `flamegraph` package to show performance bottlenecks.
+There is also `hotspot`, a C++ program available in the AUR, and some major package repos, which can display how much time is spent in various portions of the program in an accessible (GUI) way.
+
+First, install the subcommand with:
+
+```bash
+$ cargo install flamegraph
+```
+
+If needed, install Hotspot from the AUR/your package repo, as well as `perf` which is required to produce the flame graph.
+
+```bash
+$ paru/yay -S hotspot perf
+```
+
+Finally, add the following to the root `Cargo.toml`:
+
+```toml
+[profile.bench]
+debug = true
+```
+
+Now, you can run the following commands to produce flamegraphes for individual benchmarks with the following command:
+
+```bash
+cargo flamegraph --bench load_test -- --bench [individual_bench_name]
+```
+
 ## License
 
 The Odilia screen reader is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).

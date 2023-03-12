@@ -499,15 +499,15 @@ mod tests {
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
 			object: AccessiblePrimitive {
 				id: AccessibleId::Number(1),
-				sender: ":1.2".to_string(),
+				sender: ":1.2".into(),
 			},
 			app: AccessiblePrimitive {
 				id: AccessibleId::Root,
-				sender: ":1.2".to_string(),
+				sender: ":1.2".into(),
 			},
 			parent: AccessiblePrimitive {
 				id: AccessibleId::Number(1),
-				sender: ":1.2".to_string(),
+				sender: ":1.2".into(),
 			},
 			index: 323,
 			children_num: 0,
