@@ -1,4 +1,5 @@
 use std::{
+	collections::VecDeque,
 	sync::{Arc, Mutex},
 	time::Duration,
 };
@@ -8,7 +9,6 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 use odilia_cache::{clone_arc_mutex, AccessiblePrimitive, Cache, CacheItem};
 
 use odilia_common::errors::{CacheError, OdiliaError};
-use rand::seq::SliceRandom;
 use tokio::select;
 use tokio_test::block_on;
 
@@ -82,19 +82,25 @@ fn traverse_depth_first(root: CacheItem) -> Result<(), OdiliaError> {
 	Ok(())
 }
 
-/// Observe throughput of reads (`Cache::get`) while writing to cache
-/// (`Cache::add`).
-async fn reads_while_writing(cache: &Cache, ids: Vec<AccessiblePrimitive>, items: Vec<CacheItem>) {
-	let cache_1 = cache.clone();
+/// Observe throughput of successful reads (`Cache::get`) while writing to cache
+/// (`Cache::add_all`).
+async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items: Vec<CacheItem>) {
+	let cache_1 = Arc::new(cache);
+	let cache_2 = Arc::clone(&cache_1);
 	let mut write_handle = tokio::spawn(async move {
-		for item in items {
-			cache_1.add(item);
-		}
+		cache_1.add_all(items);
 	});
-	let cache_2 = cache.clone();
 	let mut read_handle = tokio::spawn(async move {
-		for id in ids {
-			cache_2.get(&id);
+		let mut ids = VecDeque::from(ids);
+		loop {
+			match ids.pop_front() {
+				None => break, // we're done
+				Some(id) => {
+					if cache_2.get(&id).is_none() {
+						ids.push_back(id);
+					}
+				}
+			}
 		}
 	});
 	let mut write_finished = false;
@@ -212,20 +218,24 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let mut rng = &mut rand::thread_rng();
-	let cache = Cache::new(zbus_connection.clone());
 	let all_items = zbus_items.clone();
 	for size in [10, 100, 1000] {
-		let sample = all_items
-			.choose_multiple(&mut rng, size as usize)
+		let sample = all_items[0..size]
+			.iter()
 			.map(|item| item.object.clone())
 			.collect::<Vec<_>>();
-		group.throughput(criterion::Throughput::Elements(size));
+		group.throughput(criterion::Throughput::Elements(size as u64));
 		group.bench_function(BenchmarkId::new("reads_while_writing", size), |b| {
 			b.to_async(&rt).iter_batched(
-				|| (sample.clone(), all_items.clone()),
-				|(ids, items)| async {
-					reads_while_writing(&cache, ids, items).await
+				|| {
+					(
+						Cache::new(zbus_connection.clone()),
+						sample.clone(),
+						all_items.clone(),
+					)
+				},
+				|(cache, ids, items)| async {
+					reads_while_writing(cache, ids, items).await
 				},
 				BatchSize::SmallInput,
 			);
