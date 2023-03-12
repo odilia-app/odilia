@@ -174,7 +174,7 @@ pub struct CacheItem {
 	// The text of the accessible.
 	pub text: String,
 	// The children (ids) of the accessible.
-	pub children: Vec<AccessiblePrimitive>,
+	pub children: Vec<CacheRef>,
 
 	#[serde(skip)]
 	pub cache: Weak<Cache>,
@@ -207,18 +207,17 @@ impl CacheItem {
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let children_primitives: Vec<AccessiblePrimitive> =
+		let children: Vec<CacheRef> =
 			AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
 				.into_accessible(connection)
 				.await?
 				.get_children()
 				.await?
 				.into_iter()
-				.map(|child_object_pair| child_object_pair.try_into())
-				.collect::<Result<
-					Vec<AccessiblePrimitive>,
-					AccessiblePrimitiveConversionError,
-				>>()?;
+				.map(|child_object_pair| {
+					Ok(CacheRef::new(child_object_pair.try_into()?))
+				})
+				.collect::<Result<_, AccessiblePrimitiveConversionError>>()?;
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
 			app: atspi_cache_item.app.try_into()?,
@@ -230,15 +229,21 @@ impl CacheItem {
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 			cache,
-			children: children_primitives,
+			children,
 		})
 	}
+	// Same as [`Accessible::get_children`], just offered as a non-async version.
 	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		let children = self
 			.children
 			.iter()
-			.map(|key| derefed_cache.get(key).ok_or(CacheError::NoItem))
+			.map(|child_ref| {
+				child_ref
+					.clone_inner()
+					.or_else(|| derefed_cache.get(&child_ref.key))
+					.ok_or(CacheError::NoItem)
+			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(children)
 	}
@@ -507,22 +512,43 @@ impl Cache {
 	}
 
 	fn populate_references(cache: &ThreadSafeCache, item_arc: Arc<Mutex<CacheItem>>) {
-		let children = {
-			let mut item = item_arc.lock().unwrap();
+		let item_wk_ref = Arc::downgrade(&item_arc);
 
+		let mut item = item_arc.lock().unwrap();
+		let ix = usize::try_from(item.index).expect("child has invalid index");
+
+		if let Some(parent_ref) = cache.get(&item.parent.key).as_deref() {
 			// Populate this item's parent ref
-			if let Some(parent_arc) = cache.get(&item.parent.key).as_deref() {
-				item.parent.item = Arc::downgrade(parent_arc);
+			item.parent.item = Arc::downgrade(parent_ref);
+			// Populate parent's ref to this item
+			let mut parent = parent_ref.lock().unwrap();
+			let mut parent_ref_to_this_item = parent.children.get_mut(ix);
+			match parent_ref_to_this_item.as_mut() {
+				Some(i) => {
+					if i.key != item.object {
+						tracing::warn!(
+							"Parent mismatched child at index {}",
+							ix
+						);
+						println!("Parent mismatched child at index {}", ix);
+					} else {
+						i.item = Weak::clone(&item_wk_ref);
+					}
+				}
+				None => {
+					tracing::warn!("Parent missing child at index {}", ix);
+					println!("Parent missing child at index {}", ix);
+				}
 			}
-			item.children.clone()
-		}; // drop the lock
+		}
 
-		// Next update the existing children to point to this item
-		let item_ref = Arc::downgrade(&item_arc);
-		for child_key in &children {
-			if let Some(child_arc) = cache.get(child_key).as_deref() {
+		for child_ref in item.children.iter_mut() {
+			if let Some(child_arc) = cache.get(&child_ref.key).as_deref() {
+				// Update this item's child_ref
+				child_ref.item = Arc::downgrade(child_arc);
+				// Update the child to point to this item as parent
 				let mut child = child_arc.lock().unwrap();
-				child.parent.item = Weak::clone(&item_ref);
+				child.parent.item = Weak::clone(&item_wk_ref);
 			}
 		}
 	}
@@ -561,8 +587,8 @@ pub async fn accessible_to_cache_item(
 		text,
 		children: children
 			.into_iter()
-			.map(AccessiblePrimitive::try_from)
-			.collect::<Result<Vec<AccessiblePrimitive>, _>>()?,
+			.map(|k| Ok(CacheRef::new(k.try_into()?)))
+			.collect::<Result<_, AccessiblePrimitiveConversionError>>()?,
 		cache,
 	})
 }
