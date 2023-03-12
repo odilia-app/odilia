@@ -540,15 +540,14 @@ impl Cache {
 			if let Some(ix) = ix_opt {
 				let mut parent = parent_ref.lock().unwrap();
 				match parent.children.get_mut(ix).as_mut() {
-					Some(i) => {
-						if i.key != item_key {
-							tracing::debug!(
-                                "Parent cache item mismatched child at index {}",
-                                ix
-                            );
-						} else {
-							i.item = Weak::clone(&item_wk_ref);
-						}
+					Some(i) if i.key == item_key => {
+						i.item = Weak::clone(&item_wk_ref);
+					}
+					Some(_) => {
+						tracing::debug!(
+                            "Parent cache item mismatched child at index {}",
+                            ix
+                        );
 					}
 					None => {
 						tracing::debug!(
