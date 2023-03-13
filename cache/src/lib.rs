@@ -1,4 +1,7 @@
-//#![deny(clippy::all, clippy::pedantic, clippy::cargo)]
+use std::{
+	collections::HashMap,
+	sync::{Arc, Mutex, Weak},
+};
 
 use async_trait::async_trait;
 use atspi::{
@@ -17,7 +20,6 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, sync::Weak};
 use zbus::{
 	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
@@ -25,9 +27,8 @@ use zbus::{
 };
 
 type CacheKey = AccessiblePrimitive;
-type InnerCacheType = DashMap<CacheKey, CacheItem, FxBuildHasher>;
-type ConcurrentSafeCacheType = InnerCacheType;
-type ThreadSafeCacheType = Arc<ConcurrentSafeCacheType>;
+type InnerCache = DashMap<CacheKey, Arc<Mutex<CacheItem>>, FxBuildHasher>;
+type ThreadSafeCache = Arc<InnerCache>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -154,13 +155,13 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
-	// The accessible object (within the application)   (so)
+	// The accessible object (within the application)	(so)
 	pub object: AccessiblePrimitive,
-	// The application (root object(?)    (so)
+	// The application (root object(?)	  (so)
 	pub app: AccessiblePrimitive,
 	// The parent object.  (so)
-	pub parent: AccessiblePrimitive,
-	// The accessbile index in parent.  i
+	pub parent: CacheRef,
+	// The accessbile index in parent.	i
 	pub index: i32,
 	// Child count of the accessible  i
 	pub children_num: i32,
@@ -173,12 +174,26 @@ pub struct CacheItem {
 	// The text of the accessible.
 	pub text: String,
 	// The children (ids) of the accessible.
-	pub children: Vec<AccessiblePrimitive>,
+	pub children: Vec<CacheRef>,
 
 	#[serde(skip)]
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
+	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
+		let parent_ref = Weak::upgrade(&self.parent.item);
+		match parent_ref {
+			Some(p) => Ok(p),
+			None => {
+				let cache = strong_cache(&self.cache)?;
+				let arc_mut_parent = cache
+					.get_ref(&self.parent.key.clone())
+					.ok_or(CacheError::NoItem)?;
+				self.parent.item = Arc::downgrade(&arc_mut_parent);
+				Ok(arc_mut_parent)
+			}
+		}
+	}
 	pub async fn from_atspi_event<T: Signified>(
 		event: &T,
 		cache: Weak<Cache>,
@@ -192,22 +207,21 @@ impl CacheItem {
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let children_primitives: Vec<AccessiblePrimitive> =
+		let children: Vec<CacheRef> =
 			AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
 				.into_accessible(connection)
 				.await?
 				.get_children()
 				.await?
 				.into_iter()
-				.map(|child_object_pair| child_object_pair.try_into())
-				.collect::<Result<
-					Vec<AccessiblePrimitive>,
-					AccessiblePrimitiveConversionError,
-				>>()?;
+				.map(|child_object_pair| {
+					Ok(CacheRef::new(child_object_pair.try_into()?))
+				})
+				.collect::<Result<_, AccessiblePrimitiveConversionError>>()?;
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
 			app: atspi_cache_item.app.try_into()?,
-			parent: atspi_cache_item.parent.try_into()?,
+			parent: CacheRef::new(atspi_cache_item.parent.try_into()?),
 			index: atspi_cache_item.index,
 			children_num: atspi_cache_item.children,
 			interfaces: atspi_cache_item.ifaces,
@@ -215,8 +229,52 @@ impl CacheItem {
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 			cache,
-			children: children_primitives,
+			children,
 		})
+	}
+	// Same as [`Accessible::get_children`], just offered as a non-async version.
+	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
+		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
+		let children = self
+			.children
+			.iter()
+			.map(|child_ref| {
+				child_ref
+					.clone_inner()
+					.or_else(|| derefed_cache.get(&child_ref.key))
+					.ok_or(CacheError::NoItem)
+			})
+			.collect::<Result<Vec<_>, _>>()?;
+		Ok(children)
+	}
+}
+
+/// A composition of an accessible ID and (possibly) a reference
+/// to its `CacheItem`, if the item has not been dropped from the cache yet.
+/// TODO if desirable, we could make one direction strong references (e.g. have
+/// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
+/// BUT - is it even desirable to keep an item pinned in an Arc from its
+/// releatives after it has been removed from the cache?
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct CacheRef {
+	pub key: CacheKey,
+	#[serde(skip)]
+	item: Weak<Mutex<CacheItem>>,
+}
+
+impl CacheRef {
+	pub fn new(key: AccessiblePrimitive) -> Self {
+		Self { key, item: Weak::new() }
+	}
+
+	pub fn clone_inner(&self) -> Option<CacheItem> {
+		self.item.upgrade().as_ref().map(clone_arc_mutex)
+	}
+}
+
+impl From<AccessiblePrimitive> for CacheRef {
+	fn from(value: AccessiblePrimitive) -> Self {
+		Self::new(value)
 	}
 }
 
@@ -240,16 +298,14 @@ impl Accessible for CacheItem {
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
 	async fn parent(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.parent).ok_or(CacheError::NoItem.into())
+		let parent_item = self
+			.parent
+			.clone_inner()
+			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
+		parent_item.ok_or(CacheError::NoItem.into())
 	}
 	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache
-			.get_all(&self.children)
-			.into_iter()
-			.map(|child| child.ok_or(CacheError::NoItem.into()))
-			.collect()
+		self.get_children()
 	}
 	async fn child_count(&self) -> Result<i32, Self::Error> {
 		Ok(self.children_num)
@@ -307,7 +363,7 @@ impl Accessible for CacheItem {
 		Ok(self.states)
 	}
 	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
-		self.get_children()
+		<Self as Accessible>::get_children(self)
 			.await?
 			.get(idx as usize)
 			.ok_or(CacheError::NoItem.into())
@@ -321,49 +377,79 @@ impl Accessible for CacheItem {
 	}
 }
 
-/// The root of the accessible cache.
+/// An internal cache used within Odilia.
+///
+/// This contains (mostly) all accessibles in the entire accessibility tree, and
+/// they are referenced by their IDs. If you are having issues with incorrect or
+/// invalid accessibles trying to be accessed, this is code is probably the issue.
 #[derive(Clone, Debug)]
 pub struct Cache {
-	pub by_id: ThreadSafeCacheType,
+	pub by_id: ThreadSafeCache,
 	pub connection: zbus::Connection,
 }
 
-/// An internal cache used within Odilia.
-/// This contains (mostly) all accessibles in the entire accessibility tree, and they are referenced by their IDs.
-/// When setting or getting information from the cache, be sure to use the most appropriate function.
-/// For example, you would not want to remove individual items using the `remove()` function.
-/// You should use the `remove_all()` function to acheive this, since this will only lock the cache mutex once, remove all ids, then refresh the cache.
-/// If you are having issues with incorrect or invalid accessibles trying to be accessed, this is code is probably the issue.
-/// This implementation is not very efficient, but it is very safe:
-/// This is because before inserting, the incomming bucket is cleared (there will never be duplicate accessibles or accessibles at different states stored in the same bucket).
+// N.B.: we are using std Mutexes internally here, within the cache hashmap
+// entries. When adding async methods, take care not to hold these mutexes
+// across .await points.
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self { by_id: Arc::new(DashMap::default()), connection: conn }
 	}
-	/// add a single new item to the cache. Note that this will empty the bucket before inserting the `CacheItem` into the cache (this is so there is never two items with the same ID stored in the cache at the same time).
+	/// add a single new item to the cache. Note that this will empty the bucket
+	/// before inserting the `CacheItem` into the cache (this is so there is
+	/// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
-		self.by_id.insert(cache_item.object.clone(), cache_item);
+		let id = cache_item.object.clone();
+		self.add_ref(id, Arc::new(Mutex::new(cache_item)));
 	}
-	/// remove a single cache item
+
+	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
+		self.by_id.insert(id, Arc::clone(&cache_item));
+		Self::populate_references(&self.by_id, cache_item);
+	}
+
+	/// Remove a single cache item
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
-	/// get a single item from the cache (note that this copies some integers to a new struct)
-	#[allow(dead_code)]
-	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+	/// Get a single item (mutable via lock) from the cache.
+	// For now this is kept private, as it would be easy to naively deadlock if
+	// someone does a chain of `get_ref`s on parent->child->parent, etc.
+	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
+
+	/// Get a single item from the cache.
+	///
+	/// This will allow you to get the item without holding any locks to it,
+	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
+	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+		self.by_id.get(id).as_deref().map(clone_arc_mutex)
+	}
+
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[allow(dead_code)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
-		ids.iter().map(|id| self.by_id.get(id).as_deref().cloned()).collect()
+		ids.iter().map(|id| self.get(id)).collect()
 	}
-	/// Bulk add many items to the cache; this only refreshes the cache after adding all items. Note that this will empty the bucket before inserting. Only one accessible should ever be associated with an id.
+
+	/// Bulk add many items to the cache; only one accessible should ever be
+	/// associated with an id.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
-		cache_items.into_iter().for_each(|cache_item| {
-			self.by_id.insert(cache_item.object.clone(), cache_item);
-		});
+		cache_items
+			.into_iter()
+			.map(|cache_item| {
+				let id = cache_item.object.clone();
+				let arc = Arc::new(Mutex::new(cache_item));
+				self.by_id.insert(id, Arc::clone(&arc));
+				arc
+			})
+			.collect::<Vec<_>>() // Insert all items before populating
+			.into_iter()
+			.for_each(|item| {
+				Self::populate_references(&self.by_id, item);
+			});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[allow(dead_code)]
@@ -373,15 +459,20 @@ impl Cache {
 		});
 	}
 
-	/// Edit a mutable CacheItem using a function which returns the edited version.
-	/// Note: an exclusive lock will be placed for the entire length of the passed function, so don't do any compute in it.
-	/// Returns true if the update was successful.
+	/// Edit a mutable CacheItem. Returns true if the update was successful.
+	///
+	/// Note: an exclusive lock for the given cache item will be placed for the
+	/// entire length of the passed function, so try to avoid any compute in it.
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
 	where
 		F: FnOnce(&mut CacheItem),
 	{
-		let mut cache_item = match self.by_id.get_mut(id) {
-			Some(i) => i,
+		// I wonder if `get_mut` vs `get` makes any difference here? I suppose
+		// it will just rely on the dashmap write access vs mutex lock access.
+		// Let's default to the fairness of the mutex.
+		let entry = match self.by_id.get(id) {
+			// Drop the dashmap reference immediately, at the expense of an Arc clone.
+			Some(i) => (*i).clone(),
 			None => {
 				tracing::trace!(
 					"The cache does not contain the requested item: {:?}",
@@ -390,11 +481,12 @@ impl Cache {
 				return false;
 			}
 		};
+		let mut cache_item = entry.lock().unwrap();
 		modify(&mut cache_item);
 		true
 	}
 
-	/// get a single item from the cache (note that this copies some integers to a new struct).
+	/// Get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the CacheItem is not found, create one, add it to the cache, and return it.
 	pub async fn get_or_create(
 		&self,
@@ -416,6 +508,64 @@ impl Cache {
 		self.add(cache_item.clone());
 		// return that same cache item
 		Ok(cache_item)
+	}
+
+	fn populate_references(cache: &ThreadSafeCache, item_ref: Arc<Mutex<CacheItem>>) {
+		let item_wk_ref = Arc::downgrade(&item_ref);
+
+		let mut item = item_ref.lock().unwrap();
+		let item_key = item.object.clone();
+		let parent_key = item.parent.key.clone();
+		let ix_opt = usize::try_from(item.index)
+			.map_err(|_| {
+				tracing::debug!("Item has invalid index: {}", item.index);
+			})
+			.ok();
+
+		// Update this item's children references
+		let mut child_arcs = Vec::with_capacity(item.children.len());
+		for child_ref in item.children.iter_mut() {
+			if let Some(child_arc) = cache.get(&child_ref.key).as_deref() {
+				child_ref.item = Arc::downgrade(child_arc);
+				child_arcs.push(Arc::clone(child_arc));
+			}
+		}
+		// Update this item's parent reference
+		let parent_ref_opt = cache.get(&parent_key).as_deref().map(|parent_ref| {
+			item.parent.item = Arc::downgrade(parent_ref);
+			Arc::clone(parent_ref)
+		});
+
+		// Drop item while we update parent/children to avoid deadlocking
+		drop(item);
+
+		// Update children to point to this item as parent
+		for child_arc in child_arcs {
+			let mut child = child_arc.lock().unwrap();
+			child.parent.item = Weak::clone(&item_wk_ref);
+		}
+
+		// Populate parent's ref to this item as child
+		if let Some((parent_ref, ix)) = parent_ref_opt.zip(ix_opt) {
+			let mut parent = parent_ref.lock().unwrap();
+			match parent.children.get_mut(ix).as_mut() {
+				Some(i) if i.key == item_key => {
+					i.item = Weak::clone(&item_wk_ref);
+				}
+				Some(_) => {
+					tracing::debug!(
+						"Parent cache item mismatched child at index {}",
+						ix
+					);
+				}
+				None => {
+					tracing::debug!(
+						"Parent cache item missing child at index {}",
+						ix
+					);
+				}
+			}
+		}
 	}
 }
 
@@ -443,7 +593,7 @@ pub async fn accessible_to_cache_item(
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.try_into()?,
-		parent: parent.try_into()?,
+		parent: CacheRef::new(parent.try_into()?),
 		index,
 		children_num,
 		interfaces,
@@ -452,8 +602,12 @@ pub async fn accessible_to_cache_item(
 		text,
 		children: children
 			.into_iter()
-			.map(AccessiblePrimitive::try_from)
-			.collect::<Result<Vec<AccessiblePrimitive>, _>>()?,
+			.map(|k| Ok(CacheRef::new(k.try_into()?)))
+			.collect::<Result<_, AccessiblePrimitiveConversionError>>()?,
 		cache,
 	})
+}
+
+pub fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
+	arc.lock().unwrap().clone()
 }

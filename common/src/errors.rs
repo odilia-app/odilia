@@ -19,12 +19,14 @@ pub enum OdiliaError {
 pub enum CacheError {
 	NotAvailable,
 	NoItem,
+	NoLock,
 }
 impl std::fmt::Display for CacheError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
 			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
 			Self::NoItem => f.write_str("No item in cache found."),
+      Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
 		}
 	}
 }

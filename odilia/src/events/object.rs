@@ -501,14 +501,12 @@ mod tests {
 				id: AccessibleId::Number(1),
 				sender: ":1.2".into(),
 			},
-			app: AccessiblePrimitive {
-				id: AccessibleId::Root,
-				sender: ":1.2".into(),
-			},
+			app: AccessiblePrimitive { id: AccessibleId::Root, sender: ":1.2".into() },
 			parent: AccessiblePrimitive {
 				id: AccessibleId::Number(1),
 				sender: ":1.2".into(),
-			},
+			}
+			.into(),
 			index: 323,
 			children_num: 0,
 			interfaces: InterfaceSet::new(
