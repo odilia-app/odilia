@@ -1,6 +1,6 @@
 use std::{
 	collections::VecDeque,
-	sync::{Arc, Mutex},
+	sync::{Arc, RwLock},
 	time::Duration,
 };
 
@@ -33,13 +33,13 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 }
 
 /// For each child, fetch all of its ancestors via `CacheItem::parent_ref`.
-async fn traverse_up_refs(children: Vec<Arc<Mutex<CacheItem>>>) {
+async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 	// for each child, try going up to the root
 	for child_ref in children {
 		let mut item_ref = child_ref;
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
-			let mut item = item_ref_copy.lock().expect("Could not lock item");
+			let mut item = item_ref_copy.write().expect("Could not lock item");
 			if matches!(item.object.id, AccessibleId::Root) {
 				break;
 			}
@@ -164,7 +164,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let (cache, children): (Arc<Cache>, Vec<Arc<Mutex<CacheItem>>>) = rt.block_on(async {
+	let (cache, children): (Arc<Cache>, Vec<Arc<RwLock<CacheItem>>>) = rt.block_on(async {
 		let cache = Arc::new(Cache::new(zbus_connection.clone()));
 		let all_items: Vec<CacheItem> = wcag_items
 			.clone()
@@ -179,7 +179,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			.by_id
 			.iter()
 			.filter_map(|entry| {
-				if entry.lock().unwrap().children.is_empty() {
+				if entry.read().unwrap().children.is_empty() {
 					Some(Arc::clone(&entry))
 				} else {
 					None
