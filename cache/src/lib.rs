@@ -1,6 +1,6 @@
 use std::{
 	collections::HashMap,
-	sync::{Arc, Mutex, Weak},
+	sync::{Arc, RwLock, Weak},
 };
 
 use async_trait::async_trait;
@@ -29,7 +29,7 @@ use zbus::{
 };
 
 type CacheKey = AccessiblePrimitive;
-type InnerCache = DashMap<CacheKey, Arc<Mutex<CacheItem>>, FxBuildHasher>;
+type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
 type ThreadSafeCache = Arc<InnerCache>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -197,7 +197,7 @@ pub struct CacheItem {
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::Mutex<CacheItem>>> {
+	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
 		let parent_ref = Weak::upgrade(&self.parent.item);
 		match parent_ref {
 			Some(p) => Ok(p),
@@ -276,7 +276,7 @@ impl CacheItem {
 pub struct CacheRef {
 	pub key: CacheKey,
 	#[serde(skip)]
-	item: Weak<Mutex<CacheItem>>,
+	item: Weak<RwLock<CacheItem>>,
 }
 
 impl CacheRef {
@@ -493,7 +493,7 @@ pub struct Cache {
 	pub connection: zbus::Connection,
 }
 
-// N.B.: we are using std Mutexes internally here, within the cache hashmap
+// N.B.: we are using std RwLockes internally here, within the cache hashmap
 // entries. When adding async methods, take care not to hold these mutexes
 // across .await points.
 impl Cache {
@@ -506,10 +506,10 @@ impl Cache {
 	/// never two items with the same ID stored in the cache at the same time).
 	pub fn add(&self, cache_item: CacheItem) {
 		let id = cache_item.object.clone();
-		self.add_ref(id, Arc::new(Mutex::new(cache_item)));
+		self.add_ref(id, Arc::new(RwLock::new(cache_item)));
 	}
 
-	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<Mutex<CacheItem>>) {
+	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<RwLock<CacheItem>>) {
 		self.by_id.insert(id, Arc::clone(&cache_item));
 		Self::populate_references(&self.by_id, cache_item);
 	}
@@ -521,7 +521,7 @@ impl Cache {
 	/// Get a single item (mutable via lock) from the cache.
 	// For now this is kept private, as it would be easy to naively deadlock if
 	// someone does a chain of `get_ref`s on parent->child->parent, etc.
-	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
+	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
 
@@ -546,7 +546,7 @@ impl Cache {
 			.into_iter()
 			.map(|cache_item| {
 				let id = cache_item.object.clone();
-				let arc = Arc::new(Mutex::new(cache_item));
+				let arc = Arc::new(RwLock::new(cache_item));
 				self.by_id.insert(id, Arc::clone(&arc));
 				arc
 			})
@@ -586,7 +586,7 @@ impl Cache {
 				return false;
 			}
 		};
-		let mut cache_item = entry.lock().unwrap();
+		let mut cache_item = entry.write().unwrap();
 		modify(&mut cache_item);
 		true
 	}
@@ -615,10 +615,10 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	fn populate_references(cache: &ThreadSafeCache, item_ref: Arc<Mutex<CacheItem>>) {
+	fn populate_references(cache: &ThreadSafeCache, item_ref: Arc<RwLock<CacheItem>>) {
 		let item_wk_ref = Arc::downgrade(&item_ref);
 
-		let mut item = item_ref.lock().unwrap();
+		let mut item = item_ref.write().unwrap();
 		let item_key = item.object.clone();
 		let parent_key = item.parent.key.clone();
 		let ix_opt = usize::try_from(item.index)
@@ -646,13 +646,13 @@ impl Cache {
 
 		// Update children to point to this item as parent
 		for child_arc in child_arcs {
-			let mut child = child_arc.lock().unwrap();
+			let mut child = child_arc.write().unwrap();
 			child.parent.item = Weak::clone(&item_wk_ref);
 		}
 
 		// Populate parent's ref to this item as child
 		if let Some((parent_ref, ix)) = parent_ref_opt.zip(ix_opt) {
-			let mut parent = parent_ref.lock().unwrap();
+			let mut parent = parent_ref.write().unwrap();
 			match parent.children.get_mut(ix).as_mut() {
 				Some(i) if i.key == item_key => {
 					i.item = Weak::clone(&item_wk_ref);
@@ -713,6 +713,6 @@ pub async fn accessible_to_cache_item(
 	})
 }
 
-pub fn clone_arc_mutex<T: Clone>(arc: &Arc<Mutex<T>>) -> T {
-	arc.lock().unwrap().clone()
+pub fn clone_arc_mutex<T: Clone>(arc: &Arc<RwLock<T>>) -> T {
+	arc.read().unwrap().clone()
 }
