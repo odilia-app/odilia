@@ -6,12 +6,14 @@ use std::{
 use async_trait::async_trait;
 use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
+	text::{Text, Granularity, ClipType, TextProxy},
 	accessible_id::{AccessibleId, HasAccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
 	signify::Signified,
 	text_ext::TextExt,
 	InterfaceSet, StateSet,
+	CoordType,
 };
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
@@ -45,6 +47,21 @@ impl AccessiblePrimitive {
 		self,
 		conn: &zbus::Connection,
 	) -> zbus::Result<AccessibleProxy<'a>> {
+		let id = self.id;
+		let sender = self.sender.clone();
+		let path: ObjectPath<'a> = id.try_into()?;
+		ProxyBuilder::new(conn)
+			.path(path)?
+			.destination(sender.as_str().to_owned())?
+			.cache_properties(CacheProperties::No)
+			.build()
+			.await
+	}
+	#[allow(dead_code)]
+	pub async fn into_text<'a>(
+		self,
+		conn: &zbus::Connection,
+	) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
 		let path: ObjectPath<'a> = id.try_into()?;
@@ -283,6 +300,11 @@ async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'
 	let cache = strong_cache(&cache_item.cache)?;
 	Ok(cache_item.object.clone().into_accessible(&cache.connection).await?)
 }
+#[inline]
+async fn as_text(cache_item: &CacheItem) -> OdiliaResult<TextProxy<'_>> {
+	let cache = strong_cache(&cache_item.cache)?;
+	Ok(cache_item.object.clone().into_text(&cache.connection).await?)
+}
 
 #[inline]
 fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
@@ -374,6 +396,89 @@ impl Accessible for CacheItem {
 	}
 	async fn accessible_id(&self) -> Result<AccessibleId, Self::Error> {
 		Ok(self.object.id)
+	}
+}
+#[async_trait]
+impl Text for CacheItem {
+	type Error = OdiliaError;
+
+	async fn add_selection(&self, start_offset: i32, end_offset: i32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.add_selection(start_offset, end_offset).await?)
+	}
+	async fn get_attribute_run(&self, offset: i32, include_defaults: bool) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_attribute_run(offset, include_defaults).await?)
+	}
+	async fn get_attribute_value(&self, offset: i32, attribute_name: &str) -> Result<String, Self::Error> {
+		Ok(as_text(self).await?.get_attribute_value(offset, attribute_name).await?)
+	}
+	async fn get_attributes(&self, offset: i32) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_attributes(offset).await?)
+	}
+	async fn get_bounded_ranges(&self, x: i32, y: i32, width: i32, height: i32, coord_type: CoordType, x_clip_type: ClipType, y_clip_type: ClipType) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, Self::Error> {
+		Ok(as_text(self).await?.get_bounded_ranges(x, y, width, height, coord_type, x_clip_type, y_clip_type).await?)
+	}
+	async fn get_character_at_offset(&self, offset: i32) -> Result<i32, Self::Error> {
+		Ok(as_text(self).await?.get_character_at_offset(offset).await?)
+	}
+	async fn get_character_extents(&self, offset: i32, coord_type: CoordType) -> Result<(i32, i32, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_character_extents(offset, coord_type).await?)
+	}
+	async fn get_default_attribute_set(&self) -> Result<std::collections::HashMap<String, String>, Self::Error> {
+		Ok(as_text(self).await?.get_default_attribute_set().await?)
+	}
+	async fn get_default_attributes(&self) -> Result<std::collections::HashMap<String, String>, Self::Error> {
+		Ok(as_text(self).await?.get_default_attributes().await?)
+	}
+	async fn get_nselections(&self) -> Result<i32, Self::Error> {
+		Ok(as_text(self).await?.get_nselections().await?)
+	}
+	async fn get_offset_at_point(&self, x: i32, y: i32, coord_type: CoordType) -> Result<i32, Self::Error> {
+		Ok(as_text(self).await?.get_offset_at_point(x, y, coord_type).await?)
+	}
+	async fn get_range_extents(&self, start_offset: i32, end_offset: i32, coord_type: CoordType) -> Result<(i32, i32, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_range_extents(start_offset, end_offset, coord_type).await?)
+	}
+	async fn get_selection(&self, selection_num: i32) -> Result<(i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_selection(selection_num).await?)
+	}
+	async fn get_string_at_offset(&self, offset: i32, granularity: Granularity) -> Result<(String, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_string_at_offset(offset, granularity).await?)
+	}
+	async fn get_text(&self, start_offset: i32, end_offset: i32) -> Result<String, Self::Error> {
+		self.text
+			.get(start_offset as usize..end_offset as usize)
+			.map_or(None, |str_ref| Some(str_ref.to_owned()))
+			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
+	}
+	async fn get_text_after_offset(&self, offset: i32, type_: u32) -> Result<(String, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_text_after_offset(offset, type_).await?)
+	}
+	async fn get_text_at_offset(&self, offset: i32, type_: u32) -> Result<(String, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_text_at_offset(offset, type_).await?)
+	}
+	async fn get_text_before_offset(&self, offset: i32, type_: u32) -> Result<(String, i32, i32), Self::Error> {
+		Ok(as_text(self).await?.get_text_before_offset(offset, type_).await?)
+	}
+	async fn remove_selection(&self, selection_num: i32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.remove_selection(selection_num).await?)
+	}
+	async fn scroll_substring_to(&self, start_offset: i32, end_offset: i32, type_: u32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.scroll_substring_to(start_offset, end_offset, type_).await?)
+	}
+	async fn scroll_substring_to_point(&self, start_offset: i32, end_offset: i32, type_: u32, x: i32, y: i32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.scroll_substring_to_point(start_offset, end_offset, type_, x, y).await?)
+	}
+	async fn set_caret_offset(&self, offset: i32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.set_caret_offset(offset).await?)
+	}
+	async fn set_selection(&self, selection_num: i32, start_offset: i32, end_offset: i32) -> Result<bool, Self::Error> {
+		Ok(as_text(self).await?.set_selection(selection_num, start_offset, end_offset).await?)
+	}
+	async fn caret_offset(&self) -> Result<i32, Self::Error> {
+		Ok(as_text(self).await?.caret_offset().await?)
+	}
+	async fn character_count(&self) -> Result<i32, Self::Error> {
+		Ok(self.text.len() as i32)
 	}
 }
 

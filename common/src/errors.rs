@@ -14,6 +14,7 @@ pub enum OdiliaError {
 	Zvariant(zbus::zvariant::Error),
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
+	Generic(String),
 }
 #[derive(Debug)]
 pub enum CacheError {
