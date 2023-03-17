@@ -615,7 +615,7 @@ impl Cache {
 
 	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<RwLock<CacheItem>>) {
 		self.by_id.insert(id, Arc::clone(&cache_item));
-		Self::populate_references(&self.by_id, cache_item);
+		Self::populate_references(&self.by_id, &cache_item);
 	}
 
 	/// Remove a single cache item
@@ -657,7 +657,7 @@ impl Cache {
 			.collect::<Vec<_>>() // Insert all items before populating
 			.into_iter()
 			.for_each(|item| {
-				Self::populate_references(&self.by_id, item);
+				Self::populate_references(&self.by_id, &item);
 			});
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
@@ -719,60 +719,37 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	fn populate_references(cache: &ThreadSafeCache, item_ref: Arc<RwLock<CacheItem>>) {
+	fn populate_references(cache: &ThreadSafeCache, item_ref: &Arc<RwLock<CacheItem>>) {
 		let item_wk_ref = Arc::downgrade(&item_ref);
 
 		let mut item = item_ref.write().unwrap();
 		let item_key = item.object.clone();
+
 		let parent_key = item.parent.key.clone();
-		let ix_opt = usize::try_from(item.index)
-			.map_err(|_| {
-				tracing::debug!("Item has invalid index: {}", item.index);
-			})
-			.ok();
+		let parent_ref_opt = cache.get(&parent_key);
+
+		// Update this item's parent reference
+		let ix_opt = usize::try_from(item.index).ok();
 
 		// Update this item's children references
-		let mut child_arcs = Vec::with_capacity(item.children.len());
-		for child_ref in item.children.iter_mut() {
-			if let Some(child_arc) = cache.get(&child_ref.key).as_deref() {
+		item.children.iter_mut().for_each(|child_ref| {
+			cache.get(&child_ref.key).as_ref().map(|child_arc| {
 				child_ref.item = Arc::downgrade(child_arc);
-				child_arcs.push(Arc::clone(child_arc));
-			}
-		}
-		// Update this item's parent reference
-		let parent_ref_opt = cache.get(&parent_key).as_deref().map(|parent_ref| {
-			item.parent.item = Arc::downgrade(parent_ref);
-			Arc::clone(parent_ref)
+				child_arc.write().unwrap().parent.item = Weak::clone(&item_wk_ref);
+				Arc::clone(child_arc)
+			});
 		});
 
-		// Drop item while we update parent/children to avoid deadlocking
-		drop(item);
-
-		// Update children to point to this item as parent
-		for child_arc in child_arcs {
-			let mut child = child_arc.write().unwrap();
-			child.parent.item = Weak::clone(&item_wk_ref);
-		}
-
-		// Populate parent's ref to this item as child
-		if let Some((parent_ref, ix)) = parent_ref_opt.zip(ix_opt) {
-			let mut parent = parent_ref.write().unwrap();
-			match parent.children.get_mut(ix).as_mut() {
-				Some(i) if i.key == item_key => {
-					i.item = Weak::clone(&item_wk_ref);
-				}
-				Some(_) => {
-					tracing::debug!(
-						"Parent cache item mismatched child at index {}",
-						ix
-					);
-				}
-				None => {
-					tracing::debug!(
-						"Parent cache item missing child at index {}",
-						ix
-					);
-				}
+		if let Some(parent_ref) = parent_ref_opt {
+			item.parent.item = Arc::downgrade(&parent_ref);
+			if let Some(ix) = ix_opt {
+				parent_ref
+					.write()
+					.unwrap()
+					.children
+					.get_mut(ix)
+					.filter(|i| i.key == item_key)
+					.map(|i| i.item = Weak::clone(&item_wk_ref));
 			}
 		}
 	}
