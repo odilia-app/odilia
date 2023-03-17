@@ -603,7 +603,7 @@ pub struct Cache {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(conn: zbus::Connection) -> Self {
-		Self { by_id: Arc::new(DashMap::default()), connection: conn }
+		Self { by_id: Arc::new(DashMap::with_capacity_and_hasher(10_000, FxBuildHasher::default())), connection: conn }
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
