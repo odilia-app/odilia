@@ -289,7 +289,7 @@ mod children_changed {
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified,
+		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified, text::{Text, Granularity},
 	};
 	use odilia_cache::CacheItem;
 	use ssip_client::Priority;
@@ -298,13 +298,11 @@ mod text_caret_moved {
 		sync::atomic::Ordering,
 	};
 
-	#[allow(dead_code)]
-	#[allow(unused_variables)]
-	pub fn new_position(
+	pub async fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
-		new_position: u32,
-		old_position: u32,
+		new_position: i32,
+		old_position: i32,
 		new_text: String,
 	) -> String {
 		let new_id = new_item.object.id;
@@ -316,13 +314,25 @@ mod text_caret_moved {
 		if new_id != old_id {
 			return String::new();
 		}
-		let first_position = isize::try_from(max(new_position, old_position));
-		let last_position = isize::try_from(min(new_position, old_position));
+		let first_position = min(new_position, old_position);
+		let last_position = max(new_position, old_position);
 		// if there is one character between the old and new position
 		if new_pos.abs_diff(old_pos) == 1 {
-			return new_text.get(new_pos..new_pos + 1).unwrap().to_string();
+			return new_item.get_string_at_offset(first_position, Granularity::Char).await.unwrap().0;
 		}
-		String::new()
+		let first_word = new_item.get_string_at_offset(first_position, Granularity::Word).await.unwrap();
+		let last_word = old_item.get_string_at_offset(last_position, Granularity::Word).await.unwrap();
+		// if words are the same
+		if first_word == last_word ||
+			 // if the end position of the first word immediately peceeds the start of the second word
+			 first_word.2.abs_diff(last_word.1) == 1 {
+			return new_item.get_text(first_position, last_position).await.unwrap();
+		}
+		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
+		if first_position == 0 && last_position as usize == new_item.text.len() {
+			return new_item.text.clone();
+		}
+		new_item.get_string_at_offset(new_position, Granularity::Line).await.unwrap().0
 	}
 
 	/// this must be checked *before* writing an accessible to the hsitory.
@@ -355,6 +365,7 @@ mod text_caret_moved {
 		// otherwise, it probably was a tab navigation
 		Ok(true)
 	}
+
 
 	// TODO: left/right vs. up/down, and use generated speech
 	pub async fn text_cursor_moved(
@@ -490,7 +501,7 @@ mod tests {
 	use std::sync::Arc;
 	use tokio_test::block_on;
 
-	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance.";
+	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
 	lazy_static! {
 		static ref ZBUS_CONN: AccessibilityConnection =
 			block_on(AccessibilityConnection::open()).unwrap();
@@ -523,14 +534,14 @@ mod tests {
 			children: Vec::new(),
 			cache: Arc::downgrade(&CACHE_ARC),
 		};
-		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 3] = [
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 9] = [
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
 				4,
 				3,
 				A11Y_PARAGRAPH_STRING,
-				"A"
+				" "
 			),
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
@@ -548,18 +559,68 @@ mod tests {
 				A11Y_PARAGRAPH_STRING,
 				"The"
 			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				3,
+				0,
+				A11Y_PARAGRAPH_STRING,
+				"The"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				169,
+				182,
+				A11Y_PARAGRAPH_STRING,
+				"Microsystems,"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				77,
+				83,
+				A11Y_PARAGRAPH_STRING,
+				" Linux"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				181,
+				189,
+				A11Y_PARAGRAPH_STRING,
+				", before"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				0,
+				220,
+				A11Y_PARAGRAPH_STRING,
+				A11Y_PARAGRAPH_STRING,
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				220,
+				0,
+				A11Y_PARAGRAPH_STRING,
+				A11Y_PARAGRAPH_STRING,
+			),
 		];
 	}
 
 	macro_rules! check_answer_values {
 		($idx:literal) => {
 			assert_eq!(
-				new_position(
-					ANSWER_VALUES[$idx].0.clone(),
-					ANSWER_VALUES[$idx].1.clone(),
-					ANSWER_VALUES[$idx].2,
-					ANSWER_VALUES[$idx].3,
-					ANSWER_VALUES[$idx].4.to_string(),
+				tokio_test::block_on(
+					new_position(
+						ANSWER_VALUES[$idx].0.clone(),
+						ANSWER_VALUES[$idx].1.clone(),
+						ANSWER_VALUES[$idx].2.try_into().unwrap(),
+						ANSWER_VALUES[$idx].3.try_into().unwrap(),
+						ANSWER_VALUES[$idx].4.to_string(),
+					)
 				),
 				ANSWER_VALUES[$idx].5.to_string()
 			);
@@ -574,10 +635,32 @@ mod tests {
 	fn test_text_navigation_one_letter_back() {
 		check_answer_values!(1);
 	}
-	/*
 	#[test]
-	fn test_text_navigation_one_word() {
+	fn test_text_navigation_one_word_back() {
 		check_answer_values!(2);
 	}
-	*/
+	#[test]
+	fn test_text_navigation_one_word() {
+		check_answer_values!(3);
+	}
+	#[test]
+	fn test_text_navigation_one_word_with_punctuation_after() {
+		check_answer_values!(4);
+	}
+	#[test]
+	fn test_text_navigation_one_word_with_space() {
+		check_answer_values!(5);
+	}
+	#[test]
+	fn test_text_navigation_one_word_with_punctutation_first() {
+		check_answer_values!(6);
+	}
+	#[test]
+	fn test_text_navigation_full_item_front_to_back() {
+		check_answer_values!(7);
+	}
+	#[test]
+	fn test_text_navigation_full_item_back_to_front() {
+		check_answer_values!(8);
+	}
 }
