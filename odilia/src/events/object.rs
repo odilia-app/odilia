@@ -498,8 +498,11 @@ mod state_changed {
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
 
-		state.say(ssip_client_async::Priority::Text, format!("{name}, {role}. {description}"))
-			.await;
+		state.say(
+			ssip_client_async::Priority::Text,
+			format!("{name}, {role}. {description}"),
+		)
+		.await;
 
 		Ok(())
 	}
