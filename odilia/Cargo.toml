@@ -10,7 +10,7 @@ homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
 edition = "2021"
-publish = false
+publish = true
 
 [package.metadata.release]
 # The root crate should be released
