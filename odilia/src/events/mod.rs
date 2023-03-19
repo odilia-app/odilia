@@ -24,7 +24,7 @@ use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,
 };
-use ssip_client::Priority;
+use ssip_client_async::Priority;
 
 pub async fn structural_navigation(
 	state: &ScreenReaderState,

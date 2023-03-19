@@ -32,7 +32,7 @@ mod text_changed {
 		result::OdiliaResult,
 		types::{AriaAtomic, AriaLive},
 	};
-	use ssip_client::Priority;
+	use ssip_client_async::Priority;
 	use std::collections::HashMap;
 
 	#[inline]
@@ -295,7 +295,7 @@ mod text_caret_moved {
 		text::{Granularity, Text},
 	};
 	use odilia_cache::CacheItem;
-	use ssip_client::Priority;
+	use ssip_client_async::Priority;
 	use std::{
 		cmp::{max, min},
 		sync::atomic::Ordering,
@@ -498,7 +498,7 @@ mod state_changed {
 		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
 		tracing::debug!("Relations: {:?}", relation);
 
-		state.say(ssip_client::Priority::Text, format!("{name}, {role}. {description}"))
+		state.say(ssip_client_async::Priority::Text, format!("{name}, {role}. {description}"))
 			.await;
 
 		Ok(())
