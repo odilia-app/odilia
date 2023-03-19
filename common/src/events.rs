@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::modes::ScreenReaderMode;
-use atspi::{accessible::Role, text::Granularity};
+use atspi::accessible::Role;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 /// A list of features supported natively by Odilia.
@@ -25,7 +25,7 @@ pub enum Direction {
 /// Subject to change without notice until v1.0, but we're [open to suggestions on our Github](https://github.com/odilia-app/odilia/); please reach out with features you'd like to see.
 pub enum ScreenReaderEvent {
 	/// when we need to do "something" but this is always hardcoded as nothing
-	Noop, 
+	Noop,
 	/// Stop all current speech.
 	StopSpeech,
 	/// Enable a feature from working.
