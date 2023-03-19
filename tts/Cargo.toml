@@ -6,7 +6,7 @@ description = "A pure-Rust, fully-safe, asyncronous speech dispatcher client."
 license = "GPL-3.0-only" # Not gpl-3-or-later
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
-keywords = ["accessibility", "a11y", "tts", "speech-dispatcher", "linux", "async"]
+keywords = ["accessibility", "tts", "speech-dispatcher", "linux", "async"]
 categories = ["accessibility", "api-bindings", "async"]
 edition = "2021"
 
