@@ -289,7 +289,10 @@ mod children_changed {
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		convertable::Convertable, identify::object::TextCaretMovedEvent, signify::Signified, text::{Text, Granularity},
+		convertable::Convertable,
+		identify::object::TextCaretMovedEvent,
+		signify::Signified,
+		text::{Granularity, Text},
 	};
 	use odilia_cache::CacheItem;
 	use ssip_client::Priority;
@@ -318,21 +321,35 @@ mod text_caret_moved {
 		let last_position = max(new_position, old_position);
 		// if there is one character between the old and new position
 		if new_pos.abs_diff(old_pos) == 1 {
-			return new_item.get_string_at_offset(first_position, Granularity::Char).await.unwrap().0;
+			return new_item
+				.get_string_at_offset(first_position, Granularity::Char)
+				.await
+				.unwrap()
+				.0;
 		}
-		let first_word = new_item.get_string_at_offset(first_position, Granularity::Word).await.unwrap();
-		let last_word = old_item.get_string_at_offset(last_position, Granularity::Word).await.unwrap();
+		let first_word = new_item
+			.get_string_at_offset(first_position, Granularity::Word)
+			.await
+			.unwrap();
+		let last_word = old_item
+			.get_string_at_offset(last_position, Granularity::Word)
+			.await
+			.unwrap();
 		// if words are the same
 		if first_word == last_word ||
 			 // if the end position of the first word immediately peceeds the start of the second word
-			 first_word.2.abs_diff(last_word.1) == 1 {
+			 first_word.2.abs_diff(last_word.1) == 1
+		{
 			return new_item.get_text(first_position, last_position).await.unwrap();
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
 		if first_position == 0 && last_position as usize == new_item.text.len() {
 			return new_item.text.clone();
 		}
-		new_item.get_string_at_offset(new_position, Granularity::Line).await.unwrap().0
+		new_item.get_string_at_offset(new_position, Granularity::Line)
+			.await
+			.unwrap()
+			.0
 	}
 
 	/// this must be checked *before* writing an accessible to the hsitory.
@@ -365,7 +382,6 @@ mod text_caret_moved {
 		// otherwise, it probably was a tab navigation
 		Ok(true)
 	}
-
 
 	// TODO: left/right vs. up/down, and use generated speech
 	pub async fn text_cursor_moved(
@@ -613,15 +629,13 @@ mod tests {
 	macro_rules! check_answer_values {
 		($idx:literal) => {
 			assert_eq!(
-				tokio_test::block_on(
-					new_position(
-						ANSWER_VALUES[$idx].0.clone(),
-						ANSWER_VALUES[$idx].1.clone(),
-						ANSWER_VALUES[$idx].2.try_into().unwrap(),
-						ANSWER_VALUES[$idx].3.try_into().unwrap(),
-						ANSWER_VALUES[$idx].4.to_string(),
-					)
-				),
+				tokio_test::block_on(new_position(
+					ANSWER_VALUES[$idx].0.clone(),
+					ANSWER_VALUES[$idx].1.clone(),
+					ANSWER_VALUES[$idx].2.try_into().unwrap(),
+					ANSWER_VALUES[$idx].3.try_into().unwrap(),
+					ANSWER_VALUES[$idx].4.to_string(),
+				)),
 				ANSWER_VALUES[$idx].5.to_string()
 			);
 		};

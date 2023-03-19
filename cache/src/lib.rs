@@ -509,33 +509,38 @@ impl Text for CacheItem {
 		if granularity == Granularity::Paragraph {
 			return Ok((self.text.clone(), 0, self.text.len().try_into().unwrap()));
 		} else if granularity == Granularity::Char {
-			let range = uoffset..(uoffset+1);
-			return Ok((self.text.get(range).unwrap().to_string(), offset, offset+1));
+			let range = uoffset..(uoffset + 1);
+			return Ok((self.text.get(range).unwrap().to_string(), offset, offset + 1));
 		} else if granularity == Granularity::Word {
-			return Ok(self.text
+			return Ok(self
+				.text
 				// [char]
 				.split_whitespace()
 				// [(idx, char)]
-        .enumerate()
+				.enumerate()
 				// [(word, start, end)]
-        .filter_map(|(_, word)| {
-            let start = self.text
-								// [(idx, char)]
-                .char_indices()
-								// [(idx, char)]: uses pointer arithmatic to find start index
-                .find(|&(idx, _)| idx == word.as_ptr() as usize - self.text.as_ptr() as usize)
-								// [idx]
-                .map(|(idx, _)| idx)
-                .unwrap();
-						// calculate based on start
-            let end = start + word.len();
-						// if the offset if within bounds
-						if uoffset >= start && uoffset <= end {
-							Some((word.to_string(), start as i32, end as i32))
-						} else {
-							None
-						}
-        })
+				.filter_map(|(_, word)| {
+					let start = self
+						.text
+						// [(idx, char)]
+						.char_indices()
+						// [(idx, char)]: uses pointer arithmatic to find start index
+						.find(|&(idx, _)| {
+							idx == word.as_ptr() as usize
+								- self.text.as_ptr() as usize
+						})
+						// [idx]
+						.map(|(idx, _)| idx)
+						.unwrap();
+					// calculate based on start
+					let end = start + word.len();
+					// if the offset if within bounds
+					if uoffset >= start && uoffset <= end {
+						Some((word.to_string(), start as i32, end as i32))
+					} else {
+						None
+					}
+				})
 				// get "all" words that match; there should be only one result
 				.collect::<Vec<_>>()
 				// get the first result
@@ -543,7 +548,7 @@ impl Text for CacheItem {
 				// if there's no matching word (out of bounds)
 				.ok_or_else(|| OdiliaError::Generic("Out of bounds".to_string()))?
 				// clone the reference into a value
-				.clone())
+				.clone());
 		}
 		// any other variations, in particular, Granularity::Line, will need to call out to DBus. It's just too complex to calculate, get updates for bounding boxes, etc.
 		// this variation does NOT get a semantic line. It gets a visual line.
@@ -646,7 +651,13 @@ pub struct Cache {
 impl Cache {
 	/// create a new, fresh cache
 	pub fn new(conn: zbus::Connection) -> Self {
-		Self { by_id: Arc::new(DashMap::with_capacity_and_hasher(10_000, FxBuildHasher::default())), connection: conn }
+		Self {
+			by_id: Arc::new(DashMap::with_capacity_and_hasher(
+				10_000,
+				FxBuildHasher::default(),
+			)),
+			connection: conn,
+		}
 	}
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
