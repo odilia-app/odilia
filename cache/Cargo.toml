@@ -2,7 +2,6 @@
 name = "odilia-cache"
 version = "0.1.0"
 edition = "2021"
-publish = false
 authors = ["Tait Hoyem <tait@tait.tech>", "Sam Tay <samctay@pm.me>"]
 description = "A caching layer for the Odilia screen reader."
 license = "gpl-3" # Not gpl-3-or-later
