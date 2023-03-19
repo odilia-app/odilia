@@ -35,7 +35,7 @@ odilia-input = { path = "../input", version = "0.0.1" }
 odilia-tts = { path = "../tts", version = "0.1.0" }
 serde_json.workspace = true
 serde_plain.workspace = true
-ssip-client.workspace = true
+ssip-client-async.workspace = true
 tokio.workspace = true
 tracing-error.workspace = true
 tracing-log.workspace = true

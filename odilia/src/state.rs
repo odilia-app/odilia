@@ -33,7 +33,6 @@ pub struct ScreenReaderState {
 	pub config: ApplicationConfig,
 	pub previous_caret_position: AtomicI32,
 	pub mode: Mutex<ScreenReaderMode>,
-	pub granularity: Mutex<Granularity>,
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<atspi::Event>>,
 	pub cache: Arc<Cache>,
@@ -73,7 +72,6 @@ impl ScreenReaderState {
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Arc::new(Cache::new(atspi.connection().to_owned()));
 
-		let granularity = Mutex::new(Granularity::Line);
 		Ok(Self {
 			atspi,
 			dbus,
@@ -81,7 +79,6 @@ impl ScreenReaderState {
 			config,
 			previous_caret_position,
 			mode,
-			granularity,
 			accessible_history,
 			event_history,
 			cache,

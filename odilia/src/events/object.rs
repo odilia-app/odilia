@@ -396,7 +396,7 @@ mod text_caret_moved {
 			.await?
 			.to_text()
 			.await?
-			.get_string_at_offset(event.position(), *state.granularity.lock().await)
+			.get_string_at_offset(event.position(), Granularity::Line)
 			.await?
 			.0;
 		state.say(Priority::Text, text).await;
