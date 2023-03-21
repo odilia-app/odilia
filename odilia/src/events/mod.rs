@@ -50,7 +50,7 @@ pub async fn structural_navigation(
 	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
-    let curr_prim = curr.try_into()?;
+		let curr_prim = curr.try_into()?;
 		let _ = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
 		state.update_accessible(curr_prim).await;
@@ -183,7 +183,10 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 		}
 		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
 		other_event => {
-			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event);
+			tracing::debug!(
+				"Ignoring event with unknown interface: {:#?}",
+				other_event
+			);
 		}
 	}
 	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;

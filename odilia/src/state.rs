@@ -17,7 +17,7 @@ use atspi::{
 };
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{CacheError, OdiliaError, AccessiblePrimitiveConversionError, ConfigError},
+	errors::{AccessiblePrimitiveConversionError, CacheError, ConfigError, OdiliaError},
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
@@ -157,7 +157,8 @@ impl ScreenReaderState {
 				child.get_role_name().await?
 			);
 			text_selection.replace_range(
-				child_start + (usize::try_from(start)?)..child_end + (usize::try_from(start)?),
+				child_start + (usize::try_from(start)?)
+					..child_end + (usize::try_from(start)?),
 				&child_text,
 			);
 		}
@@ -258,8 +259,14 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event.sender()?.ok_or(AccessiblePrimitiveConversionError::NoSender)?.to_owned();
-		let path = event.path().ok_or(AccessiblePrimitiveConversionError::NoPathId)?.to_owned();
+		let sender = event
+			.sender()?
+			.ok_or(AccessiblePrimitiveConversionError::NoSender)?
+			.to_owned();
+		let path = event
+			.path()
+			.ok_or(AccessiblePrimitiveConversionError::NoPathId)?
+			.to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)
 			.destination(sender)?

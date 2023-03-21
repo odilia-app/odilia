@@ -21,10 +21,10 @@ use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::broadcast, sync::mpsc
 fn get_log_file_name() -> String {
 	let time = if let Ok(n) = SystemTime::now().duration_since(UNIX_EPOCH) {
 		n.as_secs().to_string()
-  } else {
-    tracing::error!("SystemTime before UnixEpoch!");
-    exit(1);
-  };
+	} else {
+		tracing::error!("SystemTime before UnixEpoch!");
+		exit(1);
+	};
 
 	match env::var("XDG_DATA_HOME") {
 		Ok(val) => {

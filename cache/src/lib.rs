@@ -81,15 +81,20 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-  /// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
-  /// # Errors
-  /// The errors are self-explanitory variants of the [`AccessiblePrimitiveConveersionError`].
-	pub fn from_event<T: GenericEvent>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> {
-		let sender = event.sender()
-      .map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
-      .ok_or(AccessiblePrimitiveConversionError::NoSender)?;
+	/// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
+	/// # Errors
+	/// The errors are self-explanitory variants of the [`AccessiblePrimitiveConveersionError`].
+	pub fn from_event<T: GenericEvent>(
+		event: &T,
+	) -> Result<Self, AccessiblePrimitiveConversionError> {
+		let sender = event
+			.sender()
+			.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
+			.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
 		let path = event.path().ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
-		let id: AccessibleId = path.try_into().map_err(|_| AccessiblePrimitiveConversionError::InvalidPath)?;
+		let id: AccessibleId = path
+			.try_into()
+			.map_err(|_| AccessiblePrimitiveConversionError::InvalidPath)?;
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
 }
@@ -187,30 +192,30 @@ pub struct CacheItem {
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-  /// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
-  /// # Errors
-  /// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
+	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
+	/// # Errors
+	/// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
 	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
 		let parent_ref = Weak::upgrade(&self.parent.item);
 		if let Some(p) = parent_ref {
-      Ok(p)
-    } else {
-      let cache = strong_cache(&self.cache)?;
-      let arc_mut_parent = cache
-        .get_ref(&self.parent.key.clone())
-        .ok_or(CacheError::NoItem)?;
-      self.parent.item = Arc::downgrade(&arc_mut_parent);
-      Ok(arc_mut_parent)
-    }
+			Ok(p)
+		} else {
+			let cache = strong_cache(&self.cache)?;
+			let arc_mut_parent = cache
+				.get_ref(&self.parent.key.clone())
+				.ok_or(CacheError::NoItem)?;
+			self.parent.item = Arc::downgrade(&arc_mut_parent);
+			Ok(arc_mut_parent)
+		}
 	}
-  /// Creates a `CacheItem` from an [`atspi::Event`] type.
-  /// # Errors
-  /// This can fail under three possible conditions:
-  ///
-  /// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
-  /// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::accessible::AccessibleProxy`].
-  /// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
-  pub async fn from_atspi_event<T: Signified>(
+	/// Creates a `CacheItem` from an [`atspi::Event`] type.
+	/// # Errors
+	/// This can fail under three possible conditions:
+	///
+	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
+	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::accessible::AccessibleProxy`].
+	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
+	pub async fn from_atspi_event<T: Signified>(
 		event: &T,
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
@@ -218,16 +223,16 @@ impl CacheItem {
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
 	}
-  /// Convert an [`atspi::cache::CacheItem`] into a [`crate::CacheItem`].
-  /// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
-  /// # Errors
-  /// This function can fail under the following conditions:
-  ///
-  /// 1. The [`atspi::cache::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
-  /// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi::accessible::AccessibleProxy`]. This should never happen.
-  /// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
-  /// 
-  /// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
+	/// Convert an [`atspi::cache::CacheItem`] into a [`crate::CacheItem`].
+	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
+	/// # Errors
+	/// This function can fail under the following conditions:
+	///
+	/// 1. The [`atspi::cache::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
+	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi::accessible::AccessibleProxy`]. This should never happen.
+	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
+	///
+	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
 	pub async fn from_atspi_cache_item(
 		atspi_cache_item: atspi::cache::CacheItem,
 		cache: Weak<Cache>,
@@ -259,10 +264,10 @@ impl CacheItem {
 		})
 	}
 	// Same as [`Accessible::get_children`], just offered as a non-async version.
-  /// Get a `Vec` of children with the same type as `Self`.
-  /// # Errors
-  /// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
-  /// 2. Any children keys' values are not found in the cache itself.
+	/// Get a `Vec` of children with the same type as `Self`.
+	/// # Errors
+	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
+	/// 2. Any children keys' values are not found in the cache itself.
 	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		let children = self
@@ -293,12 +298,12 @@ pub struct CacheRef {
 }
 
 impl CacheRef {
-  #[must_use]
+	#[must_use]
 	pub fn new(key: AccessiblePrimitive) -> Self {
 		Self { key, item: Weak::new() }
 	}
 
-  #[must_use]
+	#[must_use]
 	pub fn clone_inner(&self) -> Option<CacheItem> {
 		Some(self.item.upgrade().as_ref()?.read().ok()?.clone())
 	}
@@ -559,8 +564,8 @@ impl Text for CacheItem {
 						.map(|(idx, _)| idx)?;
 					// calculate based on start
 					let end = start + word.len();
-          let i_start = i32::try_from(start).ok()?;
-          let i_end = i32::try_from(end).ok()?;
+					let i_start = i32::try_from(start).ok()?;
+					let i_end = i32::try_from(end).ok()?;
 					// if the offset if within bounds
 					if uoffset >= start && uoffset <= end {
 						Some((word.to_string(), i_start, i_end))
@@ -677,7 +682,7 @@ pub struct Cache {
 // across .await points.
 impl Cache {
 	/// create a new, fresh cache
-  #[must_use]
+	#[must_use]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
 			by_id: Arc::new(DashMap::with_capacity_and_hasher(
@@ -690,16 +695,16 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
 	/// never two items with the same ID stored in the cache at the same time).
-  /// # Errors
-  /// Fails if the internal call to [`Self::add_ref`] fails. 
+	/// # Errors
+	/// Fails if the internal call to [`Self::add_ref`] fails.
 	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
 		let id = cache_item.object.clone();
 		self.add_ref(id, &Arc::new(RwLock::new(cache_item)))
 	}
 
-  /// Add an item via a reference instead of creating the reference.
-  /// # Errors
-  /// Can error if [`Self::populate_references`] errors. The insertion is guarenteed to succeed.
+	/// Add an item via a reference instead of creating the reference.
+	/// # Errors
+	/// Can error if [`Self::populate_references`] errors. The insertion is guarenteed to succeed.
 	pub fn add_ref(
 		&self,
 		id: CacheKey,
@@ -717,7 +722,7 @@ impl Cache {
 	/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
 	/// You will need to either get a read or a write lock on any item returned from this function.
 	/// It also may return `None` if a value is not matched to the key.
-  #[must_use]
+	#[must_use]
 	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
@@ -726,13 +731,13 @@ impl Cache {
 	///
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
-  #[must_use]
+	#[must_use]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
-  #[must_use]
+	#[must_use]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
@@ -777,14 +782,11 @@ impl Cache {
 		// it will just rely on the dashmap write access vs mutex lock access.
 		// Let's default to the fairness of the mutex.
 		let entry = if let Some(i) = self.by_id.get(id) {
-        // Drop the dashmap reference immediately, at the expense of an Arc clone.
-        (*i).clone()
-      } else {
-        tracing::trace!(
-          "The cache does not contain the requested item: {:?}",
-          id
-        );
-        return Ok(false);
+			// Drop the dashmap reference immediately, at the expense of an Arc clone.
+			(*i).clone()
+		} else {
+			tracing::trace!("The cache does not contain the requested item: {:?}", id);
+			return Ok(false);
 		};
 		let mut cache_item = entry.write()?;
 		modify(&mut cache_item);
@@ -793,11 +795,11 @@ impl Cache {
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
 	/// If the `CacheItem` is not found, create one, add it to the cache, and return it.
-  /// # Errors
-  /// The function will return an error if:
-  /// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
-  /// 2. The [`Self::add`] function fails.
-  /// 3. The [`accessible_to_cache_item`] function fails.
+	/// # Errors
+	/// The function will return an error if:
+	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
+	/// 2. The [`Self::add`] function fails.
+	/// 3. The [`accessible_to_cache_item`] function fails.
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
@@ -871,7 +873,7 @@ impl Cache {
 ///
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
-/// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible. 
+/// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 pub async fn accessible_to_cache_item(
 	accessible: &AccessibleProxy<'_>,
 	cache: Weak<Cache>,

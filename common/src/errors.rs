@@ -23,7 +23,7 @@ pub enum OdiliaError {
 pub enum ConfigError {
 	Tini(tini::Error),
 	ValueNotFound,
-  PathNotFound,
+	PathNotFound,
 }
 impl From<tini::Error> for ConfigError {
 	fn from(t_err: tini::Error) -> Self {
@@ -35,7 +35,9 @@ impl std::fmt::Display for ConfigError {
 		match self {
 			Self::Tini(t) => t.fmt(f),
 			Self::ValueNotFound => f.write_str("Vlaue not found in config file."),
-      Self::PathNotFound => f.write_str("The path for the config file was not found."),
+			Self::PathNotFound => {
+				f.write_str("The path for the config file was not found.")
+			}
 		}
 	}
 }
@@ -115,7 +117,7 @@ pub enum AccessiblePrimitiveConversionError {
 	ParseError(<i32 as FromStr>::Err),
 	ObjectConversionError(atspi::error::ObjectPathConversionError),
 	NoPathId,
-  InvalidPath,
+	InvalidPath,
 	NoFirstSectionOfSender,
 	NoSecondSectionOfSender,
 	NoSender,

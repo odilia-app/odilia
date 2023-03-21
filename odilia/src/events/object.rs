@@ -185,11 +185,8 @@ mod text_changed {
 		// if the atomic state is true, then read out the entite piece of text
 		// if atomic state is false, then only read out the portion which has been added
 		// otherwise, do not continue through this function
-		let text_to_say = if atomic {
-      cache_text.to_string()
-    } else {
-			event.text().try_into()?
-		};
+		let text_to_say =
+			if atomic { cache_text.to_string() } else { event.text().try_into()? };
 		let prioirty = live_to_priority(&live);
 		state.say(prioirty, text_to_say).await;
 		Ok(())
@@ -274,10 +271,7 @@ mod children_changed {
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
-	pub fn remove(
-		state: &ScreenReaderState,
-		event: &ChildrenChangedEvent,
-	) -> eyre::Result<()> {
+	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let prim = AccessiblePrimitive::from_event(event)?;
 		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");

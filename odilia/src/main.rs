@@ -57,12 +57,12 @@ async fn main() -> eyre::Result<()> {
 	let mut ssip = odilia_tts::create_ssip_client().await?;
 
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
-    tracing::debug!("Welcome message spoken.");
-  } else {
-    tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
-    let _ = state.close_speech().await;
-    exit(1);
-  }
+		tracing::debug!("Welcome message spoken.");
+	} else {
+		tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
+		let _ = state.close_speech().await;
+		exit(1);
+	}
 
 	// Register events
 	tokio::try_join!(
