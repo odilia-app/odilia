@@ -19,13 +19,12 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::broadcast, sync::mpsc::Sender};
 
 fn get_log_file_name() -> String {
-	let time = match SystemTime::now().duration_since(UNIX_EPOCH) {
-		Ok(n) => n.as_secs().to_string(),
-		Err(_) => {
-			tracing::error!("SystemTime before UnixEpoch!");
-			exit(1);
-		}
-	};
+	let time = if let Ok(n) = SystemTime::now().duration_since(UNIX_EPOCH) {
+		n.as_secs().to_string()
+  } else {
+    tracing::error!("SystemTime before UnixEpoch!");
+    exit(1);
+  };
 
 	match env::var("XDG_DATA_HOME") {
 		Ok(val) => {
@@ -45,6 +44,12 @@ fn get_log_file_name() -> String {
 	}
 }
 
+/// Receives [`odilia_common::errors::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
+/// This function will exit upon cancelation via a message from `shutdown_rx` parameter.
+/// # Errors
+/// This function will return an error type if the same function is already running.
+/// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
+/// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
 pub async fn sr_event_receiver(
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,

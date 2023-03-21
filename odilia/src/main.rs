@@ -56,14 +56,13 @@ async fn main() -> eyre::Result<()> {
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx).await?);
 	let mut ssip = odilia_tts::create_ssip_client().await?;
 
-	match state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
-		true => tracing::debug!("Welcome message spoken."),
-		false => {
-			tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
-			let _ = state.close_speech().await;
-			exit(1);
-		}
-	};
+	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
+    tracing::debug!("Welcome message spoken.");
+  } else {
+    tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
+    let _ = state.close_speech().await;
+    exit(1);
+  }
 
 	// Register events
 	tokio::try_join!(

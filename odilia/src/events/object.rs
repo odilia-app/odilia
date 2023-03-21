@@ -5,19 +5,19 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 	// Dispatch based on member
 	match event {
 		ObjectEvents::StateChanged(state_changed_event) => {
-			state_changed::dispatch(state, state_changed_event).await?
+			state_changed::dispatch(state, state_changed_event).await?;
 		}
 		ObjectEvents::TextCaretMoved(text_caret_moved_event) => {
-			text_caret_moved::dispatch(state, text_caret_moved_event).await?
+			text_caret_moved::dispatch(state, text_caret_moved_event).await?;
 		}
 		ObjectEvents::TextChanged(text_changed_event) => {
-			text_changed::dispatch(state, text_changed_event).await?
+			text_changed::dispatch(state, text_changed_event).await?;
 		}
 		ObjectEvents::ChildrenChanged(children_changed_event) => {
-			children_changed::dispatch(state, children_changed_event).await?
+			children_changed::dispatch(state, children_changed_event).await?;
 		}
 		other_member => {
-			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member)
+			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member);
 		}
 	}
 	Ok(())
@@ -112,7 +112,7 @@ mod text_changed {
 	/// if the aria-live attribute is set to "polite", then set the prioirty of the message to speak once all other messages are done
 	/// if the aria-live attribute is set to "assertive", thenset the priority of the message to speak immediately, stop all other messages, and do not interrupt that piece of speech
 	/// otherwise, do not continue
-	pub fn live_to_priority(live_str: AriaLive) -> Priority {
+	pub fn live_to_priority(live_str: &AriaLive) -> Priority {
 		match live_str {
 			AriaLive::Assertive => Priority::Important,
 			AriaLive::Polite => Priority::Notification,
@@ -185,11 +185,12 @@ mod text_changed {
 		// if the atomic state is true, then read out the entite piece of text
 		// if atomic state is false, then only read out the portion which has been added
 		// otherwise, do not continue through this function
-		let text_to_say = match atomic {
-			true => cache_text.to_string(),
-			false => event.text().try_into()?,
+		let text_to_say = if atomic {
+      cache_text.to_string()
+    } else {
+			event.text().try_into()?
 		};
-		let prioirty = live_to_priority(live);
+		let prioirty = live_to_priority(&live);
 		state.say(prioirty, text_to_say).await;
 		Ok(())
 	}
@@ -207,7 +208,7 @@ mod text_changed {
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
-			(event.start_pos() as usize, event.length() as usize);
+			(usize::try_from(event.start_pos())?, usize::try_from(event.length())?);
 		// if this is an insert, figure out if we shuld announce anything, then speak it;
 		// only after should we try to update the cache
 		if insert {
@@ -255,10 +256,8 @@ mod children_changed {
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
-			"remove/system" => remove(state, event).await?,
-			"remove" => remove(state, event).await?,
-			"add/system" => add(state, event).await?,
-			"add" => add(state, event).await?,
+			"remove" | "remove/system" => remove(state, event)?,
+			"add" | "add/system" => add(state, event).await?,
 			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
 		}
 		Ok(())
@@ -275,7 +274,7 @@ mod children_changed {
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
-	pub async fn remove(
+	pub fn remove(
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
@@ -343,7 +342,7 @@ mod text_caret_moved {
 			return new_item.get_text(first_position, last_position).await;
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
-		if first_position == 0 && last_position as usize == new_item.text.len() {
+		if first_position == 0 && usize::try_from(last_position)? == new_item.text.len() {
 			return Ok(new_item.text.clone());
 		}
 		Ok(new_item
@@ -430,9 +429,9 @@ mod state_changed {
 	};
 	use odilia_cache::AccessiblePrimitive;
 
-	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
+	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
-	pub async fn update_state(
+	pub fn update_state(
 		state: &ScreenReaderState,
 		a11y: &AccessiblePrimitive,
 		state_changed: State,
@@ -440,11 +439,11 @@ mod state_changed {
 	) -> eyre::Result<bool> {
 		if active {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
-				cache_item.states.remove(state_changed)
+				cache_item.states.remove(state_changed);
 			})?)
 		} else {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
-				cache_item.states.insert(state_changed)
+				cache_item.states.insert(state_changed);
 			})?)
 		}
 	}
@@ -463,7 +462,7 @@ mod state_changed {
 		let state_value = event.enabled() == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, a11y_state, state_value).await {
+		match update_state(state, &a11y_prim, a11y_state, state_value) {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
 			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
 			Err(e) => return Err(e),
