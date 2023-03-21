@@ -289,7 +289,6 @@ mod children_changed {
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		convertable::Convertable,
 		identify::object::TextCaretMovedEvent,
 		signify::Signified,
 		text::{Granularity, Text},
@@ -300,7 +299,9 @@ mod text_caret_moved {
 		cmp::{max, min},
 		sync::atomic::Ordering,
 	};
-  use odilia_common::errors::OdiliaError;
+  use odilia_common::errors::{
+    OdiliaError, CacheError
+  };
 
 	pub async fn new_position(
 		new_item: CacheItem,
@@ -308,8 +309,8 @@ mod text_caret_moved {
 		new_position: i32,
 		old_position: i32,
 	) -> Result<String, OdiliaError> {
-		let new_id = new_item.object.id;
-		let old_id = old_item.object.id;
+		let new_id = new_item.object.clone();
+		let old_id = old_item.object.clone();
     // NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
 		let new_pos = usize::try_from(new_position)?;
 		let old_pos = usize::try_from(old_position)?;
@@ -365,17 +366,17 @@ mod text_caret_moved {
 			return Ok(false);
 		}
 		// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
-		let last_accessible = match state.history_item(0).await? {
-			Some(acc) => acc,
+		let last_accessible = match state.history_item(0).await {
+			Some(acc) => state.get_or_create_cache_item(acc).await?,
 			None => return Ok(true),
 		};
 		// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
 		// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
 		// if the accessible is focused after the event happens, then the last_accessible will be different
 		let previous_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
-		let current_accessible = state.new_accessible(event).await?;
+		let current_accessible = state.get_or_create_event_object_to_cache(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
-		if previous_caret_pos != 0 && current_accessible == last_accessible {
+		if previous_caret_pos != 0 && current_accessible.object == last_accessible.object {
 			return Ok(false);
 		}
 		// otherwise, it probably was a tab navigation
@@ -390,14 +391,27 @@ mod text_caret_moved {
 		if is_tab_navigation(state, event).await? {
 			return Ok(());
 		}
-		let text = state
-			.new_accessible(event)
-			.await?
-			.to_text()
-			.await?
-			.get_string_at_offset(event.position(), Granularity::Line)
-			.await?
-			.0;
+    let new_item = state.get_or_create_event_object_to_cache(event).await?;
+    let text = match state.history_item(0).await {
+      Some(old_prim) => {
+        let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
+        let old_item = state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
+        let new_pos = event.position();
+        new_position(
+          new_item,
+          old_item,
+          new_pos,
+          old_pos
+        ).await?
+      },
+      None => {
+      // if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
+			new_item
+				.get_string_at_offset(0, Granularity::Paragraph)
+				.await?
+				.0
+      }
+    };
 		state.say(Priority::Text, text).await;
 		Ok(())
 	}
@@ -418,7 +432,7 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_id::HasAccessibleId, identify::object::StateChangedEvent,
+		accessible::Accessible, identify::object::StateChangedEvent,
 		signify::Signified, State,
 	};
 	use odilia_cache::AccessiblePrimitive;
@@ -479,9 +493,9 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
-		if let Some(curr) = state.history_item(0).await? {
-			if curr == accessible {
+		let accessible = state.get_or_create_event_object_to_cache(event).await?;
+		if let Some(curr) = state.history_item(0).await {
+			if curr == accessible.object {
 				return Ok(());
 			}
 		}
@@ -492,9 +506,8 @@ mod state_changed {
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
-		let id = accessible.id();
-		state.update_accessible(accessible.try_into()?).await;
-		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
+		state.update_accessible(accessible.object.clone()).await;
+		tracing::debug!("Focus event received on: {:?} with role {}", accessible.object.id, role);
 		tracing::debug!("Relations: {:?}", relation);
 
 		state.say(ssip_client_async::Priority::Text, format!("{name}, {role}. {description}"))

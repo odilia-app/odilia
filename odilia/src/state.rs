@@ -224,19 +224,11 @@ impl ScreenReaderState {
 	pub async fn history_item<'a>(
 		&self,
 		index: usize,
-	) -> OdiliaResult<Option<AccessibleProxy<'a>>> {
+	) -> Option<AccessiblePrimitive> {
 		let history = self.accessible_history.lock().await;
-		if history.len() <= index {
-			return Ok(None);
-		}
-		let a11y_prim = {
-			history.iter()
-				.nth(index)
-				.expect("Looking for invalid index in accessible history")
-				.to_owned()
-		};
-		let a11y = a11y_prim.into_accessible(self.connection()).await?;
-		Ok(Some(a11y))
+    history.iter()
+      .nth(index)
+      .cloned()
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.

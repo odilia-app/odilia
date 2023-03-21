@@ -32,8 +32,8 @@ pub async fn structural_navigation(
 	role: Role,
 ) -> OdiliaResult<bool> {
 	tracing::debug!("Structural nav call begins!");
-	let curr = match state.history_item(0).await? {
-		Some(acc) => acc,
+	let curr = match state.history_item(0).await {
+		Some(acc) => acc.into_accessible(state.atspi.connection()).await?,
 		None => return Ok(false),
 	};
 	let roles = vec![role];
