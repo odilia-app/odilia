@@ -24,7 +24,7 @@ use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,
 };
-use ssip_client::Priority;
+use ssip_client_async::Priority;
 
 pub async fn structural_navigation(
 	state: &ScreenReaderState,
@@ -86,11 +86,6 @@ pub async fn sr_event(
 			    Some(ScreenReaderEvent::StopSpeech) => {
 			      tracing::debug!("Stopping speech!");
 			      let _ = state.stop_speech().await;
-			    },
-			    Some(ScreenReaderEvent::ChangeGranularity(granularity)) => {
-			      tracing::debug!("Changing granularity of read text.");
-			      let mut sr_granularity = state.granularity.lock().await;
-			      *sr_granularity = granularity;
 			    },
 			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
 						tracing::debug!("Changing mode to {:?}", new_sr_mode);

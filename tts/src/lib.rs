@@ -1,4 +1,4 @@
-use ssip_client::{
+use ssip_client_async::{
 	fifo::asynchronous_tokio::Builder,
 	tokio::{AsyncClient, Request},
 	ClientName,

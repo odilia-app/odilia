@@ -1,6 +1,6 @@
 [package]
 name = "odilia"
-version = "0.0.1"
+version = "0.1.0"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
 description = "Building a better screen reader for the Linux desktop, one step at a time."
 license = "gpl-3" # Not gpl-3-or-later
@@ -10,7 +10,7 @@ homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
 edition = "2021"
-publish = false
+publish = true
 
 [package.metadata.release]
 # The root crate should be released
@@ -29,13 +29,13 @@ atspi.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
-odilia-cache = { path = "../cache" }
-odilia-common = { path = "../common" }
-odilia-input = { path = "../input" }
-odilia-tts = { path = "../tts" }
+odilia-cache = { path = "../cache", version = "0.1.0" }
+odilia-common = { path = "../common", version = "0.1.0" }
+odilia-input = { path = "../input", version = "0.0.1" }
+odilia-tts = { path = "../tts", version = "0.1.0" }
 serde_json.workspace = true
 serde_plain.workspace = true
-ssip-client.workspace = true
+ssip-client-async.workspace = true
 tokio.workspace = true
 tracing-error.workspace = true
 tracing-log.workspace = true

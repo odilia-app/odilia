@@ -6,23 +6,13 @@ Part of the [Odilia screen reader project](https://odilia.app).
 
 ## Design
 
-This crate interfaces with the [speech-dispatcher speech system](https://freebsoft.org/speechd) via the
-[speech-dispatcher-sys crate](https://crates.io/crates/speech-dispatcher-sys).
-
-## Usage
-
-See the [Examples](https://github.com/odilia-app/odilia/tree/main/tts/examples).
+This crate interfaces with the [speech-dispatcher speech system](https://freebsoft.org/speechd) via a custom version of the
+[`ssip-client-async` crate](https://github.com/odilia-app/ssip-client-async).
 
 ## Contributing
 
-This is a very young project, we appreciate any and all contributions! However, please be aware there is a very llarge
-learning curve to helping with this project, particularly due to the lack of documentation, or **complete**
-documentation, of many of the libraries and technologies that comprise the Linux accessibility stack. For this reason,
-we are currently focused on learning as much as we can, and writing code to take advantage of it, and we don't have lots
-of time to mentor new contributors or review pull requests.
-
-Once the ground-work has been layed, accepting contributions should get much easier. We are greatful for your
-cooperation in this regard!
+Please [reach out to us on Github](https://github.com/odilia-app/odilia), or join us on our Matrix server (address in the main repository's README.md).
+We can even help you walk through confusing parts of the code, if some of this code seems confusing.
 
 ## License
 

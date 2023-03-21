@@ -2,12 +2,18 @@
 name = "odilia-cache"
 version = "0.1.0"
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = ["Tait Hoyem <tait@tait.tech>", "Sam Tay <samctay@pm.me>"]
+description = "A caching layer for the Odilia screen reader."
+license = "GPL-3.0-only" # Not gpl-3-or-later
+readme = "README.md"
+repository = "https://github.com/odilia-app/odilia"
+homepage = "https://odilia.app"
+keywords = ["screen-reader", "accessibility", "a11y", "cache", "linux"]
+categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
-odilia-common = { path = "../common" }
+odilia-common = { path = "../common", version = "0.1.0" }
 dashmap = "5.4.0"
 serde = "1.0.147"
 tokio.workspace = true
