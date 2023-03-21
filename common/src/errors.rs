@@ -14,6 +14,7 @@ pub enum OdiliaError {
 	Zvariant(zbus::zvariant::Error),
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
+  ConversionError(std::num::TryFromIntError),
 	Generic(String),
 }
 #[derive(Debug)]
@@ -33,6 +34,11 @@ impl std::fmt::Display for CacheError {
 }
 impl std::error::Error for CacheError {}
 impl Error for OdiliaError {}
+impl From<std::num::TryFromIntError> for OdiliaError {
+  fn from(fie: std::num::TryFromIntError) -> Self {
+    Self::ConversionError(fie)
+  }
+}
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {
 		Self::ZbusFdo(spe)
