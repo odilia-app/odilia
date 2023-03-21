@@ -15,6 +15,7 @@ pub enum OdiliaError {
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
   ConversionError(std::num::TryFromIntError),
+  PoisoningError,
 	Generic(String),
 }
 #[derive(Debug)]
