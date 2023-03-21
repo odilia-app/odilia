@@ -15,7 +15,7 @@ edition = "2021"
 eyre.workspace = true
 lazy_static = "1.4.0"
 nix.workspace = true
-odilia-common = { path = "../common", version = "0.1.3" }
+odilia-common.workspace = true
 once_cell = "1.16.0"
 serde_json.workspace = true
 sysinfo = { version = "0.26.8", default_features = false }

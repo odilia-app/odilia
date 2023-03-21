@@ -30,7 +30,7 @@ circular-queue = "^0.2.6"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
 odilia-cache = { path = "../cache", version = "0.1.0" }
-odilia-common = { path = "../common", version = "0.1.3" }
+odilia-common.workspace = true
 odilia-input = { path = "../input", version = "0.0.1" }
 odilia-tts = { path = "../tts", version = "0.1.0" }
 serde_json.workspace = true

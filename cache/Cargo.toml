@@ -13,7 +13,7 @@ categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
-odilia-common = { path = "../common", version = "0.1.3" }
+odilia-common.workspace = true
 dashmap = "5.4.0"
 serde = "1.0.147"
 tokio.workspace = true
