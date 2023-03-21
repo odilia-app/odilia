@@ -13,7 +13,6 @@ use atspi::{
 	convertable::Convertable,
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
 	signify::Signified,
-	text::Granularity,
 	AccessibilityConnection,
 };
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};

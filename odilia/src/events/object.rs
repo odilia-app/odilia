@@ -300,56 +300,55 @@ mod text_caret_moved {
 		cmp::{max, min},
 		sync::atomic::Ordering,
 	};
+  use odilia_common::errors::OdiliaError;
 
 	pub async fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
 		new_position: i32,
 		old_position: i32,
-		new_text: String,
-	) -> String {
+	) -> Result<String, OdiliaError> {
 		let new_id = new_item.object.id;
 		let old_id = old_item.object.id;
-		let new_pos = usize::try_from(new_position).unwrap();
-		let old_pos = usize::try_from(old_position).unwrap();
+    // NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
+		let new_pos = usize::try_from(new_position)?;
+		let old_pos = usize::try_from(old_position)?;
 
-		// unknwon
+		// if the user has moved into a new item, then also read a whole line.
 		if new_id != old_id {
-			return String::new();
+      return Ok(new_item.get_string_at_offset(new_position, Granularity::Line)
+        .await?
+        .0);
 		}
 		let first_position = min(new_position, old_position);
 		let last_position = max(new_position, old_position);
 		// if there is one character between the old and new position
 		if new_pos.abs_diff(old_pos) == 1 {
-			return new_item
+			return Ok(new_item
 				.get_string_at_offset(first_position, Granularity::Char)
-				.await
-				.unwrap()
-				.0;
+				.await?
+				.0);
 		}
 		let first_word = new_item
 			.get_string_at_offset(first_position, Granularity::Word)
-			.await
-			.unwrap();
+			.await?;
 		let last_word = old_item
 			.get_string_at_offset(last_position, Granularity::Word)
-			.await
-			.unwrap();
+			.await?;
 		// if words are the same
 		if first_word == last_word ||
 			 // if the end position of the first word immediately peceeds the start of the second word
 			 first_word.2.abs_diff(last_word.1) == 1
 		{
-			return new_item.get_text(first_position, last_position).await.unwrap();
+			return Ok(new_item.get_text(first_position, last_position).await?);
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
 		if first_position == 0 && last_position as usize == new_item.text.len() {
-			return new_item.text.clone();
+			return Ok(new_item.text.clone());
 		}
-		new_item.get_string_at_offset(new_position, Granularity::Line)
-			.await
-			.unwrap()
-			.0
+		Ok(new_item.get_string_at_offset(new_position, Granularity::Line)
+			.await?
+			.0)
 	}
 
 	/// this must be checked *before* writing an accessible to the hsitory.
@@ -550,13 +549,12 @@ mod tests {
 			children: Vec::new(),
 			cache: Arc::downgrade(&CACHE_ARC),
 		};
-		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 9] = [
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
 				4,
 				3,
-				A11Y_PARAGRAPH_STRING,
 				" "
 			),
 			(
@@ -564,7 +562,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				3,
 				4,
-				A11Y_PARAGRAPH_STRING,
 				" "
 			),
 			(
@@ -572,7 +569,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				0,
 				3,
-				A11Y_PARAGRAPH_STRING,
 				"The"
 			),
 			(
@@ -580,7 +576,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				3,
 				0,
-				A11Y_PARAGRAPH_STRING,
 				"The"
 			),
 			(
@@ -588,7 +583,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				169,
 				182,
-				A11Y_PARAGRAPH_STRING,
 				"Microsystems,"
 			),
 			(
@@ -596,7 +590,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				77,
 				83,
-				A11Y_PARAGRAPH_STRING,
 				" Linux"
 			),
 			(
@@ -604,7 +597,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				181,
 				189,
-				A11Y_PARAGRAPH_STRING,
 				", before"
 			),
 			(
@@ -613,14 +605,12 @@ mod tests {
 				0,
 				220,
 				A11Y_PARAGRAPH_STRING,
-				A11Y_PARAGRAPH_STRING,
 			),
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
 				220,
 				0,
-				A11Y_PARAGRAPH_STRING,
 				A11Y_PARAGRAPH_STRING,
 			),
 		];
@@ -634,9 +624,8 @@ mod tests {
 					ANSWER_VALUES[$idx].1.clone(),
 					ANSWER_VALUES[$idx].2.try_into().unwrap(),
 					ANSWER_VALUES[$idx].3.try_into().unwrap(),
-					ANSWER_VALUES[$idx].4.to_string(),
-				)),
-				ANSWER_VALUES[$idx].5.to_string()
+				)).unwrap(),
+				ANSWER_VALUES[$idx].4.to_string(),
 			);
 		};
 	}
