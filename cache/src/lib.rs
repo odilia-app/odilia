@@ -561,7 +561,7 @@ impl Text for CacheItem {
 	) -> Result<String, Self::Error> {
 		self.text
 			.get(start_offset as usize..end_offset as usize)
-			.map_or(None, |str_ref| Some(str_ref.to_owned()))
+			.map(|str_ref| str_ref.to_owned())
 			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
 	}
 	async fn get_text_after_offset(
@@ -773,8 +773,8 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	fn populate_references(cache: &ThreadSafeCache, item_ref: &Arc<RwLock<CacheItem>>) {
-		let item_wk_ref = Arc::downgrade(&item_ref);
+	fn populate_references(cache: &ThreadSafeCache, item_ref: &Arc<RwLock<CacheItem>>) -> Result<(), OdiliaError> {
+		let item_wk_ref = Arc::downgrade(item_ref);
 
 		let mut item = item_ref.write().unwrap();
 		let item_key = item.object.clone();
@@ -797,15 +797,17 @@ impl Cache {
 		if let Some(parent_ref) = parent_ref_opt {
 			item.parent.item = Arc::downgrade(&parent_ref);
 			if let Some(ix) = ix_opt {
-				parent_ref
+				if let Some(cache_ref) = parent_ref
 					.write()
-					.unwrap()
+          .map_err(|_| OdiliaError::PoisoningError)?
 					.children
 					.get_mut(ix)
-					.filter(|i| i.key == item_key)
-					.map(|i| i.item = Weak::clone(&item_wk_ref));
+					.filter(|i| i.key == item_key) {
+            cache_ref.item = Weak::clone(&item_wk_ref);
+        }
 			}
 		}
+    Ok(())
 	}
 }
 

@@ -341,7 +341,7 @@ mod text_caret_moved {
 			 // if the end position of the first word immediately peceeds the start of the second word
 			 first_word.2.abs_diff(last_word.1) == 1
 		{
-			return Ok(new_item.get_text(first_position, last_position).await?);
+			return new_item.get_text(first_position, last_position).await;
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
 		if first_position == 0 && last_position as usize == new_item.text.len() {
