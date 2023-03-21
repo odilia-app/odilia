@@ -1,3 +1,12 @@
+#![deny(
+	clippy::all,
+	clippy::pedantic,
+	clippy::cargo,
+	clippy::map_unwrap_or,
+	clippy::unwrap_used,
+	unsafe_code
+)]
+
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use std::{
@@ -40,9 +49,6 @@ pub async fn sr_event_receiver(
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,
 ) -> eyre::Result<()> {
-	//tracing::trace!("Setting process umask.");
-	//umask(Mode::S_IWGRP | Mode::S_IWOTH);
-
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
 
@@ -76,9 +82,7 @@ pub async fn sr_event_receiver(
 		let mut sys = System::new_all();
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
-			if pid.to_string() == odilias_pid
-				&& process.exe() == env::current_exe().unwrap()
-			{
+			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
 				tracing::error!("Server is already running!");
 				exit(1);
 			}
@@ -114,38 +118,39 @@ pub async fn sr_event_receiver(
 	tracing::debug!("Listener activated!");
 	loop {
 		tokio::select! {
-		    msg = listener.accept() => {
-			match msg {
-			    Ok((mut socket, address)) => {
-				tracing::debug!("Ok from socket");
-				let mut response = String::new();
-				match socket.read_to_string(&mut response).await {
-				  Ok(_) => {},
-				  Err(e) => {
-				    tracing::error!("Error reading from socket {:#?}", e);
-				  }
-				}
-				// if valid screen reader event
-				match serde_json::from_str::<ScreenReaderEvent>(&response) {
-				  Ok(sre) => {
-				    match  event_sender.send(sre).await {
-				      Err(err) =>  tracing::error!("Error sending ScreenReaderEvent over socket: {}", err),
-				      Ok(_) => tracing::debug!("Sent SR event"),
+			msg = listener.accept() => {
+			    match msg {
+				Ok((mut socket, address)) => {
+				    tracing::debug!("Ok from socket");
+				    let mut response = String::new();
+				    match socket.read_to_string(&mut response).await {
+				      Ok(_) => {},
+				      Err(e) => {
+					tracing::error!("Error reading from socket {:#?}", e);
+				      }
 				    }
-				  },
-				  Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e)
-				}
-				tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
-			    },
-			    Err(e) => tracing::error!("accept function failed: {:?}", e),
-			}
-			continue;
-		    }
-		    _ = shutdown_rx.recv() => {
-			tracing::debug!("Shutting down input socker.");
-			break;
-		    }
+				    // if valid screen reader event
+				    match serde_json::from_str::<ScreenReaderEvent>(&response) {
+				      Ok(sre) => {
+					if let Err(e) = event_sender.send(sre).await {
+					  tracing::error!("Error sending ScreenReaderEvent over socket: {}", e);
+		} else {
+					  tracing::debug!("Sent SR event");
 		}
+				      },
+				      Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
+				    }
+				    tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+				},
+				Err(e) => tracing::error!("accept function failed: {:?}", e),
+			    }
+			    continue;
+			}
+			_ = shutdown_rx.recv() => {
+			    tracing::debug!("Shutting down input socker.");
+			    break;
+			}
+		    }
 	}
 	Ok(())
 }

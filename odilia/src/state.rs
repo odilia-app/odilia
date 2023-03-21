@@ -95,7 +95,7 @@ impl ScreenReaderState {
 				Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
-			.await?);
+			.await?)?;
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
@@ -110,7 +110,7 @@ impl ScreenReaderState {
 				Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
-			.await?);
+			.await?)?;
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
@@ -221,14 +221,9 @@ impl ScreenReaderState {
 		history.push(event);
 	}
 
-	pub async fn history_item<'a>(
-		&self,
-		index: usize,
-	) -> Option<AccessiblePrimitive> {
+	pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
 		let history = self.accessible_history.lock().await;
-    history.iter()
-      .nth(index)
-      .cloned()
+		history.iter().nth(index).cloned()
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.

@@ -6,6 +6,7 @@ pub struct ScreenReaderMode {
 }
 
 impl ScreenReaderMode {
+	#[must_use]
 	pub fn new(name: &str) -> Self {
 		ScreenReaderMode { name: name.to_string() }
 	}

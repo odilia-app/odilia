@@ -226,7 +226,7 @@ mod text_changed {
 			state.cache.modify_item(
 				&cache_item.object,
 				update_string_insert(start_pos, update_length, &updated_text),
-			);
+			)?;
 		} else if remove_has_not_occured {
 			state.cache.modify_item(&cache_item.object, move |cache_item| {
 				cache_item.text = cache_item
@@ -237,7 +237,7 @@ mod text_changed {
 						update_length,
 					))
 					.collect();
-			});
+			})?;
 		}
 		Ok(())
 	}
@@ -294,14 +294,12 @@ mod text_caret_moved {
 		text::{Granularity, Text},
 	};
 	use odilia_cache::CacheItem;
+	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
 	use std::{
 		cmp::{max, min},
 		sync::atomic::Ordering,
 	};
-  use odilia_common::errors::{
-    OdiliaError, CacheError
-  };
 
 	pub async fn new_position(
 		new_item: CacheItem,
@@ -311,15 +309,16 @@ mod text_caret_moved {
 	) -> Result<String, OdiliaError> {
 		let new_id = new_item.object.clone();
 		let old_id = old_item.object.clone();
-    // NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
+		// NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
 		let new_pos = usize::try_from(new_position)?;
 		let old_pos = usize::try_from(old_position)?;
 
 		// if the user has moved into a new item, then also read a whole line.
 		if new_id != old_id {
-      return Ok(new_item.get_string_at_offset(new_position, Granularity::Line)
-        .await?
-        .0);
+			return Ok(new_item
+				.get_string_at_offset(new_position, Granularity::Line)
+				.await?
+				.0);
 		}
 		let first_position = min(new_position, old_position);
 		let last_position = max(new_position, old_position);
@@ -347,7 +346,8 @@ mod text_caret_moved {
 		if first_position == 0 && last_position as usize == new_item.text.len() {
 			return Ok(new_item.text.clone());
 		}
-		Ok(new_item.get_string_at_offset(new_position, Granularity::Line)
+		Ok(new_item
+			.get_string_at_offset(new_position, Granularity::Line)
 			.await?
 			.0)
 	}
@@ -391,27 +391,20 @@ mod text_caret_moved {
 		if is_tab_navigation(state, event).await? {
 			return Ok(());
 		}
-    let new_item = state.get_or_create_event_object_to_cache(event).await?;
-    let text = match state.history_item(0).await {
-      Some(old_prim) => {
-        let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
-        let old_item = state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
-        let new_pos = event.position();
-        new_position(
-          new_item,
-          old_item,
-          new_pos,
-          old_pos
-        ).await?
-      },
-      None => {
-      // if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
-			new_item
-				.get_string_at_offset(0, Granularity::Paragraph)
-				.await?
-				.0
-      }
-    };
+		let new_item = state.get_or_create_event_object_to_cache(event).await?;
+		let text = match state.history_item(0).await {
+			Some(old_prim) => {
+				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
+				let old_item =
+					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
+				let new_pos = event.position();
+				new_position(new_item, old_item, new_pos, old_pos).await?
+			}
+			None => {
+				// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
+				new_item.get_string_at_offset(0, Granularity::Paragraph).await?.0
+			}
+		};
 		state.say(Priority::Text, text).await;
 		Ok(())
 	}
@@ -432,8 +425,8 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible::Accessible, identify::object::StateChangedEvent,
-		signify::Signified, State,
+		accessible::Accessible, identify::object::StateChangedEvent, signify::Signified,
+		State,
 	};
 	use odilia_cache::AccessiblePrimitive;
 
@@ -448,11 +441,11 @@ mod state_changed {
 		if active {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
 				cache_item.states.remove(state_changed)
-			}))
+			})?)
 		} else {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
 				cache_item.states.insert(state_changed)
-			}))
+			})?)
 		}
 	}
 
@@ -507,11 +500,18 @@ mod state_changed {
 			accessible.get_relation_set(),
 		)?;
 		state.update_accessible(accessible.object.clone()).await;
-		tracing::debug!("Focus event received on: {:?} with role {}", accessible.object.id, role);
+		tracing::debug!(
+			"Focus event received on: {:?} with role {}",
+			accessible.object.id,
+			role
+		);
 		tracing::debug!("Relations: {:?}", relation);
 
-		state.say(ssip_client_async::Priority::Text, format!("{name}, {role}. {description}"))
-			.await;
+		state.say(
+			ssip_client_async::Priority::Text,
+			format!("{name}, {role}. {description}"),
+		)
+		.await;
 
 		Ok(())
 	}
@@ -563,34 +563,10 @@ mod tests {
 			cache: Arc::downgrade(&CACHE_ARC),
 		};
 		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				4,
-				3,
-				" "
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				3,
-				4,
-				" "
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				0,
-				3,
-				"The"
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				3,
-				0,
-				"The"
-			),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 4, 3, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 4, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 0, 3, "The"),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 0, "The"),
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
@@ -637,7 +613,8 @@ mod tests {
 					ANSWER_VALUES[$idx].1.clone(),
 					ANSWER_VALUES[$idx].2.try_into().unwrap(),
 					ANSWER_VALUES[$idx].3.try_into().unwrap(),
-				)).unwrap(),
+				))
+				.unwrap(),
 				ANSWER_VALUES[$idx].4.to_string(),
 			);
 		};

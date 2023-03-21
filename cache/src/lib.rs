@@ -1,3 +1,13 @@
+#![deny(
+	clippy::all,
+	clippy::pedantic,
+	clippy::cargo,
+	clippy::option_map_unwrap_or_else,
+	clippy::option_unwrap_used,
+	clippy::result_unwrap_used,
+	unsafe_code
+)]
+
 use std::{
 	collections::HashMap,
 	sync::{Arc, RwLock, Weak},
@@ -41,7 +51,9 @@ pub struct AccessiblePrimitive {
 	pub sender: smartstring::alias::String,
 }
 impl AccessiblePrimitive {
-	#[allow(dead_code)]
+	/// Convert into an [`atspi::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// # Errors
+	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	pub async fn into_accessible<'a>(
 		self,
 		conn: &zbus::Connection,
@@ -56,7 +68,9 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-	#[allow(dead_code)]
+	/// Convert into an [`atspi::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// # Errors
+	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
@@ -281,7 +295,7 @@ impl CacheRef {
 	}
 
 	pub fn clone_inner(&self) -> Option<CacheItem> {
-		self.item.upgrade().as_ref().map(clone_arc_mutex)
+		Some(self.item.upgrade().as_ref()?.read().ok()?.clone())
 	}
 }
 
@@ -507,10 +521,17 @@ impl Text for CacheItem {
 		let uoffset = offset as usize;
 		// optimisations that don't call out to DBus.
 		if granularity == Granularity::Paragraph {
-			return Ok((self.text.clone(), 0, self.text.len().try_into().unwrap()));
+			return Ok((self.text.clone(), 0, self.text.len().try_into()?));
 		} else if granularity == Granularity::Char {
 			let range = uoffset..(uoffset + 1);
-			return Ok((self.text.get(range).unwrap().to_string(), offset, offset + 1));
+			return Ok((
+				self.text
+					.get(range)
+					.ok_or(CacheError::TextBoundsError)?
+					.to_string(),
+				offset,
+				offset + 1,
+			));
 		} else if granularity == Granularity::Word {
 			return Ok(self
 				.text
@@ -530,8 +551,7 @@ impl Text for CacheItem {
 								- self.text.as_ptr() as usize
 						})
 						// [idx]
-						.map(|(idx, _)| idx)
-						.unwrap();
+						.map(|(idx, _)| idx)?;
 					// calculate based on start
 					let end = start + word.len();
 					// if the offset if within bounds
@@ -662,23 +682,28 @@ impl Cache {
 	/// add a single new item to the cache. Note that this will empty the bucket
 	/// before inserting the `CacheItem` into the cache (this is so there is
 	/// never two items with the same ID stored in the cache at the same time).
-	pub fn add(&self, cache_item: CacheItem) {
+	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
 		let id = cache_item.object.clone();
-		self.add_ref(id, Arc::new(RwLock::new(cache_item)));
+		self.add_ref(id, &Arc::new(RwLock::new(cache_item)))
 	}
 
-	pub fn add_ref(&self, id: CacheKey, cache_item: Arc<RwLock<CacheItem>>) {
-		self.by_id.insert(id, Arc::clone(&cache_item));
-		Self::populate_references(&self.by_id, &cache_item);
+	pub fn add_ref(
+		&self,
+		id: CacheKey,
+		cache_item: &Arc<RwLock<CacheItem>>,
+	) -> OdiliaResult<()> {
+		self.by_id.insert(id, Arc::clone(cache_item));
+		Self::populate_references(&self.by_id, &cache_item)
 	}
 
-	/// Remove a single cache item
+	/// Remove a single cache item. This function can not fail.
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
-	/// Get a single item (mutable via lock) from the cache.
-	// For now this is kept private, as it would be easy to naively deadlock if
-	// someone does a chain of `get_ref`s on parent->child->parent, etc.
+
+	/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
+	/// You will need to either get a read or a write lock on any item returned from this function.
+	/// It also may return `None` if a value is not matched to the key.
 	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
@@ -688,18 +713,19 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		self.by_id.get(id).as_deref().map(clone_arc_mutex)
+		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
-	#[allow(dead_code)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
 
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
-	pub fn add_all(&self, cache_items: Vec<CacheItem>) {
+	/// # Errors
+	/// An `Err(_)` variant may be returned if the [`Self::populate_references`] function fails.
+	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		cache_items
 			.into_iter()
 			.map(|cache_item| {
@@ -710,23 +736,25 @@ impl Cache {
 			})
 			.collect::<Vec<_>>() // Insert all items before populating
 			.into_iter()
-			.for_each(|item| {
-				Self::populate_references(&self.by_id, &item);
-			});
+			.map(|item| Self::populate_references(&self.by_id, &item))
+			.collect()
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
-	#[allow(dead_code)]
 	pub fn remove_all(&self, ids: Vec<CacheKey>) {
-		ids.iter().for_each(|id| {
+		for id in &ids {
 			self.by_id.remove(id);
-		});
+		}
 	}
 
-	/// Edit a mutable CacheItem. Returns true if the update was successful.
+	/// Edit a mutable `CacheItem`. Returns true if the update was successful.
 	///
 	/// Note: an exclusive lock for the given cache item will be placed for the
 	/// entire length of the passed function, so try to avoid any compute in it.
-	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> bool
+	///
+	/// # Errors
+	///
+	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be aquired on the `CacheItem` being modified.
+	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
 	{
@@ -741,16 +769,16 @@ impl Cache {
 					"The cache does not contain the requested item: {:?}",
 					id
 				);
-				return false;
+				return Ok(false);
 			}
 		};
-		let mut cache_item = entry.write().unwrap();
+		let mut cache_item = entry.write()?;
 		modify(&mut cache_item);
-		true
+		Ok(true)
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
-	/// If the CacheItem is not found, create one, add it to the cache, and return it.
+	/// If the `CacheItem` is not found, create one, add it to the cache, and return it.
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
@@ -768,15 +796,18 @@ impl Cache {
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
 		// add a clone of it to the cache
-		self.add(cache_item.clone());
+		self.add(cache_item.clone())?;
 		// return that same cache item
 		Ok(cache_item)
 	}
 
-	fn populate_references(cache: &ThreadSafeCache, item_ref: &Arc<RwLock<CacheItem>>) -> Result<(), OdiliaError> {
+	fn populate_references(
+		cache: &ThreadSafeCache,
+		item_ref: &Arc<RwLock<CacheItem>>,
+	) -> Result<(), OdiliaError> {
 		let item_wk_ref = Arc::downgrade(item_ref);
 
-		let mut item = item_ref.write().unwrap();
+		let mut item = item_ref.write()?;
 		let item_key = item.object.clone();
 
 		let parent_key = item.parent.key.clone();
@@ -786,28 +817,28 @@ impl Cache {
 		let ix_opt = usize::try_from(item.index).ok();
 
 		// Update this item's children references
-		item.children.iter_mut().for_each(|child_ref| {
-			cache.get(&child_ref.key).as_ref().map(|child_arc| {
+		for child_ref in item.children.iter_mut() {
+			if let Some(child_arc) = cache.get(&child_ref.key).as_ref() {
 				child_ref.item = Arc::downgrade(child_arc);
-				child_arc.write().unwrap().parent.item = Weak::clone(&item_wk_ref);
-				Arc::clone(child_arc)
-			});
-		});
+				child_arc.write()?.parent.item = Weak::clone(&item_wk_ref);
+			}
+		}
 
+		// TODO: Should there be errors for the non let bindings?
 		if let Some(parent_ref) = parent_ref_opt {
 			item.parent.item = Arc::downgrade(&parent_ref);
 			if let Some(ix) = ix_opt {
 				if let Some(cache_ref) = parent_ref
-					.write()
-          .map_err(|_| OdiliaError::PoisoningError)?
+					.write()?
 					.children
 					.get_mut(ix)
-					.filter(|i| i.key == item_key) {
-            cache_ref.item = Weak::clone(&item_wk_ref);
-        }
+					.filter(|i| i.key == item_key)
+				{
+					cache_ref.item = Weak::clone(&item_wk_ref);
+				}
 			}
 		}
-    Ok(())
+		Ok(())
 	}
 }
 
@@ -848,8 +879,4 @@ pub async fn accessible_to_cache_item(
 			.collect::<Result<_, AccessiblePrimitiveConversionError>>()?,
 		cache,
 	})
-}
-
-pub fn clone_arc_mutex<T: Clone>(arc: &Arc<RwLock<T>>) -> T {
-	arc.read().unwrap().clone()
 }

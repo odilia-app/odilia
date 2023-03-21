@@ -14,15 +14,36 @@ pub enum OdiliaError {
 	Zvariant(zbus::zvariant::Error),
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
-  ConversionError(std::num::TryFromIntError),
-  PoisoningError,
+	ConversionError(std::num::TryFromIntError),
+	Config(ConfigError),
+	PoisoningError,
 	Generic(String),
 }
+#[derive(Debug)]
+pub enum ConfigError {
+	Tini(tini::Error),
+	ValueNotFound,
+}
+impl From<tini::Error> for ConfigError {
+	fn from(t_err: tini::Error) -> Self {
+		Self::Tini(t_err)
+	}
+}
+impl std::fmt::Display for ConfigError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Tini(t) => t.fmt(f),
+			Self::ValueNotFound => f.write_str("Vlaue not found in config file."),
+		}
+	}
+}
+impl std::error::Error for ConfigError {}
 #[derive(Debug)]
 pub enum CacheError {
 	NotAvailable,
 	NoItem,
 	NoLock,
+	TextBoundsError,
 }
 impl std::fmt::Display for CacheError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -30,15 +51,21 @@ impl std::fmt::Display for CacheError {
 			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
 			Self::NoItem => f.write_str("No item in cache found."),
       Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
+      Self::TextBoundsError => f.write_str("The range asked for in a call to a get_string_*_offset function has invalid bounds."),
 		}
 	}
 }
 impl std::error::Error for CacheError {}
 impl Error for OdiliaError {}
+impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
+	fn from(_: std::sync::PoisonError<T>) -> Self {
+		Self::PoisoningError
+	}
+}
 impl From<std::num::TryFromIntError> for OdiliaError {
-  fn from(fie: std::num::TryFromIntError) -> Self {
-    Self::ConversionError(fie)
-  }
+	fn from(fie: std::num::TryFromIntError) -> Self {
+		Self::ConversionError(fie)
+	}
 }
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {

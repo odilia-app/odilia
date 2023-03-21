@@ -1,7 +1,4 @@
-use odilia_common::{
-	events::ScreenReaderEvent,
-	modes::ScreenReaderMode,
-};
+use odilia_common::{events::ScreenReaderEvent, modes::ScreenReaderMode};
 use serde_json;
 
 fn main() {
