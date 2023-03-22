@@ -245,7 +245,9 @@ mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{identify::object::ChildrenChangedEvent, signify::Signified};
 	use odilia_cache::AccessiblePrimitive;
+	use odilia_common::errors::OdiliaError;
 	use std::sync::Arc;
+	use zbus::zvariant::ObjectPath;
 
 	pub async fn dispatch(
 		state: &ScreenReaderState,
@@ -263,7 +265,9 @@ mod children_changed {
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
+		let accessible = get_child_primitive(event)?
+			.into_accessible(state.atspi.connection())
+			.await?;
 		let _ = state
 			.cache
 			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
@@ -271,8 +275,20 @@ mod children_changed {
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
+	#[inline]
+	fn get_child_primitive(
+		event: &ChildrenChangedEvent,
+	) -> Result<AccessiblePrimitive, OdiliaError> {
+		event.child()
+			.clone()
+			.downcast::<(String, ObjectPath)>()
+			.ok_or(OdiliaError::Generic(
+				"Error converting child Value into (String,ObjectPath)".to_string(),
+			))?
+			.try_into()
+	}
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
-		let prim = AccessiblePrimitive::from_event(event)?;
+		let prim = get_child_primitive(event)?;
 		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
