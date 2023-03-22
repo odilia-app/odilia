@@ -5,19 +5,19 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 	// Dispatch based on member
 	match event {
 		ObjectEvents::StateChanged(state_changed_event) => {
-			state_changed::dispatch(state, state_changed_event).await?
+			state_changed::dispatch(state, state_changed_event).await?;
 		}
 		ObjectEvents::TextCaretMoved(text_caret_moved_event) => {
-			text_caret_moved::dispatch(state, text_caret_moved_event).await?
+			text_caret_moved::dispatch(state, text_caret_moved_event).await?;
 		}
 		ObjectEvents::TextChanged(text_changed_event) => {
-			text_changed::dispatch(state, text_changed_event).await?
+			text_changed::dispatch(state, text_changed_event).await?;
 		}
 		ObjectEvents::ChildrenChanged(children_changed_event) => {
-			children_changed::dispatch(state, children_changed_event).await?
+			children_changed::dispatch(state, children_changed_event).await?;
 		}
 		other_member => {
-			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member)
+			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member);
 		}
 	}
 	Ok(())
@@ -112,7 +112,7 @@ mod text_changed {
 	/// if the aria-live attribute is set to "polite", then set the prioirty of the message to speak once all other messages are done
 	/// if the aria-live attribute is set to "assertive", thenset the priority of the message to speak immediately, stop all other messages, and do not interrupt that piece of speech
 	/// otherwise, do not continue
-	pub fn live_to_priority(live_str: AriaLive) -> Priority {
+	pub fn live_to_priority(live_str: &AriaLive) -> Priority {
 		match live_str {
 			AriaLive::Assertive => Priority::Important,
 			AriaLive::Polite => Priority::Notification,
@@ -185,11 +185,9 @@ mod text_changed {
 		// if the atomic state is true, then read out the entite piece of text
 		// if atomic state is false, then only read out the portion which has been added
 		// otherwise, do not continue through this function
-		let text_to_say = match atomic {
-			true => cache_text.to_string(),
-			false => event.text().try_into()?,
-		};
-		let prioirty = live_to_priority(live);
+		let text_to_say =
+			if atomic { cache_text.to_string() } else { event.text().try_into()? };
+		let prioirty = live_to_priority(&live);
 		state.say(prioirty, text_to_say).await;
 		Ok(())
 	}
@@ -207,7 +205,7 @@ mod text_changed {
 		let updated_text: String = event.text().try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
-			(event.start_pos() as usize, event.length() as usize);
+			(usize::try_from(event.start_pos())?, usize::try_from(event.length())?);
 		// if this is an insert, figure out if we shuld announce anything, then speak it;
 		// only after should we try to update the cache
 		if insert {
@@ -226,7 +224,7 @@ mod text_changed {
 			state.cache.modify_item(
 				&cache_item.object,
 				update_string_insert(start_pos, update_length, &updated_text),
-			);
+			)?;
 		} else if remove_has_not_occured {
 			state.cache.modify_item(&cache_item.object, move |cache_item| {
 				cache_item.text = cache_item
@@ -237,7 +235,7 @@ mod text_changed {
 						update_length,
 					))
 					.collect();
-			});
+			})?;
 		}
 		Ok(())
 	}
@@ -247,7 +245,9 @@ mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{identify::object::ChildrenChangedEvent, signify::Signified};
 	use odilia_cache::AccessiblePrimitive;
+	use odilia_common::errors::OdiliaError;
 	use std::sync::Arc;
+	use zbus::zvariant::ObjectPath;
 
 	pub async fn dispatch(
 		state: &ScreenReaderState,
@@ -255,10 +255,8 @@ mod children_changed {
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.kind() {
-			"remove/system" => remove(state, event).await?,
-			"remove" => remove(state, event).await?,
-			"add/system" => add(state, event).await?,
-			"add" => add(state, event).await?,
+			"remove" | "remove/system" => remove(state, event)?,
+			"add" | "add/system" => add(state, event).await?,
 			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
 		}
 		Ok(())
@@ -267,7 +265,9 @@ mod children_changed {
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
+		let accessible = get_child_primitive(event)?
+			.into_accessible(state.atspi.connection())
+			.await?;
 		let _ = state
 			.cache
 			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
@@ -275,11 +275,20 @@ mod children_changed {
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
-	pub async fn remove(
-		state: &ScreenReaderState,
+	#[inline]
+	fn get_child_primitive(
 		event: &ChildrenChangedEvent,
-	) -> eyre::Result<()> {
-		let prim = AccessiblePrimitive::from_event(event)?;
+	) -> Result<AccessiblePrimitive, OdiliaError> {
+		event.child()
+			.clone()
+			.downcast::<(String, ObjectPath)>()
+			.ok_or(OdiliaError::Generic(
+				"Error converting child Value into (String,ObjectPath)".to_string(),
+			))?
+			.try_into()
+	}
+	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
+		let prim = get_child_primitive(event)?;
 		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
@@ -289,12 +298,12 @@ mod children_changed {
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		convertable::Convertable,
 		identify::object::TextCaretMovedEvent,
 		signify::Signified,
 		text::{Granularity, Text},
 	};
 	use odilia_cache::CacheItem;
+	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
 	use std::{
 		cmp::{max, min},
@@ -306,50 +315,50 @@ mod text_caret_moved {
 		old_item: CacheItem,
 		new_position: i32,
 		old_position: i32,
-		new_text: String,
-	) -> String {
-		let new_id = new_item.object.id;
-		let old_id = old_item.object.id;
-		let new_pos = usize::try_from(new_position).unwrap();
-		let old_pos = usize::try_from(old_position).unwrap();
+	) -> Result<String, OdiliaError> {
+		let new_id = new_item.object.clone();
+		let old_id = old_item.object.clone();
+		// NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
+		let new_pos = usize::try_from(new_position)?;
+		let old_pos = usize::try_from(old_position)?;
 
-		// unknwon
+		// if the user has moved into a new item, then also read a whole line.
 		if new_id != old_id {
-			return String::new();
+			return Ok(new_item
+				.get_string_at_offset(new_position, Granularity::Line)
+				.await?
+				.0);
 		}
 		let first_position = min(new_position, old_position);
 		let last_position = max(new_position, old_position);
 		// if there is one character between the old and new position
 		if new_pos.abs_diff(old_pos) == 1 {
-			return new_item
+			return Ok(new_item
 				.get_string_at_offset(first_position, Granularity::Char)
-				.await
-				.unwrap()
-				.0;
+				.await?
+				.0);
 		}
 		let first_word = new_item
 			.get_string_at_offset(first_position, Granularity::Word)
-			.await
-			.unwrap();
+			.await?;
 		let last_word = old_item
 			.get_string_at_offset(last_position, Granularity::Word)
-			.await
-			.unwrap();
+			.await?;
 		// if words are the same
 		if first_word == last_word ||
 			 // if the end position of the first word immediately peceeds the start of the second word
 			 first_word.2.abs_diff(last_word.1) == 1
 		{
-			return new_item.get_text(first_position, last_position).await.unwrap();
+			return new_item.get_text(first_position, last_position).await;
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
-		if first_position == 0 && last_position as usize == new_item.text.len() {
-			return new_item.text.clone();
+		if first_position == 0 && usize::try_from(last_position)? == new_item.text.len() {
+			return Ok(new_item.text.clone());
 		}
-		new_item.get_string_at_offset(new_position, Granularity::Line)
-			.await
-			.unwrap()
-			.0
+		Ok(new_item
+			.get_string_at_offset(new_position, Granularity::Line)
+			.await?
+			.0)
 	}
 
 	/// this must be checked *before* writing an accessible to the hsitory.
@@ -366,17 +375,17 @@ mod text_caret_moved {
 			return Ok(false);
 		}
 		// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
-		let last_accessible = match state.history_item(0).await? {
-			Some(acc) => acc,
+		let last_accessible = match state.history_item(0).await {
+			Some(acc) => state.get_or_create_cache_item(acc).await?,
 			None => return Ok(true),
 		};
 		// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
 		// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
 		// if the accessible is focused after the event happens, then the last_accessible will be different
 		let previous_caret_pos = state.previous_caret_position.load(Ordering::Relaxed);
-		let current_accessible = state.new_accessible(event).await?;
+		let current_accessible = state.get_or_create_event_object_to_cache(event).await?;
 		// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
-		if previous_caret_pos != 0 && current_accessible == last_accessible {
+		if previous_caret_pos != 0 && current_accessible.object == last_accessible.object {
 			return Ok(false);
 		}
 		// otherwise, it probably was a tab navigation
@@ -391,14 +400,20 @@ mod text_caret_moved {
 		if is_tab_navigation(state, event).await? {
 			return Ok(());
 		}
-		let text = state
-			.new_accessible(event)
-			.await?
-			.to_text()
-			.await?
-			.get_string_at_offset(event.position(), Granularity::Line)
-			.await?
-			.0;
+		let new_item = state.get_or_create_event_object_to_cache(event).await?;
+		let text = match state.history_item(0).await {
+			Some(old_prim) => {
+				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
+				let old_item =
+					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
+				let new_pos = event.position();
+				new_position(new_item, old_item, new_pos, old_pos).await?
+			}
+			None => {
+				// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
+				new_item.get_string_at_offset(0, Granularity::Paragraph).await?.0
+			}
+		};
 		state.say(Priority::Text, text).await;
 		Ok(())
 	}
@@ -419,14 +434,14 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi::{
-		accessible_id::HasAccessibleId, identify::object::StateChangedEvent,
-		signify::Signified, State,
+		accessible::Accessible, identify::object::StateChangedEvent, signify::Signified,
+		State,
 	};
 	use odilia_cache::AccessiblePrimitive;
 
-	/// Update the state of an item in the cache using a StateChanged event and the ScreenReaderState as context.
+	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
-	pub async fn update_state(
+	pub fn update_state(
 		state: &ScreenReaderState,
 		a11y: &AccessiblePrimitive,
 		state_changed: State,
@@ -434,12 +449,12 @@ mod state_changed {
 	) -> eyre::Result<bool> {
 		if active {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
-				cache_item.states.remove(state_changed)
-			}))
+				cache_item.states.remove(state_changed);
+			})?)
 		} else {
 			Ok(state.cache.modify_item(a11y, |cache_item| {
-				cache_item.states.insert(state_changed)
-			}))
+				cache_item.states.insert(state_changed);
+			})?)
 		}
 	}
 
@@ -457,7 +472,7 @@ mod state_changed {
 		let state_value = event.enabled() == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, a11y_state, state_value).await {
+		match update_state(state, &a11y_prim, a11y_state, state_value) {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
 			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
 			Err(e) => return Err(e),
@@ -480,9 +495,9 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
-		if let Some(curr) = state.history_item(0).await? {
-			if curr == accessible {
+		let accessible = state.get_or_create_event_object_to_cache(event).await?;
+		if let Some(curr) = state.history_item(0).await {
+			if curr == accessible.object {
 				return Ok(());
 			}
 		}
@@ -493,9 +508,12 @@ mod state_changed {
 			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
-		let id = accessible.id();
-		state.update_accessible(accessible.try_into()?).await;
-		tracing::debug!("Focus event received on: {:?} with role {}", id, role);
+		state.update_accessible(accessible.object.clone()).await;
+		tracing::debug!(
+			"Focus event received on: {:?} with role {}",
+			accessible.object.id,
+			role
+		);
 		tracing::debug!("Relations: {:?}", relation);
 
 		state.say(
@@ -553,45 +571,16 @@ mod tests {
 			children: Vec::new(),
 			cache: Arc::downgrade(&CACHE_ARC),
 		};
-		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str, &'static str); 9] = [
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				4,
-				3,
-				A11Y_PARAGRAPH_STRING,
-				" "
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				3,
-				4,
-				A11Y_PARAGRAPH_STRING,
-				" "
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				0,
-				3,
-				A11Y_PARAGRAPH_STRING,
-				"The"
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				3,
-				0,
-				A11Y_PARAGRAPH_STRING,
-				"The"
-			),
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 4, 3, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 4, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 0, 3, "The"),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 0, "The"),
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
 				169,
 				182,
-				A11Y_PARAGRAPH_STRING,
 				"Microsystems,"
 			),
 			(
@@ -599,7 +588,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				77,
 				83,
-				A11Y_PARAGRAPH_STRING,
 				" Linux"
 			),
 			(
@@ -607,7 +595,6 @@ mod tests {
 				A11Y_PARAGRAPH_ITEM.clone(),
 				181,
 				189,
-				A11Y_PARAGRAPH_STRING,
 				", before"
 			),
 			(
@@ -616,14 +603,12 @@ mod tests {
 				0,
 				220,
 				A11Y_PARAGRAPH_STRING,
-				A11Y_PARAGRAPH_STRING,
 			),
 			(
 				A11Y_PARAGRAPH_ITEM.clone(),
 				A11Y_PARAGRAPH_ITEM.clone(),
 				220,
 				0,
-				A11Y_PARAGRAPH_STRING,
 				A11Y_PARAGRAPH_STRING,
 			),
 		];
@@ -637,9 +622,9 @@ mod tests {
 					ANSWER_VALUES[$idx].1.clone(),
 					ANSWER_VALUES[$idx].2.try_into().unwrap(),
 					ANSWER_VALUES[$idx].3.try_into().unwrap(),
-					ANSWER_VALUES[$idx].4.to_string(),
-				)),
-				ANSWER_VALUES[$idx].5.to_string()
+				))
+				.unwrap(),
+				ANSWER_VALUES[$idx].4.to_string(),
 			);
 		};
 	}

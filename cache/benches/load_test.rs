@@ -145,6 +145,23 @@ fn cache_benchmark(c: &mut Criterion) {
 			BatchSize::SmallInput,
 		);
 	});
+	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
+		b.to_async(&rt).iter_batched(
+			|| {
+				wcag_items
+					.clone()
+					.into_iter()
+					.map(|mut item| {
+						item.cache = Arc::downgrade(&cache);
+						item
+					})
+					.collect()
+			},
+			|items: Vec<CacheItem>| async { add_all(&cache, items) },
+			BatchSize::SmallInput,
+		);
+	});
 
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {

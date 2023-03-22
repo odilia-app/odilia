@@ -1,6 +1,6 @@
 [package]
 name = "odilia-cache"
-version = "0.1.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Tait Hoyem <tait@tait.tech>", "Sam Tay <samctay@pm.me>"]
 description = "A caching layer for the Odilia screen reader."
@@ -13,7 +13,7 @@ categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
-odilia-common = { path = "../common", version = "0.1.0" }
+odilia-common.workspace = true
 dashmap = "5.4.0"
 serde = "1.0.147"
 tokio.workspace = true

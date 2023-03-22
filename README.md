@@ -1,6 +1,7 @@
 # Odilia Screen Reader
 
 [![Build CI](https://github.com/odilia-app/odilia/actions/workflows/ci.yml/badge.svg)](https://github.com/odilia-app/odilia/actions)
+[![codecov](https://codecov.io/gh/odilia-app/odilia/branch/main/graph/badge.svg?token=BM4SQ9BLK4)](https://codecov.io/gh/odilia-app/odilia)
 
 ## Welcome to Odilia
 
@@ -54,8 +55,7 @@ cargo install --path .
 
 ## Running
 
-To run Odilia, you should use our script.
-This will ask for your password (if you have root permissions) and then launch both Odilia and the hotkey daemon in quiet mode.
+To run Odilia, you should use our script, this will suppress log output and add environemnt variables that make using the screen reader easier.
 
 ```shell
 ./scripts/odilia

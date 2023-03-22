@@ -39,14 +39,9 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -yyq install libx11-6 libx11-dev libxi6 libxi-dev libspeechd-dev libspeechd2 libevdev2 libevdev-dev llvm-dev libclang-dev clang systemd at-spi2-core
+        run: sudo apt -y install at-spi2-core systemd
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: test
-          args: --workspace --target ${{ matrix.target }}
-
+        run: cargo test
   clippy:
     runs-on: ubuntu-latest
     steps:
@@ -140,3 +135,36 @@ jobs:
           user_email: actions@github.com
           publish_branch: main
         if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Cache cargo home
+        uses: actions/cache@v2
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: cargo install llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
+      - name: cargo generate lockfile
+        if: hashFiles('Cargo.lock') == ''
+        run: cargo generate-lockfile
+      - name: Install Dependencies
+        run: sudo apt -y install at-spi2-core systemd
+      - name: cargo llvm-cov
+        run: cargo llvm-cov --locked --lcov --output-path lcov.info
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v3
+        with:
+          fail_ci_if_fail: true

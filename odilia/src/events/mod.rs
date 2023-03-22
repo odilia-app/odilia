@@ -32,8 +32,8 @@ pub async fn structural_navigation(
 	role: Role,
 ) -> OdiliaResult<bool> {
 	tracing::debug!("Structural nav call begins!");
-	let curr = match state.history_item(0).await? {
-		Some(acc) => acc,
+	let curr = match state.history_item(0).await {
+		Some(acc) => acc.into_accessible(state.atspi.connection()).await?,
 		None => return Ok(false),
 	};
 	let roles = vec![role];
@@ -50,9 +50,10 @@ pub async fn structural_navigation(
 	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
+		let curr_prim = curr.try_into()?;
 		let _ = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
-		state.update_accessible(curr.try_into().unwrap()).await;
+		state.update_accessible(curr_prim).await;
 		let _ = texti.set_caret_offset(0).await?;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
@@ -175,14 +176,17 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
 	match &event {
 		Event::Interfaces(EventInterfaces::Object(object_event)) => {
-			object::dispatch(state, object_event).await?
+			object::dispatch(state, object_event).await?;
 		}
 		Event::Interfaces(EventInterfaces::Document(document_event)) => {
-			document::dispatch(state, document_event).await?
+			document::dispatch(state, document_event).await?;
 		}
 		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
 		other_event => {
-			tracing::debug!("Ignoring event with unknown interface: {:#?}", other_event)
+			tracing::debug!(
+				"Ignoring event with unknown interface: {:#?}",
+				other_event
+			);
 		}
 	}
 	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;

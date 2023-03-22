@@ -1,6 +1,6 @@
 [package]
 name = "odilia-common"
-version = "0.1.2"
+version = "0.3.0"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
 description = "Common algorithms and data structures shared by multiple Odilia screen reader crates."
 license = "GPL-3.0-only" # Not gpl-3-or-later

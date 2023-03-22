@@ -13,12 +13,11 @@ use atspi::{
 	convertable::Convertable,
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
 	signify::Signified,
-	text::Granularity,
 	AccessibilityConnection,
 };
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{CacheError, OdiliaError},
+	errors::{AccessiblePrimitiveConversionError, CacheError, ConfigError, OdiliaError},
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
@@ -26,6 +25,7 @@ use odilia_common::{
 };
 use std::sync::Arc;
 
+#[allow(clippy::module_name_repetitions)]
 pub struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
 	pub dbus: DBusProxy<'static>,
@@ -61,7 +61,7 @@ impl ScreenReaderState {
 			fs::copy("config.toml", &config_path)
 				.expect("Unable to copy default config file.");
 		}
-		let config_path = config_path.to_str().unwrap().to_owned();
+		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
 		tracing::debug!(path=%config_path, "loading configuration file");
 		let config = ApplicationConfig::new(&config_path)
 			.wrap_err("unable to load configuration file")?;
@@ -70,7 +70,7 @@ impl ScreenReaderState {
 		let previous_caret_position = AtomicI32::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Arc::new(Cache::new(atspi.connection().to_owned()));
+		let cache = Arc::new(Cache::new(atspi.connection().clone()));
 
 		Ok(Self {
 			atspi,
@@ -96,7 +96,7 @@ impl ScreenReaderState {
 				Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
-			.await?);
+			.await?)?;
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
@@ -111,7 +111,7 @@ impl ScreenReaderState {
 				Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
-			.await?);
+			.await?)?;
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
@@ -149,15 +149,16 @@ impl ScreenReaderState {
 		}
 		for child in children_in_range {
 			let child_hyper = child.to_hyperlink().await?;
-			let child_start = child_hyper.start_index().await? as usize;
-			let child_end = child_hyper.end_index().await? as usize;
+			let child_start = usize::try_from(child_hyper.start_index().await?)?;
+			let child_end = usize::try_from(child_hyper.end_index().await?)?;
 			let child_text = format!(
 				"{}, {}",
 				child.name().await?,
 				child.get_role_name().await?
 			);
 			text_selection.replace_range(
-				child_start + (start as usize)..child_end + (start as usize),
+				child_start + (usize::try_from(start)?)
+					..child_end + (usize::try_from(start)?),
 				&child_text,
 			);
 		}
@@ -222,22 +223,9 @@ impl ScreenReaderState {
 		history.push(event);
 	}
 
-	pub async fn history_item<'a>(
-		&self,
-		index: usize,
-	) -> OdiliaResult<Option<AccessibleProxy<'a>>> {
+	pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
 		let history = self.accessible_history.lock().await;
-		if history.len() <= index {
-			return Ok(None);
-		}
-		let a11y_prim = {
-			history.iter()
-				.nth(index)
-				.expect("Looking for invalid index in accessible history")
-				.to_owned()
-		};
-		let a11y = a11y_prim.into_accessible(self.connection()).await?;
-		Ok(Some(a11y))
+		history.iter().nth(index).cloned()
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
@@ -271,8 +259,14 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event.sender().unwrap().unwrap().to_owned();
-		let path = event.path().unwrap().to_owned();
+		let sender = event
+			.sender()?
+			.ok_or(AccessiblePrimitiveConversionError::NoSender)?
+			.to_owned();
+		let path = event
+			.path()
+			.ok_or(AccessiblePrimitiveConversionError::NoPathId)?
+			.to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)
 			.destination(sender)?

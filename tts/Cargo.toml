@@ -1,13 +1,13 @@
 [package]
 name = "odilia-tts"
-version = "0.1.0"
+version = "0.1.3"
 authors = ["Tait Hoyem <tait@tait.tech>"]
 description = "A pure-Rust, fully-safe, asyncronous speech dispatcher client."
 license = "GPL-3.0-only" # Not gpl-3-or-later
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
 keywords = ["accessibility", "tts", "speech-dispatcher", "linux", "async"]
-categories = ["accessibility", "api-bindings", "async"]
+categories = ["accessibility", "api-bindings"]
 edition = "2021"
 
 [dependencies]
