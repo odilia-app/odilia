@@ -1,6 +1,6 @@
 [package]
 name = "odilia-cache"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Tait Hoyem <tait@tait.tech>", "Sam Tay <samctay@pm.me>"]
 description = "A caching layer for the Odilia screen reader."
