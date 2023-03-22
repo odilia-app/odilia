@@ -1015,7 +1015,7 @@ dependencies = [
 
 [[package]]
 name = "odilia-cache"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "async-trait",
  "atspi",
@@ -1035,7 +1035,7 @@ dependencies = [
 
 [[package]]
 name = "odilia-common"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "atspi",
  "bitflags",
@@ -1049,7 +1049,7 @@ dependencies = [
 
 [[package]]
 name = "odilia-input"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "eyre",
  "lazy_static",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "odilia-tts"
-version = "0.1.0"
+version = "0.1.3"
 dependencies = [
  "eyre",
  "ssip-client-async",
