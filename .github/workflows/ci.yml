@@ -41,7 +41,7 @@ jobs:
       - name: Install Dependencies
         run: sudo apt -y install at-spi2-core systemd
       - name: Run tests
-        run: cargo tests
+        run: cargo test
   clippy:
     runs-on: ubuntu-latest
     steps:
