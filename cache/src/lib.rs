@@ -83,7 +83,7 @@ impl AccessiblePrimitive {
 	}
 	/// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
 	/// # Errors
-	/// The errors are self-explanitory variants of the [`AccessiblePrimitiveConveersionError`].
+	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
 	pub fn from_event<T: GenericEvent>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
@@ -704,7 +704,7 @@ impl Cache {
 
 	/// Add an item via a reference instead of creating the reference.
 	/// # Errors
-	/// Can error if [`Self::populate_references`] errors. The insertion is guarenteed to succeed.
+	/// Can error if [`Cache::populate_references`] errors. The insertion is guarenteed to succeed.
 	pub fn add_ref(
 		&self,
 		id: CacheKey,
@@ -745,7 +745,7 @@ impl Cache {
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
 	/// # Errors
-	/// An `Err(_)` variant may be returned if the [`Self::populate_references`] function fails.
+	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		cache_items
 			.into_iter()
@@ -822,7 +822,12 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	fn populate_references(
+  /// Populate children and parent references given a cache and an `Arc<RwLock<CacheItem>>`.
+  /// This will unlock the `RwLock<_>`, update the references for children and parents, then go to the parent and children and do the same: update the parent for the children, then update the children referneces for the parent.
+  /// # Errors
+  /// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
+  /// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
+	pub fn populate_references(
 		cache: &ThreadSafeCache,
 		item_ref: &Arc<RwLock<CacheItem>>,
 	) -> Result<(), OdiliaError> {

@@ -44,7 +44,7 @@ fn get_log_file_name() -> String {
 	}
 }
 
-/// Receives [`odilia_common::errors::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
+/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
 /// This function will exit upon cancelation via a message from `shutdown_rx` parameter.
 /// # Errors
 /// This function will return an error type if the same function is already running.
