@@ -822,11 +822,11 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-  /// Populate children and parent references given a cache and an `Arc<RwLock<CacheItem>>`.
-  /// This will unlock the `RwLock<_>`, update the references for children and parents, then go to the parent and children and do the same: update the parent for the children, then update the children referneces for the parent.
-  /// # Errors
-  /// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
-  /// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
+	/// Populate children and parent references given a cache and an `Arc<RwLock<CacheItem>>`.
+	/// This will unlock the `RwLock<_>`, update the references for children and parents, then go to the parent and children and do the same: update the parent for the children, then update the children referneces for the parent.
+	/// # Errors
+	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
+	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
 	pub fn populate_references(
 		cache: &ThreadSafeCache,
 		item_ref: &Arc<RwLock<CacheItem>>,
