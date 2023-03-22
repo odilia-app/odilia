@@ -323,6 +323,8 @@ mod text_caret_moved {
 		let old_pos = usize::try_from(old_position)?;
 
 		// if the user has moved into a new item, then also read a whole line.
+		println!("{new_id:?},{old_id:?}");
+		println!("{old_pos},{new_pos}");
 		if new_id != old_id {
 			return Ok(new_item
 				.get_string_at_offset(new_position, Granularity::Line)
@@ -401,6 +403,7 @@ mod text_caret_moved {
 			return Ok(());
 		}
 		let new_item = state.get_or_create_event_object_to_cache(event).await?;
+		let new_prim = new_item.object.clone();
 		let text = match state.history_item(0).await {
 			Some(old_prim) => {
 				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
@@ -415,6 +418,7 @@ mod text_caret_moved {
 			}
 		};
 		state.say(Priority::Text, text).await;
+		state.update_accessible(new_prim).await;
 		Ok(())
 	}
 
@@ -427,6 +431,8 @@ mod text_caret_moved {
 			"" => text_cursor_moved(state, event).await?,
 			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
 		}
+		state.previous_caret_position
+			.store(event.position(), Ordering::Relaxed);
 		Ok(())
 	}
 } // end of text_caret_moved
@@ -521,7 +527,7 @@ mod state_changed {
 			format!("{name}, {role}. {description}"),
 		)
 		.await;
-
+		state.update_accessible(accessible.object).await;
 		Ok(())
 	}
 }
