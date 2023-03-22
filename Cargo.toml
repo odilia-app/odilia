@@ -30,8 +30,8 @@ dependent-version = "upgrade"
 
 [workspace.dependencies]
 atspi = { version = "0.13.0", features = ["tokio", "unstable-traits"] }
-odilia-common = { version = "0.2.0", path = "./common" }
-odilia-cache = { version = "0.2.0", path = "./cache" }
+odilia-common = { version = "0.3.0", path = "./common" }
+odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
 nix = "0.26.2"
 serde_json = "1.0.89"
