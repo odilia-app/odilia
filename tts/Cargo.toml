@@ -1,6 +1,6 @@
 [package]
 name = "odilia-tts"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Tait Hoyem <tait@tait.tech>"]
 description = "A pure-Rust, fully-safe, asyncronous speech dispatcher client."
 license = "GPL-3.0-only" # Not gpl-3-or-later
