@@ -1,6 +1,7 @@
 # Odilia Screen Reader
 
 [![Build CI](https://github.com/odilia-app/odilia/actions/workflows/ci.yml/badge.svg)](https://github.com/odilia-app/odilia/actions)
+[![codecov](https://codecov.io/gh/odilia-app/odilia/branch/main/graph/badge.svg?token=BM4SQ9BLK4)](https://codecov.io/gh/odilia-app/odilia)
 
 ## Welcome to Odilia
 
