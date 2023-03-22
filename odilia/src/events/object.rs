@@ -403,6 +403,7 @@ mod text_caret_moved {
 			return Ok(());
 		}
 		let new_item = state.get_or_create_event_object_to_cache(event).await?;
+
 		let new_prim = new_item.object.clone();
 		let text = match state.history_item(0).await {
 			Some(old_prim) => {
@@ -431,6 +432,7 @@ mod text_caret_moved {
 			"" => text_cursor_moved(state, event).await?,
 			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
 		}
+
 		state.previous_caret_position
 			.store(event.position(), Ordering::Relaxed);
 		Ok(())
@@ -527,6 +529,7 @@ mod state_changed {
 			format!("{name}, {role}. {description}"),
 		)
 		.await;
+
 		state.update_accessible(accessible.object).await;
 		Ok(())
 	}
