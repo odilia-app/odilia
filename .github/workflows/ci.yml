@@ -39,14 +39,9 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -yyq install libx11-6 libx11-dev libxi6 libxi-dev libspeechd-dev libspeechd2 libevdev2 libevdev-dev llvm-dev libclang-dev clang systemd at-spi2-core
+        run: sudo apt -y install at-spi2-core systemd
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          use-cross: true
-          command: test
-          args: --workspace --target ${{ matrix.target }}
-
+        run: cargo tests
   clippy:
     runs-on: ubuntu-latest
     steps:
