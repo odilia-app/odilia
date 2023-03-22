@@ -55,8 +55,7 @@ cargo install --path .
 
 ## Running
 
-To run Odilia, you should use our script.
-This will ask for your password (if you have root permissions) and then launch both Odilia and the hotkey daemon in quiet mode.
+To run Odilia, you should use our script, this will suppress log output and add environemnt variables that make using the screen reader easier.
 
 ```shell
 ./scripts/odilia
