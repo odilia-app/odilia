@@ -39,7 +39,7 @@ fn get_log_file_name() -> String {
                 e
             );
       let home = env::var("HOME").expect("No $HOME found in environment.");
-			format!("$home/.local/share/sohks/sohks-{time}.log")
+			format!("{home}/.local/share/sohks/sohks-{time}.log")
 		}
 	}
 }
