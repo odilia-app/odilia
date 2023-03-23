@@ -40,11 +40,7 @@ cargo install --path odilia
 
 ## Running
 
-To run Odilia, you should use our script. This will suppress log output and add environment variables that make using the screen reader easier.
-
-```shell
-./scripts/odilia
-```
+Simply type `odilia` in your terminal!
 
 ## Community
 
