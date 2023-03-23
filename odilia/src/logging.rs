@@ -13,7 +13,7 @@ use tracing_tree::HierarchicalLayer;
 #[cfg(not(debug_assertions))]
 const DEFAULT_LOG_FILTER: &'static str = "none";
 #[cfg(debug_assertions)]
-const DEFAULT_LOG_FILTER: &'static str = "error";
+const DEFAULT_LOG_FILTER: &'static str = "debug";
 
 /// Initialise the logging stack.
 pub fn init() {
