@@ -11,9 +11,9 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 use tracing_tree::HierarchicalLayer;
 
 #[cfg(not(debug_assertions))]
-const DEFAULT_LOG_FILTER: &'static str = "none";
+const DEFAULT_LOG_FILTER: &str = "none";
 #[cfg(debug_assertions)]
-const DEFAULT_LOG_FILTER: &'static str = "debug";
+const DEFAULT_LOG_FILTER: &str = "debug";
 
 /// Initialise the logging stack.
 pub fn init() {
