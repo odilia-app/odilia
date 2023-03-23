@@ -1,6 +1,6 @@
 [package]
 name = "odilia"
-version = "0.1.2"
+version = "0.1.3"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
 description = "Building a better screen reader for the Linux desktop, one step at a time."
 license = "GPL-3.0-only" # Not gpl-3-or-later
