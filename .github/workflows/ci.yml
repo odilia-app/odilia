@@ -193,4 +193,5 @@ jobs:
       - name: Install Cargo MSRV Verifier
         run: cargo install cargo-msrv
       - name: Check MSRV Compliance
-        run: cargo msrv verify
+        # check msrv compliance *inside* the binary odilia directory instead of the worksapce
+        run: cd odilia && cargo msrv verify
