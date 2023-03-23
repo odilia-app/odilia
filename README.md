@@ -44,15 +44,6 @@ This script will populate `/etc/odilia` with several configuration files, which 
 sudo ./scripts/install_configs.sh
 ```
 
-You will also want to compile and install sohkd.
-(Copy and paste the following on your command line. )
-
-```shell
-cd sohkd && \
-cargo build --release && \
-cargo install --path .
-```
-
 ## Running
 
 To run Odilia, you should use our script. This will suppress log output and add environment variables that make using the screen reader easier.
