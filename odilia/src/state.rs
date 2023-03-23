@@ -58,7 +58,7 @@ impl ScreenReaderState {
 			"unable to place configuration file. Maybe your system is readonly?",
 		);
 		if !config_path.exists() {
-			fs::copy("config.toml", &config_path)
+			fs::write(&config_path, include_str!("../../config.toml"))
 				.expect("Unable to copy default config file.");
 		}
 		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
