@@ -1,6 +1,4 @@
 #!/bin/bash
-# create global config dir
-mkdir -p /etc/odilia
-cp -rv config.toml /etc/odilia
-# add local override directory
-mkdir -p $XDG_CONFIG_DIR/odilia
+# create local config dir
+mkdir -p "$HOME/.config/odilia/"
+cp -rv config.toml "$HOME/.config/odilia/"
