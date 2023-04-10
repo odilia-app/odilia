@@ -90,10 +90,10 @@ pub async fn handle_ssip_commands(
 				      }
 				      _ = shutdown_tx.recv() => {
 		      tracing::debug!("Saying goodbye message.");
-		      let _ = client
+		      client
 			      .send(Request::Speak).await?
 			      .receive().await?;
-		      let _ = client
+		      client
 			      .send(Request::SendLines(Vec::from(["Quitting Odilia".to_string()]))).await?
 			      .receive().await?;
 		      tracing::debug!("Attempting to quit SSIP.");

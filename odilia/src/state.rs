@@ -4,6 +4,7 @@ use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use ssip_client_async::{tokio::Request as SSIPRequest, MessageScope, Priority};
 use tokio::sync::{mpsc::Sender, Mutex};
+use tracing::debug;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi::{
@@ -58,7 +59,7 @@ impl ScreenReaderState {
 			"unable to place configuration file. Maybe your system is readonly?",
 		);
 		if !config_path.exists() {
-			fs::copy("config.toml", &config_path)
+			fs::write(&config_path, include_str!("../config.toml"))
 				.expect("Unable to copy default config file.");
 		}
 		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
@@ -234,7 +235,7 @@ impl ScreenReaderState {
 		history.push(new_a11y);
 	}
 	pub async fn build_cache<'a>(&self, dest: UniqueName<'a>) -> OdiliaResult<CacheProxy<'a>> {
-		println!("CACHE SENDER: {dest}");
+		debug!("CACHE SENDER: {dest}");
 		Ok(CacheProxy::builder(self.connection())
 			.destination(dest)?
 			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?

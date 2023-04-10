@@ -17,15 +17,17 @@ Try it out! See if it works for you!
 
 ## Prerequisites
 
-Perhaps unnecessarily, but you will need to have `speech-dispatcher` installed and running before you can start Odilia.
+The MSRV for Odilia is `1.65`.
 
-to test that speech dispatcher is indeed working properly, try running this command:
+You will need to have `speech-dispatcher` installed and running before you can start Odilia.
+To test that speech dispatcher is indeed working properly, try running this command:
 
 ```shell
 spd-say "hello, world!"
 ```
 
-if you heard a voice saying "hello, world!", you can proceed to installing. Otherwise, check if sound  is working on the computer in general, try looking for error outputs especially in the logs, then consult your distro packagers and ask them about how it's supposed to be set up and what could be wrong, perhaps you have to do something else before it's fully workingh, for example adding yourself to a speech group or other distro specific mechanisms
+if you heard a voice saying "hello, world!", you can proceed to installing.
+Otherwise, check if sound is working on the computer in general.
 
 ## build and install
 
@@ -38,28 +40,9 @@ cargo build --release && \
 cargo install --path odilia
 ```
 
-This script will populate `/etc/odilia` with several configuration files, which are required for the well functioning of the screenreader. You have to run it as root because it has to write to /etc, which is protected from regular user access, no other reasons are involved
-
-```shell
-sudo ./scripts/install_configs.sh
-```
-
-You will also want to compile and install sohkd.
-(Copy and paste the following on your command line. )
-
-```shell
-cd sohkd && \
-cargo build --release && \
-cargo install --path .
-```
-
 ## Running
 
-To run Odilia, you should use our script, this will suppress log output and add environemnt variables that make using the screen reader easier.
-
-```shell
-./scripts/odilia
-```
+Simply type `odilia` in your terminal!
 
 ## Community
 

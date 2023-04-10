@@ -16,7 +16,7 @@ jobs:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
     steps:
       - name: Git checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Cache cargo home
         uses: actions/cache@v2
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Cache cargo home
         uses: actions/cache@v2
@@ -72,13 +72,13 @@ jobs:
         with:
           command: clippy
           # "-- -D warnings" will make the job fail if their are clippy warnings
-          args: --workspace --no-deps -- -D warnings
+          args: --workspace --no-deps -- -D warnings -W clippy::print_stdout
 
   rustfmt:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Install Rust
         uses: actions-rs/toolchain@v1
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Cache cargo home
         uses: actions/cache@v2
@@ -168,3 +168,30 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_fail: true
+  msrv-compliance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Cache cargo home
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Install Cargo MSRV Verifier
+        run: cargo install cargo-msrv --force
+      - name: Check MSRV Compliance
+        # check msrv compliance *inside* the binary odilia directory instead of the worksapce
+        run: cd odilia && cargo msrv verify

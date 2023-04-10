@@ -38,8 +38,8 @@ fn get_log_file_name() -> String {
                 "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
                 e
             );
-
-			format!("~/.local/share/sohks/sohks-{time}.log")
+			let home = env::var("HOME").expect("No $HOME found in environment.");
+			format!("{home}/.local/share/sohks/sohks-{time}.log")
 		}
 	}
 }
