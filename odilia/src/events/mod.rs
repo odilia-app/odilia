@@ -194,3 +194,23 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	state.event_history_update(event).await;
 	Ok(())
 }
+
+#[cfg(test)]
+pub mod dispatch_tests {
+  use crate::ScreenReaderState;
+  use tokio::sync::mpsc::channel;
+
+  #[tokio::test]
+  async fn test_full_cache() {
+    let state = generate_state().await;
+    assert_eq!(state.cache.by_id.len(), 14_738);
+  }
+
+  pub async fn generate_state() -> ScreenReaderState {
+    let (send, mut recv) = channel(32);
+    let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
+    let state = ScreenReaderState::new(send).await.unwrap();
+    state.cache.add_all(cache).unwrap();
+    state
+  }
+}
