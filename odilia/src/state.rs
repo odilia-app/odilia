@@ -63,7 +63,7 @@ impl ScreenReaderState {
 		}
 		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
 		tracing::debug!(path=%config_path, "loading configuration file");
-		let config = ApplicationConfig::new(&config_path)
+		let config = ApplicationConfig::from_path(&config_path)
 			.wrap_err("unable to load configuration file")?;
 		tracing::debug!("configuration loaded successfully");
 
