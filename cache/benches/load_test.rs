@@ -4,7 +4,7 @@ use std::{
 	time::Duration,
 };
 
-use atspi::{accessible::Accessible, accessible_id::AccessibleId, AccessibilityConnection};
+use atspi::{accessible::Accessible, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{clone_arc_mutex, AccessiblePrimitive, Cache, CacheItem};
 
@@ -32,6 +32,8 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 	}
 }
 
+const ROOT_A11Y: &str = "/org/a11y/atspi/accessible/root";
+
 /// For each child, fetch all of its ancestors via `CacheItem::parent_ref`.
 async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 	// for each child, try going up to the root
@@ -40,7 +42,8 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
 			let mut item = item_ref_copy.write().expect("Could not lock item");
-			if matches!(item.object.id, AccessibleId::Root) {
+      let root_ = ROOT_A11Y.clone();
+			if matches!(&item.object.id, root_) {
 				break;
 			}
 			item_ref = item.parent_ref().expect("Could not get parent reference");
@@ -53,7 +56,7 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 async fn traverse_up(children: Vec<CacheItem>) {
 	// for each child, try going up to the root
 	for child in children {
-		let mut item = child;
+		let mut item = child.clone();
 		loop {
 			item = match item.parent().await {
 				Ok(item) => item,
@@ -67,7 +70,8 @@ async fn traverse_up(children: Vec<CacheItem>) {
 					panic!("Odilia error {:?}", e);
 				}
 			};
-			if matches!(item.object.id, AccessibleId::Root) {
+      let root_ = ROOT_A11Y.clone();
+			if matches!(item.object.id, root_) {
 				break;
 			}
 		}
@@ -225,7 +229,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.iter_batched(
 			|| {
 				cache.get(&AccessiblePrimitive {
-					id: AccessibleId::Root,
+					id: "/org/a11y/atspi/accessible/root".to_string(),
 					sender: ":1.22".into(),
 				})
 				.unwrap()

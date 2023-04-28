@@ -15,7 +15,6 @@ use std::{
 use async_trait::async_trait;
 use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
-	accessible_id::{AccessibleId, HasAccessibleId},
 	convertable::Convertable,
 	events::GenericEvent,
 	signify::Signified,
@@ -44,8 +43,14 @@ type ThreadSafeCache = Arc<InnerCache>;
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
-	/// The accessible ID in /org/a11y/atspi/accessible/XYZ; note that XYZ may be equal to any positive number, 0, "null", or "root".
-	pub id: AccessibleId,
+	/// The accessible ID, which is an arbitrary string specified by the application.
+  /// It is guarenteed to be unique per application.
+  /// Examples:
+  /// * /org/a11y/atspi/accessible/1234
+  /// * /org/a11y/atspi/accessible/null
+  /// * /org/a11y/atspi/accessible/root
+  /// * /org/Gnome/GTK/abab22-bbbb33-2bba2
+	pub id: String,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
 	pub sender: smartstring::alias::String,
 }
@@ -92,9 +97,7 @@ impl AccessiblePrimitive {
 			.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
 			.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
 		let path = event.path().ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
-		let id: AccessibleId = path
-			.try_into()
-			.map_err(|_| AccessiblePrimitiveConversionError::InvalidPath)?;
+		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
 }
@@ -114,31 +117,20 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	fn try_from(
 		so: (OwnedUniqueName, OwnedObjectPath),
 	) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.as_str().into() })
+		let accessible_id= so.1;
+		Ok(AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() })
 	}
 }
-impl TryFrom<(String, OwnedObjectPath)> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
+impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
 
-	fn try_from(so: (String, OwnedObjectPath)) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.into() })
+	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
+		let accessible_id = so.1;
+		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
 	}
 }
-impl TryFrom<(String, AccessibleId)> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(so: (String, AccessibleId)) -> Result<AccessiblePrimitive, Self::Error> {
-		Ok(AccessiblePrimitive { id: so.1, sender: so.0.into() })
-	}
-}
-impl<'a> TryFrom<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-	type Error = OdiliaError;
-
-	fn try_from(so: (String, ObjectPath<'a>)) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible_id: AccessibleId = so.1.try_into()?;
-		Ok(AccessiblePrimitive { id: accessible_id, sender: so.0.into() })
+impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
+	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
+		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
 	}
 }
 impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
@@ -146,9 +138,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
-		let Ok(id) = accessible.id() else {
-			return Err(AccessiblePrimitiveConversionError::NoPathId);
-		};
+    let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
 	}
 }
@@ -157,9 +147,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
-		let Ok(id) = accessible.id() else {
-      return Err(AccessiblePrimitiveConversionError::NoPathId);
-    };
+    let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
 	}
 }
@@ -246,9 +234,9 @@ impl CacheItem {
 				.await?
 				.into_iter()
 				.map(|child_object_pair| {
-					Ok(CacheRef::new(child_object_pair.try_into()?))
+					CacheRef::new(child_object_pair.into())
 				})
-				.collect::<Result<_, AccessiblePrimitiveConversionError>>()?;
+				.collect();
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
 			app: atspi_cache_item.app.try_into()?,
@@ -414,8 +402,8 @@ impl Accessible for CacheItem {
 	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.get_localized_role_name().await?)
 	}
-	async fn accessible_id(&self) -> Result<AccessibleId, Self::Error> {
-		Ok(self.object.id)
+	async fn accessible_id(&self) -> Result<OwnedObjectPath, Self::Error> {
+		Ok(ObjectPath::try_from(self.object.id.to_string()).unwrap().into())
 	}
 }
 #[async_trait]
@@ -912,8 +900,8 @@ pub async fn accessible_to_cache_item(
 		text,
 		children: children
 			.into_iter()
-			.map(|k| Ok(CacheRef::new(k.try_into()?)))
-			.collect::<Result<_, AccessiblePrimitiveConversionError>>()?,
+			.map(|k| CacheRef::new(k.into()))
+			.collect(),
 		cache,
 	})
 }
