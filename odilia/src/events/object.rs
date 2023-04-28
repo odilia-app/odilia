@@ -279,13 +279,13 @@ mod children_changed {
 	fn get_child_primitive(
 		event: &ChildrenChangedEvent,
 	) -> Result<AccessiblePrimitive, OdiliaError> {
-		event.child()
+		Ok(event.child()
 			.clone()
 			.downcast::<(String, ObjectPath)>()
 			.ok_or(OdiliaError::Generic(
 				"Error converting child Value into (String,ObjectPath)".to_string(),
 			))?
-			.try_into()
+			.into())
 	}
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let prim = get_child_primitive(event)?;
@@ -539,7 +539,7 @@ mod state_changed {
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
 	use atspi::{
-		accessible::Role, accessible_id::AccessibleId, AccessibilityConnection, Interface,
+		accessible::Role, AccessibilityConnection, Interface,
 		InterfaceSet, State, StateSet,
 	};
 	use lazy_static::lazy_static;
@@ -555,12 +555,12 @@ mod tests {
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
 			object: AccessiblePrimitive {
-				id: AccessibleId::Number(1),
+				id: "/org/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),
 			},
-			app: AccessiblePrimitive { id: AccessibleId::Root, sender: ":1.2".into() },
+			app: AccessiblePrimitive { id: "/org/a11y/atspi/accessible/root".to_string(), sender: ":1.2".into() },
 			parent: AccessiblePrimitive {
-				id: AccessibleId::Number(1),
+				id: "/otg/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),
 			}
 			.into(),
