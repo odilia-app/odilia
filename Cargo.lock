@@ -192,9 +192,9 @@ checksum = "debc29dde2e69f9e47506b525f639ed42300fc014a3e007832592448fa8e4599"
 
 [[package]]
 name = "atspi"
-version = "0.13.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "79142073a9532a6b19c31083be131e53f1b5b978df7b3595d683f0cf5adb5cfb"
+checksum = "c84f84643816e55c316e2aee59970756c504c68da2f78e03bb27e68dc59ed188"
 dependencies = [
  "async-trait",
  "atspi-macros",
@@ -1005,7 +1005,7 @@ dependencies = [
 
 [[package]]
 name = "odilia"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "atspi",
  "circular-queue",
