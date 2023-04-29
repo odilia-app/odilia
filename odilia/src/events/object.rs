@@ -309,6 +309,7 @@ mod text_caret_moved {
 		cmp::{max, min},
 		sync::atomic::Ordering,
 	};
+	use tracing::debug;
 
 	pub async fn new_position(
 		new_item: CacheItem,
@@ -323,8 +324,8 @@ mod text_caret_moved {
 		let old_pos = usize::try_from(old_position)?;
 
 		// if the user has moved into a new item, then also read a whole line.
-		println!("{new_id:?},{old_id:?}");
-		println!("{old_pos},{new_pos}");
+		debug!("{new_id:?},{old_id:?}");
+		debug!("{old_pos},{new_pos}");
 		if new_id != old_id {
 			return Ok(new_item
 				.get_string_at_offset(new_position, Granularity::Line)
