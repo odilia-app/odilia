@@ -29,7 +29,7 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.14.1", features = ["tokio", "unstable-traits"] }
+atspi = { version = "0.15.1", features = ["tokio", "unstable-traits"] }
 odilia-common = { version = "0.3.0", path = "./common" }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
