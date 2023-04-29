@@ -540,8 +540,7 @@ mod state_changed {
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
 	use atspi::{
-		accessible::Role, AccessibilityConnection, Interface,
-		InterfaceSet, State, StateSet,
+		accessible::Role, AccessibilityConnection, Interface, InterfaceSet, State, StateSet,
 	};
 	use lazy_static::lazy_static;
 	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
@@ -559,7 +558,10 @@ mod tests {
 				id: "/org/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),
 			},
-			app: AccessiblePrimitive { id: "/org/a11y/atspi/accessible/root".to_string(), sender: ":1.2".into() },
+			app: AccessiblePrimitive {
+				id: "/org/a11y/atspi/accessible/root".to_string(),
+				sender: ":1.2".into()
+			},
 			parent: AccessiblePrimitive {
 				id: "/otg/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),

@@ -42,7 +42,7 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
 			let mut item = item_ref_copy.write().expect("Could not lock item");
-      let root_ = ROOT_A11Y.clone();
+			let root_ = ROOT_A11Y.clone();
 			if matches!(&item.object.id, root_) {
 				break;
 			}
@@ -70,7 +70,7 @@ async fn traverse_up(children: Vec<CacheItem>) {
 					panic!("Odilia error {:?}", e);
 				}
 			};
-      let root_ = ROOT_A11Y.clone();
+			let root_ = ROOT_A11Y.clone();
 			if matches!(item.object.id.clone(), root_) {
 				break;
 			}
@@ -219,7 +219,16 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	group.bench_function(BenchmarkId::new("traverse_up", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| children.iter().map(|a_rw_item| Arc::clone(a_rw_item).read().expect("Could not read a cache item.").clone()).collect(),
+			|| {
+				children.iter()
+					.map(|a_rw_item| {
+						Arc::clone(a_rw_item)
+							.read()
+							.expect("Could not read a cache item.")
+							.clone()
+					})
+					.collect()
+			},
 			|cs| async { traverse_up(cs).await },
 			BatchSize::SmallInput,
 		);

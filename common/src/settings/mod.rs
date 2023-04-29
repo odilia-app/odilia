@@ -37,7 +37,7 @@ impl ApplicationConfig {
 	/// This can return `Err(_)` if the path doesn't exist, or if not all the key/value pairs are defined.
 	pub fn from_path(path: &str) -> Result<Self, ConfigError> {
 		let ini = Ini::from_file(path)?;
-    Self::from_ini(&ini)
+		Self::from_ini(&ini)
 	}
 
 	/// Uses the text given to create a config structure.
@@ -47,7 +47,7 @@ impl ApplicationConfig {
 	/// This can return `Err(_)` if not all the key/value pairs are defined.
 	pub fn from_string(config_str: &str) -> Result<Self, ConfigError> {
 		let ini = Ini::from_string(config_str)?;
-    Self::from_ini(&ini)
+		Self::from_ini(&ini)
 	}
 
 	#[must_use]
@@ -63,35 +63,24 @@ impl ApplicationConfig {
 
 #[cfg(test)]
 mod tests {
-  use crate::settings::{
-    ApplicationConfig,
-    SpeechSettings,
-    LogSettings,
-  };
+	use crate::settings::{ApplicationConfig, LogSettings, SpeechSettings};
 
-  #[test]
-  fn check_valid_config() {
-    let config = ApplicationConfig::from_string(include_str!("../../../odilia/config.toml"));
-    assert_eq!(
-      config.unwrap(),
-      ApplicationConfig {
-        speech: SpeechSettings {
-          rate: 100,
-        },
-        log: LogSettings {
-          level: "debug".to_string()
-        },
-      }
-    )
-  }
-  
-  #[test]
-  fn check_invalid_config() {
-    let config = ApplicationConfig::from_string(include_str!("./invalid-config.toml"));
-    assert_eq!(
-      config.is_err(),
-      true
-    )
-  }
-  
+	#[test]
+	fn check_valid_config() {
+		let config =
+			ApplicationConfig::from_string(include_str!("../../../odilia/config.toml"));
+		assert_eq!(
+			config.unwrap(),
+			ApplicationConfig {
+				speech: SpeechSettings { rate: 100 },
+				log: LogSettings { level: "debug".to_string() },
+			}
+		)
+	}
+
+	#[test]
+	fn check_invalid_config() {
+		let config = ApplicationConfig::from_string(include_str!("./invalid-config.toml"));
+		assert_eq!(config.is_err(), true)
+	}
 }
