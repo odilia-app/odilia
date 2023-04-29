@@ -50,7 +50,7 @@ pub struct AccessiblePrimitive {
   /// * /org/a11y/atspi/accessible/null
   /// * /org/a11y/atspi/accessible/root
   /// * /org/Gnome/GTK/abab22-bbbb33-2bba2
-	pub id: String,
+	pub id: smartstring::alias::String,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
   /// Examples:
   /// * :1.1 (the first window has opened)
@@ -68,7 +68,7 @@ impl AccessiblePrimitive {
 	) -> zbus::Result<AccessibleProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
+		let path: OwnedObjectPath = OwnedObjectPath::try_from(id.as_str())?;
 		ProxyBuilder::new(conn)
 			.path(path)?
 			.destination(sender.as_str().to_owned())?
@@ -82,7 +82,7 @@ impl AccessiblePrimitive {
 	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
+		let path: OwnedObjectPath = OwnedObjectPath::try_from(id.as_str())?;
 		ProxyBuilder::new(conn)
 			.path(path)?
 			.destination(sender.as_str().to_owned())?
@@ -101,7 +101,7 @@ impl AccessiblePrimitive {
 			.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
 			.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
 		let path = event.path().ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
-		let id = path.to_string();
+		let id = path.as_str().into();
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
 }
@@ -122,19 +122,19 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 		so: (OwnedUniqueName, OwnedObjectPath),
 	) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id= so.1;
-		Ok(AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() })
+		Ok(AccessiblePrimitive { id: accessible_id.as_str().into(), sender: so.0.as_str().into() })
 	}
 }
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
 
 	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
+		AccessiblePrimitive { id: accessible_id.as_str().into(), sender: so.0.into() }
 	}
 }
 impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
-		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
+		AccessiblePrimitive { id: so.1.as_str().into(), sender: so.0.into() }
 	}
 }
 impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {

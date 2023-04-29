@@ -229,7 +229,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.iter_batched(
 			|| {
 				cache.get(&AccessiblePrimitive {
-					id: "/org/a11y/atspi/accessible/root".to_string(),
+					id: "/org/a11y/atspi/accessible/root".into(),
 					sender: ":1.22".into(),
 				})
 				.unwrap()
