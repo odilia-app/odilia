@@ -52,6 +52,10 @@ pub struct AccessiblePrimitive {
   /// * /org/Gnome/GTK/abab22-bbbb33-2bba2
 	pub id: String,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
+  /// Examples:
+  /// * :1.1 (the first window has opened)
+  /// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
+  /// * :1.262 (many applications have been started on this bus)
 	pub sender: smartstring::alias::String,
 }
 impl AccessiblePrimitive {
