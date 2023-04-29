@@ -197,14 +197,53 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 
 #[cfg(test)]
 pub mod dispatch_tests {
+  use std::collections::HashMap;
 	use crate::ScreenReaderState;
+  use odilia_common::errors::OdiliaError;
+  use atspi::{
+    events::QSPI_EVENT_SIGNATURE,
+    Event,
+    events::AtspiEvent,
+  };
 	use tokio::sync::mpsc::channel;
+  use zbus::{
+    MessageBuilder,
+    zvariant::{
+      Value,
+      OwnedObjectPath,
+    },
+  };
 
 	#[tokio::test]
 	async fn test_full_cache() {
 		let state = generate_state().await;
 		assert_eq!(state.cache.by_id.len(), 14_738);
 	}
+
+  #[tokio::test]
+  async fn check_caret_moved_event() {
+    let state = generate_state().await;
+    let msg  = MessageBuilder::signal(
+      "/org/a11y/atspi/accessible/null",
+      "org.a11y.atspi.Event.Object",
+      "TextCaretMoved",
+    )
+    .expect("Could not create signal")
+    .sender(state.atspi.connection().unique_name().unwrap())
+    .expect("Could not set sender")
+    .build(
+      &((
+        String::new(),
+        5,
+        0,
+        Value::U8(0),
+        (":1.1".to_string(), OwnedObjectPath::try_from("/org/a11y/atspi/accessible/null").unwrap()),
+      ),)
+    )
+    .expect("Could not set signal body");
+    assert_eq!(msg.body_signature().unwrap(), QSPI_EVENT_SIGNATURE);
+    let event: Event = std::sync::Arc::new(msg).try_into().expect("Could not turn signal into an event");
+  }
 
 	pub async fn generate_state() -> ScreenReaderState {
 		let (send, mut recv) = channel(32);
