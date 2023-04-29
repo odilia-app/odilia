@@ -6,7 +6,7 @@ use std::{
 
 use atspi::{accessible::Accessible, AccessibilityConnection};
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use odilia_cache::{clone_arc_mutex, AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 
 use odilia_common::errors::{CacheError, OdiliaError};
 use tokio::select;
@@ -71,7 +71,7 @@ async fn traverse_up(children: Vec<CacheItem>) {
 				}
 			};
       let root_ = ROOT_A11Y.clone();
-			if matches!(item.object.id, root_) {
+			if matches!(item.object.id.clone(), root_) {
 				break;
 			}
 		}
@@ -219,7 +219,7 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	group.bench_function(BenchmarkId::new("traverse_up", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| children.iter().map(clone_arc_mutex).collect(),
+			|| children.iter().map(|a_rw_item| Arc::clone(a_rw_item).read().expect("Could not read a cache item.").clone()).collect(),
 			|cs| async { traverse_up(cs).await },
 			BatchSize::SmallInput,
 		);

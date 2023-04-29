@@ -192,9 +192,9 @@ checksum = "debc29dde2e69f9e47506b525f639ed42300fc014a3e007832592448fa8e4599"
 
 [[package]]
 name = "atspi"
-version = "0.14.1"
+version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c84f84643816e55c316e2aee59970756c504c68da2f78e03bb27e68dc59ed188"
+checksum = "50bec9ce5fe796411823df075f0cd21ff44116a786b4a7cf5cecf32efd96d847"
 dependencies = [
  "async-trait",
  "atspi-macros",
