@@ -555,15 +555,15 @@ mod tests {
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
 			object: AccessiblePrimitive {
-				id: "/org/a11y/atspi/accessible/1".to_string(),
+				id: "/org/a11y/atspi/accessible/1".into(),
 				sender: ":1.2".into(),
 			},
 			app: AccessiblePrimitive {
-				id: "/org/a11y/atspi/accessible/root".to_string(),
+				id: "/org/a11y/atspi/accessible/root".into(),
 				sender: ":1.2".into()
 			},
 			parent: AccessiblePrimitive {
-				id: "/otg/a11y/atspi/accessible/1".to_string(),
+				id: "/otg/a11y/atspi/accessible/1".into(),
 				sender: ":1.2".into(),
 			}
 			.into(),
