@@ -191,6 +191,13 @@ impl ScreenReaderState {
 	pub async fn close_speech(&self) -> bool {
 		self.ssip.send(SSIPRequest::Quit).await.is_ok()
 	}
+	
+	fn ssip_symbols(q: String) -> String {
+		match q.as_str() {
+			"." => "period".to_string(),
+			_ => q
+		}
+	}
 
 	pub async fn say(&self, priority: Priority, text: String) -> bool {
 		if self.ssip.send(SSIPRequest::SetPriority(priority)).await.is_err() {
@@ -200,11 +207,12 @@ impl ScreenReaderState {
 			return false;
 		}
 		// this crashed ssip-client because the connection is automatically stopped when invalid text is sent; since the period character on a line by itself is the stop character, there's not much we can do except filter it out explicitly.
-		if text == *"." {
-			return false;
-		}
+		let lines = Vec::from([text])
+			.into_iter()
+			.map(Self::ssip_symbols)
+			.collect::<Vec<String>>();
 		if self.ssip
-			.send(SSIPRequest::SendLines(Vec::from([text])))
+			.send(SSIPRequest::SendLines(lines))
 			.await
 			.is_err()
 		{
