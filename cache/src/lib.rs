@@ -17,7 +17,6 @@ use atspi::{
 	accessible::{Accessible, AccessibleProxy, RelationType, Role},
 	convertable::Convertable,
 	events::GenericEvent,
-	signify::Signified,
 	text::{ClipType, Granularity, Text, TextProxy},
 	text_ext::TextExt,
 	CoordType, InterfaceSet, StateSet,
@@ -93,14 +92,14 @@ impl AccessiblePrimitive {
 	/// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
 	/// # Errors
 	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
-	pub fn from_event<T: GenericEvent>(
+	pub fn from_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = event
-			.sender()
-			.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
-			.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
-		let path = event.path().ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
+			.sender();
+			//.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
+			//.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
+		let path = event.path();//.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
 		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
@@ -207,7 +206,7 @@ impl CacheItem {
 	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
-	pub async fn from_atspi_event<T: Signified>(
+	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
@@ -406,8 +405,8 @@ impl Accessible for CacheItem {
 	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.get_localized_role_name().await?)
 	}
-	async fn accessible_id(&self) -> Result<OwnedObjectPath, Self::Error> {
-		Ok(ObjectPath::try_from(self.object.id.to_string()).unwrap().into())
+	async fn accessible_id(&self) -> Result<String, Self::Error> {
+		Ok(self.object.id.to_string())
 	}
 }
 #[async_trait]
