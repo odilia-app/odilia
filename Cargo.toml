@@ -29,8 +29,11 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2", features = ["tokio", "unstable-traits"] }
-atspi-client = { git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2" }
+#atspi = { git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2", features = ["tokio", "unstable-traits"] }
+atspi = { path = "../atspi/atspi/", features = ["tokio", "unstable-traits"] }
+#atspi-client = { git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2" }
+atspi-client = { path = "../atspi/atspi-client" }
+atspi-types = { path = "../atspi/atspi-types/" }
 odilia-common = { version = "0.3.0", path = "./common" }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"

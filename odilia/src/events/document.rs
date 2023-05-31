@@ -1,7 +1,10 @@
 use crate::state::ScreenReaderState;
-use atspi::{
-	events::GenericEvent, identify::document::DocumentEvents,
-	identify::document::LoadCompleteEvent,
+use atspi_types::events::{
+  GenericEvent,
+  document::{
+    DocumentEvents,
+    LoadCompleteEvent,
+  },
 };
 use odilia_common::errors::OdiliaError;
 
@@ -9,7 +12,7 @@ pub async fn load_complete(
 	state: &ScreenReaderState,
 	event: &LoadCompleteEvent,
 ) -> Result<(), OdiliaError> {
-	let sender = event.sender()?.ok_or(zbus::Error::MissingField)?;
+	let sender = event.sender();
 	let cache = state.build_cache(sender).await?;
 	// TODO: this should be streamed, rather than waiting for the entire vec to fill up.
 	let entire_cache = cache.get_items().await?;

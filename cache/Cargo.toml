@@ -13,6 +13,7 @@ categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
+atspi-types.workspace = true
 odilia-common.workspace = true
 dashmap = "5.4.0"
 serde = "1.0.147"

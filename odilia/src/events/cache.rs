@@ -14,8 +14,7 @@ pub async fn add_accessible(
 	state: &ScreenReaderState,
 	event: &AddAccessibleEvent,
 ) -> eyre::Result<()> {
-	let atspi_cache_item = event.clone().into_item();
-	state.get_or_create_atspi_cache_item_to_cache(atspi_cache_item)
+	state.get_or_create_atspi_cache_item_to_cache(event.node_added.clone())
 		.await?;
 	Ok(())
 }

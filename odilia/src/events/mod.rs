@@ -11,15 +11,13 @@ use tokio::sync::{
 };
 
 use crate::state::ScreenReaderState;
+use atspi_types::{Role, MatchType, InterfaceSet};
 use atspi::{
-	accessible::Role,
 	accessible_ext::{AccessibleExt, MatcherArgs},
-	collection::MatchType,
 	component::ScrollType,
 	convertable::Convertable,
-	events::{Event, EventInterfaces},
-	InterfaceSet,
 };
+use atspi_types::events::Event;
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,
@@ -47,7 +45,7 @@ pub async fn structural_navigation(
 		interfaces,
 		MatchType::Invalid,
 	);
-	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward).await? {
+	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward, &mut Vec::new()).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
 		let curr_prim = curr.try_into()?;
@@ -175,10 +173,10 @@ async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
 	match &event {
-		Event::Interfaces(EventInterfaces::Object(object_event)) => {
+		Event::Object(object_event) => {
 			object::dispatch(state, object_event).await?;
 		}
-		Event::Interfaces(EventInterfaces::Document(document_event)) => {
+		Event::Document(document_event) => {
 			document::dispatch(state, document_event).await?;
 		}
 		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,

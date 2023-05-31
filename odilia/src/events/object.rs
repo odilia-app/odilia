@@ -1,5 +1,5 @@
 use crate::state::ScreenReaderState;
-use atspi::identify::object::ObjectEvents;
+use atspi_types::events::object::ObjectEvents;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<()> {
 	// Dispatch based on member
@@ -25,7 +25,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 
 mod text_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{identify::object::TextChangedEvent, signify::Signified};
+	use atspi_types::events::object::TextChangedEvent;
 	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
@@ -162,13 +162,12 @@ mod text_changed {
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
 	) -> eyre::Result<()> {
-		let kind = event.kind();
-		match kind {
+		match event.operation.as_str() {
 			"insert/system" => insert_or_delete(state, event, true).await?,
 			"insert" => insert_or_delete(state, event, true).await?,
 			"delete/system" => insert_or_delete(state, event, false).await?,
 			"delete" => insert_or_delete(state, event, false).await?,
-			_ => tracing::trace!("TextChangedEvent has invalid kind: {}", kind),
+			_ => tracing::trace!("TextChangedEvent has invalid kind: {}", event.operation),
 		};
 		Ok(())
 	}
@@ -186,7 +185,7 @@ mod text_changed {
 		// if atomic state is false, then only read out the portion which has been added
 		// otherwise, do not continue through this function
 		let text_to_say =
-			if atomic { cache_text.to_string() } else { event.text().try_into()? };
+			if atomic { cache_text.to_string() } else { (&event.text).try_into()? };
 		let prioirty = live_to_priority(&live);
 		state.say(prioirty, text_to_say).await;
 		Ok(())
@@ -202,10 +201,10 @@ mod text_changed {
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
 		let cache_item = state.get_or_create_event_object_to_cache(event).await?;
-		let updated_text: String = event.text().try_into()?;
+		let updated_text: String = (&event.text).try_into()?;
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
-			(usize::try_from(event.start_pos())?, usize::try_from(event.length())?);
+			(usize::try_from(event.start_pos)?, usize::try_from(event.length)?);
 		// if this is an insert, figure out if we shuld announce anything, then speak it;
 		// only after should we try to update the cache
 		if insert {
@@ -243,7 +242,7 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::{identify::object::ChildrenChangedEvent, signify::Signified};
+  use atspi_types::events::object::ChildrenChangedEvent;
 	use odilia_cache::AccessiblePrimitive;
 	use odilia_common::errors::OdiliaError;
 	use std::sync::Arc;
@@ -254,7 +253,7 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
-		match event.kind() {
+		match event.operation.as_str() {
 			"remove" | "remove/system" => remove(state, event)?,
 			"add" | "add/system" => add(state, event).await?,
 			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
@@ -279,13 +278,9 @@ mod children_changed {
 	fn get_child_primitive(
 		event: &ChildrenChangedEvent,
 	) -> Result<AccessiblePrimitive, OdiliaError> {
-		Ok(event.child()
+		Ok(event.child
 			.clone()
-			.downcast::<(String, ObjectPath)>()
-			.ok_or(OdiliaError::Generic(
-				"Error converting child Value into (String,ObjectPath)".to_string(),
-			))?
-			.into())
+			.try_into()?)
 	}
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let prim = get_child_primitive(event)?;
@@ -297,9 +292,8 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
+  use atspi_types::events::object::TextCaretMovedEvent;
 	use atspi::{
-		identify::object::TextCaretMovedEvent,
-		signify::Signified,
 		text::{Granularity, Text},
 	};
 	use odilia_cache::CacheItem;
@@ -372,7 +366,7 @@ mod text_caret_moved {
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
 	) -> eyre::Result<bool> {
-		let current_caret_pos = event.position();
+		let current_caret_pos = event.position;
 		// if the carat position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
 		if current_caret_pos != 0 {
 			return Ok(false);
@@ -411,7 +405,7 @@ mod text_caret_moved {
 				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
 				let old_item =
 					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
-				let new_pos = event.position();
+				let new_pos = event.position;
 				new_position(new_item, old_item, new_pos, old_pos).await?
 			}
 			None => {
@@ -428,23 +422,19 @@ mod text_caret_moved {
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
 	) -> eyre::Result<()> {
-		// Dispatch based on kind
-		match event.kind() {
-			"" => text_cursor_moved(state, event).await?,
-			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
-		}
+    text_cursor_moved(state, event).await?;
 
 		state.previous_caret_position
-			.store(event.position(), Ordering::Relaxed);
+			.store(event.position, Ordering::Relaxed);
 		Ok(())
 	}
 } // end of text_caret_moved
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
+  use atspi_types::{State, events::object::StateChangedEvent};
 	use atspi::{
-		accessible::Accessible, identify::object::StateChangedEvent, signify::Signified,
-		State,
+		accessible::Accessible,
 	};
 	use odilia_cache::AccessiblePrimitive;
 
@@ -471,14 +461,14 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let a11y_state: State = match serde_plain::from_str(event.kind()) {
+		let a11y_state: State = match serde_plain::from_str(&event.state) {
 			Ok(s) => s,
 			Err(e) => {
-				tracing::error!("Not able to deserialize state: {}", event.kind());
+				tracing::error!("Not able to deserialize state: {}", event.state);
 				return Err(e.into());
 			}
 		};
-		let state_value = event.enabled() == 1;
+		let state_value = event.enabled == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		match update_state(state, &a11y_prim, a11y_state, state_value) {
@@ -487,9 +477,9 @@ mod state_changed {
 			Err(e) => return Err(e),
 		};
 		// Dispatch based on kind
-		let state_type = serde_plain::from_str(event.kind())?;
+		let state_type = serde_plain::from_str(&event.state)?;
 		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (state_type, event.enabled() == 1) {
+		match (state_type, event.enabled == 1) {
 			(State::Focused, true) => focused(state, event).await?,
 			(state, enabled) => tracing::debug!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
@@ -539,10 +529,8 @@ mod state_changed {
 #[cfg(test)]
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
-	use atspi::{
-		accessible::Role, AccessibilityConnection, Interface,
-		InterfaceSet, State, StateSet,
-	};
+	use atspi_client::AccessibilityConnection;
+  use atspi_types::{InterfaceSet, State, StateSet, Role, Interface};
 	use lazy_static::lazy_static;
 	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 	use std::sync::Arc;

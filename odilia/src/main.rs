@@ -26,7 +26,7 @@ use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
 use ssip_client_async::Priority;
 
-use atspi::identify::{document, object};
+use atspi_types::events::{document, object};
 
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
 	let mut c = signal(SignalKind::interrupt())?;
@@ -41,7 +41,7 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 async fn main() -> eyre::Result<()> {
 	logging::init();
 	// Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.
-	if let Err(e) = atspi::set_session_accessibility(true).await {
+	if let Err(e) = atspi_client::set_session_accessibility(true).await {
 		tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
 	let (shutdown_tx, _) = broadcast::channel(1);

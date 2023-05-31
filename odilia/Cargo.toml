@@ -27,6 +27,8 @@ pre-release-replacements = [
 
 [dependencies]
 atspi.workspace = true
+atspi-types.workspace = true
+atspi-client.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }

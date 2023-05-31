@@ -13,9 +13,9 @@ use atspi::{
 	cache::CacheProxy,
 	convertable::Convertable,
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
-	signify::Signified,
-	AccessibilityConnection,
 };
+use atspi_client::AccessibilityConnection;
+use atspi_types::Event;
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, CacheError, ConfigError, OdiliaError},
@@ -35,7 +35,7 @@ pub struct ScreenReaderState {
 	pub previous_caret_position: AtomicI32,
 	pub mode: Mutex<ScreenReaderMode>,
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
-	pub event_history: Mutex<CircularQueue<atspi::Event>>,
+	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
 }
 
@@ -88,7 +88,7 @@ impl ScreenReaderState {
 
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,
-		atspi_cache_item: atspi::cache::CacheItem,
+		atspi_cache_item: atspi_types::CacheItem,
 	) -> OdiliaResult<CacheItem> {
 		let prim = atspi_cache_item.object.clone().try_into()?;
 		if self.cache.get(&prim).is_none() {
@@ -101,7 +101,7 @@ impl ScreenReaderState {
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
-	pub async fn get_or_create_event_object_to_cache<T: Signified>(
+	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
@@ -170,14 +170,14 @@ impl ScreenReaderState {
 	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
-		self.atspi.register_event::<E>().await.map_err(OdiliaError::from)
+		Ok(self.atspi.register_event::<E>().await?)
 	}
 
 	#[allow(dead_code)]
 	pub async fn deregister_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
-		self.atspi.deregister_event::<E>().await.map_err(OdiliaError::from)
+		Ok(self.atspi.deregister_event::<E>().await?)
 	}
 
 	pub fn connection(&self) -> &zbus::Connection {
@@ -214,12 +214,12 @@ impl ScreenReaderState {
 	}
 
 	#[allow(dead_code)]
-	pub async fn event_history_item(&self, index: usize) -> Option<atspi::Event> {
+	pub async fn event_history_item(&self, index: usize) -> Option<Event> {
 		let history = self.event_history.lock().await;
 		history.iter().nth(index).cloned()
 	}
 
-	pub async fn event_history_update(&self, event: atspi::Event) {
+	pub async fn event_history_update(&self, event: Event) {
 		let mut history = self.event_history.lock().await;
 		history.push(event);
 	}
@@ -256,17 +256,15 @@ impl ScreenReaderState {
 			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
 			.await
 	}
-	pub async fn new_accessible<T: Signified>(
+	pub async fn new_accessible<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
 		let sender = event
-			.sender()?
-			.ok_or(AccessiblePrimitiveConversionError::NoSender)?
+			.sender()
 			.to_owned();
 		let path = event
 			.path()
-			.ok_or(AccessiblePrimitiveConversionError::NoPathId)?
 			.to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)
