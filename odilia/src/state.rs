@@ -18,7 +18,7 @@ use atspi_client::AccessibilityConnection;
 use atspi_types::Event;
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{AccessiblePrimitiveConversionError, CacheError, ConfigError, OdiliaError},
+	errors::{CacheError, ConfigError},
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,

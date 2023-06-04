@@ -49,10 +49,10 @@ pub async fn structural_navigation(
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
 		let curr_prim = curr.try_into()?;
-		let _ = comp.grab_focus().await?;
+		let _: bool = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
 		state.update_accessible(curr_prim).await;
-		let _ = texti.set_caret_offset(0).await?;
+		let _: bool = texti.set_caret_offset(0).await?;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
 		let text = texti.get_text(0, len).await?;
@@ -84,7 +84,7 @@ pub async fn sr_event(
 			    },
 			    Some(ScreenReaderEvent::StopSpeech) => {
 			      tracing::debug!("Stopping speech!");
-			      let _ = state.stop_speech().await;
+			      let _: bool = state.stop_speech().await;
 			    },
 			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
 						tracing::debug!("Changing mode to {:?}", new_sr_mode);

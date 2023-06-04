@@ -18,7 +18,7 @@ use eyre::WrapErr;
 use futures::future::FutureExt;
 use tokio::{
 	signal::unix::{signal, SignalKind},
-	sync::broadcast,
+	sync::broadcast::{self, error::SendError},
 	sync::mpsc,
 };
 
@@ -33,7 +33,7 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 	tracing::debug!("Watching for Ctrl+C");
 	c.recv().await;
 	tracing::debug!("Asking all processes to stop.");
-	let _ = shutdown_tx.send(0);
+	let _: Result<usize, SendError<i32>> = shutdown_tx.send(0);
 	Ok(())
 }
 
@@ -61,7 +61,7 @@ async fn main() -> eyre::Result<()> {
 		tracing::debug!("Welcome message spoken.");
 	} else {
 		tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
-		let _ = state.close_speech().await;
+		let _: bool = state.close_speech().await;
 		exit(1);
 	}
 

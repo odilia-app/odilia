@@ -209,7 +209,7 @@ mod text_changed {
 		// only after should we try to update the cache
 		if insert {
 			let attributes = accessible.get_attributes().await?;
-			let _ = speak_insertion(state, event, &attributes, &current_text).await;
+			let _: OdiliaResult<()> = speak_insertion(state, event, &attributes, &current_text).await;
 		}
 
 		let text_selection_from_cache: String = current_text
@@ -243,10 +243,15 @@ mod text_changed {
 mod children_changed {
 	use crate::state::ScreenReaderState;
   use atspi_types::events::object::ChildrenChangedEvent;
-	use odilia_cache::AccessiblePrimitive;
-	use odilia_common::errors::OdiliaError;
+	use odilia_cache::{
+    AccessiblePrimitive,
+    CacheItem,
+  };
+	use odilia_common::{
+    errors::OdiliaError,
+    result::OdiliaResult,
+  };
 	use std::sync::Arc;
-	use zbus::zvariant::ObjectPath;
 
 	pub async fn dispatch(
 		state: &ScreenReaderState,
@@ -267,7 +272,7 @@ mod children_changed {
 		let accessible = get_child_primitive(event)?
 			.into_accessible(state.atspi.connection())
 			.await?;
-		let _ = state
+		let _: OdiliaResult<CacheItem> = state
 			.cache
 			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
 			.await;
