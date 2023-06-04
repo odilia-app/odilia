@@ -211,6 +211,7 @@ checksum = "1181e1e0d1fce796a03db1ae795d67167da795f9cf4a39c37589e85ef57f26d3"
 [[package]]
 name = "atspi"
 version = "0.16.0"
+source = "git+https://github.com/odilia-app/atspi?branch=types_crate_v2#8f254d3e30024574ff1ab1d5cd9c46c44f8fe8ce"
 dependencies = [
  "async-trait",
  "atspi-macros",
@@ -224,6 +225,7 @@ dependencies = [
 [[package]]
 name = "atspi-client"
 version = "0.1.0"
+source = "git+https://github.com/odilia-app/atspi?branch=types_crate_v2#8f254d3e30024574ff1ab1d5cd9c46c44f8fe8ce"
 dependencies = [
  "atspi",
  "atspi-types",
@@ -235,6 +237,7 @@ dependencies = [
 [[package]]
 name = "atspi-macros"
 version = "0.4.0"
+source = "git+https://github.com/odilia-app/atspi?branch=types_crate_v2#8f254d3e30024574ff1ab1d5cd9c46c44f8fe8ce"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -249,6 +252,7 @@ dependencies = [
 [[package]]
 name = "atspi-types"
 version = "0.1.0"
+source = "git+https://github.com/odilia-app/atspi?branch=types_crate_v2#8f254d3e30024574ff1ab1d5cd9c46c44f8fe8ce"
 dependencies = [
  "enumflags2",
  "serde",
