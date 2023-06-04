@@ -13,7 +13,6 @@ use std::{
 };
 
 use async_trait::async_trait;
-use atspi_types::{Role, StateSet, InterfaceSet, RelationType, GenericEvent};
 use atspi::{
 	accessible::{Accessible, AccessibleProxy},
 	convertable::Convertable,
@@ -21,6 +20,7 @@ use atspi::{
 	text_ext::TextExt,
 	CoordType,
 };
+use atspi_types::{GenericEvent, InterfaceSet, RelationType, Role, StateSet};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
@@ -43,18 +43,18 @@ type ThreadSafeCache = Arc<InnerCache>;
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
 	/// The accessible ID, which is an arbitrary string specified by the application.
-  /// It is guarenteed to be unique per application.
-  /// Examples:
-  /// * /org/a11y/atspi/accessible/1234
-  /// * /org/a11y/atspi/accessible/null
-  /// * /org/a11y/atspi/accessible/root
-  /// * /org/Gnome/GTK/abab22-bbbb33-2bba2
+	/// It is guarenteed to be unique per application.
+	/// Examples:
+	/// * /org/a11y/atspi/accessible/1234
+	/// * /org/a11y/atspi/accessible/null
+	/// * /org/a11y/atspi/accessible/root
+	/// * /org/Gnome/GTK/abab22-bbbb33-2bba2
 	pub id: String,
 	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-  /// Examples:
-  /// * :1.1 (the first window has opened)
-  /// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
-  /// * :1.262 (many applications have been started on this bus)
+	/// Examples:
+	/// * :1.1 (the first window has opened)
+	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
+	/// * :1.262 (many applications have been started on this bus)
 	pub sender: smartstring::alias::String,
 }
 impl AccessiblePrimitive {
@@ -95,11 +95,10 @@ impl AccessiblePrimitive {
 	pub fn from_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
-		let sender = event
-			.sender();
-			//.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
-			//.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
-		let path = event.path();//.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
+		let sender = event.sender();
+		//.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
+		//.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
+		let path = event.path(); //.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
 		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
@@ -120,12 +119,14 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	fn try_from(
 		so: (OwnedUniqueName, OwnedObjectPath),
 	) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible_id= so.1;
-		Ok(AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() })
+		let accessible_id = so.1;
+		Ok(AccessiblePrimitive {
+			id: accessible_id.to_string(),
+			sender: so.0.as_str().into(),
+		})
 	}
 }
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
-
 	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
 		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
@@ -141,7 +142,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
-    let id = accessible.path().as_str().into();
+		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
 	}
 }
@@ -150,7 +151,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
-    let id = accessible.path().as_str().into();
+		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
 	}
 }
@@ -236,9 +237,7 @@ impl CacheItem {
 				.get_children()
 				.await?
 				.into_iter()
-				.map(|child_object_pair| {
-					CacheRef::new(child_object_pair.into())
-				})
+				.map(|child_object_pair| CacheRef::new(child_object_pair.into()))
 				.collect();
 		Ok(Self {
 			object: atspi_cache_item.object.try_into()?,
@@ -901,10 +900,7 @@ pub async fn accessible_to_cache_item(
 		role,
 		states,
 		text,
-		children: children
-			.into_iter()
-			.map(|k| CacheRef::new(k.into()))
-			.collect(),
+		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
 		cache,
 	})
 }

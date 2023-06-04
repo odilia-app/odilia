@@ -11,13 +11,13 @@ use tokio::sync::{
 };
 
 use crate::state::ScreenReaderState;
-use atspi_types::{Role, MatchType, InterfaceSet};
 use atspi::{
 	accessible_ext::{AccessibleExt, MatcherArgs},
 	component::ScrollType,
 	convertable::Convertable,
 };
 use atspi_types::events::Event;
+use atspi_types::{InterfaceSet, MatchType, Role};
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,
@@ -45,7 +45,10 @@ pub async fn structural_navigation(
 		interfaces,
 		MatchType::Invalid,
 	);
-	if let Some(next) = curr.get_next(&mt, dir == Direction::Backward, &mut Vec::new()).await? {
+	if let Some(next) = curr
+		.get_next(&mt, dir == Direction::Backward, &mut Vec::new())
+		.await?
+	{
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
 		let curr_prim = curr.try_into()?;
@@ -195,20 +198,20 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 
 #[cfg(test)]
 pub mod dispatch_tests {
-  use crate::ScreenReaderState;
-  use tokio::sync::mpsc::channel;
+	use crate::ScreenReaderState;
+	use tokio::sync::mpsc::channel;
 
-  #[tokio::test]
-  async fn test_full_cache() {
-    let state = generate_state().await;
-    assert_eq!(state.cache.by_id.len(), 14_738);
-  }
+	#[tokio::test]
+	async fn test_full_cache() {
+		let state = generate_state().await;
+		assert_eq!(state.cache.by_id.len(), 14_738);
+	}
 
-  pub async fn generate_state() -> ScreenReaderState {
-    let (send, mut recv) = channel(32);
-    let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
-    let state = ScreenReaderState::new(send).await.unwrap();
-    state.cache.add_all(cache).unwrap();
-    state
-  }
+	pub async fn generate_state() -> ScreenReaderState {
+		let (send, mut recv) = channel(32);
+		let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
+		let state = ScreenReaderState::new(send).await.unwrap();
+		state.cache.add_all(cache).unwrap();
+		state
+	}
 }

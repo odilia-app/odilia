@@ -260,12 +260,8 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event
-			.sender()
-			.to_owned();
-		let path = event
-			.path()
-			.to_owned();
+		let sender = event.sender().to_owned();
+		let path = event.path().to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)
 			.destination(sender)?

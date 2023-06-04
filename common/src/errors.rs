@@ -1,5 +1,5 @@
-use atspi_types::AtspiError as AtspiTypesError;
 use atspi::AtspiError;
+use atspi_types::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
 use smartstring::alias::String as SmartString;
 use std::{error::Error, fmt, str::FromStr};
@@ -7,7 +7,7 @@ use std::{error::Error, fmt, str::FromStr};
 #[derive(Debug)]
 pub enum OdiliaError {
 	AtspiError(AtspiError),
-  AtspiTypesError(AtspiTypesError),
+	AtspiTypesError(AtspiTypesError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
 	SerdeError(SerdePlainError),

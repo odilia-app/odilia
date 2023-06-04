@@ -167,7 +167,10 @@ mod text_changed {
 			"insert" => insert_or_delete(state, event, true).await?,
 			"delete/system" => insert_or_delete(state, event, false).await?,
 			"delete" => insert_or_delete(state, event, false).await?,
-			_ => tracing::trace!("TextChangedEvent has invalid kind: {}", event.operation),
+			_ => tracing::trace!(
+				"TextChangedEvent has invalid kind: {}",
+				event.operation
+			),
 		};
 		Ok(())
 	}
@@ -209,7 +212,8 @@ mod text_changed {
 		// only after should we try to update the cache
 		if insert {
 			let attributes = accessible.get_attributes().await?;
-			let _: OdiliaResult<()> = speak_insertion(state, event, &attributes, &current_text).await;
+			let _: OdiliaResult<()> =
+				speak_insertion(state, event, &attributes, &current_text).await;
 		}
 
 		let text_selection_from_cache: String = current_text
@@ -242,15 +246,9 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-  use atspi_types::events::object::ChildrenChangedEvent;
-	use odilia_cache::{
-    AccessiblePrimitive,
-    CacheItem,
-  };
-	use odilia_common::{
-    errors::OdiliaError,
-    result::OdiliaResult,
-  };
+	use atspi_types::events::object::ChildrenChangedEvent;
+	use odilia_cache::{AccessiblePrimitive, CacheItem};
+	use odilia_common::{errors::OdiliaError, result::OdiliaResult};
 	use std::sync::Arc;
 
 	pub async fn dispatch(
@@ -283,9 +281,7 @@ mod children_changed {
 	fn get_child_primitive(
 		event: &ChildrenChangedEvent,
 	) -> Result<AccessiblePrimitive, OdiliaError> {
-		Ok(event.child
-			.clone()
-			.try_into()?)
+		Ok(event.child.clone().try_into()?)
 	}
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let prim = get_child_primitive(event)?;
@@ -297,10 +293,8 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-  use atspi_types::events::object::TextCaretMovedEvent;
-	use atspi::{
-		text::{Granularity, Text},
-	};
+	use atspi::text::{Granularity, Text};
+	use atspi_types::events::object::TextCaretMovedEvent;
 	use odilia_cache::CacheItem;
 	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
@@ -427,20 +421,17 @@ mod text_caret_moved {
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
 	) -> eyre::Result<()> {
-    text_cursor_moved(state, event).await?;
+		text_cursor_moved(state, event).await?;
 
-		state.previous_caret_position
-			.store(event.position, Ordering::Relaxed);
+		state.previous_caret_position.store(event.position, Ordering::Relaxed);
 		Ok(())
 	}
 } // end of text_caret_moved
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-  use atspi_types::{State, events::object::StateChangedEvent};
-	use atspi::{
-		accessible::Accessible,
-	};
+	use atspi::accessible::Accessible;
+	use atspi_types::{events::object::StateChangedEvent, State};
 	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
@@ -535,7 +526,7 @@ mod state_changed {
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
 	use atspi_client::AccessibilityConnection;
-  use atspi_types::{InterfaceSet, State, StateSet, Role, Interface};
+	use atspi_types::{Interface, InterfaceSet, Role, State, StateSet};
 	use lazy_static::lazy_static;
 	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 	use std::sync::Arc;
@@ -552,7 +543,10 @@ mod tests {
 				id: "/org/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),
 			},
-			app: AccessiblePrimitive { id: "/org/a11y/atspi/accessible/root".to_string(), sender: ":1.2".into() },
+			app: AccessiblePrimitive {
+				id: "/org/a11y/atspi/accessible/root".to_string(),
+				sender: ":1.2".into()
+			},
 			parent: AccessiblePrimitive {
 				id: "/otg/a11y/atspi/accessible/1".to_string(),
 				sender: ":1.2".into(),
