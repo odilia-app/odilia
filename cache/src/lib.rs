@@ -13,12 +13,14 @@ use std::{
 };
 
 use async_trait::async_trait;
+use atspi_client::{convertable::Convertable, text_ext::TextExt};
+use atspi_common::{
+	ClipType, CoordType, GenericEvent, Granularity, InterfaceSet, RelationType, Role, StateSet,
+};
 use atspi_proxies::{
 	accessible::{Accessible, AccessibleProxy},
 	text::{Text, TextProxy},
 };
-use atspi_client::{convertable::Convertable, text_ext::TextExt};
-use atspi_common::{GenericEvent, InterfaceSet, RelationType, Role, StateSet, CoordType, ClipType, Granularity};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{

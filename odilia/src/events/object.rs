@@ -293,9 +293,9 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-	use atspi_common::Granularity;
-  use atspi_proxies::text::Text;
 	use atspi_common::events::object::TextCaretMovedEvent;
+	use atspi_common::Granularity;
+	use atspi_proxies::text::Text;
 	use odilia_cache::CacheItem;
 	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
@@ -431,8 +431,8 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_proxies::accessible::Accessible;
 	use atspi_common::{events::object::StateChangedEvent, State};
+	use atspi_proxies::accessible::Accessible;
 	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.

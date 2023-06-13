@@ -7,19 +7,13 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::debug;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
-use atspi_client::{
-	accessible_ext::AccessibleExt,
-	convertable::Convertable,
-};
-use atspi_proxies::{
-	accessible::AccessibleProxy,
-	cache::CacheProxy,
+use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
+use atspi_common::{
+	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
+	Event,
 };
 use atspi_connection::AccessibilityConnection;
-use atspi_common::{
-  Event,
-	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
-};
+use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
 	errors::{CacheError, ConfigError},
