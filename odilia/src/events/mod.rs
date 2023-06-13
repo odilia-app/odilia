@@ -204,7 +204,7 @@ pub mod dispatch_tests {
 	}
 
 	pub async fn generate_state() -> ScreenReaderState {
-		let (send, mut recv) = channel(32);
+		let (send, _recv) = channel(32);
 		let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
 		let state = ScreenReaderState::new(send).await.unwrap();
 		state.cache.add_all(cache).unwrap();
