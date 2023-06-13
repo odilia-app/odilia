@@ -526,8 +526,8 @@ mod state_changed {
 #[cfg(test)]
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
-	use atspi_connection::AccessibilityConnection;
 	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
+	use atspi_connection::AccessibilityConnection;
 	use lazy_static::lazy_static;
 	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 	use std::sync::Arc;
