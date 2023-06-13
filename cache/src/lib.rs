@@ -13,14 +13,12 @@ use std::{
 };
 
 use async_trait::async_trait;
-use atspi::{
+use atspi_proxies::{
 	accessible::{Accessible, AccessibleProxy},
-	convertable::Convertable,
-	text::{ClipType, Granularity, Text, TextProxy},
-	text_ext::TextExt,
-	CoordType,
+	text::{Text, TextProxy},
 };
-use atspi_types::{GenericEvent, InterfaceSet, RelationType, Role, StateSet};
+use atspi_client::{convertable::Convertable, text_ext::TextExt};
+use atspi_common::{GenericEvent, InterfaceSet, RelationType, Role, StateSet, CoordType, ClipType, Granularity};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
@@ -226,7 +224,7 @@ impl CacheItem {
 	///
 	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
 	pub async fn from_atspi_cache_item(
-		atspi_cache_item: atspi_types::CacheItem,
+		atspi_cache_item: atspi_common::CacheItem,
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {

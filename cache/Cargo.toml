@@ -13,7 +13,9 @@ categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
-atspi-types.workspace = true
+atspi-proxies.workspace = true
+atspi-common.workspace = true
+atspi-client.workspace = true
 odilia-common.workspace = true
 dashmap = "5.4.0"
 serde = "1.0.147"
@@ -30,7 +32,6 @@ rand = "0.8.5"
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tokio-test = "0.4.2"
-atspi-client.workspace = true
 
 [[bench]]
 name = "load_test"

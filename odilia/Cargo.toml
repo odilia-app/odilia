@@ -27,7 +27,9 @@ pre-release-replacements = [
 
 [dependencies]
 atspi.workspace = true
-atspi-types.workspace = true
+atspi-proxies.workspace = true
+atspi-common.workspace = true
+atspi-connection.workspace = true
 atspi-client.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true

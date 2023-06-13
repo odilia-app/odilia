@@ -11,13 +11,9 @@ use tokio::sync::{
 };
 
 use crate::state::ScreenReaderState;
-use atspi::{
-	accessible_ext::{AccessibleExt, MatcherArgs},
-	component::ScrollType,
-	convertable::Convertable,
-};
-use atspi_types::events::Event;
-use atspi_types::{InterfaceSet, MatchType, Role};
+use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
+use atspi_common::events::Event;
+use atspi_common::{InterfaceSet, MatcherArgs, Role, ScrollType, MatchType};
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,

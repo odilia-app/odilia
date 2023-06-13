@@ -7,15 +7,19 @@ use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::debug;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
-use atspi::{
-	accessible::AccessibleProxy,
+use atspi_client::{
 	accessible_ext::AccessibleExt,
-	cache::CacheProxy,
 	convertable::Convertable,
+};
+use atspi_proxies::{
+	accessible::AccessibleProxy,
+	cache::CacheProxy,
+};
+use atspi_connection::AccessibilityConnection;
+use atspi_common::{
+  Event,
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
 };
-use atspi_client::AccessibilityConnection;
-use atspi_types::Event;
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
 	errors::{CacheError, ConfigError},
@@ -88,7 +92,7 @@ impl ScreenReaderState {
 
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,
-		atspi_cache_item: atspi_types::CacheItem,
+		atspi_cache_item: atspi_common::CacheItem,
 	) -> OdiliaResult<CacheItem> {
 		let prim = atspi_cache_item.object.clone().try_into()?;
 		if self.cache.get(&prim).is_none() {

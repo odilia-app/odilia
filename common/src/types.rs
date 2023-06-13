@@ -1,4 +1,4 @@
-use atspi::text::Granularity;
+use atspi_common::Granularity;
 use serde::{self, Deserialize, Serialize};
 use zbus::zvariant::OwnedObjectPath;
 

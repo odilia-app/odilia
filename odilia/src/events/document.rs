@@ -1,5 +1,5 @@
 use crate::state::ScreenReaderState;
-use atspi_types::events::{
+use atspi_common::events::{
 	document::{DocumentEvents, LoadCompleteEvent},
 	GenericEvent,
 };

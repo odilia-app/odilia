@@ -1,5 +1,5 @@
 use atspi::AtspiError;
-use atspi_types::AtspiError as AtspiTypesError;
+use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
 use smartstring::alias::String as SmartString;
 use std::{error::Error, fmt, str::FromStr};
@@ -106,11 +106,6 @@ impl From<SerdePlainError> for OdiliaError {
 impl From<AtspiError> for OdiliaError {
 	fn from(err: AtspiError) -> OdiliaError {
 		Self::AtspiError(err)
-	}
-}
-impl From<AtspiTypesError> for OdiliaError {
-	fn from(err: AtspiTypesError) -> OdiliaError {
-		Self::AtspiTypesError(err)
 	}
 }
 impl fmt::Display for OdiliaError {

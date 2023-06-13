@@ -1,5 +1,5 @@
 use crate::state::ScreenReaderState;
-use atspi_types::events::object::ObjectEvents;
+use atspi_common::events::object::ObjectEvents;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<()> {
 	// Dispatch based on member
@@ -25,7 +25,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 
 mod text_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_types::events::object::TextChangedEvent;
+	use atspi_common::events::object::TextChangedEvent;
 	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
@@ -246,7 +246,7 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_types::events::object::ChildrenChangedEvent;
+	use atspi_common::events::object::ChildrenChangedEvent;
 	use odilia_cache::{AccessiblePrimitive, CacheItem};
 	use odilia_common::{errors::OdiliaError, result::OdiliaResult};
 	use std::sync::Arc;
@@ -293,8 +293,9 @@ mod children_changed {
 
 mod text_caret_moved {
 	use crate::state::ScreenReaderState;
-	use atspi::text::{Granularity, Text};
-	use atspi_types::events::object::TextCaretMovedEvent;
+	use atspi_common::Granularity;
+  use atspi_proxies::text::Text;
+	use atspi_common::events::object::TextCaretMovedEvent;
 	use odilia_cache::CacheItem;
 	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
@@ -430,8 +431,8 @@ mod text_caret_moved {
 
 mod state_changed {
 	use crate::state::ScreenReaderState;
-	use atspi::accessible::Accessible;
-	use atspi_types::{events::object::StateChangedEvent, State};
+	use atspi_proxies::accessible::Accessible;
+	use atspi_common::{events::object::StateChangedEvent, State};
 	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
@@ -526,7 +527,7 @@ mod state_changed {
 mod tests {
 	use crate::events::object::text_caret_moved::new_position;
 	use atspi_client::AccessibilityConnection;
-	use atspi_types::{Interface, InterfaceSet, Role, State, StateSet};
+	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
 	use lazy_static::lazy_static;
 	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 	use std::sync::Arc;
