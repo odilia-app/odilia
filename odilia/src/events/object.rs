@@ -196,7 +196,7 @@ mod text_changed {
 
 	/// The `insert` boolean, if set to true, will update the text in the cache.
 	/// If it is set to false, the selection will be removed.
-	/// The [`TextChangedEvent::kind`] value will *NOT* be checked by this function.
+	/// The [`TextChangedEvent::operation`] value will *NOT* be checked by this function.
 	pub async fn insert_or_delete(
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,

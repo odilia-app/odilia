@@ -58,7 +58,7 @@ pub struct AccessiblePrimitive {
 	pub sender: smartstring::alias::String,
 }
 impl AccessiblePrimitive {
-	/// Convert into an [`atspi::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	pub async fn into_accessible<'a>(
@@ -75,7 +75,7 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-	/// Convert into an [`atspi::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
@@ -157,7 +157,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
+/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)	(so)
 	pub object: AccessiblePrimitive,
@@ -205,7 +205,7 @@ impl CacheItem {
 	/// This can fail under three possible conditions:
 	///
 	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
-	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::accessible::AccessibleProxy`].
+	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
 		event: &T,
@@ -215,13 +215,13 @@ impl CacheItem {
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
 		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
 	}
-	/// Convert an [`atspi::cache::CacheItem`] into a [`crate::CacheItem`].
+	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
 	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
 	/// # Errors
 	/// This function can fail under the following conditions:
 	///
-	/// 1. The [`atspi::cache::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
-	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi::accessible::AccessibleProxy`]. This should never happen.
+	/// 1. The [`atspi::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
+	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi_proxies::accessible::AccessibleProxy`]. This should never happen.
 	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
 	///
 	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
@@ -858,7 +858,7 @@ impl Cache {
 	}
 }
 
-/// Convert an [`atspi::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
+/// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
 /// This runs a bunch of long-awaiting code and can take quite some time; use this sparingly.
 /// This takes most properties and some function calls through the `AccessibleProxy` structure and generates a new `CacheItem`, which will be written to cache before being sent back.
 ///
