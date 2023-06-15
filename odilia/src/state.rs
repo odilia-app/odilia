@@ -20,6 +20,7 @@ use odilia_common::{
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
+  events::ScreenReaderEvent,
 	Result as OdiliaResult,
 };
 use std::sync::Arc;
@@ -83,6 +84,10 @@ impl ScreenReaderState {
 			cache,
 		})
 	}
+  
+  pub async fn apply_all(&self, _events: Vec<ScreenReaderEvent>) -> OdiliaResult<bool> {
+    Ok(true)
+  }
 
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,

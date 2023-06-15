@@ -29,11 +29,11 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
-atspi-client = { git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
-atspi-proxies = { git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
-atspi-common = { git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
-atspi-connection = { git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
+atspi = { path = "../atspi/atspi/" }#git = "https://github.com/odilia-app/atspi", branch = "types_crate_v2", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
+atspi-client = { path = "../atspi/atspi-client" }#git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
+atspi-proxies = { path = "../atspi/atspi-proxies/"}#git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
+atspi-common = { path = "../atspi/atspi-common/" }#git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
+atspi-connection = { path = "../atspi/atspi-connection/" }#git = "https://github.com/odilia-app/atspi", default-features = false, branch = "types_crate_v2" }
 odilia-common = { version = "0.3.0", path = "./common" }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
