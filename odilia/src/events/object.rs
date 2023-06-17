@@ -1,26 +1,27 @@
 use crate::state::ScreenReaderState;
 use atspi_common::events::object::ObjectEvents;
+use odilia_common::events::{ScreenReaderEvent, CacheEvent};
 
-pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<()> {
+pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<Vec<ScreenReaderEvent>> {
 	// Dispatch based on member
-	match event {
+	Ok(match event {
 		ObjectEvents::StateChanged(state_changed_event) => {
-			state_changed::dispatch(state, state_changed_event).await?;
+			state_changed::dispatch(state_changed_event).await?
 		}
 		ObjectEvents::TextCaretMoved(text_caret_moved_event) => {
-			text_caret_moved::dispatch(state, text_caret_moved_event).await?;
+			text_caret_moved::dispatch(text_caret_moved_event).await?
 		}
 		ObjectEvents::TextChanged(text_changed_event) => {
-			text_changed::dispatch(state, text_changed_event).await?;
+			text_changed::dispatch(text_changed_event).await?
 		}
 		ObjectEvents::ChildrenChanged(children_changed_event) => {
-			children_changed::dispatch(state, children_changed_event).await?;
+			children_changed::dispatch(children_changed_event).await?
 		}
 		other_member => {
 			tracing::debug!("Ignoring event with unknown member: {:#?}", other_member);
+      vec![]
 		}
-	}
-	Ok(())
+	})
 }
 
 mod text_changed {
@@ -31,6 +32,7 @@ mod text_changed {
 		errors::OdiliaError,
 		result::OdiliaResult,
 		types::{AriaAtomic, AriaLive},
+    events::{CacheEvent, ScreenReaderEvent, TextAddEvent, TextRemovedEvent},
 	};
 	use ssip_client_async::Priority;
 	use std::collections::HashMap;
@@ -159,20 +161,21 @@ mod text_changed {
 	}
 
 	pub async fn dispatch(
-		state: &ScreenReaderState,
 		event: &TextChangedEvent,
-	) -> eyre::Result<()> {
-		match event.operation.as_str() {
-			"insert/system" => insert_or_delete(state, event, true).await?,
-			"insert" => insert_or_delete(state, event, true).await?,
-			"delete/system" => insert_or_delete(state, event, false).await?,
-			"delete" => insert_or_delete(state, event, false).await?,
-			_ => tracing::trace!(
-				"TextChangedEvent has invalid kind: {}",
-				event.operation
-			),
-		};
-		Ok(())
+	) -> eyre::Result<Vec<ScreenReaderEvent>> {
+		Ok(match event.operation.as_str() {
+			"insert/system" => insert_or_delete(event, true).await?,
+			"insert" => insert_or_delete(event, true).await?,
+			"delete/system" => insert_or_delete(event, false).await?,
+			"delete" => insert_or_delete(event, false).await?,
+			_ => {
+        tracing::trace!(
+          "TextChangedEvent has invalid kind: {}",
+          event.operation
+        );
+        vec![]
+      },
+		})
 	}
 
 	pub async fn speak_insertion(
@@ -198,49 +201,76 @@ mod text_changed {
 	/// If it is set to false, the selection will be removed.
 	/// The [`TextChangedEvent::operation`] value will *NOT* be checked by this function.
 	pub async fn insert_or_delete(
-		state: &ScreenReaderState,
 		event: &TextChangedEvent,
 		insert: bool,
-	) -> eyre::Result<()> {
-		let accessible = state.new_accessible(event).await?;
-		let cache_item = state.get_or_create_event_object_to_cache(event).await?;
-		let updated_text: String = (&event.text).try_into()?;
-		let current_text = cache_item.text;
-		let (start_pos, update_length) =
-			(usize::try_from(event.start_pos)?, usize::try_from(event.length)?);
-		// if this is an insert, figure out if we shuld announce anything, then speak it;
-		// only after should we try to update the cache
-		if insert {
-			let attributes = accessible.get_attributes().await?;
-			let _: OdiliaResult<()> =
-				speak_insertion(state, event, &attributes, &current_text).await;
-		}
+	) -> eyre::Result<Vec<ScreenReaderEvent>> {
+    Ok(if insert {
+      vec![
+        ScreenReaderEvent::Cache(
+          CacheEvent::AddText(
+            TextAddEvent {
+              item: (event.item.name.to_string(), event.item.path.clone()),
+              start_index: event.start_pos,
+              length: event.length,
+              text: event.text.clone(),
+            }
+          )
+        )
+      ]
+    } else {
+      vec![
+        ScreenReaderEvent::Cache(
+          CacheEvent::RemoveText(
+            TextRemovedEvent {
+              item: (event.item.name.to_string(), event.item.path.clone()),
+              start_index: event.start_pos,
+              length: event.length,
+              text: event.text.clone(),
+            }
+          )
+        )
+      ]
+    })
+    // reuse this to add other events
+		//let accessible = state.new_accessible(event).await?;
+		//let cache_item = state.get_or_create_event_object_to_cache(event).await?;
+		//let updated_text: String = (&event.text).try_into()?;
+		//let current_text = cache_item.text;
+		//let (start_pos, update_length) =
+		//	(usize::try_from(event.start_pos)?, usize::try_from(event.length)?);
+		//// if this is an insert, figure out if we shuld announce anything, then speak it;
+		//// only after should we try to update the cache
+		//if insert {
+		//	let attributes = accessible.get_attributes().await?;
+		//	let _: OdiliaResult<()> =
+		//		speak_insertion(state, event, &attributes, &current_text).await;
+		//}
 
-		let text_selection_from_cache: String = current_text
-			.char_indices()
-			.filter_map(get_string_within_bounds(start_pos, update_length))
-			.collect();
-		let selection_matches_update = text_selection_from_cache == updated_text;
-		let insert_has_not_occured = insert && !selection_matches_update;
-		let remove_has_not_occured = !insert && selection_matches_update;
-		if insert_has_not_occured {
-			state.cache.modify_item(
-				&cache_item.object,
-				update_string_insert(start_pos, update_length, &updated_text),
-			)?;
-		} else if remove_has_not_occured {
-			state.cache.modify_item(&cache_item.object, move |cache_item| {
-				cache_item.text = cache_item
-					.text
-					.char_indices()
-					.filter_map(get_string_without_bounds(
-						start_pos,
-						update_length,
-					))
-					.collect();
-			})?;
-		}
-		Ok(())
+		//let text_selection_from_cache: String = current_text
+		//	.char_indices()
+		//	.filter_map(get_string_within_bounds(start_pos, update_length))
+		//	.collect();
+		//let selection_matches_update = text_selection_from_cache == updated_text;
+		//let insert_has_not_occured = insert && !selection_matches_update;
+		//let remove_has_not_occured = !insert && selection_matches_update;
+		//if insert_has_not_occured {
+		//	state.cache.modify_item(
+		//		&cache_item.object,
+		//		update_string_insert(start_pos, update_length, &updated_text),
+		//	)?;
+		//} else if remove_has_not_occured {
+		//	state.cache.modify_item(&cache_item.object, move |cache_item| {
+		//		cache_item.text = cache_item
+		//			.text
+		//			.char_indices()
+		//			.filter_map(get_string_without_bounds(
+		//				start_pos,
+		//				update_length,
+		//			))
+		//			.collect();
+		//	})?;
+		//}
+		//Ok(())
 	}
 }
 
@@ -248,20 +278,24 @@ mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::ChildrenChangedEvent;
 	use odilia_cache::{AccessiblePrimitive, CacheItem};
-	use odilia_common::{errors::OdiliaError, result::OdiliaResult};
+	use odilia_common::{errors::OdiliaError, result::OdiliaResult, events::{
+    ScreenReaderEvent,
+    CacheEvent,
+  }};
 	use std::sync::Arc;
 
 	pub async fn dispatch(
-		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
-	) -> eyre::Result<()> {
+	) -> eyre::Result<Vec<ScreenReaderEvent>> {
 		// Dispatch based on kind
-		match event.operation.as_str() {
-			"remove" | "remove/system" => remove(state, event)?,
-			"add" | "add/system" => add(state, event).await?,
-			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
-		}
-		Ok(())
+		Ok(match event.operation.as_str() {
+			"remove" | "remove/system" => vec![ScreenReaderEvent::Cache(CacheEvent::RemoveItem((event.item.name.to_string(), event.item.path.clone())))],
+			"add" | "add/system" => vec![ScreenReaderEvent::Cache(CacheEvent::AddItem((event.item.name.to_string(), event.item.path.clone())))],
+			kind => {
+        tracing::debug!(kind, "Ignoring event with unknown kind");
+        vec![]
+      },
+		})
 	}
 	pub async fn add(
 		state: &ScreenReaderState,
@@ -297,7 +331,10 @@ mod text_caret_moved {
 	use atspi_common::Granularity;
 	use atspi_proxies::text::Text;
 	use odilia_cache::CacheItem;
-	use odilia_common::errors::{CacheError, OdiliaError};
+	use odilia_common::{
+    errors::{CacheError, OdiliaError},
+    events::{ScreenReaderEvent},
+  };
 	use ssip_client_async::Priority;
 	use std::{
 		cmp::{max, min},
@@ -419,13 +456,18 @@ mod text_caret_moved {
 	}
 
 	pub async fn dispatch(
-		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
-	) -> eyre::Result<()> {
-		text_cursor_moved(state, event).await?;
+	) -> eyre::Result<Vec<ScreenReaderEvent>> {
+    Ok(vec![
+      ScreenReaderEvent::MoveCaret(
+        (event.item.name.to_string(), event.item.path.clone()),
+        event.position
+      ),
+    ])
+		//text_cursor_moved(state, event).await?;
 
-		state.previous_caret_position.store(event.position, Ordering::Relaxed);
-		Ok(())
+		//state.previous_caret_position.store(event.position, Ordering::Relaxed);
+		//Ok(())
 	}
 } // end of text_caret_moved
 
@@ -434,6 +476,7 @@ mod state_changed {
 	use atspi_common::{events::object::StateChangedEvent, State};
 	use atspi_proxies::accessible::Accessible;
 	use odilia_cache::AccessiblePrimitive;
+  use odilia_common::events::{ScreenReaderEvent, CacheEvent};
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -455,36 +498,48 @@ mod state_changed {
 	}
 
 	pub async fn dispatch(
-		state: &ScreenReaderState,
 		event: &StateChangedEvent,
-	) -> eyre::Result<()> {
-		let a11y_state: State = match serde_plain::from_str(&event.state) {
-			Ok(s) => s,
-			Err(e) => {
-				tracing::error!("Not able to deserialize state: {}", event.state);
-				return Err(e.into());
-			}
-		};
-		let state_value = event.enabled == 1;
-		// update cache with state of item
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, a11y_state, state_value) {
-			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
-			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
-			Err(e) => return Err(e),
-		};
-		// Dispatch based on kind
-		let state_type = serde_plain::from_str(&event.state)?;
-		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (state_type, event.enabled == 1) {
-			(State::Focused, true) => focused(state, event).await?,
-			(state, enabled) => tracing::debug!(
-				"Ignoring state_changed event with unknown kind: {:?}/{}",
-				state,
-				enabled
-			),
-		}
-		Ok(())
+	) -> eyre::Result<Vec<ScreenReaderEvent>> {
+    let state = serde_plain::from_str(&event.state)?;
+    Ok(match event {
+      StateChangedEvent { enabled: 1, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::AddState(
+        (item.name.to_string(), item.path.clone()),
+        state,
+      ))],
+      StateChangedEvent { enabled: 0, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::RemoveState(
+        (item.name.to_string(), item.path.clone()),
+        state,
+      ))],
+      _ => vec![],
+    })
+    // use later
+		//let a11y_state: State = match serde_plain::from_str(&event.state) {
+		//	Ok(s) => s,
+		//	Err(e) => {
+		//		tracing::error!("Not able to deserialize state: {}", event.state);
+		//		return Err(e.into());
+		//	}
+		//};
+		//let state_value = event.enabled == 1;
+		//// update cache with state of item
+		//let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		//match update_state(state, &a11y_prim, a11y_state, state_value) {
+		//	Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
+		//	Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
+		//	Err(e) => return Err(e),
+		//};
+		//// Dispatch based on kind
+		//let state_type = serde_plain::from_str(&event.state)?;
+		//// enabled can only be 1 or 0, but is not a boolean over dbus
+		//match (state_type, event.enabled == 1) {
+		//	(State::Focused, true) => focused(state, event).await?,
+		//	(state, enabled) => tracing::debug!(
+		//		"Ignoring state_changed event with unknown kind: {:?}/{}",
+		//		state,
+		//		enabled
+		//	),
+		//}
+		//Ok(())
 	}
 
 	pub async fn focused(

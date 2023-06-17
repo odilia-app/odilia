@@ -52,7 +52,7 @@ async fn main() -> eyre::Result<()> {
 	// this is the chanel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then wdaiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be remidied through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
-	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::tokio::Request>(128);
+	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx).await?);
 	let mut ssip = odilia_tts::create_ssip_client().await?;

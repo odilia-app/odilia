@@ -2,7 +2,7 @@ use std::{fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use ssip_client_async::{tokio::Request as SSIPRequest, MessageScope, Priority};
+use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::debug;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
@@ -20,6 +20,7 @@ use odilia_common::{
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
+  events::ScreenReaderEvent,
 	Result as OdiliaResult,
 };
 use std::sync::Arc;
@@ -83,6 +84,10 @@ impl ScreenReaderState {
 			cache,
 		})
 	}
+  
+  pub async fn apply_all(&self, _events: Vec<ScreenReaderEvent>) -> OdiliaResult<bool> {
+    Ok(true)
+  }
 
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,

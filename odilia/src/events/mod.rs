@@ -162,34 +162,39 @@ pub async fn process(
 }
 
 async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
-	if let Err(e) = dispatch(&state, good_event).await {
-		tracing::error!(error = %e, "Could not handle event");
-	} else {
-		tracing::debug!("Event handled without error");
+  match dispatch(&state, good_event).await {
+    Err(e) => {
+      tracing::error!(error = %e, "Could not handle event");
+    },
+    Ok(events) => {
+      let _ = state.apply_all(events).await;
+      tracing::debug!("Event handled without error");
+    },
 	}
 }
 
-async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
+async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<Vec<ScreenReaderEvent>> {
 	// Dispatch based on interface
-	match &event {
+	Ok(match &event {
 		Event::Object(object_event) => {
-			object::dispatch(state, object_event).await?;
+			object::dispatch(state, object_event).await?
 		}
 		Event::Document(document_event) => {
-			document::dispatch(state, document_event).await?;
+			document::dispatch(state, document_event).await?
 		}
-		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
+		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await,
 		other_event => {
 			tracing::debug!(
 				"Ignoring event with unknown interface: {:#?}",
 				other_event
 			);
+      vec![]
 		}
-	}
+	})
 	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;
 	//state.update_accessible(accessible_id).await;
-	state.event_history_update(event).await;
-	Ok(())
+	//state.event_history_update(event).await;
+	//Ok(events)
 }
 
 #[cfg(test)]

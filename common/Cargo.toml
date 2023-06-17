@@ -11,13 +11,16 @@ keywords = ["screen-reader", "accessibility", "a11y", "data-structures", "linux"
 categories = ["accessibility"]
 edition = "2021"
 
+[features]
+default = ["dep:zbus"]
+
 [dependencies]
-atspi.workspace = true
 atspi-common.workspace = true
+ssip-common.workspace = true
 bitflags = "1.3.2"
 serde = "1.0.147"
 smartstring = "1.0.1"
 thiserror = "1.0.37"
 tini = "^1.3.0"
-zbus.workspace = true
 serde_plain.workspace = true
+zbus = { workspace = true, optional = true }

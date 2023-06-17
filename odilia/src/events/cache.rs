@@ -1,28 +1,18 @@
 use crate::ScreenReaderState;
 use atspi::events::{AddAccessibleEvent, CacheEvents, RemoveAccessibleEvent};
-use odilia_cache::AccessiblePrimitive;
+use odilia_common::events::{ScreenReaderEvent, CacheEvent};
 
-pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {
-	match event {
-		CacheEvents::Add(add_event) => add_accessible(state, add_event).await?,
-		CacheEvents::Remove(rem_event) => remove_accessible(state, rem_event)?,
-	}
-	Ok(())
-}
-
-pub async fn add_accessible(
-	state: &ScreenReaderState,
-	event: &AddAccessibleEvent,
-) -> eyre::Result<()> {
-	state.get_or_create_atspi_cache_item_to_cache(event.node_added.clone())
-		.await?;
-	Ok(())
-}
-pub fn remove_accessible(
-	state: &ScreenReaderState,
-	event: &RemoveAccessibleEvent,
-) -> eyre::Result<()> {
-	let accessible_prim: AccessiblePrimitive = AccessiblePrimitive::from_event(event)?;
-	state.cache.remove(&accessible_prim);
-	Ok(())
+pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> Vec<ScreenReaderEvent> {
+	vec![match event {
+		CacheEvents::Add(add_event) => ScreenReaderEvent::Cache(
+      CacheEvent::AddItem(
+        (add_event.item.name.to_string(), add_event.item.path.clone())
+      )
+    ),
+		CacheEvents::Remove(rem_event) => ScreenReaderEvent::Cache(
+      CacheEvent::RemoveItem(
+        (rem_event.item.name.to_string(), rem_event.item.path.clone())
+      )
+    ),
+	}]
 }
