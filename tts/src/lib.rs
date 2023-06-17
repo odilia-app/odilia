@@ -9,7 +9,8 @@
 
 use ssip_client_async::{
 	fifo::asynchronous_tokio::Builder,
-	tokio::{AsyncClient, Request},
+	tokio::{AsyncClient},
+  Request,
 	ClientName,
 };
 use std::{
