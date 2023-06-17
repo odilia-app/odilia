@@ -1,33 +1,43 @@
 use atspi_common::{AtspiError, error::ObjectPathConversionError};
 use serde_plain::Error as SerdePlainError;
-use smartstring::alias::String as SmartString;
 use std::{error::Error, fmt, str::FromStr};
 
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum OdiliaError {
 	AtspiError(AtspiError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
-	SerdeError(SerdePlainError),
-	Zbus(zbus::Error),
-	ZbusFdo(zbus::fdo::Error),
-	Zvariant(zbus::zvariant::Error),
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
 	ConversionError(std::num::TryFromIntError),
 	Config(ConfigError),
 	PoisoningError,
 	Generic(String),
+	SerdeError(SerdePlainError),
+	Zvariant(zvariant::Error),
 }
 #[derive(Debug)]
 pub enum ConfigError {
-	Tini(tini::Error),
+	Tini(String),
 	ValueNotFound,
 	PathNotFound,
 }
+#[cfg(feature = "zbus")]
+impl From<zbus::Error> for OdiliaError {
+	fn from(z_err: zbus::Error) -> Self {
+		OdiliaError::Generic(z_err.to_string())
+	}
+}
+#[cfg(feature = "zbus")]
+impl From<zbus::fdo::Error> for OdiliaError {
+	fn from(z_err: zbus::fdo::Error) -> Self {
+		OdiliaError::Generic(z_err.to_string())
+	}
+}
 impl From<tini::Error> for ConfigError {
 	fn from(t_err: tini::Error) -> Self {
-		Self::Tini(t_err)
+		Self::Tini(t_err.to_string())
 	}
 }
 impl std::fmt::Display for ConfigError {
@@ -71,11 +81,6 @@ impl From<std::num::TryFromIntError> for OdiliaError {
 		Self::ConversionError(fie)
 	}
 }
-impl From<zbus::fdo::Error> for OdiliaError {
-	fn from(spe: zbus::fdo::Error) -> Self {
-		Self::ZbusFdo(spe)
-	}
-}
 impl From<std::convert::Infallible> for OdiliaError {
 	fn from(infallible: std::convert::Infallible) -> Self {
 		Self::InfallibleConversion(infallible)
@@ -86,13 +91,8 @@ impl From<CacheError> for OdiliaError {
 		Self::Cache(cache_error)
 	}
 }
-impl From<zbus::Error> for OdiliaError {
-	fn from(spe: zbus::Error) -> Self {
-		Self::Zbus(spe)
-	}
-}
-impl From<zbus::zvariant::Error> for OdiliaError {
-	fn from(spe: zbus::zvariant::Error) -> Self {
+impl From<zvariant::Error> for OdiliaError {
+	fn from(spe: zvariant::Error) -> Self {
 		Self::Zvariant(spe)
 	}
 }
@@ -112,7 +112,7 @@ impl fmt::Display for OdiliaError {
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum AccessiblePrimitiveConversionError {
 	ParseError(<i32 as FromStr>::Err),
 	ObjectConversionError(ObjectPathConversionError),
@@ -140,7 +140,7 @@ impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
 	}
 }
 
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum KeyFromStrError {
 	#[error("Empty key binding")]
 	EmptyString,
@@ -149,16 +149,16 @@ pub enum KeyFromStrError {
 	#[error("Empty key")]
 	EmptyKey,
 	#[error("Invalid key: {0:?}")]
-	InvalidKey(SmartString),
+	InvalidKey(String),
 	#[error("Invalid repeat: {0:?}")]
-	InvalidRepeat(SmartString),
+	InvalidRepeat(String),
 	#[error("Invalid modifier: {0:?}")]
-	InvalidModifier(SmartString),
+	InvalidModifier(String),
 	#[error("Invalid mode: {0:?}")]
-	InvalidMode(SmartString),
+	InvalidMode(String),
 }
 
-#[derive(Debug, Clone, Copy, thiserror::Error)]
+#[derive(Debug, thiserror::Error)]
 pub enum ModeFromStrError {
 	#[error("Mode not found")]
 	ModeNameNotFound,
