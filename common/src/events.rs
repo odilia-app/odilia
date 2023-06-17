@@ -52,26 +52,27 @@ pub enum ScreenReaderEvent {
   /// For example, when a curosr is moved within the same accessible object, the screen reader may want to speak what was between the old and new curosr position.
   MoveCaret(Accessible, i32),
 }
+
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 pub enum CacheEvent {
   /// Load all items underneath a root into the cache.
+  /// Internally, this is an extremely expensive event to process. We do not recommend triggering this often, since it can cause quite the performance hit.
   LoadAll(Accessible),
-  ModifyItem(Accessible, FieldValue),
+  /// Remove a state from an accessible.
+  RemoveState(Accessible, State),
+  /// Add a state to an accessible.
+  AddState(Accessible, State),
+  /// Insert text into an accessible.
   AddText(TextAddEvent),
+  /// Remove text from an accessible.
   RemoveText(TextRemovedEvent),
+  /// Remove an accessible object from the cache. This event should usually only be triggered internally.
+  /// When attempting to query information about an accessible object which is not contained within the cache will result in a very chatty conversation with `atspi` over DBus.
   RemoveItem(Accessible),
   /// This queries zbus for all the information required to add a new cache item.
   /// It can take quite some time, so if you're a developer of Odilia itself, please make sure this always runs in a separate asyncronous task.
   // this should eventually contains an odilia_cache::CacheItem; this adds a bunch of information that would not need to be queried.
   AddItem(Accessible),
-}
-
-/// Setting a new value to a field in an accessible object in the cache.
-/// TODO: add role, interfaces, etc.
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
-pub enum FieldValue {
-  AddState(State),
-  RemoveState(State),
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]

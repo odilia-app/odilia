@@ -2,7 +2,7 @@ use std::{fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use ssip_client_async::{tokio::Request as SSIPRequest, MessageScope, Priority};
+use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::debug;
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};

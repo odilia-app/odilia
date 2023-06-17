@@ -476,7 +476,7 @@ mod state_changed {
 	use atspi_common::{events::object::StateChangedEvent, State};
 	use atspi_proxies::accessible::Accessible;
 	use odilia_cache::AccessiblePrimitive;
-  use odilia_common::events::{ScreenReaderEvent, CacheEvent, FieldValue};
+  use odilia_common::events::{ScreenReaderEvent, CacheEvent};
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -502,13 +502,13 @@ mod state_changed {
 	) -> eyre::Result<Vec<ScreenReaderEvent>> {
     let state = serde_plain::from_str(&event.state)?;
     Ok(match event {
-      StateChangedEvent { enabled: 1, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::ModifyItem(
+      StateChangedEvent { enabled: 1, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::AddState(
         (item.name.to_string(), item.path.clone()),
-        FieldValue::AddState(state),
+        state,
       ))],
-      StateChangedEvent { enabled: 0, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::ModifyItem(
+      StateChangedEvent { enabled: 0, item, .. } => vec![ScreenReaderEvent::Cache(CacheEvent::RemoveState(
         (item.name.to_string(), item.path.clone()),
-        FieldValue::RemoveState(state),
+        state,
       ))],
       _ => vec![],
     })
