@@ -48,5 +48,7 @@ tracing-subscriber = { version = "0.3.16", default-features = false, features = 
 tracing-error = "^0.2.0"
 tracing-tree = "^0.2.2"
 zbus = { version = "^3.6.2", default-features = false, features = ["tokio"] }
+zvariant = { version = "3.6.2" }
+zbus_names = { version = "2.4.0" }
 serde_plain = "1.0.1"
 

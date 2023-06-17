@@ -1118,6 +1118,8 @@ dependencies = [
  "thiserror",
  "tini",
  "zbus",
+ "zbus_names",
+ "zvariant",
 ]
 
 [[package]]

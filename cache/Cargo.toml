@@ -16,7 +16,7 @@ atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
 atspi-client.workspace = true
-odilia-common.workspace = true
+odilia-common = { workspace = true, features = ["zbus"] }
 dashmap = "5.4.0"
 serde = "1.0.147"
 tokio.workspace = true
