@@ -97,10 +97,14 @@ jobs:
 
   clippy:
     runs-on: ubuntu-latest
+    name: ${{ matrix.toolchain }} / clippy
+    strategy:
+        fail-fast: false
+        matrix:
+            toolchain: [stable, beta]
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
-
       - name: Cache cargo home
         uses: actions/cache@v3
         env:
@@ -114,19 +118,13 @@ jobs:
           key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
+      - name: Install ${{ matrix.toolchain }}
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
-
+          components: clippy
+          toolchain: ${{ matrix.toolchain }}
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          # "-- -D warnings" will make the job fail if their are clippy warnings
-          args: --workspace --no-deps -- -D warnings -W clippy::print_stdout
-
+        run: cargo clippy --workspace --no-deps -- -D warnings 
   rustfmt:
     runs-on: ubuntu-latest
     steps:
