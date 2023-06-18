@@ -61,6 +61,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
       - name: Run benchmarks
+        working-directory: ./cache/
         run: cargo bench
   wasm-compatibility:
     runs-on: ubuntu-latest
