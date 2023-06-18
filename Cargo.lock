@@ -211,6 +211,7 @@ checksum = "1181e1e0d1fce796a03db1ae795d67167da795f9cf4a39c37589e85ef57f26d3"
 [[package]]
 name = "atspi"
 version = "0.16.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "atspi-client",
  "atspi-common",
@@ -221,6 +222,7 @@ dependencies = [
 [[package]]
 name = "atspi-client"
 version = "0.1.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "async-trait",
  "atspi-common",
@@ -232,6 +234,7 @@ dependencies = [
 [[package]]
 name = "atspi-common"
 version = "0.2.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "enumflags2",
  "serde",
@@ -244,6 +247,7 @@ dependencies = [
 [[package]]
 name = "atspi-connection"
 version = "0.1.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -254,6 +258,7 @@ dependencies = [
 [[package]]
 name = "atspi-macros"
 version = "0.4.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -268,6 +273,7 @@ dependencies = [
 [[package]]
 name = "atspi-proxies"
 version = "0.1.0"
+source = "git+https://github.com/odilia-app/atspi/?branch=error-serialization#a51922a6920eb9fda0277b42f4aef7869bb6d457"
 dependencies = [
  "async-trait",
  "atspi-common",

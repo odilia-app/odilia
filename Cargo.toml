@@ -29,11 +29,11 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { path = "../atspi/atspi/", version = "0.16.0", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
-atspi-client = { path = "../atspi/atspi-client/", version = "0.1.0", default-features = false }
-atspi-proxies = { path = "../atspi/atspi-proxies", version = "0.1.0", default-features = false }
-atspi-common = { path = "../atspi/atspi-common", version = "0.2.0", default-features = false }
-atspi-connection = { path = "../atspi/atspi-connection", version = "0.1.0", default-features = false }
+atspi = { git = "https://github.com/odilia-app/atspi/", branch = "error-serialization", version = "0.16.0", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
+atspi-client = { git = "https://github.com/odilia-app/atspi/", branch = "error-serialization", version = "0.1.0", default-features = false }
+atspi-proxies = { git = "https://github.com/odilia-app/atspi/", branch = "error-serialization", version = "0.1.0", default-features = false }
+atspi-common = { git = "https://github.com/odilia-app/atspi/", branch = "error-serialization", version = "0.2.0", default-features = false }
+atspi-connection = { git = "https://github.com/odilia-app/atspi/", branch = "error-serialization", version = "0.1.0", default-features = false }
 odilia-common = { version = "0.3.0", path = "./common", features = ["zbus", "proxies"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
