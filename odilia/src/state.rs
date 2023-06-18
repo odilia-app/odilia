@@ -14,13 +14,14 @@ use atspi_common::{
 };
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{Cache, cache_item_ext::{CacheItemHostExt, AccessibleHostExt}, AccessiblePrimitiveHostExt};
 use odilia_common::{
 	errors::{CacheError, ConfigError},
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
   events::ScreenReaderEvent,
+	cache::{AccessiblePrimitive, CacheItem},
 	Result as OdiliaResult,
 };
 use std::sync::Arc;
@@ -97,14 +98,14 @@ impl ScreenReaderState {
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_cache_item(
 				atspi_cache_item,
-				Arc::downgrade(&Arc::clone(&self.cache)),
+				//Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
 			.await?)?;
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
-	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a>>(
+	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a> + Sync>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
@@ -112,7 +113,7 @@ impl ScreenReaderState {
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_event(
 				event,
-				Arc::downgrade(&Arc::clone(&self.cache)),
+				//Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
 			)
 			.await?)?;

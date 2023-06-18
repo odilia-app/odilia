@@ -20,6 +20,7 @@ use odilia_common::{
 };
 use ssip_client_async::Priority;
 
+/*
 pub async fn structural_navigation(
 	state: &ScreenReaderState,
 	dir: Direction,
@@ -63,6 +64,7 @@ pub async fn structural_navigation(
 		Ok(true)
 	}
 }
+*/
 
 pub async fn sr_event(
 	state: Arc<ScreenReaderState>,
@@ -74,13 +76,13 @@ pub async fn sr_event(
 		    sr_event = sr_events.recv() => {
 			tracing::debug!("SR Event received");
 			match sr_event {
-			    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
-				 if let Err(e) = structural_navigation(&state, dir, role).await {
-				    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
-				} else {
-					tracing::debug!("Structural navigation successful!");
-				}
-			    },
+//			    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
+//				 if let Err(e) = structural_navigation(&state, dir, role).await {
+//				    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
+//				} else {
+//					tracing::debug!("Structural navigation successful!");
+//				}
+//			    },
 			    Some(ScreenReaderEvent::StopSpeech) => {
 			      tracing::debug!("Stopping speech!");
 			      let _: bool = state.stop_speech().await;

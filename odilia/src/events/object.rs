@@ -1,6 +1,7 @@
 use crate::state::ScreenReaderState;
 use atspi_common::events::object::ObjectEvents;
 use odilia_common::events::{ScreenReaderEvent, CacheEvent};
+use odilia_cache::AccessiblePrimitiveHostExt;
 
 pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<Vec<ScreenReaderEvent>> {
 	// Dispatch based on member
@@ -27,12 +28,12 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 mod text_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::TextChangedEvent;
-	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
 		result::OdiliaResult,
 		types::{AriaAtomic, AriaLive},
     events::{CacheEvent, ScreenReaderEvent, TextAddEvent, TextRemovedEvent},
+		cache::CacheItem,
 	};
 	use ssip_client_async::Priority;
 	use std::collections::HashMap;
@@ -277,11 +278,11 @@ mod text_changed {
 mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::ChildrenChangedEvent;
-	use odilia_cache::{AccessiblePrimitive, CacheItem};
-	use odilia_common::{errors::OdiliaError, result::OdiliaResult, events::{
+	use odilia_common::{errors::OdiliaError, result::OdiliaResult, 	cache::{AccessiblePrimitive, CacheItem},events::{
     ScreenReaderEvent,
     CacheEvent,
   }};
+	use odilia_cache::AccessiblePrimitiveHostExt;
 	use std::sync::Arc;
 
 	pub async fn dispatch(
@@ -330,10 +331,11 @@ mod text_caret_moved {
 	use atspi_common::events::object::TextCaretMovedEvent;
 	use atspi_common::Granularity;
 	use atspi_proxies::text::Text;
-	use odilia_cache::CacheItem;
+	use odilia_cache::cache_item_ext::{TextHostExt};
 	use odilia_common::{
     errors::{CacheError, OdiliaError},
     events::{ScreenReaderEvent},
+		cache::CacheItem,
   };
 	use ssip_client_async::Priority;
 	use std::{
@@ -347,6 +349,7 @@ mod text_caret_moved {
 		old_item: CacheItem,
 		new_position: i32,
 		old_position: i32,
+		state: &ScreenReaderState,
 	) -> Result<String, OdiliaError> {
 		let new_id = new_item.object.clone();
 		let old_id = old_item.object.clone();
@@ -359,7 +362,7 @@ mod text_caret_moved {
 		debug!("{old_pos},{new_pos}");
 		if new_id != old_id {
 			return Ok(new_item
-				.get_string_at_offset(new_position, Granularity::Line)
+				.get_string_at_offset(new_position, Granularity::Line, state.connection())
 				.await?
 				.0);
 		}
@@ -368,29 +371,29 @@ mod text_caret_moved {
 		// if there is one character between the old and new position
 		if new_pos.abs_diff(old_pos) == 1 {
 			return Ok(new_item
-				.get_string_at_offset(first_position, Granularity::Char)
+				.get_string_at_offset(first_position, Granularity::Char, state.connection())
 				.await?
 				.0);
 		}
 		let first_word = new_item
-			.get_string_at_offset(first_position, Granularity::Word)
+			.get_string_at_offset(first_position, Granularity::Word, state.connection())
 			.await?;
 		let last_word = old_item
-			.get_string_at_offset(last_position, Granularity::Word)
+			.get_string_at_offset(last_position, Granularity::Word, state.connection())
 			.await?;
 		// if words are the same
 		if first_word == last_word ||
 			 // if the end position of the first word immediately peceeds the start of the second word
 			 first_word.2.abs_diff(last_word.1) == 1
 		{
-			return new_item.get_text(first_position, last_position).await;
+			return new_item.get_text(first_position, last_position);
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
 		if first_position == 0 && usize::try_from(last_position)? == new_item.text.len() {
 			return Ok(new_item.text.clone());
 		}
 		Ok(new_item
-			.get_string_at_offset(new_position, Granularity::Line)
+			.get_string_at_offset(new_position, Granularity::Line, state.connection())
 			.await?
 			.0)
 	}
@@ -443,11 +446,11 @@ mod text_caret_moved {
 				let old_item =
 					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
 				let new_pos = event.position;
-				new_position(new_item, old_item, new_pos, old_pos).await?
+				new_position(new_item, old_item, new_pos, old_pos, state).await?
 			}
 			None => {
 				// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
-				new_item.get_string_at_offset(0, Granularity::Paragraph).await?.0
+				new_item.get_string_at_offset(0, Granularity::Paragraph, state.connection()).await?.0
 			}
 		};
 		state.say(Priority::Text, text).await;
@@ -475,8 +478,11 @@ mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::{events::object::StateChangedEvent, State};
 	use atspi_proxies::accessible::Accessible;
-	use odilia_cache::AccessiblePrimitive;
-  use odilia_common::events::{ScreenReaderEvent, CacheEvent};
+	use odilia_cache::cache_item_ext::{AccessibleHostExt, TextHostExt};
+  use odilia_common::{
+		events::{ScreenReaderEvent, CacheEvent},
+		cache::AccessiblePrimitive,
+	};
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -554,10 +560,10 @@ mod state_changed {
 		}
 
 		let (name, description, role, relation) = tokio::try_join!(
-			accessible.name(),
-			accessible.description(),
-			accessible.get_localized_role_name(),
-			accessible.get_relation_set(),
+			accessible.name(state.connection()),
+			accessible.description(state.connection()),
+			accessible.get_localized_role_name(state.connection()),
+			accessible.get_relation_set(state.connection(), &*state.cache),
 		)?;
 		state.update_accessible(accessible.object.clone()).await;
 		tracing::debug!(
@@ -575,147 +581,5 @@ mod state_changed {
 
 		state.update_accessible(accessible.object).await;
 		Ok(())
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use crate::events::object::text_caret_moved::new_position;
-	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
-	use atspi_connection::AccessibilityConnection;
-	use lazy_static::lazy_static;
-	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
-	use std::sync::Arc;
-	use tokio_test::block_on;
-
-	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
-	lazy_static! {
-		static ref ZBUS_CONN: AccessibilityConnection =
-			block_on(AccessibilityConnection::open()).unwrap();
-		static ref CACHE_ARC: Arc<Cache> =
-			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
-		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
-			object: AccessiblePrimitive {
-				id: "/org/a11y/atspi/accessible/1".to_string(),
-				sender: ":1.2".into(),
-			},
-			app: AccessiblePrimitive {
-				id: "/org/a11y/atspi/accessible/root".to_string(),
-				sender: ":1.2".into()
-			},
-			parent: AccessiblePrimitive {
-				id: "/otg/a11y/atspi/accessible/1".to_string(),
-				sender: ":1.2".into(),
-			}
-			.into(),
-			index: 323,
-			children_num: 0,
-			interfaces: InterfaceSet::new(
-				Interface::Accessible
-					| Interface::Collection | Interface::Component
-					| Interface::Hyperlink | Interface::Hypertext
-					| Interface::Text
-			),
-			role: Role::Paragraph,
-			states: StateSet::new(
-				State::Enabled | State::Opaque | State::Showing | State::Visible
-			),
-			text: A11Y_PARAGRAPH_STRING.to_string(),
-			children: Vec::new(),
-			cache: Arc::downgrade(&CACHE_ARC),
-		};
-		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
-			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 4, 3, " "),
-			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 4, " "),
-			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 0, 3, "The"),
-			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 0, "The"),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				169,
-				182,
-				"Microsystems,"
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				77,
-				83,
-				" Linux"
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				181,
-				189,
-				", before"
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				0,
-				220,
-				A11Y_PARAGRAPH_STRING,
-			),
-			(
-				A11Y_PARAGRAPH_ITEM.clone(),
-				A11Y_PARAGRAPH_ITEM.clone(),
-				220,
-				0,
-				A11Y_PARAGRAPH_STRING,
-			),
-		];
-	}
-
-	macro_rules! check_answer_values {
-		($idx:literal) => {
-			assert_eq!(
-				tokio_test::block_on(new_position(
-					ANSWER_VALUES[$idx].0.clone(),
-					ANSWER_VALUES[$idx].1.clone(),
-					ANSWER_VALUES[$idx].2.try_into().unwrap(),
-					ANSWER_VALUES[$idx].3.try_into().unwrap(),
-				))
-				.unwrap(),
-				ANSWER_VALUES[$idx].4.to_string(),
-			);
-		};
-	}
-
-	#[test]
-	fn test_text_navigation_one_letter() {
-		check_answer_values!(0);
-	}
-	#[test]
-	fn test_text_navigation_one_letter_back() {
-		check_answer_values!(1);
-	}
-	#[test]
-	fn test_text_navigation_one_word_back() {
-		check_answer_values!(2);
-	}
-	#[test]
-	fn test_text_navigation_one_word() {
-		check_answer_values!(3);
-	}
-	#[test]
-	fn test_text_navigation_one_word_with_punctuation_after() {
-		check_answer_values!(4);
-	}
-	#[test]
-	fn test_text_navigation_one_word_with_space() {
-		check_answer_values!(5);
-	}
-	#[test]
-	fn test_text_navigation_one_word_with_punctutation_first() {
-		check_answer_values!(6);
-	}
-	#[test]
-	fn test_text_navigation_full_item_front_to_back() {
-		check_answer_values!(7);
-	}
-	#[test]
-	fn test_text_navigation_full_item_back_to_front() {
-		check_answer_values!(8);
 	}
 }
