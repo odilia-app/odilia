@@ -211,8 +211,6 @@ checksum = "1181e1e0d1fce796a03db1ae795d67167da795f9cf4a39c37589e85ef57f26d3"
 [[package]]
 name = "atspi"
 version = "0.16.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9212da2086f77502f3f384c2c802705f0681cc4937be2417978f8e6243099b3"
 dependencies = [
  "atspi-client",
  "atspi-common",
@@ -223,8 +221,6 @@ dependencies = [
 [[package]]
 name = "atspi-client"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e464e7a0e29d619091668329fe3b0de0351227f9a7bf36ce3c79e2c417f744c5"
 dependencies = [
  "async-trait",
  "atspi-common",
@@ -235,9 +231,7 @@ dependencies = [
 
 [[package]]
 name = "atspi-common"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d03467fb79afd9e86e63aa908d542df63171abb02e66cb4e28978ec1e1da7870"
+version = "0.2.0"
 dependencies = [
  "enumflags2",
  "serde",
@@ -250,8 +244,6 @@ dependencies = [
 [[package]]
 name = "atspi-connection"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8531aef8ca768b5ecc601b2838dba66b7142f24c5dde587be0900aef96eaf43f"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -262,8 +254,6 @@ dependencies = [
 [[package]]
 name = "atspi-macros"
 version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95a1ad0c51b69e83d6f551707598e0b53d14336b16867d0372df31210556c0b0"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -278,8 +268,6 @@ dependencies = [
 [[package]]
 name = "atspi-proxies"
 version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c539f2c42b6f9c513902c55cf1c48c78140a186b63feb77df1845ef8464275a0"
 dependencies = [
  "async-trait",
  "atspi-common",
@@ -1090,6 +1078,7 @@ dependencies = [
  "atspi",
  "atspi-client",
  "atspi-common",
+ "atspi-connection",
  "atspi-proxies",
  "criterion",
  "dashmap",
@@ -1110,7 +1099,10 @@ name = "odilia-common"
 version = "0.3.0"
 dependencies = [
  "atspi-common",
+ "atspi-proxies",
  "bitflags",
+ "dashmap",
+ "fxhash",
  "serde",
  "serde_plain",
  "smartstring",

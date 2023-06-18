@@ -29,12 +29,12 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.16.0", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
-atspi-client = { version = "0.1.0", default-features = false }
-atspi-proxies = { version = "0.1.0", default-features = false }
-atspi-common = { version = "0.1.0", default-features = false }
-atspi-connection = { version = "0.1.0", default-features = false }
-odilia-common = { version = "0.3.0", path = "./common" }
+atspi = { path = "../atspi/atspi/", version = "0.16.0", default-features = false, features = ["tokio", "unstable-proxy-traits"] }
+atspi-client = { path = "../atspi/atspi-client/", version = "0.1.0", default-features = false }
+atspi-proxies = { path = "../atspi/atspi-proxies", version = "0.1.0", default-features = false }
+atspi-common = { path = "../atspi/atspi-common", version = "0.2.0", default-features = false }
+atspi-connection = { path = "../atspi/atspi-connection", version = "0.1.0", default-features = false }
+odilia-common = { version = "0.3.0", path = "./common", features = ["zbus", "proxies"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
 nix = "0.26.2"
@@ -51,4 +51,6 @@ zbus = { version = "^3.6.2", default-features = false, features = ["tokio"] }
 zvariant = { version = "3.6.2" }
 zbus_names = { version = "2.4.0" }
 serde_plain = "1.0.1"
-
+smartstring = { version = "1.0.1", features = ["serde"] }
+dashmap = "5.4.0"
+fxhash = "0.2.1"
