@@ -7,6 +7,9 @@
 	unsafe_code
 )]
 
+pub mod cache_item_ext;
+use cache_item_ext::{CacheItemHostExt, accessible_to_cache_item};
+
 use std::{
 	collections::HashMap,
 	sync::{Arc, RwLock, Weak},
@@ -26,6 +29,7 @@ use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
 	result::OdiliaResult,
+	cache::{AccessiblePrimitive, CacheItem, CacheKey, InnerCache, ThreadSafeCache},
 };
 use serde::{Deserialize, Serialize};
 use zbus::{
@@ -34,34 +38,19 @@ use zbus::{
 	CacheProperties, ProxyBuilder,
 };
 
-type CacheKey = AccessiblePrimitive;
-type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
-type ThreadSafeCache = Arc<InnerCache>;
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
-/// A struct which represents the bare minimum of an accessible for purposes of caching.
-/// This makes some *possibly eronious* assumptions about what the sender is.
-pub struct AccessiblePrimitive {
-	/// The accessible ID, which is an arbitrary string specified by the application.
-	/// It is guarenteed to be unique per application.
-	/// Examples:
-	/// * /org/a11y/atspi/accessible/1234
-	/// * /org/a11y/atspi/accessible/null
-	/// * /org/a11y/atspi/accessible/root
-	/// * /org/Gnome/GTK/abab22-bbbb33-2bba2
-	pub id: String,
-	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	/// Examples:
-	/// * :1.1 (the first window has opened)
-	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
-	/// * :1.262 (many applications have been started on this bus)
-	pub sender: smartstring::alias::String,
+#[async_trait]
+pub trait AccessiblePrimitiveHostExt {
+	async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>>;
+	async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>>;
+	fn from_event<'a, T: GenericEvent<'a>>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> where Self: Sized;
 }
-impl AccessiblePrimitive {
+
+#[async_trait]
+impl AccessiblePrimitiveHostExt for AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	pub async fn into_accessible<'a>(
+	async fn into_accessible<'a>(
 		self,
 		conn: &zbus::Connection,
 	) -> zbus::Result<AccessibleProxy<'a>> {
@@ -78,7 +67,7 @@ impl AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
+	async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
 		let path: ObjectPath<'a> = id.try_into()?;
@@ -92,7 +81,7 @@ impl AccessiblePrimitive {
 	/// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
 	/// # Errors
 	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
-	pub fn from_event<'a, T: GenericEvent<'a>>(
+	fn from_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = event.sender();
@@ -101,176 +90,6 @@ impl AccessiblePrimitive {
 		let path = event.path(); //.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
 		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
-	}
-}
-impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(
-		atspi_accessible: atspi::events::Accessible,
-	) -> Result<AccessiblePrimitive, Self::Error> {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.try_into()
-	}
-}
-impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(
-		so: (OwnedUniqueName, OwnedObjectPath),
-	) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible_id = so.1;
-		Ok(AccessiblePrimitive {
-			id: accessible_id.to_string(),
-			sender: so.0.as_str().into(),
-		})
-	}
-}
-impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
-	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
-		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
-		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
-pub struct CacheItem {
-	// The accessible object (within the application)	(so)
-	pub object: AccessiblePrimitive,
-	// The application (root object(?)	  (so)
-	pub app: AccessiblePrimitive,
-	// The parent object.  (so)
-	pub parent: CacheRef,
-	// The accessbile index in parent.	i
-	pub index: i32,
-	// Child count of the accessible  i
-	pub children_num: i32,
-	// The exposed interfece(s) set.  as
-	pub interfaces: InterfaceSet,
-	// Accessible role. u
-	pub role: Role,
-	// The states applicable to the accessible.  au
-	pub states: StateSet,
-	// The text of the accessible.
-	pub text: String,
-	// The children (ids) of the accessible.
-	pub children: Vec<CacheRef>,
-
-	#[serde(skip)]
-	pub cache: Weak<Cache>,
-}
-impl CacheItem {
-	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
-	/// # Errors
-	/// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
-	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
-		let parent_ref = Weak::upgrade(&self.parent.item);
-		if let Some(p) = parent_ref {
-			Ok(p)
-		} else {
-			let cache = strong_cache(&self.cache)?;
-			let arc_mut_parent = cache
-				.get_ref(&self.parent.key.clone())
-				.ok_or(CacheError::NoItem)?;
-			self.parent.item = Arc::downgrade(&arc_mut_parent);
-			Ok(arc_mut_parent)
-		}
-	}
-	/// Creates a `CacheItem` from an [`atspi::Event`] type.
-	/// # Errors
-	/// This can fail under three possible conditions:
-	///
-	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
-	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
-	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
-	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
-		event: &T,
-		cache: Weak<Cache>,
-		connection: &zbus::Connection,
-	) -> OdiliaResult<Self> {
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
-	}
-	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
-	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
-	/// # Errors
-	/// This function can fail under the following conditions:
-	///
-	/// 1. The [`atspi::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
-	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi_proxies::accessible::AccessibleProxy`]. This should never happen.
-	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
-	///
-	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
-	pub async fn from_atspi_cache_item(
-		atspi_cache_item: atspi_common::CacheItem,
-		cache: Weak<Cache>,
-		connection: &zbus::Connection,
-	) -> OdiliaResult<Self> {
-		let children: Vec<CacheRef> =
-			AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
-				.into_accessible(connection)
-				.await?
-				.get_children()
-				.await?
-				.into_iter()
-				.map(|child_object_pair| CacheRef::new(child_object_pair.into()))
-				.collect();
-		Ok(Self {
-			object: atspi_cache_item.object.try_into()?,
-			app: atspi_cache_item.app.try_into()?,
-			parent: CacheRef::new(atspi_cache_item.parent.try_into()?),
-			index: atspi_cache_item.index,
-			children_num: atspi_cache_item.children,
-			interfaces: atspi_cache_item.ifaces,
-			role: atspi_cache_item.role,
-			states: atspi_cache_item.states,
-			text: atspi_cache_item.name,
-			cache,
-			children,
-		})
-	}
-	// Same as [`Accessible::get_children`], just offered as a non-async version.
-	/// Get a `Vec` of children with the same type as `Self`.
-	/// # Errors
-	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
-	/// 2. Any children keys' values are not found in the cache itself.
-	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		let children = self
-			.children
-			.iter()
-			.map(|child_ref| {
-				child_ref
-					.clone_inner()
-					.or_else(|| derefed_cache.get(&child_ref.key))
-					.ok_or(CacheError::NoItem)
-			})
-			.collect::<Result<Vec<_>, _>>()?;
-		Ok(children)
 	}
 }
 
@@ -306,354 +125,8 @@ impl From<AccessiblePrimitive> for CacheRef {
 }
 
 #[inline]
-async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'_>> {
-	let cache = strong_cache(&cache_item.cache)?;
-	Ok(cache_item.object.clone().into_accessible(&cache.connection).await?)
-}
-#[inline]
-async fn as_text(cache_item: &CacheItem) -> OdiliaResult<TextProxy<'_>> {
-	let cache = strong_cache(&cache_item.cache)?;
-	Ok(cache_item.object.clone().into_text(&cache.connection).await?)
-}
-
-#[inline]
 fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
-}
-
-#[async_trait]
-impl Accessible for CacheItem {
-	type Error = OdiliaError;
-
-	async fn get_application(&self) -> Result<Self, Self::Error> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
-	}
-	async fn parent(&self) -> Result<Self, Self::Error> {
-		let parent_item = self
-			.parent
-			.clone_inner()
-			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
-		parent_item.ok_or(CacheError::NoItem.into())
-	}
-	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
-		self.get_children()
-	}
-	async fn child_count(&self) -> Result<i32, Self::Error> {
-		Ok(self.children_num)
-	}
-	async fn get_index_in_parent(&self) -> Result<i32, Self::Error> {
-		Ok(self.index)
-	}
-	async fn get_role(&self) -> Result<Role, Self::Error> {
-		Ok(self.role)
-	}
-	async fn get_interfaces(&self) -> Result<InterfaceSet, Self::Error> {
-		Ok(self.interfaces)
-	}
-	async fn get_attributes(&self) -> Result<HashMap<String, String>, Self::Error> {
-		Ok(as_accessible(self).await?.get_attributes().await?)
-	}
-	async fn name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible(self).await?.name().await?)
-	}
-	async fn locale(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible(self).await?.locale().await?)
-	}
-	async fn description(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible(self).await?.description().await?)
-	}
-	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, Self::Error> {
-		let cache = strong_cache(&self.cache)?;
-		as_accessible(self)
-			.await?
-			.get_relation_set()
-			.await?
-			.into_iter()
-			.map(|(relation, object_pairs)| {
-				(
-					relation,
-					object_pairs
-						.into_iter()
-						.map(|object_pair| {
-							cache.get(&object_pair.try_into()?).ok_or(
-								OdiliaError::Cache(
-									CacheError::NoItem,
-								),
-							)
-						})
-						.collect::<Result<Vec<Self>, OdiliaError>>(),
-				)
-			})
-			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
-			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
-	}
-	async fn get_role_name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible(self).await?.get_role_name().await?)
-	}
-	async fn get_state(&self) -> Result<StateSet, Self::Error> {
-		Ok(self.states)
-	}
-	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
-		<Self as Accessible>::get_children(self)
-			.await?
-			.get(usize::try_from(idx)?)
-			.ok_or(CacheError::NoItem.into())
-			.cloned()
-	}
-	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
-		Ok(as_accessible(self).await?.get_localized_role_name().await?)
-	}
-	async fn accessible_id(&self) -> Result<String, Self::Error> {
-		Ok(self.object.id.to_string())
-	}
-}
-#[async_trait]
-impl Text for CacheItem {
-	type Error = OdiliaError;
-
-	async fn add_selection(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<bool, Self::Error> {
-		Ok(as_text(self).await?.add_selection(start_offset, end_offset).await?)
-	}
-	async fn get_attribute_run(
-		&self,
-		offset: i32,
-		include_defaults: bool,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.get_attribute_run(offset, include_defaults)
-			.await?)
-	}
-	async fn get_attribute_value(
-		&self,
-		offset: i32,
-		attribute_name: &str,
-	) -> Result<String, Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.get_attribute_value(offset, attribute_name)
-			.await?)
-	}
-	async fn get_attributes(
-		&self,
-		offset: i32,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_attributes(offset).await?)
-	}
-	async fn get_bounded_ranges(
-		&self,
-		x: i32,
-		y: i32,
-		width: i32,
-		height: i32,
-		coord_type: CoordType,
-		x_clip_type: ClipType,
-		y_clip_type: ClipType,
-	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.get_bounded_ranges(
-				x,
-				y,
-				width,
-				height,
-				coord_type,
-				x_clip_type,
-				y_clip_type,
-			)
-			.await?)
-	}
-	async fn get_character_at_offset(&self, offset: i32) -> Result<i32, Self::Error> {
-		Ok(as_text(self).await?.get_character_at_offset(offset).await?)
-	}
-	async fn get_character_extents(
-		&self,
-		offset: i32,
-		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_character_extents(offset, coord_type).await?)
-	}
-	async fn get_default_attribute_set(
-		&self,
-	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
-		Ok(as_text(self).await?.get_default_attribute_set().await?)
-	}
-	async fn get_default_attributes(
-		&self,
-	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
-		Ok(as_text(self).await?.get_default_attributes().await?)
-	}
-	async fn get_nselections(&self) -> Result<i32, Self::Error> {
-		Ok(as_text(self).await?.get_nselections().await?)
-	}
-	async fn get_offset_at_point(
-		&self,
-		x: i32,
-		y: i32,
-		coord_type: CoordType,
-	) -> Result<i32, Self::Error> {
-		Ok(as_text(self).await?.get_offset_at_point(x, y, coord_type).await?)
-	}
-	async fn get_range_extents(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.get_range_extents(start_offset, end_offset, coord_type)
-			.await?)
-	}
-	async fn get_selection(&self, selection_num: i32) -> Result<(i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_selection(selection_num).await?)
-	}
-	async fn get_string_at_offset(
-		&self,
-		offset: i32,
-		granularity: Granularity,
-	) -> Result<(String, i32, i32), Self::Error> {
-		let uoffset = usize::try_from(offset)?;
-		// optimisations that don't call out to DBus.
-		if granularity == Granularity::Paragraph {
-			return Ok((self.text.clone(), 0, self.text.len().try_into()?));
-		} else if granularity == Granularity::Char {
-			let range = uoffset..=uoffset;
-			return Ok((
-				self.text
-					.get(range)
-					.ok_or(CacheError::TextBoundsError)?
-					.to_string(),
-				offset,
-				offset + 1,
-			));
-		} else if granularity == Granularity::Word {
-			return Ok(self
-				.text
-				// [char]
-				.split_whitespace()
-				// [(idx, char)]
-				.enumerate()
-				// [(word, start, end)]
-				.filter_map(|(_, word)| {
-					let start = self
-						.text
-						// [(idx, char)]
-						.char_indices()
-						// [(idx, char)]: uses pointer arithmatic to find start index
-						.find(|&(idx, _)| {
-							idx == word.as_ptr() as usize
-								- self.text.as_ptr() as usize
-						})
-						// [idx]
-						.map(|(idx, _)| idx)?;
-					// calculate based on start
-					let end = start + word.len();
-					let i_start = i32::try_from(start).ok()?;
-					let i_end = i32::try_from(end).ok()?;
-					// if the offset if within bounds
-					if uoffset >= start && uoffset <= end {
-						Some((word.to_string(), i_start, i_end))
-					} else {
-						None
-					}
-				})
-				// get "all" words that match; there should be only one result
-				.collect::<Vec<_>>()
-				// get the first result
-				.get(0)
-				// if there's no matching word (out of bounds)
-				.ok_or_else(|| OdiliaError::Generic("Out of bounds".to_string()))?
-				// clone the reference into a value
-				.clone());
-		}
-		// any other variations, in particular, Granularity::Line, will need to call out to DBus. It's just too complex to calculate, get updates for bounding boxes, etc.
-		// this variation does NOT get a semantic line. It gets a visual line.
-		Ok(as_text(self).await?.get_string_at_offset(offset, granularity).await?)
-	}
-	async fn get_text(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<String, Self::Error> {
-		self.text
-			.get(usize::try_from(start_offset)?..usize::try_from(end_offset)?)
-			.map(std::borrow::ToOwned::to_owned)
-			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
-	}
-	async fn get_text_after_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_text_after_offset(offset, type_).await?)
-	}
-	async fn get_text_at_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_text_at_offset(offset, type_).await?)
-	}
-	async fn get_text_before_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
-		Ok(as_text(self).await?.get_text_before_offset(offset, type_).await?)
-	}
-	async fn remove_selection(&self, selection_num: i32) -> Result<bool, Self::Error> {
-		Ok(as_text(self).await?.remove_selection(selection_num).await?)
-	}
-	async fn scroll_substring_to(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		type_: u32,
-	) -> Result<bool, Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.scroll_substring_to(start_offset, end_offset, type_)
-			.await?)
-	}
-	async fn scroll_substring_to_point(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		type_: u32,
-		x: i32,
-		y: i32,
-	) -> Result<bool, Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.scroll_substring_to_point(start_offset, end_offset, type_, x, y)
-			.await?)
-	}
-	async fn set_caret_offset(&self, offset: i32) -> Result<bool, Self::Error> {
-		Ok(as_text(self).await?.set_caret_offset(offset).await?)
-	}
-	async fn set_selection(
-		&self,
-		selection_num: i32,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<bool, Self::Error> {
-		Ok(as_text(self)
-			.await?
-			.set_selection(selection_num, start_offset, end_offset)
-			.await?)
-	}
-	async fn caret_offset(&self) -> Result<i32, Self::Error> {
-		Ok(as_text(self).await?.caret_offset().await?)
-	}
-	async fn character_count(&self) -> Result<i32, Self::Error> {
-		Ok(i32::try_from(self.text.len())?)
-	}
 }
 
 /// An internal cache used within Odilia.
@@ -802,7 +275,7 @@ impl Cache {
 		}
 		// otherwise, build a cache item
 		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(accessible, cache).await?;
+		let cache_item = accessible_to_cache_item(accessible).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
@@ -858,49 +331,3 @@ impl Cache {
 	}
 }
 
-/// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
-/// This runs a bunch of long-awaiting code and can take quite some time; use this sparingly.
-/// This takes most properties and some function calls through the `AccessibleProxy` structure and generates a new `CacheItem`, which will be written to cache before being sent back.
-///
-/// # Errors
-///
-/// Will return an `Err(_)` variant when:
-///
-/// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
-/// 2. Any of the function calls on the `accessible` fail.
-/// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-pub async fn accessible_to_cache_item(
-	accessible: &AccessibleProxy<'_>,
-	cache: Weak<Cache>,
-) -> OdiliaResult<CacheItem> {
-	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
-		accessible.get_application(),
-		accessible.parent(),
-		accessible.get_index_in_parent(),
-		accessible.child_count(),
-		accessible.get_interfaces(),
-		accessible.get_role(),
-		accessible.get_state(),
-		accessible.get_children(),
-	)?;
-	// if it implements the Text interface
-	let text = match accessible.to_text().await {
-		// get *all* the text
-		Ok(text_iface) => text_iface.get_all_text().await,
-		// otherwise, use the name instaed
-		Err(_) => Ok(accessible.name().await?),
-	}?;
-	Ok(CacheItem {
-		object: accessible.try_into()?,
-		app: app.try_into()?,
-		parent: CacheRef::new(parent.try_into()?),
-		index,
-		children_num,
-		interfaces,
-		role,
-		states,
-		text,
-		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
-		cache,
-	})
-}

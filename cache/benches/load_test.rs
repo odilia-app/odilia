@@ -4,12 +4,12 @@ use std::{
 	time::Duration,
 };
 
-use atspi::accessible::Accessible;
-use atspi_client::AccessibilityConnection;
+use atspi_proxies::accessible::Accessible;
+use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{Cache, cache_item_ext::{CacheItemHostExt, AccessibleHostExt}};
 
-use odilia_common::errors::{CacheError, OdiliaError};
+use odilia_common::{errors::{CacheError, OdiliaError}, cache::{CacheItem, AccessiblePrimitive}};
 use tokio::select;
 use tokio_test::block_on;
 
@@ -36,7 +36,7 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 const ROOT_A11Y: &str = "/org/a11y/atspi/accessible/root";
 
 /// For each child, fetch all of its ancestors via `CacheItem::parent_ref`.
-async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
+async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>, cache: &Cache) {
 	// for each child, try going up to the root
 	for child_ref in children {
 		let mut item_ref = child_ref;
@@ -47,28 +47,22 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 			if matches!(&item.object.id, root_) {
 				break;
 			}
-			item_ref = item.parent_ref().expect("Could not get parent reference");
+			item_ref = item.parent_ref(cache).expect("Could not get parent reference");
 		}
 	}
 }
 
 /// For each child, fetch all of its ancestors in full (cloned) via
 /// `Accessible::parent`.
-async fn traverse_up(children: Vec<CacheItem>) {
+async fn traverse_up(children: Vec<CacheItem>, cache: &Cache) {
 	// for each child, try going up to the root
 	for child in children {
 		let mut item = child.clone();
 		loop {
-			item = match item.parent().await {
-				Ok(item) => item,
-				Err(OdiliaError::Cache(CacheError::NoItem)) => {
-					// Missing item from cache; there's always exactly one.
-					// Perhaps an item pointing to a special root/null node gets
-					// through? Not super important.
-					break;
-				}
-				Err(e) => {
-					panic!("Odilia error {:?}", e);
+			item = match cache.get(&child.parent.key) {
+				Some(item) => item,
+				None => {
+					panic!("Fatal error: could not find item in cache!");
 				}
 			};
 			let root_ = ROOT_A11Y.clone();
@@ -80,9 +74,9 @@ async fn traverse_up(children: Vec<CacheItem>) {
 }
 
 /// Depth first traversal
-fn traverse_depth_first(root: CacheItem) -> Result<(), OdiliaError> {
-	for child in root.get_children()? {
-		traverse_depth_first(child)?;
+fn traverse_depth_first(data: (CacheItem, &Cache)) -> Result<(), OdiliaError> {
+	for child in data.0.get_children(data.1)? {
+		traverse_depth_first((child, data.1))?;
 	}
 	Ok(())
 }
@@ -139,12 +133,6 @@ fn cache_benchmark(c: &mut Criterion) {
 			|| {
 				zbus_items
 					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
 			},
 			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
@@ -156,12 +144,6 @@ fn cache_benchmark(c: &mut Criterion) {
 			|| {
 				wcag_items
 					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
 			},
 			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
@@ -174,12 +156,6 @@ fn cache_benchmark(c: &mut Criterion) {
 			|| {
 				zbus_items
 					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
 			},
 			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
@@ -189,13 +165,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	let (cache, children): (Arc<Cache>, Vec<Arc<RwLock<CacheItem>>>) = rt.block_on(async {
 		let cache = Arc::new(Cache::new(zbus_connection.clone()));
 		let all_items: Vec<CacheItem> = wcag_items
-			.clone()
-			.into_iter()
-			.map(|mut item| {
-				item.cache = Arc::downgrade(&cache);
-				item
-			})
-			.collect();
+			.clone();
 		cache.add_all(all_items);
 		let children = cache
 			.by_id
@@ -213,7 +183,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| children.clone(),
-			|cs| async { traverse_up_refs(cs).await },
+			|cs| async { traverse_up_refs(cs, &*cache).await },
 			BatchSize::SmallInput,
 		);
 	});
@@ -225,7 +195,7 @@ fn cache_benchmark(c: &mut Criterion) {
 					.map(|am| Arc::clone(&am).read().unwrap().clone())
 					.collect()
 			},
-			|cs| async { traverse_up(cs).await },
+			|cs| async { traverse_up(cs, &*cache).await },
 			BatchSize::SmallInput,
 		);
 	});
@@ -233,11 +203,11 @@ fn cache_benchmark(c: &mut Criterion) {
 	group.bench_function(BenchmarkId::new("traverse_depth_first", "wcag-items"), |b| {
 		b.iter_batched(
 			|| {
-				cache.get(&AccessiblePrimitive {
+				(cache.get(&AccessiblePrimitive {
 					id: "/org/a11y/atspi/accessible/root".to_string(),
 					sender: ":1.22".into(),
 				})
-				.unwrap()
+				.unwrap(), &*cache)
 			},
 			traverse_depth_first,
 			BatchSize::SmallInput,

@@ -1,23 +1,25 @@
-use atspi_common::{AtspiError, error::ObjectPathConversionError};
+use atspi_common::{AtspiError};
 use serde_plain::Error as SerdePlainError;
-use std::{error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt};
 
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum OdiliaError {
-	AtspiError(AtspiError),
+	Atspi(AtspiError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
 	Cache(CacheError),
-	InfallibleConversion(std::convert::Infallible),
-	ConversionError(std::num::TryFromIntError),
+	InfallibleConversion,
+	/// A parsing error converting a string into a type (usually an integer).
+	/// The error message is preserved through the `String` variant data.
+	ParseError(String),
 	Config(ConfigError),
 	PoisoningError,
+	/// A generic error type where the error message is preserved, but it is not enumerable.
+	/// These are the kind of errors that generally should have a [bug filed](https://github.com/odilia-app/odilia/issues) for them.
 	Generic(String),
-	SerdeError(SerdePlainError),
-	Zvariant(zvariant::Error),
 }
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum ConfigError {
 	Tini(String),
 	ValueNotFound,
@@ -52,7 +54,7 @@ impl std::fmt::Display for ConfigError {
 	}
 }
 impl std::error::Error for ConfigError {}
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum CacheError {
 	NotAvailable,
 	NoItem,
@@ -78,12 +80,12 @@ impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 }
 impl From<std::num::TryFromIntError> for OdiliaError {
 	fn from(fie: std::num::TryFromIntError) -> Self {
-		Self::ConversionError(fie)
+		Self::ParseError(fie.to_string())
 	}
 }
 impl From<std::convert::Infallible> for OdiliaError {
-	fn from(infallible: std::convert::Infallible) -> Self {
-		Self::InfallibleConversion(infallible)
+	fn from(_infallible: std::convert::Infallible) -> Self {
+		Self::InfallibleConversion
 	}
 }
 impl From<CacheError> for OdiliaError {
@@ -93,17 +95,17 @@ impl From<CacheError> for OdiliaError {
 }
 impl From<zvariant::Error> for OdiliaError {
 	fn from(spe: zvariant::Error) -> Self {
-		Self::Zvariant(spe)
+		Self::Atspi(spe.into())
 	}
 }
 impl From<SerdePlainError> for OdiliaError {
 	fn from(spe: SerdePlainError) -> Self {
-		Self::SerdeError(spe)
+		Self::Generic(spe.to_string())
 	}
 }
 impl From<AtspiError> for OdiliaError {
 	fn from(err: AtspiError) -> OdiliaError {
-		Self::AtspiError(err)
+		Self::Atspi(err)
 	}
 }
 impl fmt::Display for OdiliaError {
@@ -112,10 +114,9 @@ impl fmt::Display for OdiliaError {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum AccessiblePrimitiveConversionError {
-	ParseError(<i32 as FromStr>::Err),
-	ObjectConversionError(ObjectPathConversionError),
+	ParseError,
 	NoPathId,
 	InvalidPath,
 	NoFirstSectionOfSender,
@@ -134,11 +135,6 @@ impl fmt::Display for AccessiblePrimitiveConversionError {
 	}
 }
 impl std::error::Error for AccessiblePrimitiveConversionError {}
-impl From<ObjectPathConversionError> for AccessiblePrimitiveConversionError {
-	fn from(object_conversion_error: ObjectPathConversionError) -> Self {
-		Self::ObjectConversionError(object_conversion_error)
-	}
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum KeyFromStrError {

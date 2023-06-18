@@ -10,6 +10,7 @@
 use zvariant::ObjectPath;
 use zbus_names::UniqueName; 
 
+pub mod cache;
 pub mod elements;
 pub mod errors;
 pub mod events;
