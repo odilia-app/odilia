@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
+	errors::OdiliaError,
   modes::ScreenReaderMode,
   types::Accessible,
 };
@@ -62,10 +63,8 @@ pub enum CacheEvent {
   RemoveState(Accessible, State),
   /// Add a state to an accessible.
   AddState(Accessible, State),
-  /// Insert text into an accessible.
-  AddText(TextAddEvent),
-  /// Remove text from an accessible.
-  RemoveText(TextRemovedEvent),
+  /// Change text in an accessible.
+  TextChanged(TextChangedEvent),
   /// Remove an accessible object from the cache. This event should usually only be triggered internally.
   /// When attempting to query information about an accessible object which is not contained within the cache will result in a very chatty conversation with `atspi` over DBus.
   RemoveItem(Accessible),
@@ -76,15 +75,29 @@ pub enum CacheEvent {
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
-pub struct TextRemovedEvent {
-  pub item: Accessible,
-  pub start_index: i32,
-  pub length: i32,
-  pub text: String,
+pub enum Operation {
+	#[serde(alias = "insert")]
+	#[serde(alias = "insert/system")]
+	Insert,
+	#[serde(alias = "delete")]
+	#[serde(alias = "delete/system")]
+	Delete,
+}
+impl TryFrom<&str> for Operation {
+	type Error = OdiliaError;
+
+	fn try_from(s: &str) -> Result<Operation, Self::Error> {
+		match s {
+			"insert" | "insert/system" => Ok(Operation::Insert),
+			"delete" | "delete/system" => Ok(Operation::Delete),
+			_ => Err(OdiliaError::ParseError(format!("Converting to an Operation type was unsuccessful because the string \"{s}\" did not match an appropriate pattern")))
+		}
+	}
 }
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
-pub struct TextAddEvent {
+pub struct TextChangedEvent {
+	pub operation: Operation,
   pub item: Accessible,
   pub start_index: i32,
   pub length: i32,

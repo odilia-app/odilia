@@ -1,8 +1,8 @@
 use atspi_common::Granularity;
 use serde::{self, Deserialize, Serialize};
-use zvariant::OwnedObjectPath;
+use crate::cache::AccessiblePrimitive;
 
-pub type Accessible = (String, OwnedObjectPath);
+pub type Accessible = AccessiblePrimitive;
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
 pub struct IndexesSelection {

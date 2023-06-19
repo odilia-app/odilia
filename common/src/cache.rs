@@ -15,6 +15,9 @@ pub type CacheKey = AccessiblePrimitive;
 /// This is the type alis refeering to the value for all cache items.
 /// This includes thread-safe and concurrency-safe wrappers.
 pub type CacheValue = Arc<RwLock<CacheItem>>;
+/// This is the type alis refereing to a weak version of the value for all cache items.
+/// This can be upgraded to a [`CacheValue`] with `.upgrade()`, where it may or may not be found.
+pub type WeakCacheValue = Weak<RwLock<CacheItem>>;
 /// The `InnerCache` type alias defines the data structure to be used to hold the entire cache.
 pub type InnerCache = DashMap<CacheKey, CacheValue, FxBuildHasher>;
 /// A wrapped [`InnerCache`] in a thread-safe type.
@@ -122,14 +125,14 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	}
 }
 
-impl TryFrom<atspi_common::events::Accessible> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	fn try_from(
+impl From<atspi_common::events::Accessible> for AccessiblePrimitive {
+	fn from(
 		atspi_accessible: atspi_common::events::Accessible,
-	) -> Result<AccessiblePrimitive, Self::Error> {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.try_into()
+	) -> AccessiblePrimitive {
+		AccessiblePrimitive {
+			id: atspi_accessible.path.to_string(),
+			sender: atspi_accessible.name.to_string().into(),
+		}
 	}
 }
 impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
