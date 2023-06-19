@@ -74,7 +74,7 @@ pub enum CacheEvent {
   AddItem(Accessible),
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
 pub enum Operation {
 	#[serde(alias = "insert")]
 	#[serde(alias = "insert/system")]

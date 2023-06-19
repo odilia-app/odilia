@@ -14,11 +14,32 @@ pub enum OdiliaError {
 	/// The error message is preserved through the `String` variant data.
 	ParseError(String),
 	Config(ConfigError),
-	PoisoningError,
+	/// Errors from processing commands.
+	Command(CommandError),
 	/// A generic error type where the error message is preserved, but it is not enumerable.
 	/// These are the kind of errors that generally should have a [bug filed](https://github.com/odilia-app/odilia/issues) for them.
 	Generic(String),
 }
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum CommandError {
+	Text(TextError),
+}
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+pub enum TextError {
+	/// Accessing or modifying text required bounds that were invalid.
+	OutOfBounds,
+}
+impl From<TextError> for CommandError {
+	fn from(te: TextError) -> CommandError {
+		CommandError::Text(te)
+	}
+}
+impl From<TextError> for OdiliaError {
+	fn from(te: TextError) -> OdiliaError {
+		OdiliaError::Command(te.into())
+	}
+}
+
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum ConfigError {
 	Tini(String),
@@ -73,11 +94,6 @@ impl std::fmt::Display for CacheError {
 }
 impl std::error::Error for CacheError {}
 impl Error for OdiliaError {}
-impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
-	fn from(_: std::sync::PoisonError<T>) -> Self {
-		Self::PoisoningError
-	}
-}
 impl From<std::num::TryFromIntError> for OdiliaError {
 	fn from(fie: std::num::TryFromIntError) -> Self {
 		Self::ParseError(fie.to_string())
