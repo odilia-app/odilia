@@ -1,8 +1,5 @@
-use std::{
-	collections::HashMap,
-	sync::{Arc, RwLock, Weak},
-};
-use atspi_common::{InterfaceSet, StateSet, Event, Interface, Role};
+use std::sync::{Arc, RwLock, Weak};
+use atspi_common::{InterfaceSet, StateSet, Role};
 use serde::{Serialize, Deserialize};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
@@ -15,8 +12,11 @@ use atspi_proxies::accessible::AccessibleProxy;
 /// This is the type alias refering to the key for all cache items.
 /// Please do not use its underlying type explicitly, since this will cause compiler errors when this is modified.
 pub type CacheKey = AccessiblePrimitive;
+/// This is the type alis refeering to the value for all cache items.
+/// This includes thread-safe and concurrency-safe wrappers.
+pub type CacheValue = Arc<RwLock<CacheItem>>;
 /// The `InnerCache` type alias defines the data structure to be used to hold the entire cache.
-pub type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
+pub type InnerCache = DashMap<CacheKey, CacheValue, FxBuildHasher>;
 /// A wrapped [`InnerCache`] in a thread-safe type.
 pub type ThreadSafeCache = Arc<InnerCache>;
 
