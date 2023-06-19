@@ -1,6 +1,7 @@
 use crate::{Cache, AccessiblePrimitiveHostExt};
 use async_trait::async_trait;
 use std::sync::{Weak, Arc};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use zbus::Connection;
 use atspi_proxies::{text::TextProxy, accessible::AccessibleProxy};
@@ -22,7 +23,7 @@ pub trait CacheItemHostExt {
 	fn parent_ref(
 		&mut self,
 		conn: &Cache,
-	) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>>;
+	) -> OdiliaResult<Arc<RwLock<CacheItem>>>;
 	async fn from_atspi_event<'a, T: GenericEvent<'a> + Sync>(
 		event: &T,
 		conn: &Connection,
@@ -38,7 +39,7 @@ impl CacheItemHostExt for CacheItem {
 	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
 	/// # Errors
 	/// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
-	fn parent_ref(&mut self, cache: &Cache) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
+	fn parent_ref(&mut self, cache: &Cache) -> OdiliaResult<Arc<RwLock<CacheItem>>> {
 		let parent_ref = Weak::upgrade(&self.parent.item);
 		if let Some(p) = parent_ref {
 			Ok(p)

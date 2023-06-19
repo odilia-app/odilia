@@ -11,8 +11,9 @@ pub mod cache_item_ext;
 use cache_item_ext::{accessible_to_cache_item};
 
 use std::{
-	sync::{Arc, Weak, RwLock},
+	sync::{Arc, Weak},
 };
+use parking_lot::RwLock;
 
 use async_trait::async_trait;
 use atspi_common::{
@@ -29,7 +30,6 @@ use odilia_common::{
 	result::OdiliaResult,
 	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache, CacheRef},
 };
-use serde::{Deserialize, Serialize};
 use zbus::{
 	zvariant::ObjectPath,
 	CacheProperties, ProxyBuilder,
@@ -173,7 +173,7 @@ impl Cache {
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
+		Some(self.by_id.get(id).as_deref()?.read().clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -228,7 +228,7 @@ impl Cache {
 			tracing::trace!("The cache does not contain the requested item: {:?}", id);
 			return Ok(false);
 		};
-		let mut cache_item = entry.write()?;
+		let mut cache_item = entry.write();
 		modify(&mut cache_item);
 		Ok(true)
 	}
@@ -275,7 +275,7 @@ impl Cache {
 	) -> Result<(), OdiliaError> {
 		let item_wk_ref = Arc::downgrade(item_ref);
 
-		let mut item = item_ref.write()?;
+		let mut item = item_ref.write();
 		let item_key = item.object.clone();
 
 		let parent_key = item.parent.key.clone();
@@ -288,7 +288,7 @@ impl Cache {
 		for child_ref in &mut item.children {
 			if let Some(child_arc) = cache.get(&child_ref.key).as_ref() {
 				child_ref.item = Arc::downgrade(child_arc);
-				child_arc.write()?.parent.item = Weak::clone(&item_wk_ref);
+				child_arc.write().parent.item = Weak::clone(&item_wk_ref);
 			}
 		}
 
@@ -297,7 +297,7 @@ impl Cache {
 			item.parent.item = Arc::downgrade(&parent_ref);
 			if let Some(ix) = ix_opt {
 				if let Some(cache_ref) = parent_ref
-					.write()?
+					.write()
 					.children
 					.get_mut(ix)
 					.filter(|i| i.key == item_key)
