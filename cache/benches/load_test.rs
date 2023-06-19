@@ -1,9 +1,10 @@
 use std::{
 	collections::VecDeque,
-	sync::{Arc, RwLock},
+	sync::{Arc},
 	time::Duration,
 };
 
+use parking_lot::RwLock;
 use atspi_proxies::accessible::Accessible;
 use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
@@ -42,7 +43,7 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>, cache: &Cache) 
 		let mut item_ref = child_ref;
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
-			let mut item = item_ref_copy.write().expect("Could not lock item");
+			let mut item = item_ref_copy.write();
 			let root_ = ROOT_A11Y.clone();
 			if matches!(&item.object.id, root_) {
 				break;
@@ -171,7 +172,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			.by_id
 			.iter()
 			.filter_map(|entry| {
-				if entry.read().unwrap().children.is_empty() {
+				if entry.read().children.is_empty() {
 					Some(Arc::clone(&entry))
 				} else {
 					None
@@ -192,7 +193,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(&rt).iter_batched(
 			|| {
 				children.iter()
-					.map(|am| Arc::clone(&am).read().unwrap().clone())
+					.map(|am| Arc::clone(&am).read().clone())
 					.collect()
 			},
 			|cs| async { traverse_up(cs, &*cache).await },
