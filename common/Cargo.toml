@@ -31,3 +31,4 @@ serde_plain.workspace = true
 zvariant.workspace = true
 zbus_names.workspace = true
 zbus = { workspace = true, optional = true }
+parking_lot = "0.12.1"

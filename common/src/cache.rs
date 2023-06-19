@@ -1,4 +1,5 @@
-use std::sync::{Arc, RwLock, Weak};
+use parking_lot::RwLock;
+use std::sync::{Arc, Weak};
 use atspi_common::{InterfaceSet, StateSet, Role};
 use serde::{Serialize, Deserialize};
 use dashmap::DashMap;
@@ -44,7 +45,7 @@ impl CacheRef {
 
 	#[must_use]
 	pub fn clone_inner(&self) -> Option<CacheItem> {
-		Some(self.item.upgrade().as_ref()?.read().ok()?.clone())
+		Some(self.item.upgrade().as_ref()?.read().clone())
 	}
 }
 
