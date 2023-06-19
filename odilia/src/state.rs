@@ -3,20 +3,21 @@ use std::{fs, sync::atomic::AtomicI32};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
-use tokio::sync::{mpsc::Sender, Mutex};
-use tracing::debug;
-use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
+use parking_lot::{RwLock};
+use tokio::sync::{mpsc::Sender};
+
+use zbus::{fdo::DBusProxy, MatchRule, MessageType};
 
 use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
 use atspi_common::{
-	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
+	events::{HasMatchRule, HasRegistryEventString},
 	Event,
 };
 use atspi_connection::AccessibilityConnection;
-use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
-use odilia_cache::{Cache, cache_item_ext::{CacheItemHostExt, AccessibleHostExt}, AccessiblePrimitiveHostExt};
+use atspi_proxies::{accessible::AccessibleProxy};
+use odilia_cache::Cache as InnerCache;
 use odilia_common::{
-	errors::{CacheError, ConfigError},
+	errors::{ConfigError},
 	modes::ScreenReaderMode,
 	settings::ApplicationConfig,
 	types::TextSelectionArea,
@@ -26,30 +27,89 @@ use odilia_common::{
 };
 use std::sync::Arc;
 
+/// All the types used by the state.
+/// These are all guarenteed to be able to be accessed from multiple threads safely.
+/// They are all wrapped in an [`std::sync::Arc`] to allow efficient access across threads.
+mod types {
+	use std::sync::Arc;
+	use std::sync::atomic::AtomicI32;
+	use static_assertions::assert_impl_all;
+	use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, cache::AccessiblePrimitive};
+	use odilia_cache::Cache as OdiliaCache;
+	use atspi_connection::AccessibilityConnection;
+	use atspi_common::events::Event;
+	use ssip_client_async::types::Request as SSIPRequest;
+	use tokio::sync::mpsc::Sender;
+	use parking_lot::RwLock;
+	use circular_queue::CircularQueue;
+
+	/// The type only requires read access.
+	pub type AtspiConnection = Arc<AccessibilityConnection>;
+	assert_impl_all!(AtspiConnection: Send, Sync);
+
+	/// The channel only needs read access to perform sends, and awaiting for closure.
+	pub type SsipSendChannel = Arc<Sender<SSIPRequest>>;
+	assert_impl_all!(SsipSendChannel: Send, Sync);
+
+	/// The DBus proxy structure that handles match rules.
+	pub type Proxy<'a> = Arc<zbus::fdo::DBusProxy<'a>>;
+	assert_impl_all!(Proxy: Send, Sync);
+
+	/// The current mode of the screen reader.
+	pub type Mode = Arc<RwLock<ScreenReaderMode>>;
+	assert_impl_all!(Mode: Send, Sync);
+
+	/// Odilia's configuration
+	pub type Config = Arc<RwLock<ApplicationConfig>>;
+	assert_impl_all!(Config: Send, Sync);
+
+	/// Last caret position.
+	pub type CaretPosition = Arc<AtomicI32>;
+	assert_impl_all!(CaretPosition: Send, Sync);
+
+	/// The history of previously focused items. This may contain duplicates.
+	pub type FocusHistory = Arc<RwLock<CircularQueue<AccessiblePrimitive>>>;
+	assert_impl_all!(FocusHistory: Send, Sync);
+
+	/// The history of atspi events.
+	pub type EventHistory = Arc<RwLock<CircularQueue<Event>>>;
+	assert_impl_all!(EventHistory: Send, Sync);
+
+	/// The cache.
+	pub type Cache = Arc<OdiliaCache>;
+	assert_impl_all!(Cache: Send, Sync);
+}
+use types::*;
+
+/// The global state of the screen reader.
+/// This is never interaced with directly, instead, you can use the associated types and [`crate::traits::IntoStatePieces`] to *references* of *pieces* of state, then open up the smallest possible window for modification within the [`crate::traits::IntoStatePieces::execute
+/// When modifying the types here, please change the type aliases in the code directly above the structure, as these types are used throughout the codebase.
 #[allow(clippy::module_name_repetitions)]
 pub struct ScreenReaderState {
-	pub atspi: AccessibilityConnection,
-	pub dbus: DBusProxy<'static>,
-	pub ssip: Sender<SSIPRequest>,
-	pub config: ApplicationConfig,
-	pub previous_caret_position: AtomicI32,
-	pub mode: Mutex<ScreenReaderMode>,
-	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
-	pub event_history: Mutex<CircularQueue<Event>>,
-	pub cache: Arc<Cache>,
+	pub atspi: AtspiConnection,
+	pub dbus: Proxy<'static>,
+	pub ssip: SsipSendChannel,
+	pub config: Config,
+	pub caret_position: CaretPosition,
+	pub mode: Mode,
+	pub focus_history: FocusHistory,
+	pub event_history: EventHistory,
+	pub cache: Cache,
 }
 
 impl ScreenReaderState {
 	#[tracing::instrument]
-	pub async fn new(ssip: Sender<SSIPRequest>) -> eyre::Result<ScreenReaderState> {
-		let atspi = AccessibilityConnection::open()
+	pub async fn new(ssip: Arc<Sender<SSIPRequest>>) -> eyre::Result<ScreenReaderState> {
+		let atspi: AtspiConnection = AccessibilityConnection::open()
 			.await
-			.wrap_err("Could not connect to at-spi bus")?;
-		let dbus = DBusProxy::new(atspi.connection())
+			.wrap_err("Could not connect to at-spi bus")?
+			.into();
+		let dbus: Proxy = DBusProxy::new(atspi.connection())
 			.await
-			.wrap_err("Failed to create org.freedesktop.DBus proxy")?;
+			.wrap_err("Failed to create org.freedesktop.DBus proxy")?
+			.into();
 
-		let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
+		let mode: Mode = RwLock::new(ScreenReaderMode { name: "CommandMode".to_string() }).into();
 
 		tracing::debug!("Reading configuration");
 		let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -64,23 +124,24 @@ impl ScreenReaderState {
 		}
 		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
 		tracing::debug!(path=%config_path, "loading configuration file");
-		let config = ApplicationConfig::new(&config_path)
-			.wrap_err("unable to load configuration file")?;
+		let config: Config = RwLock::new(ApplicationConfig::new(&config_path)
+			.wrap_err("unable to load configuration file")?)
+			.into();
 		tracing::debug!("configuration loaded successfully");
 
-		let previous_caret_position = AtomicI32::new(0);
-		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
-		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Arc::new(Cache::new(atspi.connection().clone()));
+		let caret_position: CaretPosition = AtomicI32::new(0).into();
+		let focus_history: FocusHistory = RwLock::new(CircularQueue::with_capacity(16)).into();
+		let event_history: EventHistory = RwLock::new(CircularQueue::with_capacity(16)).into();
+		let cache: Cache = InnerCache::new(atspi.connection().clone()).into();
 
 		Ok(Self {
 			atspi,
 			dbus,
 			ssip,
 			config,
-			previous_caret_position,
+			caret_position,
 			mode,
-			accessible_history,
+			focus_history,
 			event_history,
 			cache,
 		})
@@ -90,36 +151,36 @@ impl ScreenReaderState {
     Ok(true)
   }
 
-	pub async fn get_or_create_atspi_cache_item_to_cache(
-		&self,
-		atspi_cache_item: atspi_common::CacheItem,
-	) -> OdiliaResult<CacheItem> {
-		let prim = atspi_cache_item.object.clone().try_into()?;
-		if self.cache.get(&prim).is_none() {
-			self.cache.add(CacheItem::from_atspi_cache_item(
-				atspi_cache_item,
-				//Arc::downgrade(&Arc::clone(&self.cache)),
-				self.atspi.connection(),
-			)
-			.await?)?;
-		}
-		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
-	}
-	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a> + Sync>(
-		&self,
-		event: &T,
-	) -> OdiliaResult<CacheItem> {
-		let prim = AccessiblePrimitive::from_event(event)?;
-		if self.cache.get(&prim).is_none() {
-			self.cache.add(CacheItem::from_atspi_event(
-				event,
-				//Arc::downgrade(&Arc::clone(&self.cache)),
-				self.atspi.connection(),
-			)
-			.await?)?;
-		}
-		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
-	}
+	//pub async fn get_or_create_atspi_cache_item_to_cache(
+	//	&self,
+	//	atspi_cache_item: atspi_common::CacheItem,
+	//) -> OdiliaResult<CacheItem> {
+	//	let prim = atspi_cache_item.object.clone().try_into()?;
+	//	if self.cache.get(&prim).is_none() {
+	//		self.cache.add(CacheItem::from_atspi_cache_item(
+	//			atspi_cache_item,
+	//			//Arc::downgrade(&Arc::clone(&self.cache)),
+	//			self.atspi.connection(),
+	//		)
+	//		.await?)?;
+	//	}
+	//	self.cache.get(&prim).ok_or(CacheError::NoItem.into())
+	//}
+	//pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a> + Sync>(
+	//	&self,
+	//	event: &T,
+	//) -> OdiliaResult<CacheItem> {
+	//	let prim = AccessiblePrimitive::from_event(event)?;
+	//	if self.cache.get(&prim).is_none() {
+	//		self.cache.add(CacheItem::from_atspi_event(
+	//			event,
+	//			//Arc::downgrade(&Arc::clone(&self.cache)),
+	//			self.atspi.connection(),
+	//		)
+	//		.await?)?;
+	//	}
+	//	self.cache.get(&prim).ok_or(CacheError::NoItem.into())
+	//}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
 	#[allow(dead_code)]
@@ -184,6 +245,7 @@ impl ScreenReaderState {
 		Ok(self.atspi.deregister_event::<E>().await?)
 	}
 
+#[allow(dead_code)]
 	pub fn connection(&self) -> &zbus::Connection {
 		self.atspi.connection()
 	}
@@ -219,33 +281,33 @@ impl ScreenReaderState {
 
 	#[allow(dead_code)]
 	pub async fn event_history_item(&self, index: usize) -> Option<Event> {
-		let history = self.event_history.lock().await;
+		let history = self.event_history.read();
 		history.iter().nth(index).cloned()
 	}
 
-	pub async fn event_history_update(&self, event: Event) {
-		let mut history = self.event_history.lock().await;
-		history.push(event);
-	}
+	//pub async fn event_history_update(&self, event: Event) {
+	//	let mut history = self.event_history.lock();
+	//	history.push(event);
+	//}
 
-	pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
-		let history = self.accessible_history.lock().await;
-		history.iter().nth(index).cloned()
-	}
+	//pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
+	//	let history = self.accessible_history.lock();
+	//	history.iter().nth(index).cloned()
+	//}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
-		let mut history = self.accessible_history.lock().await;
-		history.push(new_a11y);
-	}
-	pub async fn build_cache<'a>(&self, dest: UniqueName<'a>) -> OdiliaResult<CacheProxy<'a>> {
-		debug!("CACHE SENDER: {dest}");
-		Ok(CacheProxy::builder(self.connection())
-			.destination(dest)?
-			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
-			.build()
-			.await?)
-	}
+	//pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
+	//	let mut history = self.accessible_history.lock();
+	//	history.push(new_a11y);
+	//}
+	//pub async fn build_cache<'a>(&self, dest: UniqueName<'a>) -> OdiliaResult<CacheProxy<'a>> {
+	//	debug!("CACHE SENDER: {dest}");
+	//	Ok(CacheProxy::builder(self.connection())
+	//		.destination(dest)?
+	//		.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
+	//		.build()
+	//		.await?)
+	//}
 	#[allow(dead_code)]
 	pub async fn get_or_create_cache_item(
 		&self,
@@ -260,19 +322,19 @@ impl ScreenReaderState {
 			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
 			.await
 	}
-	pub async fn new_accessible<'a, T: GenericEvent<'a>>(
-		&self,
-		event: &T,
-	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event.sender().to_owned();
-		let path = event.path().to_owned();
-		Ok(AccessibleProxy::builder(self.connection())
-			.cache_properties(zbus::CacheProperties::No)
-			.destination(sender)?
-			.path(path)?
-			.build()
-			.await?)
-	}
+	//pub async fn new_accessible<'a, T: GenericEvent<'a>>(
+	//	&self,
+	//	event: &T,
+	//) -> OdiliaResult<AccessibleProxy<'_>> {
+	//	let sender = event.sender().to_owned();
+	//	let path = event.path().to_owned();
+	//	Ok(AccessibleProxy::builder(self.connection())
+	//		.cache_properties(zbus::CacheProperties::No)
+	//		.destination(sender)?
+	//		.path(path)?
+	//		.build()
+	//		.await?)
+	//}
 	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {
 		let cache_rule = MatchRule::builder()
 			.msg_type(MessageType::Signal)
