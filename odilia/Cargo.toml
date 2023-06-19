@@ -31,6 +31,7 @@ atspi-proxies.workspace = true
 atspi-common.workspace = true
 atspi-connection.workspace = true
 atspi-client.workspace = true
+async-trait.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }
@@ -49,6 +50,8 @@ tracing-tree.workspace = true
 tracing.workspace = true
 xdg = "2.4.1"
 zbus.workspace = true
+parking_lot = "0.12.1"
+static_assertions = "1.1.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
