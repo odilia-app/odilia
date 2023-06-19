@@ -11,7 +11,7 @@ pub mod cache_item_ext;
 use cache_item_ext::{accessible_to_cache_item};
 
 use std::{
-	sync::{Arc, RwLock, Weak},
+	sync::{Arc, Weak, RwLock},
 };
 
 use async_trait::async_trait;
@@ -27,7 +27,7 @@ use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, OdiliaError},
 	result::OdiliaResult,
-	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache},
+	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache, CacheRef},
 };
 use serde::{Deserialize, Serialize};
 use zbus::{
@@ -87,37 +87,6 @@ impl AccessiblePrimitiveHostExt for AccessiblePrimitive {
 		let path = event.path(); //.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
 		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
-	}
-}
-
-/// A composition of an accessible ID and (possibly) a reference
-/// to its `CacheItem`, if the item has not been dropped from the cache yet.
-/// TODO if desirable, we could make one direction strong references (e.g. have
-/// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
-/// BUT - is it even desirable to keep an item pinned in an Arc from its
-/// releatives after it has been removed from the cache?
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CacheRef {
-	pub key: CacheKey,
-	#[serde(skip)]
-	item: Weak<RwLock<CacheItem>>,
-}
-
-impl CacheRef {
-	#[must_use]
-	pub fn new(key: AccessiblePrimitive) -> Self {
-		Self { key, item: Weak::new() }
-	}
-
-	#[must_use]
-	pub fn clone_inner(&self) -> Option<CacheItem> {
-		Some(self.item.upgrade().as_ref()?.read().ok()?.clone())
-	}
-}
-
-impl From<AccessiblePrimitive> for CacheRef {
-	fn from(value: AccessiblePrimitive) -> Self {
-		Self::new(value)
 	}
 }
 
@@ -185,6 +154,17 @@ impl Cache {
 	#[must_use]
 	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
+	}
+
+	/// Get a single item from the crate, like [`get_ref`], but gives you both an id and a *possible* reference.
+	#[must_use]
+	pub fn get_key(&self, id: &CacheKey) -> CacheRef {
+		CacheRef {
+			key: id.clone(),
+			item: self.get_ref(id)
+				.map(|arc| Arc::downgrade(&arc))
+				.unwrap_or(Weak::new()),
+		}
 	}
 
 	/// Get a single item from the cache.
