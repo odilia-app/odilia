@@ -8,33 +8,30 @@
 )]
 
 pub mod cache_item_ext;
-use cache_item_ext::{CacheItemHostExt, accessible_to_cache_item};
+use cache_item_ext::{accessible_to_cache_item};
 
 use std::{
-	collections::HashMap,
 	sync::{Arc, RwLock, Weak},
 };
 
 use async_trait::async_trait;
-use atspi_client::{convertable::Convertable, text_ext::TextExt};
 use atspi_common::{
-	ClipType, CoordType, GenericEvent, Granularity, InterfaceSet, RelationType, Role, StateSet,
+	GenericEvent
 };
 use atspi_proxies::{
-	accessible::{Accessible, AccessibleProxy},
-	text::{Text, TextProxy},
+	accessible::{AccessibleProxy},
+	text::{TextProxy},
 };
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
-	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
+	errors::{AccessiblePrimitiveConversionError, OdiliaError},
 	result::OdiliaResult,
-	cache::{AccessiblePrimitive, CacheItem, CacheKey, InnerCache, ThreadSafeCache},
+	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache},
 };
 use serde::{Deserialize, Serialize};
 use zbus::{
-	names::OwnedUniqueName,
-	zvariant::{ObjectPath, OwnedObjectPath},
+	zvariant::ObjectPath,
 	CacheProperties, ProxyBuilder,
 };
 
@@ -124,10 +121,10 @@ impl From<AccessiblePrimitive> for CacheRef {
 	}
 }
 
-#[inline]
-fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
-	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
-}
+//#[inline]
+//fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
+//	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
+//}
 
 /// An internal cache used within Odilia.
 ///
@@ -263,10 +260,12 @@ impl Cache {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
+	///
+	/// NOTE: This is a very expensive function to call, and should only be done within long-running async tasks that do not block other items from running.
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
-		cache: Weak<Self>,
+		_cache: Weak<Self>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;

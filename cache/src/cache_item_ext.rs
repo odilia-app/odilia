@@ -1,6 +1,6 @@
 use crate::{Cache, AccessiblePrimitiveHostExt};
 use async_trait::async_trait;
-use std::sync::{Weak, RwLock, Arc};
+use std::sync::{Weak, Arc};
 use std::collections::HashMap;
 use zbus::Connection;
 use atspi_proxies::{text::TextProxy, accessible::AccessibleProxy};
