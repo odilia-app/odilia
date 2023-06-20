@@ -23,6 +23,7 @@ pub enum OdiliaError {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum CommandError {
 	Text(TextError),
+	InvalidKind(String),
 }
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum TextError {
@@ -37,6 +38,11 @@ impl From<TextError> for CommandError {
 impl From<TextError> for OdiliaError {
 	fn from(te: TextError) -> OdiliaError {
 		OdiliaError::Command(te.into())
+	}
+}
+impl From<CommandError> for OdiliaError {
+	fn from(ce: CommandError) -> OdiliaError {
+		OdiliaError::Command(ce)
 	}
 }
 

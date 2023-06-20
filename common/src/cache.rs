@@ -1,5 +1,8 @@
 use parking_lot::RwLock;
-use std::sync::{Arc, Weak};
+use std::{
+	sync::{Arc, Weak},
+	hash::{Hash, Hasher},
+};
 use atspi_common::{InterfaceSet, StateSet, Role};
 use serde::{Serialize, Deserialize};
 use dashmap::DashMap;
@@ -30,12 +33,23 @@ pub type ThreadSafeCache = Arc<InnerCache>;
 /// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
 /// BUT - is it even desirable to keep an item pinned in an Arc from its
 /// releatives after it has been removed from the cache?
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CacheRef {
 	pub key: CacheKey,
 	#[serde(skip)]
 	pub item: Weak<RwLock<CacheItem>>,
 }
+impl Hash for CacheRef {
+	fn hash<H>(&self, hasher: &mut H) where H: Hasher {
+		self.key.hash(hasher)
+	}
+}
+impl PartialEq for CacheRef {
+	fn eq(&self, other: &CacheRef) -> bool {
+		self.key == other.key
+	}
+}
+impl Eq for CacheRef {}
 
 impl CacheRef {
 	#[must_use]
@@ -49,7 +63,7 @@ impl CacheRef {
 	}
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
