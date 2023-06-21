@@ -81,7 +81,6 @@ impl_conv!(TextState, CacheState, CacheState::Text);
 /// To insert text into a CacheRef's text field.
 pub struct TextInsertState {
 	pub start_index: usize,
-	pub end_index: usize,
 	pub text: String,
 	pub apply_to: CacheRef,
 }
