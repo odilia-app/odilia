@@ -39,7 +39,7 @@
 use async_trait::async_trait;
 use crate::state::ScreenReaderState;
 
-use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent, commands::{OdiliaCommand, CacheCommand}};
+use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent, commands::{OdiliaCommand, CacheCommand}, state::OdiliaState};
 
 /// Implemented by any type which executes a speciic, defined action and modifies state.
 /// This is implemented as a core *internal* feature of all types contained within the [`odilia_common::events::ScreenReaderEvents`] enum.
@@ -100,29 +100,11 @@ pub trait IntoOdiliaCommands {
 /// This fits Odilia's overall architechture as described in the architechture section of the `REAMDE.md`.
 /// Basically, this is code which should only read state.
 pub trait IntoStateProduct {
-	/// "Product" here referes to a type which holds multiple other types, so in this case, an event and the state variables it will modify.
-	/// Any structure which contains pieaces of state should only contain types which can be sent across threads safely and (relatively) trivially.
-	/// Types contained within this structure should usually be associated types of [`crate::state`].
-	/// But other types are allowed if they can be constructed from the state.
-	/// It should also include the event data, like so:
-	///
-	/// ```rust
-	/// # use odilia_common::{events::TextRemovedEvent, cache::CacheRef};
-	/// struct TextChangedStateModifier {
-	///     event: TextRemovedEvent,
-	///     apply_to: CacheRef,
-	///     // add more as necessary
-	/// }
-	/// ```
-	///
-	/// This type must also implement [`Command`], since any type returned from [`create`] should be able to be passed to [`Command::execute`].
-	type ProductType: Send + Sync + IntoOdiliaCommands;
-
 	/// Using both the event and state, construct the necessary type to complete a set of actions on Odilia.
 	/// 
 	/// 1. You *MAY NOT* aquire a write lock within this function; only copy references necessary to do so within the body of [`Command::execute()`]. This can not be enforced by the compiler, only developers.
 	/// 2. You *should* call *synchronous* function on various state items to *read* from them.
 	/// This may be useful if you want to, for example, query for an item in the cache as that can be directly modified without locking the cache later.
 	/// If you want to do this, consider using an [`odilia_common::cache::CacheRef`], since this adds some nice convenience features like being able to reference the cache item by ID or by direct reference.
-	fn create(&self, state: &ScreenReaderState) -> Result<Self::ProductType, OdiliaError>;
+	fn create(&self, state: &ScreenReaderState) -> Result<OdiliaState, OdiliaError>;
 }

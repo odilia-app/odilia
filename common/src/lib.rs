@@ -18,6 +18,7 @@ pub mod commands;
 pub mod modes;
 pub mod result;
 pub mod settings;
+pub mod state;
 pub mod types;
 
 pub type Accessible = (UniqueName<'static>, ObjectPath<'static>);

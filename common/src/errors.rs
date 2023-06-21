@@ -7,6 +7,8 @@ use std::{error::Error, fmt};
 pub enum OdiliaError {
 	Atspi(AtspiError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
+	/// This error occurs when you attempt to convert an [`crate::state::OdiliaState`] into a specific variant, and the variant contained within the enum is incorrect.
+	InvalidStateVariant,
 	NoAttributeError(String),
 	Cache(CacheError),
 	InfallibleConversion,
