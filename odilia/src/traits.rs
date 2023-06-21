@@ -100,11 +100,16 @@ pub trait IntoOdiliaCommands {
 /// This fits Odilia's overall architechture as described in the architechture section of the `REAMDE.md`.
 /// Basically, this is code which should only read state.
 pub trait IntoStateProduct {
+	/// A Product type here refers to a joining of two items:
+	/// 1. The information required to create a direct command.
+	/// 2. The state required to modify.
+	type ProductType: Send + Sync + IntoOdiliaCommands;
+
 	/// Using both the event and state, construct the necessary type to complete a set of actions on Odilia.
 	/// 
 	/// 1. You *MAY NOT* aquire a write lock within this function; only copy references necessary to do so within the body of [`Command::execute()`]. This can not be enforced by the compiler, only developers.
 	/// 2. You *should* call *synchronous* function on various state items to *read* from them.
 	/// This may be useful if you want to, for example, query for an item in the cache as that can be directly modified without locking the cache later.
 	/// If you want to do this, consider using an [`odilia_common::cache::CacheRef`], since this adds some nice convenience features like being able to reference the cache item by ID or by direct reference.
-	fn create(&self, state: &ScreenReaderState) -> Result<OdiliaState, OdiliaError>;
+	fn create(&self, state: &ScreenReaderState) -> Result<Self::ProductType, OdiliaError>;
 }
