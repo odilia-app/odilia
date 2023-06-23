@@ -5,53 +5,34 @@ use std::{error::Error, fmt};
 #[non_exhaustive]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum OdiliaError {
+	/// See: [`atspi_common::error::AtspiError`].
 	Atspi(AtspiError),
+	/// Issue converting between some other type and [`AccessiblePrimitive`].
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	/// This error occurs when you attempt to convert an [`crate::state::OdiliaState`] into a specific variant, and the variant contained within the enum is incorrect.
 	InvalidStateVariant,
-	NoAttributeError(String),
+	/// See: [`CacheError`].
 	Cache(CacheError),
+	/// An error that should never happen. It's merely here just to please the compiler in rare cases.
 	InfallibleConversion,
 	/// A parsing error converting a string into a type (usually an integer).
 	/// The error message is preserved through the `String` variant data.
 	ParseError(String),
+	/// See: [`ConfigError`].
 	Config(ConfigError),
-	/// Errors from processing commands.
-	Command(CommandError),
 	/// A generic error type where the error message is preserved, but it is not enumerable.
 	/// These are the kind of errors that generally should have a [bug filed](https://github.com/odilia-app/odilia/issues) for them.
 	Generic(String),
 }
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum CommandError {
-	Text(TextError),
-	InvalidKind(String),
-}
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub enum TextError {
-	/// Accessing or modifying text required bounds that were invalid.
-	OutOfBounds,
-}
-impl From<TextError> for CommandError {
-	fn from(te: TextError) -> CommandError {
-		CommandError::Text(te)
-	}
-}
-impl From<TextError> for OdiliaError {
-	fn from(te: TextError) -> OdiliaError {
-		OdiliaError::Command(te.into())
-	}
-}
-impl From<CommandError> for OdiliaError {
-	fn from(ce: CommandError) -> OdiliaError {
-		OdiliaError::Command(ce)
-	}
-}
 
+/// Errors when loading or reading from settings.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum ConfigError {
+	/// [`tini`] errors are converted into a string. These are usually errors about parsing the file.
 	Tini(String),
+	/// The value requested could not be found.
 	ValueNotFound,
+	/// The path of the file to load the config from could not be found.
 	PathNotFound,
 }
 #[cfg(feature = "zbus")]
@@ -83,12 +64,16 @@ impl std::fmt::Display for ConfigError {
 	}
 }
 impl std::error::Error for ConfigError {}
+/// Errors when dealing with Odilia's cache.
+/// The types are defined in [`crate::cache`], but the implementation is in an external crate.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum CacheError {
+	/// The cache is not avaialbe.
 	NotAvailable,
+	/// The item requested was not found.
 	NoItem,
+	/// A lock (read or write) could not be aquired on the cache.
 	NoLock,
-	TextBoundsError,
 }
 impl std::fmt::Display for CacheError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -96,7 +81,6 @@ impl std::fmt::Display for CacheError {
 			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
 			Self::NoItem => f.write_str("No item in cache found."),
       Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
-      Self::TextBoundsError => f.write_str("The range asked for in a call to a get_string_*_offset function has invalid bounds."),
 		}
 	}
 }
@@ -159,27 +143,3 @@ impl fmt::Display for AccessiblePrimitiveConversionError {
 	}
 }
 impl std::error::Error for AccessiblePrimitiveConversionError {}
-
-#[derive(Debug, thiserror::Error)]
-pub enum KeyFromStrError {
-	#[error("Empty key binding")]
-	EmptyString,
-	#[error("No key was provided")]
-	NoKey,
-	#[error("Empty key")]
-	EmptyKey,
-	#[error("Invalid key: {0:?}")]
-	InvalidKey(String),
-	#[error("Invalid repeat: {0:?}")]
-	InvalidRepeat(String),
-	#[error("Invalid modifier: {0:?}")]
-	InvalidModifier(String),
-	#[error("Invalid mode: {0:?}")]
-	InvalidMode(String),
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum ModeFromStrError {
-	#[error("Mode not found")]
-	ModeNameNotFound,
-}
