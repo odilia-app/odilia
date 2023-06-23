@@ -8,9 +8,6 @@
 	unsafe_code
 )]
 
-pub mod cache_item_ext;
-use cache_item_ext::{accessible_to_cache_item};
-
 use std::{
 	sync::{Arc, Weak},
 };
@@ -36,10 +33,17 @@ use zbus::{
 	CacheProperties, ProxyBuilder,
 };
 
+/// A host extention of the [`AccessiblePrimitive`] type.
+/// This enables the use of additional conversion functions for the cache.
 #[async_trait]
 pub trait AccessiblePrimitiveHostExt {
+	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`].
+	/// This is used when needing to query AT-SPI for new data.
 	async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>>;
+	/// Conver into an [`atspi_proxies::text::TextProxy`].
+	/// This is used when needing to query AT-SPI for new data on its text interface.
 	async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>>;
+	/// Take any event (which is required to implement [`atspi_common::events::GenericEvent`]) and convert it into an [`AccessiblePrimitive`].
 	fn from_event<'a, T: GenericEvent<'a>>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> where Self: Sized;
 }
 
@@ -103,7 +107,12 @@ impl AccessiblePrimitiveHostExt for AccessiblePrimitive {
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
 #[derive(Clone, Debug)]
 pub struct Cache {
+	/// A cache lookup by id.
 	pub by_id: ThreadSafeCache,
+	/// An active connection to AT-SPI.
+	/// This is used to query information that the cache stores directly.
+	/// Generally speaking, only the cache interfaces with AT-SPI directly.
+	/// If Odilia really needs to query something through AT-SPI, the cache should probably store it instead.
 	pub connection: zbus::Connection,
 }
 
@@ -311,3 +320,47 @@ impl Cache {
 	}
 }
 
+/// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
+/// This runs a bunch of long-awaiting code and can take quite some time; use this sparingly.
+/// This takes most properties and some function calls through the `AccessibleProxy` structure and generates a new `CacheItem`, which will be written to cache before being sent back.
+///
+/// # Errors
+///
+/// Will return an `Err(_)` variant when:
+///
+/// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
+/// 2. Any of the function calls on the `accessible` fail.
+/// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
+pub async fn accessible_to_cache_item(
+	accessible: &AccessibleProxy<'_>,
+) -> OdiliaResult<CacheItem> {
+	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
+		accessible.get_application(),
+		accessible.parent(),
+		accessible.get_index_in_parent(),
+		accessible.child_count(),
+		accessible.get_interfaces(),
+		accessible.get_role(),
+		accessible.get_state(),
+		accessible.get_children(),
+	)?;
+	// if it implements the Text interface
+	let text = match accessible.to_text().await {
+		// get *all* the text
+		Ok(text_iface) => text_iface.get_all_text().await,
+		// otherwise, use the name instaed
+		Err(_) => Ok(accessible.name().await?),
+	}?;
+	Ok(CacheItem {
+		object: accessible.try_into()?,
+		app: app.try_into()?,
+		parent: CacheRef::new(parent.try_into()?),
+		index,
+		children_num,
+		interfaces,
+		role,
+		states,
+		text,
+		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
+	})
+}
