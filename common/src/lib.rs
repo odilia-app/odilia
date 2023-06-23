@@ -14,7 +14,6 @@ pub mod errors;
 pub mod events;
 pub mod commands;
 pub mod modes;
-pub mod result;
 pub mod settings;
 pub mod types;
 
