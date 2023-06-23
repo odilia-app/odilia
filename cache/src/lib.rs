@@ -4,6 +4,7 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
+	missing_docs,
 	unsafe_code
 )]
 
