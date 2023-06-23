@@ -43,7 +43,6 @@ use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent, commands::{O
 
 /// Implemented by any type which executes a speciic, defined action and modifies state.
 /// This is implemented as a core *internal* feature of all types contained within the [`odilia_common::events::ScreenReaderEvents`] enum.
-#[async_trait]
 pub trait Command {
 	/// Execute the specific state modification defined for this type.
 	/// Some guidance on writing this function:
@@ -57,7 +56,6 @@ pub trait Command {
 	fn execute(&self) -> Result<(), OdiliaError>;
 }
 
-#[async_trait]
 impl Command for OdiliaCommand {
 	fn execute(&self) -> Result<(), OdiliaError> {
 		match self {
@@ -66,7 +64,6 @@ impl Command for OdiliaCommand {
 		}
 	}
 }
-#[async_trait]
 impl Command for CacheCommand {
 	fn execute(&self) -> Result<(), OdiliaError> {
 		match self {
