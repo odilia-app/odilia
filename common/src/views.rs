@@ -4,9 +4,11 @@
 
 use crate::cache::{CacheItem, CacheKey};
 use crate::traits::StateView;
-use atspi_common::events::object::{
-	TextCaretMovedEvent,
-	TextChangedEvent,
+use atspi_common::events::{
+	object::{
+		TextCaretMovedEvent,
+		TextChangedEvent,
+	},
 };
 
 use serde::{Serialize, Deserialize};
