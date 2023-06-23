@@ -8,6 +8,11 @@
 	unsafe_code
 )]
 
+//! Odilia's Cache
+//!
+//! The implementation of Odilia's caching system.
+//! If any modifications need to be made in relation to loading and storing various bits of information retrieved through the [`atspi`] crate, it will be here.
+
 use std::{
 	sync::{Arc, Weak},
 };
@@ -17,6 +22,7 @@ use async_trait::async_trait;
 use atspi_common::{
 	GenericEvent
 };
+use atspi_client::convertable::Convertable;
 use atspi_proxies::{
 	accessible::{AccessibleProxy},
 	text::{TextProxy},
@@ -347,7 +353,11 @@ pub async fn accessible_to_cache_item(
 	// if it implements the Text interface
 	let text = match accessible.to_text().await {
 		// get *all* the text
-		Ok(text_iface) => text_iface.get_all_text().await,
+		Ok(text_iface) => {
+			// yes this is actually how you need to do it.
+			let len = text_iface.character_count().await?;
+			text_iface.get_text(0, len).await
+		},
 		// otherwise, use the name instaed
 		Err(_) => Ok(accessible.name().await?),
 	}?;
