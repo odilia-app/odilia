@@ -1,3 +1,7 @@
+//! # Evnets
+//!
+//! The set of events which may come in (usually through key bindings) to execute an action with Odilia.
+
 use serde::{Deserialize, Serialize};
 
 use crate::ScreenReaderMode;
@@ -12,10 +16,13 @@ pub enum Feature {
 	Braille, // TODO
 }
 
+/// The direction of an action. This is usually for a structural navigation event.
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 #[serde(tag = "direction")]
 pub enum Direction {
+	/// Forward (in the tree)
 	Forward,
+	/// Backward (in the tree)
 	Backward,
 }
 
