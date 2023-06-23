@@ -4,6 +4,7 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
+	missing_docs,
 	unsafe_code
 )]
 
@@ -20,5 +21,4 @@ pub mod result;
 pub mod settings;
 pub mod types;
 
-pub type Accessible = (UniqueName<'static>, ObjectPath<'static>);
 pub use result::OdiliaResult as Result;
