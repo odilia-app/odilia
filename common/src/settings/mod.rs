@@ -1,3 +1,6 @@
+//! All settings used within Odilia.
+//! This may eventually need to be extensible for use in addons.
+
 mod log;
 mod speech;
 use log::LogSettings;
@@ -13,7 +16,9 @@ use crate::errors::ConfigError;
 /// the only way this config should change is if the configuration file changes, in which case the entire view will be replaced to reflect the fact
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ApplicationConfig {
+	/// specific speech settings
 	speech: SpeechSettings,
+	/// specific log settings
 	log: LogSettings,
 }
 
@@ -32,11 +37,13 @@ impl ApplicationConfig {
 		Ok(Self { speech, log })
 	}
 
+	/// Get log settings
 	#[must_use]
 	pub fn log(&self) -> &LogSettings {
 		&self.log
 	}
 
+	/// Get speech settings
 	#[must_use]
 	pub fn speech(&self) -> &SpeechSettings {
 		&self.speech
