@@ -21,9 +21,12 @@ macro_rules! impl_state_view {
 	}
 }
 
+/// View for a caret position change event.
 #[derive(Serialize, Deserialize, Clone)]
 pub struct CaretPositionView {
+	/// The previous position of the curosr.
 	previous_position: i32,
+	/// The previously focused item.
 	previous_focus: CacheKey,
 }
 impl_state_view!(TextCaretMovedEvent, CaretPositionView);
