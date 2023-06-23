@@ -1,7 +1,13 @@
+//! # Errors
+//!
+//! Basic error types for all sorts of Odilia components.
+
 use atspi_common::{AtspiError};
 use serde_plain::Error as SerdePlainError;
 use std::{error::Error, fmt};
 
+/// The common Odilia error type.
+/// This is specifically typed as a `#[non_exhaustive]` enum so that adding a new variant of error type doesn ot cause an API break.
 #[non_exhaustive]
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum OdiliaError {
@@ -122,15 +128,21 @@ impl fmt::Display for OdiliaError {
 	}
 }
 
+/// Errors when converting a variety of type into an [`AccessiblePrimitive`].
+/// This is the same type as [`CacheKey`].
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum AccessiblePrimitiveConversionError {
+	/// An error parsing some value.
+	/// This should rarely, if ever happen.
 	ParseError,
+	/// The path ID could not be found.
 	NoPathId,
+	/// The path is invalid (does not follow the rules of [`zvariant::ObjectPath`].
 	InvalidPath,
-	NoFirstSectionOfSender,
-	NoSecondSectionOfSender,
+	/// No sender is indicated.
 	NoSender,
-	ErrSender,
+	/// The sender is invalid.
+	InvalidSender,
 }
 impl From<AccessiblePrimitiveConversionError> for OdiliaError {
 	fn from(apc_error: AccessiblePrimitiveConversionError) -> Self {
