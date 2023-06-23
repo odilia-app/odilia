@@ -1,9 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{
-  modes::ScreenReaderMode,
-};
-use atspi_common::{Role};
+use crate::ScreenReaderMode;
+use atspi_common::Role;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize)]
 /// A list of features supported natively by Odilia.
