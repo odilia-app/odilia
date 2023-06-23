@@ -27,7 +27,7 @@ use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, OdiliaError},
-	result::OdiliaResult,
+	OdiliaResult,
 	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache, CacheRef},
 };
 use zbus::{
