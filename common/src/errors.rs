@@ -29,6 +29,8 @@ pub enum OdiliaError {
 	/// A generic error type where the error message is preserved, but it is not enumerable.
 	/// These are the kind of errors that generally should have a [bug filed](https://github.com/odilia-app/odilia/issues) for them.
 	Generic(String),
+	/// An error on invalid "operation", or "kind" fields on various [`atspi_common::events`].
+	UnknownKind(String),
 }
 
 /// Errors when loading or reading from settings.
