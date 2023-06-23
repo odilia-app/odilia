@@ -8,9 +8,6 @@
 	unsafe_code
 )]
 
-use zvariant::ObjectPath;
-use zbus_names::UniqueName; 
-
 pub mod cache;
 pub mod elements;
 pub mod errors;
@@ -21,4 +18,5 @@ pub mod result;
 pub mod settings;
 pub mod types;
 
-pub use result::OdiliaResult as Result;
+/// A result type that is generally quicker to write when using Result<T, OdiliaError>.
+pub type OdiliaResult<T> = Result<T, errors::OdiliaError>;
