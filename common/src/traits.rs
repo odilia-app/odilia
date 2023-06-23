@@ -1,3 +1,5 @@
+//! Common traits for use of all pieces of Odilia infrastructure.
+
 use serde::{Serialize, Deserialize};
 
 /// Set a state view for a given type.

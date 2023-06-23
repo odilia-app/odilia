@@ -21,6 +21,7 @@ pub mod events;
 pub mod commands;
 pub mod settings;
 pub mod types;
+pub mod traits;
 
 /// A result type that is generally quicker to write when using Result<T, OdiliaError>.
 pub type OdiliaResult<T> = Result<T, errors::OdiliaError>;
