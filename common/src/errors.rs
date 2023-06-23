@@ -15,8 +15,8 @@ pub enum OdiliaError {
 	Atspi(AtspiError),
 	/// Issue converting between some other type and [`AccessiblePrimitive`].
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
-	/// This error occurs when you attempt to convert an [`crate::state::OdiliaState`] into a specific variant, and the variant contained within the enum is incorrect.
-	InvalidStateVariant,
+	/// This error occurs when you attempt to convert an enum into a specific variant, and that variant is not the one contained.
+	InvalidVariant(String),
 	/// See: [`CacheError`].
 	Cache(CacheError),
 	/// An error that should never happen. It's merely here just to please the compiler in rare cases.
