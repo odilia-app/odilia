@@ -4,8 +4,14 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
+	missing_docs,
 	unsafe_code
 )]
+
+//! # Odilia TTS
+//!
+//! This internal crate handles the sending and receiving of `speech-dispatcher` commands as defined in `speech-dispatcher-async`.
+//! This is tightly coupled with the primary Odilia crate, and should not be used outside of it.
 
 use ssip_client_async::{
 	fifo::asynchronous_tokio::Builder,
