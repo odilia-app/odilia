@@ -1,4 +1,9 @@
-use crate::cache::CacheRef;
+//! # Commands
+//! 
+//! Commands are specifc, simple items that modify a portion of Odilia's state.
+//! The implementation of these commands is in Odilia.
+
+use crate::cache::CacheKey;
 use serde::{Serialize, Deserialize};
 
 /// Internal commands to modify the state of the screen reader and/or perform external actions.
@@ -9,34 +14,48 @@ use serde::{Serialize, Deserialize};
 /// However, an [`atspi_common::events::object::StateChanged`] event, with its `enabled` field set to 1, and its `state` field set to [`atspi_common::state::State::Focused`], this would produce a [`ChangeFocus`] command here, which updates Odilia's internal pointer to the focused item, but does not actively move the user's focus.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub enum OdiliaCommand {
+	/// All commands related to updating the cache.
 	Cache(CacheCommand),
+	/// Move the *USER*'s focus to a new object.
 	MoveFocus(MoveFocusCommand),
+	/// Setting *ODILIA*'s internal focused object.
 	UpdateFocus(UpdateFocusCommand),
+	/// Move the *USER*'s caret to a new position.
 	MoveCaretPosition(MoveCaretPositionCommand),
+	/// Setting *ODILIA*'s internal caret position.
 	UpdateCaretPosition(UpdateCaretPositionCommand),
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+/// Update the user's caret position.
+/// NOTE: This does *NOT* set Odilia's cursor position.
 pub struct MoveCaretPositionCommand {
+	/// The new caret position.
 	new_position: i32
 }
 
+/// Update Odilia's internal caret position.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub struct UpdateCaretPositionCommand {
+	/// The new caret position.
 	new_position: i32
 }
 
 /// Any command that directly changes items in the cache.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub enum CacheCommand {
+	/// Set the text of a given cache item.
 	SetText(SetTextCommand),
 }
 
 /// Set new text contents for a cache item.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SetTextCommand {
+	/// The new text to set.
 	pub new_text: String,
-	pub apply_to: CacheRef,
+	/// Which item will the new text be applied to.
+	/// This will need to be turned into a mutable [`CacheValue`] by the host.
+	pub apply_to: CacheKey,
 }
 impl From<SetTextCommand> for CacheCommand {
 	fn from(stc: SetTextCommand) -> CacheCommand {
