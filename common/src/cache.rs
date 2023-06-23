@@ -9,7 +9,7 @@ use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use zvariant::{OwnedObjectPath, ObjectPath};
 use zbus_names::OwnedUniqueName;
-use crate::errors::AccessiblePrimitiveConversionError;
+use crate::errors::{OdiliaError, AccessiblePrimitiveConversionError, CacheError};
 #[cfg(feature = "proxies")]
 use atspi_proxies::accessible::AccessibleProxy;
 
@@ -38,6 +38,16 @@ pub struct CacheRef {
 	pub key: CacheKey,
 	#[serde(skip)]
 	pub item: Weak<RwLock<CacheItem>>,
+}
+impl TryFrom<CacheRef> for CacheItem {
+	type Error = OdiliaError;
+
+	fn try_from(cache_ref: CacheRef) -> Result<CacheItem, OdiliaError> {
+		Ok(Weak::upgrade(&cache_ref.item)
+			.ok_or(CacheError::NoItem)?
+			.read()
+			.clone())
+	}
 }
 impl Hash for CacheRef {
 	fn hash<H>(&self, hasher: &mut H) where H: Hasher {
@@ -83,7 +93,7 @@ pub struct AccessiblePrimitive {
 	pub sender: smartstring::alias::String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	// The accessible object (within the application)	(so)
