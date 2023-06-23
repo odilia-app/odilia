@@ -12,6 +12,18 @@ pub enum OdiliaCommand {
 	Cache(CacheCommand),
 	MoveFocus(MoveFocusCommand),
 	UpdateFocus(UpdateFocusCommand),
+	MoveCaretPosition(MoveCaretPositionCommand),
+	UpdateCaretPosition(UpdateCaretPositionCommand),
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct MoveCaretPositionCommand {
+	new_position: i32
+}
+
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct UpdateCaretPositionCommand {
+	new_position: i32
 }
 
 /// Any command that directly changes items in the cache.
