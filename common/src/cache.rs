@@ -1,3 +1,7 @@
+//! # Cache
+//!
+//! Common types used by the Odilia caching crate.
+
 use parking_lot::RwLock;
 use std::{
 	sync::{Arc, Weak},
@@ -35,7 +39,10 @@ pub type ThreadSafeCache = Arc<InnerCache>;
 /// releatives after it has been removed from the cache?
 #[derive(Debug, Clone, Deserialize, Serialize, Default)]
 pub struct CacheRef {
+	/// A key to find the cache item in the cache.
 	pub key: CacheKey,
+	/// An active reference to an item in cache.
+	/// This will have to be de-referenced using `Weak::upgrade`.
 	#[serde(skip)]
 	pub item: Weak<RwLock<CacheItem>>,
 }
@@ -62,11 +69,13 @@ impl PartialEq for CacheRef {
 impl Eq for CacheRef {}
 
 impl CacheRef {
+	/// Create a new cache reference, which by itself will only populate the `item` field with an empty `Weak`.
 	#[must_use]
 	pub fn new(key: AccessiblePrimitive) -> Self {
 		Self { key, item: Weak::new() }
 	}
 
+	/// Clone the underlying [`CacheItem`].
 	#[must_use]
 	pub fn clone_inner(&self) -> Option<CacheItem> {
 		Some(self.item.upgrade().as_ref()?.read().clone())
@@ -96,25 +105,25 @@ pub struct AccessiblePrimitive {
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
-	// The accessible object (within the application)	(so)
+	/// The accessible object (within the application)	(so)
 	pub object: AccessiblePrimitive,
-	// The application (root object(?)	  (so)
+	/// The application (root object(?)	  (so)
 	pub app: AccessiblePrimitive,
-	// The parent object.  (so)
+	/// The parent object.  (so)
 	pub parent: CacheRef,
-	// The accessbile index in parent.	i
+	/// The accessbile index in parent.	i
 	pub index: i32,
-	// Child count of the accessible  i
+	/// Child count of the accessible  i
 	pub children_num: i32,
-	// The exposed interfece(s) set.  as
+	/// The exposed interfece(s) set.  as
 	pub interfaces: InterfaceSet,
-	// Accessible role. u
+	/// Accessible role. u
 	pub role: Role,
-	// The states applicable to the accessible.  au
+	/// The states applicable to the accessible.  au
 	pub states: StateSet,
-	// The text of the accessible.
+	/// The text of the accessible.
 	pub text: String,
-	// The children (ids) of the accessible.
+	/// The children (ids) of the accessible.
 	pub children: Vec<CacheRef>,
 }
 

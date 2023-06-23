@@ -7,6 +7,13 @@
 	missing_docs,
 	unsafe_code
 )]
+//! # Odilia Common
+//!
+//! This crate defines all the types needed to communicate with Odilia.
+//! Whether that is from a socket through the `odilia-input` create, or through a direct plugin.
+//! These types must be able to compile in a variety of architectures.
+//! This means no use of `tokio` (async runtime), or `zbus` (dbus communicate) will be accepted.
+//! Or, if they are necessary, they must be behind a feature flag.
 
 pub mod cache;
 pub mod errors;
