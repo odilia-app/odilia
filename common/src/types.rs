@@ -3,7 +3,6 @@
 //! Instead of reading from a series of attributes, like a `HashMap<String, String>`, it should use types from this module.
 //! Note that this module does not yet implement an "Attributes type", but this will be coming.
 
-use atspi_common::Granularity;
 use serde::{self, Deserialize, Serialize};
 
 /// Defines possible values of an [aria-live](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-live) field.
