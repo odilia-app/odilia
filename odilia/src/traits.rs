@@ -31,22 +31,6 @@ pub trait Command: MutableStateView {
 	fn execute(&self, mutable_state: <Self as MutableStateView>::MutableState) -> Result<(), OdiliaError>;
 }
 
-impl Command for OdiliaCommand {
-	fn execute(&self) -> Result<(), OdiliaError> {
-		match self {
-			OdiliaCommand::Cache(cache_command) => cache_command.execute(),
-			_ => todo!()
-		}
-	}
-}
-impl Command for CacheCommand {
-	fn execute(&self) -> Result<(), OdiliaError> {
-		match self {
-			CacheCommand::SetText(set_text_command) => set_text_command.execute(),
-		}
-	}
-}
-
 /// Implemented for any type which would like to be able to 
 /// convert into a list of OdiliaEvents.
 ///
