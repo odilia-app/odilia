@@ -7,12 +7,12 @@ use std::{
 	sync::{Arc, Weak},
 	hash::{Hash, Hasher},
 };
-use atspi_common::{InterfaceSet, StateSet, Role};
+use atspi_common::{InterfaceSet, StateSet, Role, events::Accessible, AtspiError};
 use serde::{Serialize, Deserialize};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use zvariant::{OwnedObjectPath, ObjectPath};
-use zbus_names::OwnedUniqueName;
+use zbus_names::{OwnedUniqueName, UniqueName};
 use crate::errors::{OdiliaError, AccessiblePrimitiveConversionError, CacheError};
 #[cfg(feature = "proxies")]
 use atspi_proxies::accessible::AccessibleProxy;
@@ -179,6 +179,24 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 		Ok(AccessiblePrimitive {
 			id: accessible_id.to_string(),
 			sender: so.0.as_str().into(),
+		})
+	}
+}
+impl From<&Accessible> for AccessiblePrimitive {
+	fn from(acc: &Accessible) -> AccessiblePrimitive {
+		AccessiblePrimitive {
+			id: acc.path.to_string(),
+			sender: acc.name.to_string().into(),
+		}
+	}
+}
+impl TryFrom<AccessiblePrimitive> for Accessible {
+	type Error = AtspiError;
+
+	fn try_from(prim: AccessiblePrimitive) -> Result<Accessible, AtspiError>  {
+		Ok(Accessible {
+			path: ObjectPath::try_from(prim.id)?.into(),
+			name: UniqueName::try_from(prim.sender.to_string())?.into(),
 		})
 	}
 }
