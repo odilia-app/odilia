@@ -8,6 +8,7 @@ use atspi_common::events::{
 	object::{
 		TextCaretMovedEvent,
 		TextChangedEvent,
+		StateChangedEvent,
 	},
 };
 
@@ -32,3 +33,4 @@ pub struct CaretPositionView {
 impl_state_view!(TextCaretMovedEvent, CaretPositionView);
 
 impl_state_view!(TextChangedEvent, CacheItem);
+impl_state_view!(StateChangedEvent, CacheItem);

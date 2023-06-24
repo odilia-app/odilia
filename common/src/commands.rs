@@ -3,8 +3,35 @@
 //! Commands are specifc, simple items that modify a portion of Odilia's state.
 //! The implementation of these commands is in Odilia.
 
-use crate::cache::CacheKey;
+use crate::{cache::CacheKey, errors::OdiliaError};
+use atspi_common::StateSet;
 use serde::{Serialize, Deserialize};
+
+macro_rules! impl_conversions {
+	($inner_type:ty, $inner_path:path, $outer_type:ty, $outer_path:path) => {
+		impl From<$inner_type> for $outer_type {
+			fn from(inner: $inner_type) -> $outer_type {
+				$inner_path(inner)
+			}
+		}
+		impl From<$inner_type> for OdiliaCommand {
+			fn from(inner: $inner_type) -> OdiliaCommand {
+				$outer_path($inner_path(inner))
+			}
+		}
+		impl TryFrom<OdiliaCommand> for $inner_type {
+			type Error = OdiliaError;
+
+			fn try_from(command: OdiliaCommand) -> Result<$inner_type, Self::Error> {
+				if let $outer_path($inner_path(specific_command)) = command {
+					Ok(specific_command)
+				} else {
+					Err(OdiliaError::InvalidVariant(format!("Invalid variant of OdiliaCommand. Type wanted: SetTextCommand. Type contained: {command:?}")))
+				}
+			}
+		}
+	}
+}
 
 /// Internal commands to modify the state of the screen reader and/or perform external actions.
 /// These differ froma [`crate::events::OdiliaEvent`] in that they are directly related to Odilia's implementation
@@ -46,6 +73,8 @@ pub struct UpdateCaretPositionCommand {
 pub enum CacheCommand {
 	/// Set the text of a given cache item.
 	SetText(SetTextCommand),
+	/// Set the state of a given cache item.
+	SetState(SetStateCommand),
 }
 
 /// Set new text contents for a cache item.
@@ -57,21 +86,17 @@ pub struct SetTextCommand {
 	/// This will need to be turned into a mutable [`CacheValue`] by the host.
 	pub apply_to: CacheKey,
 }
-impl From<SetTextCommand> for CacheCommand {
-	fn from(stc: SetTextCommand) -> CacheCommand {
-		CacheCommand::SetText(stc)
-	}
+impl_conversions!(SetTextCommand, CacheCommand::SetText, CacheCommand, OdiliaCommand::Cache);
+/// Set new state for a cache item.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct SetStateCommand {
+	/// The new state set to use.
+	pub new_states: StateSet,
+	/// Which item will the new text be applied to.
+	/// This will need to be turned into a mutable [`CacheValue`] by the host.
+	pub apply_to: CacheKey,
 }
-impl From<CacheCommand> for OdiliaCommand {
-	fn from(ccs: CacheCommand) -> OdiliaCommand {
-		OdiliaCommand::Cache(ccs)
-	}
-}
-impl From<SetTextCommand> for OdiliaCommand {
-	fn from(stc: SetTextCommand) -> OdiliaCommand {
-		OdiliaCommand::Cache(stc.into())
-	}
-}
+impl_conversions!(SetStateCommand, CacheCommand::SetState, CacheCommand, OdiliaCommand::Cache);
 
 /// Update Odilia's pointer as to where the current focus is.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
