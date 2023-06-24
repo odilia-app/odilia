@@ -18,12 +18,11 @@ use atspi_proxies::{accessible::AccessibleProxy};
 use odilia_cache::Cache as InnerCache;
 use odilia_common::{
 	errors::{ConfigError},
-	modes::ScreenReaderMode,
+	ScreenReaderMode,
 	settings::ApplicationConfig,
-	types::TextSelectionArea,
   events::ScreenReaderEvent,
 	cache::{AccessiblePrimitive, CacheItem},
-	Result as OdiliaResult,
+	OdiliaResult,
 };
 use std::sync::Arc;
 
@@ -34,7 +33,7 @@ mod types {
 	use std::sync::Arc;
 	use std::sync::atomic::AtomicI32;
 	use static_assertions::assert_impl_all;
-	use odilia_common::{modes::ScreenReaderMode, settings::ApplicationConfig, cache::AccessiblePrimitive};
+	use odilia_common::{ScreenReaderMode, settings::ApplicationConfig, cache::AccessiblePrimitive};
 	use odilia_cache::Cache as OdiliaCache;
 	use atspi_connection::AccessibilityConnection;
 	use atspi_common::events::Event;
@@ -109,7 +108,7 @@ impl ScreenReaderState {
 			.wrap_err("Failed to create org.freedesktop.DBus proxy")?
 			.into();
 
-		let mode: Mode = RwLock::new(ScreenReaderMode { name: "CommandMode".to_string() }).into();
+		let mode: Mode = RwLock::new("CommandMode".to_string() ).into();
 
 		tracing::debug!("Reading configuration");
 		let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
@@ -181,56 +180,6 @@ impl ScreenReaderState {
 	//	}
 	//	self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	//}
-
-	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
-	#[allow(dead_code)]
-	pub async fn generate_speech_string(
-		&self,
-		acc: AccessibleProxy<'_>,
-		select: TextSelectionArea,
-	) -> OdiliaResult<String> {
-		let acc_text = acc.to_text().await?;
-		let _acc_hyper = acc.to_hyperlink().await?;
-		//let _full_text = acc_text.get_text_ext().await?;
-		let (mut text_selection, start, end) = match select {
-			TextSelectionArea::Granular(granular) => {
-				acc_text.get_string_at_offset(granular.index, granular.granularity)
-					.await?
-			}
-			TextSelectionArea::Index(indexed) => (
-				acc_text.get_text(indexed.start, indexed.end).await?,
-				indexed.start,
-				indexed.end,
-			),
-		};
-		// TODO: Use streaming filters, or create custom function
-		let children = acc.get_children_ext().await?;
-		let mut children_in_range = Vec::new();
-		for child in children {
-			let child_hyper = child.to_hyperlink().await?;
-			let index = child_hyper.start_index().await?;
-			if index >= start && index <= end {
-				children_in_range.push(child);
-			}
-		}
-		for child in children_in_range {
-			let child_hyper = child.to_hyperlink().await?;
-			let child_start = usize::try_from(child_hyper.start_index().await?)?;
-			let child_end = usize::try_from(child_hyper.end_index().await?)?;
-			let child_text = format!(
-				"{}, {}",
-				child.name().await?,
-				child.get_role_name().await?
-			);
-			text_selection.replace_range(
-				child_start + (usize::try_from(start)?)
-					..child_end + (usize::try_from(start)?),
-				&child_text,
-			);
-		}
-		// TODO: add logic for punctuation
-		Ok(text_selection)
-	}
 
 	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
