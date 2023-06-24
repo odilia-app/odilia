@@ -1,104 +1,46 @@
 use crate::{
 	state::ScreenReaderState,
-	traits::{IntoOdiliaCommands, IntoStateProduct, Command},
+	traits::{IntoOdiliaCommands, StateView, Command, IntoStateView, MutableStateView, IntoMutableStateView},
 };
+use std::sync::Arc;
 use async_trait::async_trait;
 use atspi_common::events::object::{ObjectEvents, TextChangedEvent};
 use odilia_common::events::{ScreenReaderEvent};
 use odilia_common::{
-	cache::{CacheRef, CacheValue, CacheItem},
-	errors::{OdiliaError, CacheError, CommandError},
+	cache::{CacheRef, CacheValue, CacheItem, AccessiblePrimitive},
+	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, SetTextCommand},
-	state::{OdiliaState, TextInsertState, TextDeleteState, TextState},
 };
 
-impl IntoOdiliaCommands for TextState {
-	fn commands(&self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-		match self {
-			TextState::Insert(insert_state) => insert_state.commands(),
-			TextState::Delete(delete_state) => delete_state.commands(),
-		}
+impl MutableStateView for SetTextCommand {
+	type View = CacheValue;
+}
+impl IntoMutableStateView for SetTextCommand {
+	fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError> {
+		state.cache.get_ref(&self.apply_to)
+			.ok_or(CacheError::NoItem.into())
 	}
 }
-
 impl Command for SetTextCommand {
-	fn execute(&self) -> Result<(), OdiliaError> {
-		let cache_item_arc = get_cache_item!(self.apply_to.item);
-		{
-			let mut cache_item = cache_item_arc.write();
-			cache_item.text = self.new_text.clone();
-		}
+	fn execute(&self, cache_lock: <Self as MutableStateView>::View) -> Result<(), OdiliaError> {
+		let mut cache_item = cache_lock.write();
+		cache_item.text = self.new_text.clone();
 		Ok(())
 	}
 }
 
-impl IntoStateProduct for TextChangedEvent {
-	type ProductType = TextState;
-
-	fn create(&self, state: &ScreenReaderState) -> Result<Self::ProductType, OdiliaError> {
-		match self.operation.as_str() {
-			"insert" | "insert/system" => {
-				Ok(TextInsertState {
-					start_index: self.start_pos as usize,
-					text: self.text.clone(),
-					apply_to: state.cache.get_key(&(self.item.clone().into())),
-				}.into())
-			},
-			"delete" | "delete/system" => {
-				Ok(TextDeleteState {
-					start_index: self.start_pos as usize,
-					end_index: self.start_pos as usize + self.length as usize,
-					apply_to: state.cache.get_key(&(self.item.clone().into())),
-				}.into())
-			},
-			_ => {
-				Err(CommandError::InvalidKind("operation for TextChangedEvent: \"{operation}\"".to_string()).into())
-			},
-		}
-	}
-}
-
-impl IntoOdiliaCommands for TextInsertState {
+impl IntoOdiliaCommands for TextChangedEvent {
 	// TODO: handle speaking if in an aria-live region
-	fn commands(&self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-		let cache_item_arc = get_cache_item!(self.apply_to.item);
-		// get the text, then immediately drop the read guard
-		let cache_text = {
-			cache_item_arc
-				.read()
-				.text
-				.clone()
+	fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+		let new_text = match self.operation.as_str() {
+			"insert" | "insert/system" => insert_text(self.start_pos as usize, &self.text, &state_view.text),
+			"delete" | "delete/system" => delete_text(&state_view.text, self.start_pos as usize, (self.start_pos + self.length) as usize),
+			_ => return Err(OdiliaError::UnknownKind(format!("Unknown kind for TextChangedEvent: {:?}", self.operation))),
 		};
-		let new_text = insert_text(self.start_index, &self.text, &cache_text);
 		Ok(vec![
 			SetTextCommand {
 				new_text,
-				apply_to: self.apply_to.clone(),
-			}.into()
-		])
-	}
-}
-impl IntoOdiliaCommands for TextDeleteState {
-	// TODO: handle speaking if in an aria-live region
-	fn commands(&self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-		let cache_item_arc = self.apply_to.item
-			.upgrade()
-			.ok_or_else(|| {
-				tracing::trace!("There was a problem upgrading a Weak to Arc. This usually means the item was deleted: {:?}", self.apply_to.key);
-				CacheError::NoItem
-			})?;
-		// get the text, then immediately drop the read guard
-		let cache_text = {
-			cache_item_arc
-				.read()
-				.text
-				.clone()
-		};
-		let new_text = delete_text(&cache_text, self.start_index, self.end_index);
-		Ok(vec![
-			SetTextCommand {
-				new_text,
-				apply_to: self.apply_to.clone(),
+				apply_to: state_view.object.clone(),
 			}.into()
 		])
 	}
@@ -163,11 +105,10 @@ pub fn delete_text(
 mod test {
 	use std::sync::Arc;
 	use parking_lot::RwLock;
-	use super::{TextInsertState, TextDeleteState};
 	use crate::traits::{IntoOdiliaCommands, Command};
 	use odilia_common::{
 		cache::{CacheRef, CacheValue, CacheItem, AccessiblePrimitive},
-		commands::OdiliaCommand,
+		commands::{OdiliaCommand, SetTextCommand},
 		errors::OdiliaError,
 	};
 	use atspi_common::{
@@ -184,7 +125,10 @@ mod test {
 	macro_rules! default_cache_item {
 		() => {
 			Arc::new(RwLock::new(CacheItem {
-				object: AccessiblePrimitive::default(),
+				object: AccessiblePrimitive {
+					id: "/none".to_string(),
+					sender: ":0.0".to_string().into(),
+				},
 				app: AccessiblePrimitive::default(),
 				children: Vec::new(),
 				children_num: 0,
@@ -207,124 +151,128 @@ mod test {
 		}
 	}
 
-	macro_rules! execute_state {
-		($state_struct:ident) => {
-			$state_struct.commands()?
-				.iter()
-				.map(<OdiliaCommand as Command>::execute)
-				.collect::<Result<(), OdiliaError>>()
+	macro_rules! text_test {
+		($test_name:ident, $event:expr, $new_text:literal) => {
+			#[test]
+			fn $test_name() -> Result<(), OdiliaError> {
+				let cache_item_arc = default_cache_item!();
+				let cache_item = cache_item_arc.read().clone();
+				let event = $event;
+				let first_command: SetTextCommand = event.commands(&cache_item)?[0].clone().try_into()?;
+				assert_eq!(first_command.new_text, $new_text);
+				Ok(())
+			}
 		}
 	}
 
-	#[test]
-	fn test_insert_text_at_beginning() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			start_index: 0,
+	text_test!(
+		test_insert_text_at_beginning, 
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 0,
+			length: 3,
+			item: Accessible::default(),
 			text: "1. ".to_string(),
-		};
-		let _ = execute_state!(event);
-		assert_eq!(cache_item_arc.read().text, "1. The Industrial Revolution and its consequences have been a disaster for the human race");
-		Ok(())
-	}
-	#[test]
-	fn test_insert_text_at_end() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			start_index: 86,
+		},
+		"1. The Industrial Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_insert_text_at_end, 
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 86,
+			length: 1,
+			item: Accessible::default(),
 			text: ".".to_string(),
-		};
-		let _ = execute_state!(event);
-		assert_eq!(cache_item_arc.read().text, "The Industrial Revolution and its consequences have been a disaster for the human race.");
-		Ok(())
-	}
-	#[test]
-	fn test_insert_text_in_middle() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			start_index: 12,
+		},
+		"The Industrial Revolution and its consequences have been a disaster for the human race."
+	);
+	text_test!(
+		test_insert_text_in_middle, 
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 12,
+			length: 13,
+			item: Accessible::default(),
 			text: "random insert".to_string(),
-		};
-		let _ = execute_state!(event);
-		assert_eq!(cache_item_arc.read().text, "The Industrirandom insertal Revolution and its consequences have been a disaster for the human race");
-		Ok(())
-	}
-	#[test]
-	fn test_delete_text_in_middle() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextDeleteState {
-			apply_to: cache_ref,
-			end_index: 81 + 2,
-			start_index: 81,
-		};
-		let _ = execute_state!(event);
-		assert_eq!(cache_item_arc.read().text, "The Industrial Revolution and its consequences have been a disaster for the humanace");
-		Ok(())
-	}
-	#[test]
-	fn test_delete_text_negative_case_start_index() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextDeleteState {
-			apply_to: cache_ref,
-			end_index: 1,
-			start_index: (-1 as i32) as usize,
-		};
-		let _ = execute_state!(event);
-		// should leave text exactly the same
-		assert_eq!(cache_item_arc.read().text, "The Industrial Revolution and its consequences have been a disaster for the human race");
-		Ok(())
-	}
-	#[test]
-	fn test_delete_text_negative_case_start_and_end_index() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			start_index: (-1 as i32) as usize,
+		},
+		"The Industrirandom insertal Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_delete_text_in_middle, 
+		TextChangedEvent {
+			operation: "delete".to_string(),
+			start_pos: 81,
+			length: 3,
+			item: Accessible::default(),
+			text: " ra".to_string(),
+		},
+		"The Industrial Revolution and its consequences have been a disaster for the humance"
+	);
+	text_test!(
+		test_insert_mismached_length_text_in_middle, 
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 3,
+			length: 5,
+			item: Accessible::default(),
+			text: " LOL".to_string(),
+		},
+		"The LOL Industrial Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_delete_text_negative_case_start_index_and_overflow, 
+		TextChangedEvent {
+			operation: "delete".to_string(),
+			start_pos: -1,
+			length: 5,
+			item: Accessible::default(),
+			text: "".to_string(),
+		},
+		"The Industrial Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_insert_text_negative_case_start_index_and_overflow, 
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: -5,
+			length: 3,
+			item: Accessible::default(),
 			text: "???".to_string(),
-		};
-		let _ = execute_state!(event);
-		assert_eq!(cache_item_arc.read().text, "The Industrial Revolution and its consequences have been a disaster for the human race???");
-		Ok(())
-	}
-	#[test]
-	fn test_insert_text_negative_start() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			// is this the correct way to do it?
-			// TODO: this makes it place the text at the end, regardless of the end index
-			start_index: (-5 as i32) as usize,
-			text: "??".to_string(),
-		};
-		let _ = execute_state!(event);
-		// should stay the same
-		assert_eq!(cache_item_arc.read().text, "The Industrial Revolution and its consequences have been a disaster for the human race??");
-		Ok(())
-	}
-	#[test]
-	fn test_insert_text_negative_end() -> Result<(), OdiliaError> {
-		let cache_item_arc = default_cache_item!();
-		let cache_ref = cache_ref!(cache_item_arc);
-		let event = TextInsertState {
-			apply_to: cache_ref,
-			// this places the text in `text` at the position, with no other conditions
-			// TODO: should this be the case
-			start_index: 2 as usize,
-			text: "??".to_string(),
-		};
-		let _ = execute_state!(event);
-		// should stay the same
-		assert_eq!(cache_item_arc.read().text, "Th??e Industrial Revolution and its consequences have been a disaster for the human race");
-		Ok(())
-	}
+		},
+		"The Industrial Revolution and its consequences have been a disaster for the human race???"
+	);
+	text_test!(
+		test_insert_text_in_middle_again,
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 2,
+			length: 3,
+			item: Accessible::default(),
+			text: "???".to_string(),
+		},
+		"Th???e Industrial Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_wrong_length_insert,
+		TextChangedEvent {
+			operation: "insert".to_string(),
+			start_pos: 2,
+			length: 8,
+			item: Accessible::default(),
+			text: "???".to_string(),
+		},
+		"Th???e Industrial Revolution and its consequences have been a disaster for the human race"
+	);
+	text_test!(
+		test_mismatched_text_with_delete,
+		TextChangedEvent {
+			operation: "delete".to_string(),
+			start_pos: 0,
+			length: 8,
+			item: Accessible::default(),
+			text: "The".to_string(),
+		},
+		"strial Revolution and its consequences have been a disaster for the human race"
+	);
 }
