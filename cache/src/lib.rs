@@ -30,7 +30,7 @@ use atspi_proxies::{
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
-	errors::{AccessiblePrimitiveConversionError, OdiliaError},
+	errors::{AccessiblePrimitiveConversionError, OdiliaError, CacheError},
 	OdiliaResult,
 	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache, CacheRef},
 };
@@ -190,6 +190,22 @@ impl Cache {
 	#[must_use]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().clone())
+	}
+
+	/// Get a single item from the cache.
+	///
+	/// This will allow you to get the item without holding any locks to it,
+	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
+	#[must_use]
+	pub fn get_from<'a, T: 'a>(&self, to_key: &'a T) -> Result<CacheItem, OdiliaError> 
+		where AccessiblePrimitive: TryFrom<&'a T>,
+					OdiliaError: From<<AccessiblePrimitive as TryFrom<&'a T>>::Error> {
+		let key = AccessiblePrimitive::try_from(to_key)?;
+		Ok(self.by_id.get(&key)
+			.as_deref()
+			.ok_or(CacheError::NoItem)?
+			.read()
+			.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
