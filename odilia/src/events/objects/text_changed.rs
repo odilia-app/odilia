@@ -16,23 +16,26 @@ use odilia_cache::{CacheRef, CacheValue, CacheItem};
 impl MutableStateView for SetTextCommand {
 	type View = CacheValue;
 }
+#[async_trait]
 impl IntoMutableStateView for SetTextCommand {
-	fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError> {
+	async fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError> {
 		state.cache.get_ref(&self.apply_to)
 			.ok_or(CacheError::NoItem.into())
 	}
 }
+#[async_trait]
 impl Command for SetTextCommand {
-	fn execute(&self, cache_lock: <Self as MutableStateView>::View) -> Result<(), OdiliaError> {
-		let mut cache_item = cache_lock.lock();
+	async fn execute(&self, cache_lock: <Self as MutableStateView>::View) -> Result<(), OdiliaError> {
+		let mut cache_item = cache_lock.lock().await;
 		cache_item.text = self.new_text.clone();
 		Ok(())
 	}
 }
 
+#[async_trait]
 impl IntoOdiliaCommands for TextChangedEvent {
 	// TODO: handle speaking if in an aria-live region
-	fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	async fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
 		let new_text = match self.operation.as_str() {
 			"insert" | "insert/system" => insert_text(self.start_pos as usize, &self.text, &state_view.text),
 			"delete" | "delete/system" => delete_text(&state_view.text, self.start_pos as usize, (self.start_pos + self.length) as usize),
@@ -105,7 +108,7 @@ pub fn delete_text(
 #[cfg(test)]
 mod test {
 	use std::sync::Arc;
-	use parking_lot::RwLock;
+	use tokio::sync::Mutex;
 	use crate::traits::{IntoOdiliaCommands, Command};
 	use odilia_common::{
 		cache::{AccessiblePrimitive, CacheKey, ExternalCacheItem},
@@ -126,7 +129,7 @@ mod test {
 	// TODO: remove when default is merged upstream
 	macro_rules! default_cache_item {
 		() => {
-			Arc::new(RwLock::new(CacheItem {
+			Arc::new(Mutex::new(CacheItem {
 				object: AccessiblePrimitive {
 					id: "/none".to_string(),
 					sender: ":0.0".to_string().into(),
@@ -147,7 +150,7 @@ mod test {
 	macro_rules! cache_ref {
 		($cache_item:ident) => {
 			CacheRef {
-				key: RwLock::read(&*$cache_item).object.clone(),
+				key: Mutex::lock(&*$cache_item).await.object.clone(),
 				item: Arc::downgrade(&$cache_item),
 			}
 		}
@@ -155,12 +158,12 @@ mod test {
 
 	macro_rules! text_test {
 		($test_name:ident, $event:expr, $new_text:literal) => {
-			#[test]
-			fn $test_name() -> Result<(), OdiliaError> {
+			#[tokio::test]
+			async fn $test_name() -> Result<(), OdiliaError> {
 				let cache_item_arc = default_cache_item!();
-				let cache_item = cache_item_arc.read().clone();
+				let cache_item = cache_item_arc.lock().await.clone();
 				let event = $event;
-				let first_command: SetTextCommand = event.commands(&cache_item.into())?[0].clone().try_into()?;
+				let first_command: SetTextCommand = event.commands(&cache_item.into()).await?[0].clone().try_into()?;
 				assert_eq!(first_command.new_text, $new_text);
 				Ok(())
 			}

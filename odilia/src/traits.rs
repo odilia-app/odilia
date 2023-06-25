@@ -26,6 +26,7 @@
 
 use crate::state::ScreenReaderState;
 
+use async_trait::async_trait;
 use serde::{Serialize, Deserialize};
 use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent, commands::{OdiliaCommand, CacheCommand}};
 pub use odilia_common::traits::StateView;
@@ -34,6 +35,7 @@ pub use odilia_common::traits::StateView;
 ///
 /// Commands are meant to be small, easy to predict operations.
 /// If you need to query the cache to complete the command, consider moving that logic into [`MutableStateView::create_view`].
+#[async_trait]
 pub trait Command: MutableStateView + IntoMutableStateView {
 	/// Execute the specific state modification defined for this type.
 	/// Some guidance on writing this function:
@@ -52,7 +54,7 @@ pub trait Command: MutableStateView + IntoMutableStateView {
 	/// 5. If the function is longer than 5-6 lines, you may want to reconsider your design.
 	/// The [`execute`] function is meant to perform very small, atomic operations,
 	/// and all logic should mostly be within the [`IntoOdiiaCommands`] implementation of any given event.
-	fn execute(&self, mutable_state: <Self as MutableStateView>::View) -> Result<(), OdiliaError>;
+	async fn execute(&self, mutable_state: <Self as MutableStateView>::View) -> Result<(), OdiliaError>;
 }
 
 /// Implemented for any type which would like to be able to 
@@ -67,18 +69,20 @@ pub trait Command: MutableStateView + IntoMutableStateView {
 /// 
 /// NOTE: This can not be done using `impl Into<Vec<ScreenReaderEvent>> for &T` because Odilia may implement this functionality for foreign types (for example, those in [`atspi_common::events`].
 /// Events are guarenteed to be executed in the order they are recieved in the vector.
+#[async_trait]
 pub trait IntoOdiliaCommands: StateView {
 
 	/// Create a list of commands to run against Odilia's current state.
-	fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError>;
+	async fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError>;
 }
 
 /// Indicates that a mutable state view can be created from this structure.
+#[async_trait]
 pub trait IntoStateView: StateView {
 	/// Create read-only state view from a combination the implemented type, and the entire state.
 	/// You may query the state as much as you'd like.
 	/// Just don't write to it.
-	fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as StateView>::View, OdiliaError>;
+	async fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as StateView>::View, OdiliaError>;
 }
 
 /// Set a mutable state view for the current type.
@@ -98,9 +102,10 @@ pub trait MutableStateView {
 }
 
 /// Indicates that a mutable state view can be created from this structure.
+#[async_trait]
 pub trait IntoMutableStateView: MutableStateView {
 	/// Create a mutable state view from a reference to both the implenting type, and a full version of the state.
 	/// Note that this function should not directly write to the state, but rather, use this opportunity to build the set of items that need to be modified (usually for a given [`Command`].
 	/// When a [`CacheKey`] is part of the implementing type, feel free to lookup the item in the cache, then use a [`CacheValue`] as a field in your return type.
-	fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError>;
+	async fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError>;
 }
