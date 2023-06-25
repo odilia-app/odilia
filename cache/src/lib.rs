@@ -180,6 +180,19 @@ impl Cache {
 		self.by_id.get(id).as_deref().cloned()
 	}
 
+	/// Get a single item from the cache,
+	/// but use the CacheRef, and if that doesn't have a live reference, then use the key.
+	pub async fn get_from_ref(&self, cache_ref: &CacheRef) -> Option<Arc<Mutex<CacheItem>>> {
+		match Weak::upgrade(&cache_ref.item) {
+			None => {
+				self.get_ref(&cache_ref.key)
+			},
+			Some(arc) => {
+				Some(arc)
+			}
+		}
+	}
+
 	/// Get a single item from the crate, like [`get_ref`], but gives you both an id and a *possible* reference.
 	#[must_use]
 	pub fn get_key(&self, id: &CacheKey) -> CacheRef {
