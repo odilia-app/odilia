@@ -354,6 +354,8 @@ impl Cache {
 				child_arc.lock().await.parent.item = Weak::clone(&item_wk_ref);
 			}
 		}
+		// drop read lock, since we are just changing the references to some 
+		drop(cache);
 
 		// TODO: Should there be errors for the non let bindings?
 		if let Some(parent_ref) = parent_ref_opt {
