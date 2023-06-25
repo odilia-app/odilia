@@ -1,6 +1,6 @@
 use std::{
 	collections::VecDeque,
-	sync::{Arc},
+	sync::{Arc, Weak},
 	time::Duration,
 };
 
@@ -8,7 +8,7 @@ use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{Cache, CacheItem};
 
-use odilia_common::{errors::{OdiliaError}, cache::{AccessiblePrimitive}};
+use odilia_common::{errors::{OdiliaError, CacheError}, cache::{AccessiblePrimitive}};
 use tokio::select;
 use tokio::sync::Mutex;
 use tokio_test::block_on;
@@ -76,7 +76,10 @@ async fn traverse_up(children: Vec<Arc<Mutex<CacheItem>>>, cache: &Cache) {
 /// Depth first traversal
 fn traverse_depth_first(data: (CacheItem, &Cache)) -> Result<(), OdiliaError> {
 	for child in data.0.children {
-		let child_item = block_on(data.1.get(&child.key)).unwrap();
+		let child_item = match Weak::upgrade(&child.item) {
+			Some(arc) => block_on(arc.lock()).clone(),
+			None => block_on(data.1.get(&child.key)).clone().ok_or::<OdiliaError>(CacheError::NoItem.into())?,
+		};
 		traverse_depth_first((child_item, data.1))?;
 	}
 	Ok(())
