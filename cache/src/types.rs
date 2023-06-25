@@ -9,7 +9,7 @@ use std::sync::{Arc, Weak};
 use fxhash::FxBuildHasher;
 use dashmap::DashMap;
 //use tokio::sync::Mutex;
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 use odilia_common::cache::{CacheKey};
 
 /// This is the type alis refeering to the value for all cache items.
@@ -21,4 +21,4 @@ pub type WeakCacheValue = Weak<Mutex<CacheItem>>;
 /// The `InnerCache` type alias defines the data structure to be used to hold the entire cache.
 pub type InnerCache = DashMap<CacheKey, CacheValue, FxBuildHasher>;
 /// A wrapped [`InnerCache`] in a thread-safe type.
-pub type ThreadSafeCache = Arc<InnerCache>;
+pub type ThreadSafeCache = Arc<RwLock<InnerCache>>;

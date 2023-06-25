@@ -47,7 +47,7 @@ async fn traverse_up_refs(children: Vec<Arc<Mutex<CacheItem>>>, cache: &Cache) {
 			if matches!(&item.object.id, root) {
 				break;
 			}
-			item_ref = cache.get_ref(&item.parent.key).expect("Could not get parent reference");
+			item_ref = cache.get_ref(&item.parent.key).await.expect("Could not get parent reference");
 		}
 	}
 }
@@ -59,7 +59,7 @@ async fn traverse_up(children: Vec<Arc<Mutex<CacheItem>>>, cache: &Cache) {
 	for child in children {
 		let mut item = child.lock().await.clone();
 		loop {
-			item = match cache.get_ref(&item.parent.key) {
+			item = match cache.get_ref(&item.parent.key).await {
 				Some(i_item) => i_item.lock().await.clone(),
 				None => {
 					panic!("Fatal error: could not find item in cache!");
@@ -172,7 +172,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			.clone();
 		let _ = cache.add_all(all_items).await;
 		let mut children = Vec::new();
-		for entry in cache.by_id.iter() {
+		for entry in cache.by_id.read().await.iter() {
 			if entry.lock().await.children.is_empty() {
 				children.push(Arc::clone(&entry));
 			}

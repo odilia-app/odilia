@@ -23,7 +23,7 @@ pub use cache_item::*;
 use std::{
 	sync::{Arc, Weak},
 };
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, RwLock};
 
 use async_trait::async_trait;
 use atspi_common::{
@@ -138,10 +138,10 @@ impl Cache {
 	#[must_use]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
-			by_id: Arc::new(DashMap::with_capacity_and_hasher(
+			by_id: Arc::new(RwLock::new(DashMap::with_capacity_and_hasher(
 				10_000,
 				FxBuildHasher::default(),
-			)),
+			))),
 			connection: conn,
 		}
 	}
@@ -163,21 +163,24 @@ impl Cache {
 		id: CacheKey,
 		cache_item: &Arc<Mutex<CacheItem>>,
 	) -> OdiliaResult<()> {
-		self.by_id.insert(id, Arc::clone(cache_item));
+		self.by_id.write().await.insert(id, Arc::clone(cache_item));
 		Self::populate_references(&self.by_id, cache_item).await
 	}
 
 	/// Remove a single cache item. This function can not fail.
-	pub fn remove(&self, id: &CacheKey) {
-		self.by_id.remove(id);
+	pub async fn remove(&self, id: &CacheKey) {
+		let mut cache = self.by_id.write().await;
+		cache.remove(id);
 	}
 
 	/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
 	/// You will need to either get a read or a write lock on any item returned from this function.
 	/// It also may return `None` if a value is not matched to the key.
 	#[must_use]
-	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
-		self.by_id.get(id).as_deref().cloned()
+	pub async fn get_ref(&self, id: &CacheKey) -> Option<Arc<Mutex<CacheItem>>> {
+		let cache = self.by_id.read().await;
+		let value = cache.get(id).as_deref().cloned();
+		value
 	}
 
 	/// Get a single item from the cache,
@@ -185,7 +188,7 @@ impl Cache {
 	pub async fn get_from_ref(&self, cache_ref: &CacheRef) -> Option<Arc<Mutex<CacheItem>>> {
 		match Weak::upgrade(&cache_ref.item) {
 			None => {
-				self.get_ref(&cache_ref.key)
+				self.get_ref(&cache_ref.key).await
 			},
 			Some(arc) => {
 				Some(arc)
@@ -195,10 +198,11 @@ impl Cache {
 
 	/// Get a single item from the crate, like [`get_ref`], but gives you both an id and a *possible* reference.
 	#[must_use]
-	pub fn get_key(&self, id: &CacheKey) -> CacheRef {
+	pub async fn get_key(&self, id: &CacheKey) -> CacheRef {
 		CacheRef {
 			key: id.clone(),
 			item: self.get_ref(id)
+				.await
 				.map(|arc| Arc::downgrade(&arc))
 				.unwrap_or(Weak::new()),
 		}
@@ -210,7 +214,7 @@ impl Cache {
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
 	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		Some(self.by_id.get(id).as_deref()?.lock().await.clone())
+		Some(self.by_id.read().await.get(id).as_deref()?.lock().await.clone())
 	}
 
 	/// Get a single item from the cache.
@@ -222,7 +226,7 @@ impl Cache {
 		where AccessiblePrimitive: TryFrom<&'a T>,
 					OdiliaError: From<<AccessiblePrimitive as TryFrom<&'a T>>::Error> {
 		let key = AccessiblePrimitive::try_from(to_key)?;
-		Ok(self.by_id.get(&key)
+		Ok(self.by_id.read().await.get(&key)
 			.as_deref()
 			.ok_or(CacheError::NoItem)?
 			.lock()
@@ -241,25 +245,26 @@ impl Cache {
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
-		let items = cache_items
-			.into_iter()
-			.map(|cache_item| {
-				let id = cache_item.object.clone();
-				let arc = Arc::new(Mutex::new(cache_item));
-				self.by_id.insert(id, Arc::clone(&arc));
-				arc
-			})
-			.collect::<Vec<_>>() // Insert all items before populating
-			.into_iter();
+		let mut items = Vec::new();
+		let mut cache = self.by_id.write().await;
+		for item in cache_items {
+			let id = item.object.clone();
+			let arc = Arc::new(Mutex::new(item));
+			cache.insert(id, Arc::clone(&arc));
+			items.push(arc);
+		}
+		// allow the write lock to be aquired by the populate_references function
+		// thank the lord for tests that caught this.
+		drop(cache);
 		for item in items {
 			Self::populate_references(&self.by_id, &item).await?;
 		}
 		Ok(())
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
-	pub fn remove_all(&self, ids: &Vec<CacheKey>) {
+	pub async fn remove_all(&self, ids: &Vec<CacheKey>) {
 		for id in ids {
-			self.by_id.remove(id);
+			self.by_id.write().await.remove(id);
 		}
 	}
 
@@ -278,7 +283,7 @@ impl Cache {
 		// I wonder if `get_mut` vs `get` makes any difference here? I suppose
 		// it will just rely on the dashmap write access vs mutex lock access.
 		// Let's default to the fairness of the mutex.
-		let entry = if let Some(i) = self.by_id.get(id) {
+		let entry = if let Some(i) = self.by_id.read().await.get(id) {
 			// Drop the dashmap reference immediately, at the expense of an Arc clone.
 			(*i).clone()
 		} else {
@@ -327,7 +332,7 @@ impl Cache {
 	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
 	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
 	pub async fn populate_references(
-		cache: &ThreadSafeCache,
+		cache_locked: &ThreadSafeCache,
 		item_ref: &Arc<Mutex<CacheItem>>,
 	) -> Result<(), OdiliaError> {
 		let item_wk_ref = Arc::downgrade(item_ref);
@@ -336,6 +341,7 @@ impl Cache {
 		let item_key = item.object.clone();
 
 		let parent_key = item.parent.key.clone();
+		let cache = cache_locked.read().await;
 		let parent_ref_opt = cache.get(&parent_key);
 
 		// Update this item's parent reference
