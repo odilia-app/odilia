@@ -23,7 +23,7 @@ pub use cache_item::*;
 use std::{
 	sync::{Arc, Weak},
 };
-use parking_lot::Mutex;
+use tokio::sync::Mutex;
 
 use async_trait::async_trait;
 use atspi_common::{
@@ -45,6 +45,7 @@ use zbus::{
 	zvariant::ObjectPath,
 	CacheProperties, ProxyBuilder,
 };
+use futures::future::join_all;
 
 /// A host extention of the [`AccessiblePrimitive`] type.
 /// This enables the use of additional conversion functions for the cache.
@@ -149,21 +150,21 @@ impl Cache {
 	/// never two items with the same ID stored in the cache at the same time).
 	/// # Errors
 	/// Fails if the internal call to [`Self::add_ref`] fails.
-	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
+	pub async fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
 		let id = cache_item.object.clone();
-		self.add_ref(id, &Arc::new(Mutex::new(cache_item)))
+		self.add_ref(id, &Arc::new(Mutex::new(cache_item))).await
 	}
 
 	/// Add an item via a reference instead of creating the reference.
 	/// # Errors
 	/// Can error if [`Cache::populate_references`] errors. The insertion is guarenteed to succeed.
-	pub fn add_ref(
+	pub async fn add_ref(
 		&self,
 		id: CacheKey,
 		cache_item: &Arc<Mutex<CacheItem>>,
 	) -> OdiliaResult<()> {
-		self.by_id.insert(id, Arc::clone(&cache_item));
-		Self::populate_references(&self.by_id, cache_item)
+		self.by_id.insert(id, Arc::clone(cache_item));
+		Self::populate_references(&self.by_id, cache_item).await
 	}
 
 	/// Remove a single cache item. This function can not fail.
@@ -195,8 +196,8 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		Some(self.by_id.get(id).as_deref()?.lock().clone())
+	pub async fn get(&self, id: &CacheKey) -> Option<CacheItem> {
+		Some(self.by_id.get(id).as_deref()?.lock().await.clone())
 	}
 
 	/// Get a single item from the cache.
@@ -204,7 +205,7 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-	pub fn get_from<'a, T: 'a>(&self, to_key: &'a T) -> Result<CacheItem, OdiliaError> 
+	pub async fn get_from<'a, T: 'a>(&self, to_key: &'a T) -> Result<CacheItem, OdiliaError> 
 		where AccessiblePrimitive: TryFrom<&'a T>,
 					OdiliaError: From<<AccessiblePrimitive as TryFrom<&'a T>>::Error> {
 		let key = AccessiblePrimitive::try_from(to_key)?;
@@ -212,21 +213,22 @@ impl Cache {
 			.as_deref()
 			.ok_or(CacheError::NoItem)?
 			.lock()
+			.await
 			.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[must_use]
-	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
-		ids.iter().map(|id| self.get(id)).collect()
+	pub async fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
+		join_all(ids.iter().map(|id| self.get(id))).await
 	}
 
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
-	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
-		cache_items
+	pub async fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
+		let items = cache_items
 			.into_iter()
 			.map(|cache_item| {
 				let id = cache_item.object.clone();
@@ -235,8 +237,11 @@ impl Cache {
 				arc
 			})
 			.collect::<Vec<_>>() // Insert all items before populating
-			.into_iter()
-			.try_for_each(|item| Self::populate_references(&self.by_id, &item))
+			.into_iter();
+		for item in items {
+			Self::populate_references(&self.by_id, &item).await?;
+		}
+		Ok(())
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	pub fn remove_all(&self, ids: &Vec<CacheKey>) {
@@ -253,7 +258,7 @@ impl Cache {
 	/// # Errors
 	///
 	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be aquired on the `CacheItem` being modified.
-	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
+	pub async fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
 	{
@@ -267,7 +272,7 @@ impl Cache {
 			tracing::trace!("The cache does not contain the requested item: {:?}", id);
 			return Ok(false);
 		};
-		let mut cache_item = entry.lock();
+		let mut cache_item = entry.lock().await;
 		modify(&mut cache_item);
 		Ok(true)
 	}
@@ -288,7 +293,7 @@ impl Cache {
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
-		if let Some(cache_item) = self.get(&primitive) {
+		if let Some(cache_item) = self.get(&primitive).await {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -298,7 +303,7 @@ impl Cache {
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
 		// add a clone of it to the cache
-		self.add(cache_item.clone())?;
+		self.add(cache_item.clone()).await?;
 		// return that same cache item
 		Ok(cache_item)
 	}
@@ -308,13 +313,13 @@ impl Cache {
 	/// # Errors
 	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
 	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
-	pub fn populate_references(
+	pub async fn populate_references(
 		cache: &ThreadSafeCache,
 		item_ref: &Arc<Mutex<CacheItem>>,
 	) -> Result<(), OdiliaError> {
 		let item_wk_ref = Arc::downgrade(item_ref);
 
-		let mut item = item_ref.lock();
+		let mut item = item_ref.lock().await;
 		let item_key = item.object.clone();
 
 		let parent_key = item.parent.key.clone();
@@ -327,7 +332,7 @@ impl Cache {
 		for child_ref in &mut item.children {
 			if let Some(child_arc) = cache.get(&child_ref.key).as_ref() {
 				child_ref.item = Arc::downgrade(child_arc);
-				child_arc.lock().parent.item = Weak::clone(&item_wk_ref);
+				child_arc.lock().await.parent.item = Weak::clone(&item_wk_ref);
 			}
 		}
 
@@ -337,6 +342,7 @@ impl Cache {
 			if let Some(ix) = ix_opt {
 				if let Some(cache_ref) = parent_ref
 					.lock()
+					.await
 					.children
 					.get_mut(ix)
 					.filter(|i| i.key == item_key)

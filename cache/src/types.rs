@@ -9,7 +9,7 @@ use std::sync::{Arc, Weak};
 use fxhash::FxBuildHasher;
 use dashmap::DashMap;
 //use tokio::sync::Mutex;
-use parking_lot::Mutex;
+use tokio::sync::Mutex;
 use odilia_common::cache::{CacheKey};
 
 /// This is the type alis refeering to the value for all cache items.
