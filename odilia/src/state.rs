@@ -15,13 +15,13 @@ use atspi_common::{
 };
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy};
-use odilia_cache::Cache as InnerCache;
+use odilia_cache::{Cache as InnerCache, CacheItem};
 use odilia_common::{
 	errors::{ConfigError},
 	ScreenReaderMode,
 	settings::ApplicationConfig,
   events::ScreenReaderEvent,
-	cache::{AccessiblePrimitive, CacheItem},
+	cache::{AccessiblePrimitive},
 	OdiliaResult,
 };
 use std::sync::Arc;

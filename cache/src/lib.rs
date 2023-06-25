@@ -13,6 +13,13 @@
 //! The implementation of Odilia's caching system.
 //! If any modifications need to be made in relation to loading and storing various bits of information retrieved through the [`atspi`] crate, it will be here.
 
+mod types;
+pub use types::*;
+mod cache_ref;
+pub use cache_ref::*;
+mod cache_item;
+pub use cache_item::*;
+
 use std::{
 	sync::{Arc, Weak},
 };
@@ -32,7 +39,7 @@ use fxhash::FxBuildHasher;
 use odilia_common::{
 	errors::{AccessiblePrimitiveConversionError, OdiliaError, CacheError},
 	OdiliaResult,
-	cache::{AccessiblePrimitive, CacheItem, CacheKey, ThreadSafeCache, CacheRef},
+	cache::{AccessiblePrimitive, CacheKey},
 };
 use zbus::{
 	zvariant::ObjectPath,

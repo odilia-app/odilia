@@ -6,14 +6,15 @@ use atspi_common::events::object::StateChangedEvent;
 use atspi_common::State;
 use odilia_common::events::{ScreenReaderEvent};
 use odilia_common::{
-	cache::{CacheRef, CacheValue, CacheItem},
+	cache::ExternalCacheItem,
 	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, SetStateCommand},
 };
+use odilia_cache::{CacheRef, CacheValue, CacheItem};
 
 impl IntoStateView for StateChangedEvent {
 	fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as StateView>::View, OdiliaError> {
-		Ok(state.cache.get_from(&self.item)?)
+		Ok(state.cache.get_from(&self.item)?.into())
 	}
 }
 

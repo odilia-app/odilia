@@ -2,7 +2,7 @@
 //! This has a bunch of smaller structures for handling the minimum state necessary to produce a command.
 //! Please see the information on the Odilia architecture in the `README.md`.
 
-use crate::cache::{CacheItem, CacheKey};
+use crate::cache::{ExternalCacheItem, CacheKey};
 use crate::traits::StateView;
 use atspi_common::events::{
 	object::{
@@ -32,5 +32,5 @@ pub struct CaretPositionView {
 }
 impl_state_view!(TextCaretMovedEvent, CaretPositionView);
 
-impl_state_view!(TextChangedEvent, CacheItem);
-impl_state_view!(StateChangedEvent, CacheItem);
+impl_state_view!(TextChangedEvent, ExternalCacheItem);
+impl_state_view!(StateChangedEvent, ExternalCacheItem);

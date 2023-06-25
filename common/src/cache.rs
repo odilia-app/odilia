@@ -1,6 +1,7 @@
 //! # Cache
 //!
 //! Common types used by the Odilia caching crate.
+//! Some types are not specified here. These are ones which require access to [`tokio`] types.
 
 use parking_lot::RwLock;
 use std::{
@@ -20,67 +21,6 @@ use atspi_proxies::accessible::AccessibleProxy;
 /// This is the type alias refering to the key for all cache items.
 /// Please do not use its underlying type explicitly, since this will cause compiler errors when this is modified.
 pub type CacheKey = AccessiblePrimitive;
-/// This is the type alis refeering to the value for all cache items.
-/// This includes thread-safe and concurrency-safe wrappers.
-pub type CacheValue = Arc<RwLock<CacheItem>>;
-/// This is the type alis refereing to a weak version of the value for all cache items.
-/// This can be upgraded to a [`CacheValue`] with `.upgrade()`, where it may or may not be found.
-pub type WeakCacheValue = Weak<RwLock<CacheItem>>;
-/// The `InnerCache` type alias defines the data structure to be used to hold the entire cache.
-pub type InnerCache = DashMap<CacheKey, CacheValue, FxBuildHasher>;
-/// A wrapped [`InnerCache`] in a thread-safe type.
-pub type ThreadSafeCache = Arc<InnerCache>;
-
-/// A composition of an accessible ID and (possibly) a reference
-/// to its `CacheItem`, if the item has not been dropped from the cache yet.
-/// TODO if desirable, we could make one direction strong references (e.g. have
-/// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
-/// BUT - is it even desirable to keep an item pinned in an Arc from its
-/// releatives after it has been removed from the cache?
-#[derive(Debug, Clone, Deserialize, Serialize, Default)]
-pub struct CacheRef {
-	/// A key to find the cache item in the cache.
-	pub key: CacheKey,
-	/// An active reference to an item in cache.
-	/// This will have to be de-referenced using `Weak::upgrade`.
-	#[serde(skip)]
-	pub item: Weak<RwLock<CacheItem>>,
-}
-impl TryFrom<CacheRef> for CacheItem {
-	type Error = OdiliaError;
-
-	fn try_from(cache_ref: CacheRef) -> Result<CacheItem, OdiliaError> {
-		Ok(Weak::upgrade(&cache_ref.item)
-			.ok_or(CacheError::NoItem)?
-			.read()
-			.clone())
-	}
-}
-impl Hash for CacheRef {
-	fn hash<H>(&self, hasher: &mut H) where H: Hasher {
-		self.key.hash(hasher)
-	}
-}
-impl PartialEq for CacheRef {
-	fn eq(&self, other: &CacheRef) -> bool {
-		self.key == other.key
-	}
-}
-impl Eq for CacheRef {}
-
-impl CacheRef {
-	/// Create a new cache reference, which by itself will only populate the `item` field with an empty `Weak`.
-	#[must_use]
-	pub fn new(key: AccessiblePrimitive) -> Self {
-		Self { key, item: Weak::new() }
-	}
-
-	/// Clone the underlying [`CacheItem`].
-	#[must_use]
-	pub fn clone_inner(&self) -> Option<CacheItem> {
-		Some(self.item.upgrade().as_ref()?.read().clone())
-	}
-}
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -103,14 +43,16 @@ pub struct AccessiblePrimitive {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
-/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
-pub struct CacheItem {
+/// A struct representing an accessible to be shared across IPC.
+/// This type has simplified versions of some other types that can be referenced but not directly interacted with.
+/// For example, this contains no direct referencing of smart pointers, and instead simply uses the [`CacheKey`] type so that lookups to the cache can be done for any additional data.
+pub struct ExternalCacheItem {
 	/// The accessible object (within the application)	(so)
-	pub object: AccessiblePrimitive,
+	pub object: CacheKey,
 	/// The application (root object(?)	  (so)
-	pub app: AccessiblePrimitive,
+	pub app: CacheKey,
 	/// The parent object.  (so)
-	pub parent: CacheRef,
+	pub parent: CacheKey,
 	/// The accessbile index in parent.	i
 	pub index: i32,
 	/// Child count of the accessible  i
@@ -124,7 +66,7 @@ pub struct CacheItem {
 	/// The text of the accessible.
 	pub text: String,
 	/// The children (ids) of the accessible.
-	pub children: Vec<CacheRef>,
+	pub children: Vec<CacheKey>,
 }
 
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {

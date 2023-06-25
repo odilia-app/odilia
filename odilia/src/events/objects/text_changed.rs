@@ -7,10 +7,11 @@ use async_trait::async_trait;
 use atspi_common::events::object::{ObjectEvents, TextChangedEvent};
 use odilia_common::events::{ScreenReaderEvent};
 use odilia_common::{
-	cache::{CacheRef, CacheValue, CacheItem, AccessiblePrimitive},
+	cache::{CacheKey, ExternalCacheItem},
 	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, SetTextCommand},
 };
+use odilia_cache::{CacheRef, CacheValue, CacheItem};
 
 impl MutableStateView for SetTextCommand {
 	type View = CacheValue;
@@ -107,10 +108,11 @@ mod test {
 	use parking_lot::RwLock;
 	use crate::traits::{IntoOdiliaCommands, Command};
 	use odilia_common::{
-		cache::{CacheRef, CacheValue, CacheItem, AccessiblePrimitive},
+		cache::{AccessiblePrimitive, CacheKey, ExternalCacheItem},
 		commands::{OdiliaCommand, SetTextCommand},
 		errors::OdiliaError,
 	};
+	use odilia_cache::{CacheRef, CacheValue, CacheItem};
 	use atspi_common::{
 		StateSet, InterfaceSet, Role,
 		events::{Accessible, object::TextChangedEvent},
@@ -158,7 +160,7 @@ mod test {
 				let cache_item_arc = default_cache_item!();
 				let cache_item = cache_item_arc.read().clone();
 				let event = $event;
-				let first_command: SetTextCommand = event.commands(&cache_item)?[0].clone().try_into()?;
+				let first_command: SetTextCommand = event.commands(&cache_item.into())?[0].clone().try_into()?;
 				assert_eq!(first_command.new_text, $new_text);
 				Ok(())
 			}
