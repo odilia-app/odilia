@@ -8,16 +8,16 @@ use crate::CacheItem;
 use std::sync::{Arc, Weak};
 use fxhash::FxBuildHasher;
 use dashmap::DashMap;
-//use tokio::sync::RwLock;
-use parking_lot::RwLock;
+//use tokio::sync::Mutex;
+use parking_lot::Mutex;
 use odilia_common::cache::{CacheKey};
 
 /// This is the type alis refeering to the value for all cache items.
 /// This includes thread-safe and concurrency-safe wrappers.
-pub type CacheValue = Arc<RwLock<CacheItem>>;
+pub type CacheValue = Arc<Mutex<CacheItem>>;
 /// This is the type alis refereing to a weak version of the value for all cache items.
 /// This can be upgraded to a [`CacheValue`] with `.upgrade()`, where it may or may not be found.
-pub type WeakCacheValue = Weak<RwLock<CacheItem>>;
+pub type WeakCacheValue = Weak<Mutex<CacheItem>>;
 /// The `InnerCache` type alias defines the data structure to be used to hold the entire cache.
 pub type InnerCache = DashMap<CacheKey, CacheValue, FxBuildHasher>;
 /// A wrapped [`InnerCache`] in a thread-safe type.

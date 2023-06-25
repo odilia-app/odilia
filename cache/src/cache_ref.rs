@@ -2,7 +2,7 @@ use crate::CacheItem;
 use serde::{Serialize, Deserialize};
 use odilia_common::cache::{CacheKey, AccessiblePrimitive};
 use odilia_common::errors::{CacheError, OdiliaError};
-use parking_lot::RwLock;
+use parking_lot::Mutex;
 use std::{sync::{Arc, Weak}, hash::{Hasher, Hash}};
 
 /// A composition of an accessible ID and (possibly) a reference
@@ -18,7 +18,7 @@ pub struct CacheRef {
 	/// An active reference to an item in cache.
 	/// This will have to be de-referenced using `Weak::upgrade`.
 	#[serde(skip)]
-	pub item: Weak<RwLock<CacheItem>>,
+	pub item: Weak<Mutex<CacheItem>>,
 }
 impl TryFrom<CacheRef> for CacheItem {
 	type Error = OdiliaError;
@@ -26,7 +26,7 @@ impl TryFrom<CacheRef> for CacheItem {
 	fn try_from(cache_ref: CacheRef) -> Result<CacheItem, OdiliaError> {
 		Ok(Weak::upgrade(&cache_ref.item)
 			.ok_or(CacheError::NoItem)?
-			.read()
+			.lock()
 			.clone())
 	}
 }
@@ -52,7 +52,7 @@ impl CacheRef {
 	/// Clone the underlying [`CacheItem`].
 	#[must_use]
 	pub fn clone_inner(&self) -> Option<CacheItem> {
-		Some(self.item.upgrade().as_ref()?.read().clone())
+		Some(self.item.upgrade().as_ref()?.lock().clone())
 	}
 }
 

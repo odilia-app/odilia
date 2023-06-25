@@ -24,7 +24,7 @@ impl IntoMutableStateView for SetTextCommand {
 }
 impl Command for SetTextCommand {
 	fn execute(&self, cache_lock: <Self as MutableStateView>::View) -> Result<(), OdiliaError> {
-		let mut cache_item = cache_lock.write();
+		let mut cache_item = cache_lock.lock();
 		cache_item.text = self.new_text.clone();
 		Ok(())
 	}
