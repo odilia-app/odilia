@@ -75,7 +75,37 @@ pub enum CacheCommand {
 	SetText(SetTextCommand),
 	/// Set the state of a given cache item.
 	SetState(SetStateCommand),
+	/// Remove a child from a given cache item.
+	RemoveChild(RemoveChildCommand),
+	/// Add a child to a given cache item.
+	AddChild(AddChildCommand),
 }
+
+/// Adds a new child reference to a cache item.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct AddChildCommand {
+	/// An ID of the new child to add.
+	pub new_child: CacheKey,
+	/// The index of the new child in the parent.
+	pub index: usize,
+	/// Which item will the command will be applied to.
+	/// This will need to be turned into a mutable [`CacheValue`] by the host.
+	pub apply_to: CacheKey,
+}
+impl_conversions!(AddChildCommand, CacheCommand::AddChild, CacheCommand, OdiliaCommand::Cache);
+
+/// Remove a child reference from a cache item.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct RemoveChildCommand {
+	/// An ID of the old child to remove.
+	pub remove_child: CacheKey,
+	/// The index of the old child to remove.
+	pub index: usize,
+	/// Which item will the command will be applied to.
+	/// This will need to be turned into a mutable [`CacheValue`] by the host.
+	pub apply_to: CacheKey,
+}
+impl_conversions!(RemoveChildCommand, CacheCommand::RemoveChild, CacheCommand, OdiliaCommand::Cache);
 
 /// Set new text contents for a cache item.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
