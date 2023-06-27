@@ -20,32 +20,22 @@ pub use cache_ref::*;
 mod cache_item;
 pub use cache_item::*;
 
-use std::{
-	sync::{Arc, Weak},
-};
+use std::sync::{Arc, Weak};
 use tokio::sync::{Mutex, RwLock};
 
 use async_trait::async_trait;
-use atspi_common::{
-	GenericEvent
-};
 use atspi_client::convertable::Convertable;
-use atspi_proxies::{
-	accessible::{AccessibleProxy},
-	text::{TextProxy},
-};
+use atspi_common::GenericEvent;
+use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
+use futures::future::join_all;
 use fxhash::FxBuildHasher;
 use odilia_common::{
-	errors::{AccessiblePrimitiveConversionError, OdiliaError, CacheError},
-	OdiliaResult,
 	cache::{AccessiblePrimitive, CacheKey},
+	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
+	OdiliaResult,
 };
-use zbus::{
-	zvariant::ObjectPath,
-	CacheProperties, ProxyBuilder,
-};
-use futures::future::join_all;
+use zbus::{zvariant::ObjectPath, CacheProperties, ProxyBuilder};
 
 /// A host extention of the [`AccessiblePrimitive`] type.
 /// This enables the use of additional conversion functions for the cache.
@@ -53,12 +43,19 @@ use futures::future::join_all;
 pub trait AccessiblePrimitiveHostExt {
 	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// This is used when needing to query AT-SPI for new data.
-	async fn into_accessible<'a>(self, conn: &zbus::Connection) -> zbus::Result<AccessibleProxy<'a>>;
+	async fn into_accessible<'a>(
+		self,
+		conn: &zbus::Connection,
+	) -> zbus::Result<AccessibleProxy<'a>>;
 	/// Conver into an [`atspi_proxies::text::TextProxy`].
 	/// This is used when needing to query AT-SPI for new data on its text interface.
 	async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>>;
 	/// Take any event (which is required to implement [`atspi_common::events::GenericEvent`]) and convert it into an [`AccessiblePrimitive`].
-	fn from_event<'a, T: GenericEvent<'a>>(event: &T) -> Result<Self, AccessiblePrimitiveConversionError> where Self: Sized;
+	fn from_event<'a, T: GenericEvent<'a>>(
+		event: &T,
+	) -> Result<Self, AccessiblePrimitiveConversionError>
+	where
+		Self: Sized;
 }
 
 #[async_trait]
@@ -187,12 +184,8 @@ impl Cache {
 	/// but use the CacheRef, and if that doesn't have a live reference, then use the key.
 	pub async fn get_from_ref(&self, cache_ref: &CacheRef) -> Option<Arc<Mutex<CacheItem>>> {
 		match Weak::upgrade(&cache_ref.item) {
-			None => {
-				self.get_ref(&cache_ref.key).await
-			},
-			Some(arc) => {
-				Some(arc)
-			}
+			None => self.get_ref(&cache_ref.key).await,
+			Some(arc) => Some(arc),
 		}
 	}
 
@@ -201,7 +194,8 @@ impl Cache {
 	pub async fn get_key(&self, id: &CacheKey) -> CacheRef {
 		CacheRef {
 			key: id.clone(),
-			item: self.get_ref(id)
+			item: self
+				.get_ref(id)
 				.await
 				.map(|arc| Arc::downgrade(&arc))
 				.unwrap_or(Weak::new()),
@@ -222,11 +216,16 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-	pub async fn get_from<'a, T: 'a>(&self, to_key: &'a T) -> Result<CacheItem, OdiliaError> 
-		where AccessiblePrimitive: TryFrom<&'a T>,
-					OdiliaError: From<<AccessiblePrimitive as TryFrom<&'a T>>::Error> {
+	pub async fn get_from<'a, T: 'a>(&self, to_key: &'a T) -> Result<CacheItem, OdiliaError>
+	where
+		AccessiblePrimitive: TryFrom<&'a T>,
+		OdiliaError: From<<AccessiblePrimitive as TryFrom<&'a T>>::Error>,
+	{
 		let key = AccessiblePrimitive::try_from(to_key)?;
-		Ok(self.by_id.read().await.get(&key)
+		Ok(self.by_id
+			.read()
+			.await
+			.get(&key)
 			.as_deref()
 			.ok_or(CacheError::NoItem)?
 			.lock()
@@ -245,19 +244,19 @@ impl Cache {
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
 	pub async fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
-		let mut items = Vec::new();
-		let mut cache = self.by_id.write().await;
+		// some may be concerned about stale references here,
+		// but the Cache Item contains a CacheRef: which itself contains both a key *AND*
+		// an optional reference.
+		// This means that lookups to those references will just be slower, not invalid.
+		// This is all thanks to the design created by @samtay. Thanks, mate!
 		for item in cache_items {
+			let mut cache = self.by_id.write().await;
 			let id = item.object.clone();
 			let arc = Arc::new(Mutex::new(item));
 			cache.insert(id, Arc::clone(&arc));
-			items.push(arc);
-		}
-		// allow the write lock to be aquired by the populate_references function
-		// thank the lord for tests that caught this.
-		drop(cache);
-		for item in items {
-			Self::populate_references(&self.by_id, &item).await?;
+			// explicitly drop cache lock so populate_references can take it.
+			drop(cache);
+			Self::populate_references(&self.by_id, &arc).await?;
 		}
 		Ok(())
 	}
@@ -385,9 +384,7 @@ impl Cache {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-pub async fn accessible_to_cache_item(
-	accessible: &AccessibleProxy<'_>,
-) -> OdiliaResult<CacheItem> {
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
@@ -405,7 +402,7 @@ pub async fn accessible_to_cache_item(
 			// yes this is actually how you need to do it.
 			let len = text_iface.character_count().await?;
 			text_iface.get_text(0, len).await
-		},
+		}
 		// otherwise, use the name instaed
 		Err(_) => Ok(accessible.name().await?),
 	}?;

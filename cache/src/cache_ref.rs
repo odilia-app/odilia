@@ -1,9 +1,12 @@
 use crate::CacheItem;
-use serde::{Serialize, Deserialize};
-use odilia_common::cache::{CacheKey, AccessiblePrimitive};
+use odilia_common::cache::{AccessiblePrimitive, CacheKey};
 use odilia_common::errors::{CacheError, OdiliaError};
+use serde::{Deserialize, Serialize};
+use std::{
+	hash::{Hash, Hasher},
+	sync::{Arc, Weak},
+};
 use tokio::sync::Mutex;
-use std::{sync::{Arc, Weak}, hash::{Hasher, Hash}};
 
 /// A composition of an accessible ID and (possibly) a reference
 /// to its `CacheItem`, if the item has not been dropped from the cache yet.
@@ -30,7 +33,10 @@ impl CacheItem {
 	}
 }
 impl Hash for CacheRef {
-	fn hash<H>(&self, hasher: &mut H) where H: Hasher {
+	fn hash<H>(&self, hasher: &mut H)
+	where
+		H: Hasher,
+	{
 		self.key.hash(hasher)
 	}
 }
@@ -54,4 +60,3 @@ impl CacheRef {
 		Some(self.item.upgrade().as_ref()?.lock().await.clone())
 	}
 }
-

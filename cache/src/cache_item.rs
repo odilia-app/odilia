@@ -1,7 +1,7 @@
-use crate::{CacheRef, CacheKey};
-use serde::{Serialize, Deserialize};
-use atspi_common::{StateSet, InterfaceSet, Role};
+use crate::{CacheKey, CacheRef};
+use atspi_common::{InterfaceSet, Role, StateSet};
 use odilia_common::cache::{AccessiblePrimitive, ExternalCacheItem};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
