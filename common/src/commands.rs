@@ -1,11 +1,11 @@
 //! # Commands
-//! 
+//!
 //! Commands are specifc, simple items that modify a portion of Odilia's state.
 //! The implementation of these commands is in Odilia.
 
 use crate::{cache::CacheKey, errors::OdiliaError};
 use atspi_common::StateSet;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 macro_rules! impl_conversions {
 	($inner_type:ty, $inner_path:path, $outer_type:ty, $outer_path:path) => {
@@ -58,14 +58,14 @@ pub enum OdiliaCommand {
 /// NOTE: This does *NOT* set Odilia's cursor position.
 pub struct MoveCaretPositionCommand {
 	/// The new caret position.
-	new_position: i32
+	new_position: i32,
 }
 
 /// Update Odilia's internal caret position.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub struct UpdateCaretPositionCommand {
 	/// The new caret position.
-	new_position: i32
+	new_position: i32,
 }
 
 /// Any command that directly changes items in the cache.
@@ -100,11 +100,8 @@ impl_conversions!(SetStateCommand, CacheCommand::SetState, CacheCommand, OdiliaC
 
 /// Update Odilia's pointer as to where the current focus is.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
-pub struct UpdateFocusCommand {
-}
+pub struct UpdateFocusCommand {}
 
 /// Move the user's focus to a new location.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
-pub struct MoveFocusCommand {
-}
-
+pub struct MoveFocusCommand {}

@@ -1,6 +1,6 @@
 //! Common traits for use of all pieces of Odilia infrastructure.
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 /// Set a state view for a given type.
 /// The actual conversion from state to this type is (necessarily) implemented by the Odilia host ([`odilia`]), since the state type can not be directly sent across FFI boundaries.
@@ -10,6 +10,5 @@ pub trait StateView {
 	/// This must be able to be sent across any generic IPC system.
 	/// Therefore, it must implement [`Serialize`], and [`Deserialie`].
 	/// It must also implement [`Clone`], since the type are going to be sent to multiple plugins, or other IPC mechanisms, not just one.
-	type View: Serialize + for <'a> Deserialize<'a> + Clone;
+	type View: Serialize + for<'a> Deserialize<'a> + Clone;
 }
-

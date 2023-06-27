@@ -3,20 +3,20 @@
 //! Common types used by the Odilia caching crate.
 //! Some types are not specified here. These are ones which require access to [`tokio`] types.
 
-use parking_lot::RwLock;
-use std::{
-	sync::{Arc, Weak},
-	hash::{Hash, Hasher},
-};
-use atspi_common::{InterfaceSet, StateSet, Role, events::Accessible, AtspiError};
-use serde::{Serialize, Deserialize};
-use dashmap::DashMap;
-use fxhash::FxBuildHasher;
-use zvariant::{OwnedObjectPath, ObjectPath};
-use zbus_names::{OwnedUniqueName, UniqueName};
-use crate::errors::{OdiliaError, AccessiblePrimitiveConversionError, CacheError};
+use crate::errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError};
+use atspi_common::{events::Accessible, AtspiError, InterfaceSet, Role, StateSet};
 #[cfg(feature = "proxies")]
 use atspi_proxies::accessible::AccessibleProxy;
+use dashmap::DashMap;
+use fxhash::FxBuildHasher;
+use parking_lot::RwLock;
+use serde::{Deserialize, Serialize};
+use std::{
+	hash::{Hash, Hasher},
+	sync::{Arc, Weak},
+};
+use zbus_names::{OwnedUniqueName, UniqueName};
+use zvariant::{ObjectPath, OwnedObjectPath};
 
 /// This is the type alias refering to the key for all cache items.
 /// Please do not use its underlying type explicitly, since this will cause compiler errors when this is modified.
@@ -102,9 +102,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 }
 
 impl From<atspi_common::events::Accessible> for AccessiblePrimitive {
-	fn from(
-		atspi_accessible: atspi_common::events::Accessible,
-	) -> AccessiblePrimitive {
+	fn from(atspi_accessible: atspi_common::events::Accessible) -> AccessiblePrimitive {
 		AccessiblePrimitive {
 			id: atspi_accessible.path.to_string(),
 			sender: atspi_accessible.name.to_string().into(),
@@ -135,7 +133,7 @@ impl From<&Accessible> for AccessiblePrimitive {
 impl TryFrom<AccessiblePrimitive> for Accessible {
 	type Error = AtspiError;
 
-	fn try_from(prim: AccessiblePrimitive) -> Result<Accessible, AtspiError>  {
+	fn try_from(prim: AccessiblePrimitive) -> Result<Accessible, AtspiError> {
 		Ok(Accessible {
 			path: ObjectPath::try_from(prim.id)?.into(),
 			name: UniqueName::try_from(prim.sender.to_string())?.into(),

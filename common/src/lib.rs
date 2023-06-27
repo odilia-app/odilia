@@ -16,12 +16,12 @@
 //! Or, if they are necessary, they must be behind a feature flag.
 
 pub mod cache;
+pub mod commands;
 pub mod errors;
 pub mod events;
-pub mod commands;
 pub mod settings;
-pub mod types;
 pub mod traits;
+pub mod types;
 pub mod views;
 
 /// A result type that is generally quicker to write when using Result<T, OdiliaError>.

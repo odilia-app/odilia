@@ -41,7 +41,6 @@ pub enum ScreenReaderEvent {
 	Disable(Feature),
 	/// Change mode of the screen reader. This is currently global, but it should be per application, and an update should only affect the current application.
 	ChangeMode(ScreenReaderMode),
-  /// Focus on a new item which is in the direction [`Direction`] and a role of [`Role`].
+	/// Focus on a new item which is in the direction [`Direction`] and a role of [`Role`].
 	StructuralNavigation(Direction, Role),
 }
-

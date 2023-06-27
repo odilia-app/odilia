@@ -2,7 +2,7 @@
 //!
 //! Basic error types for all sorts of Odilia components.
 
-use atspi_common::{AtspiError};
+use atspi_common::AtspiError;
 use serde_plain::Error as SerdePlainError;
 use std::{error::Error, fmt};
 
