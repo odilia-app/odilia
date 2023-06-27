@@ -24,7 +24,7 @@ pub mod traits;
 pub mod types;
 pub mod views;
 
-/// A result type that is generally quicker to write when using Result<T, OdiliaError>.
+/// A result type that is generally quicker to write when using `Result<T, OdiliaError>`.
 pub type OdiliaResult<T> = Result<T, errors::OdiliaError>;
 
 /// The mode of the screen reader.

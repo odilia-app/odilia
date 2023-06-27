@@ -3,23 +3,18 @@
 //! Common types used by the Odilia caching crate.
 //! Some types are not specified here. These are ones which require access to [`tokio`] types.
 
-use crate::errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError};
+use crate::errors::AccessiblePrimitiveConversionError;
 use atspi_common::{events::Accessible, AtspiError, InterfaceSet, Role, StateSet};
 #[cfg(feature = "proxies")]
 use atspi_proxies::accessible::AccessibleProxy;
-use dashmap::DashMap;
-use fxhash::FxBuildHasher;
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use std::{
-	hash::{Hash, Hasher},
-	sync::{Arc, Weak},
-};
+use std::hash::Hash;
 use zbus_names::{OwnedUniqueName, UniqueName};
 use zvariant::{ObjectPath, OwnedObjectPath};
 
 /// This is the type alias refering to the key for all cache items.
 /// Please do not use its underlying type explicitly, since this will cause compiler errors when this is modified.
+#[allow(clippy::module_name_repetitions)]
 pub type CacheKey = AccessiblePrimitive;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
@@ -47,25 +42,25 @@ pub struct AccessiblePrimitive {
 /// This type has simplified versions of some other types that can be referenced but not directly interacted with.
 /// For example, this contains no direct referencing of smart pointers, and instead simply uses the [`CacheKey`] type so that lookups to the cache can be done for any additional data.
 pub struct ExternalCacheItem {
-	/// The accessible object (within the application)	(so)
+	/// The accessible object (within the application). `(so)`
 	pub object: CacheKey,
-	/// The application (root object(?)	  (so)
+	/// The application root object. `(so)`
 	pub app: CacheKey,
-	/// The parent object.  (so)
+	/// The parent object. `(so)`
 	pub parent: CacheKey,
-	/// The accessbile index in parent.	i
+	/// The accessbile index in parent. `i`
 	pub index: i32,
-	/// Child count of the accessible  i
+	/// Child count of the accessible. `i`
 	pub children_num: i32,
-	/// The exposed interfece(s) set.  as
+	/// The exposed interfece(s) set. `as`
 	pub interfaces: InterfaceSet,
-	/// Accessible role. u
+	/// Accessible role. `u`
 	pub role: Role,
-	/// The states applicable to the accessible.  au
+	/// The states applicable to the accessible. `au`
 	pub states: StateSet,
 	/// The text of the accessible.
 	pub text: String,
-	/// The children (ids) of the accessible.
+	/// The children (ids) of the accessible. `a(so)`
 	pub children: Vec<CacheKey>,
 }
 
