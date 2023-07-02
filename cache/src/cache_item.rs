@@ -1,4 +1,4 @@
-use crate::{CacheKey, CacheRef};
+use crate::{CacheRef};
 use atspi_common::{InterfaceSet, Role, StateSet};
 use odilia_common::cache::{AccessiblePrimitive, ExternalCacheItem};
 use serde::{Deserialize, Serialize};

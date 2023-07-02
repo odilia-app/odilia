@@ -4,7 +4,7 @@ use odilia_common::errors::{CacheError, OdiliaError};
 use serde::{Deserialize, Serialize};
 use std::{
 	hash::{Hash, Hasher},
-	sync::{Arc, Weak},
+	sync::{Weak},
 };
 use tokio::sync::Mutex;
 

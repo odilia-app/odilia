@@ -181,7 +181,7 @@ impl Cache {
 
 	/// Remove a single cache item. This function can not fail.
 	pub async fn remove(&self, id: &CacheKey) {
-		let mut cache = self.by_id.write().await;
+		let cache = self.by_id.write().await;
 		cache.remove(id);
 	}
 
@@ -265,7 +265,7 @@ impl Cache {
 		// This means that lookups to those references will just be slower, not invalid.
 		// This is all thanks to the design created by @samtay. Thanks, mate!
 		for item in cache_items {
-			let mut cache = self.by_id.write().await;
+			let cache = self.by_id.write().await;
 			let id = item.object.clone();
 			let arc = Arc::new(Mutex::new(item));
 			cache.insert(id, Arc::clone(&arc));
