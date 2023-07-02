@@ -3,7 +3,7 @@ use std::{fs, sync::atomic::AtomicI32};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
-use parking_lot::{RwLock};
+use tokio::sync::RwLock;
 use tokio::sync::{mpsc::Sender};
 
 use zbus::{fdo::DBusProxy, MatchRule, MessageType};
@@ -39,8 +39,8 @@ mod types {
 	use atspi_common::events::Event;
 	use ssip_client_async::types::Request as SSIPRequest;
 	use tokio::sync::mpsc::Sender;
-	use parking_lot::RwLock;
 	use circular_queue::CircularQueue;
+  use tokio::sync::RwLock;
 
 	/// The type only requires read access.
 	pub type AtspiConnection = Arc<AccessibilityConnection>;
@@ -230,7 +230,7 @@ impl ScreenReaderState {
 
 	#[allow(dead_code)]
 	pub async fn event_history_item(&self, index: usize) -> Option<Event> {
-		let history = self.event_history.read();
+		let history = self.event_history.read().await;
 		history.iter().nth(index).cloned()
 	}
 
