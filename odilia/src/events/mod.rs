@@ -198,14 +198,14 @@ pub mod dispatch_tests {
 	#[tokio::test]
 	async fn test_full_cache() {
 		let state = generate_state().await;
-		assert_eq!(state.cache.by_id.len(), 14_738);
+		assert_eq!(state.cache.by_id.read().await.len(), 14_738);
 	}
 
 	pub async fn generate_state() -> ScreenReaderState {
 		let (send, _recv) = channel(32);
 		let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
-		let state = ScreenReaderState::new(send).await.unwrap();
-		state.cache.add_all(cache).unwrap();
+		let state = ScreenReaderState::new(send.into()).await.unwrap();
+		state.cache.add_all(cache).await.unwrap();
 		state
 	}
 }
