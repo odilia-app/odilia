@@ -20,6 +20,7 @@ impl MutableStateView for SetTextCommand {
 impl IntoMutableStateView for SetTextCommand {
 	async fn create_view(&self, state: &ScreenReaderState) -> Result<<Self as MutableStateView>::View, OdiliaError> {
 		state.cache.get_ref(&self.apply_to)
+			.await
 			.ok_or(CacheError::NoItem.into())
 	}
 }
