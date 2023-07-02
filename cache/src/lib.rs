@@ -25,7 +25,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use async_trait::async_trait;
 use atspi_client::convertable::Convertable;
-use atspi_common::GenericEvent;
+use atspi_common::{GenericEvent, CacheItem as AtspiCacheItem};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use futures::future::join_all;
@@ -150,6 +150,21 @@ impl Cache {
 	pub async fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
 		let id = cache_item.object.clone();
 		self.add_ref(id, &Arc::new(Mutex::new(cache_item))).await
+	}
+
+	/// Add a single item to the cache based on existing information defined in
+	/// an [`atspi_common::CacheItem`].
+	/// This function also calls out to DBus to get the full text of the item.
+	/// TODO: implement this as described; right now this just calls accessible_to_cache_item.
+	pub async fn add_from_atspi_cache_item(&self, cache_item: AtspiCacheItem) -> OdiliaResult<()> {
+		let accessible = AccessibleProxy::builder(&self.connection)
+			.destination(cache_item.object.0)?
+			.path(cache_item.object.1)?
+			.build()
+			.await?;
+		let cache_item = accessible_to_cache_item(&accessible).await?;
+		self.add(cache_item).await?;
+		Ok(())
 	}
 
 	/// Add an item via a reference instead of creating the reference.

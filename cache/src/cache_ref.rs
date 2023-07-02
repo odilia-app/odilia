@@ -60,3 +60,12 @@ impl CacheRef {
 		Some(self.item.upgrade().as_ref()?.lock().await.clone())
 	}
 }
+
+impl From<AccessiblePrimitive> for CacheRef {
+	fn from(ap: AccessiblePrimitive) -> CacheRef {
+		CacheRef {
+			key: ap,
+			item: Weak::new(),
+		}
+	}
+}
