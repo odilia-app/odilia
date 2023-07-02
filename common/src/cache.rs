@@ -37,7 +37,7 @@ pub struct AccessiblePrimitive {
 	pub sender: smartstring::alias::String,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Clone, Debug, Deserialize, Serialize, Eq, PartialEq, Hash)]
 /// A struct representing an accessible to be shared across IPC.
 /// This type has simplified versions of some other types that can be referenced but not directly interacted with.
 /// For example, this contains no direct referencing of smart pointers, and instead simply uses the [`CacheKey`] type so that lookups to the cache can be done for any additional data.

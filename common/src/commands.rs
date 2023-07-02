@@ -4,7 +4,7 @@
 //! The implementation of these commands is in Odilia.
 
 use crate::{cache::CacheKey, errors::OdiliaError};
-use atspi_common::StateSet;
+use atspi_common::{StateSet, CacheItem};
 use serde::{Deserialize, Serialize};
 
 macro_rules! impl_conversions {
@@ -45,12 +45,8 @@ pub enum OdiliaCommand {
 	Cache(CacheCommand),
 	/// Move the *USER*'s focus to a new object.
 	MoveFocus(MoveFocusCommand),
-	/// Setting *ODILIA*'s internal focused object.
-	UpdateFocus(UpdateFocusCommand),
 	/// Move the *USER*'s caret to a new position.
 	MoveCaretPosition(MoveCaretPositionCommand),
-	/// Setting *ODILIA*'s internal caret position.
-	UpdateCaretPosition(UpdateCaretPositionCommand),
 }
 
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
@@ -58,15 +54,16 @@ pub enum OdiliaCommand {
 /// NOTE: This does *NOT* set Odilia's cursor position.
 pub struct MoveCaretPositionCommand {
 	/// The new caret position.
-	new_position: i32,
+	pub new_position: i32,
 }
 
 /// Update Odilia's internal caret position.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
-pub struct UpdateCaretPositionCommand {
+pub struct SetCaretPositionCommand {
 	/// The new caret position.
-	new_position: i32,
+	pub new_position: i32,
 }
+impl_conversions!(SetCaretPositionCommand, CacheCommand::SetCaretPosition, CacheCommand, OdiliaCommand::Cache);
 
 /// Any command that directly changes items in the cache.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
@@ -77,6 +74,14 @@ pub enum CacheCommand {
 	SetState(SetStateCommand),
 	/// Adds/removes a child from a given cache item.
 	ChangeChild(ChangeChildCommand),
+	/// Removes an item from the cache.
+	RemoveItem(RemoveItemCommand),
+	/// Adds an item from the cache.
+	AddItem(AddItemCommand),
+	/// Setting *ODILIA*'s internal caret position.
+	SetCaretPosition(SetCaretPositionCommand),
+	/// Setting *ODILIA*'s internal focused object.
+	SetFocus(UpdateFocusCommand),
 }
 
 /// Adds a new child reference to a cache item.
@@ -94,6 +99,22 @@ pub struct ChangeChildCommand {
 }
 impl_conversions!(ChangeChildCommand, CacheCommand::ChangeChild, CacheCommand, OdiliaCommand::Cache);
 
+/// Remove an item from the cache.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct RemoveItemCommand {
+	/// The key of the item to remove.
+	pub item: CacheKey,
+}
+impl_conversions!(RemoveItemCommand, CacheCommand::RemoveItem, CacheCommand, OdiliaCommand::Cache);
+
+/// Add an item from the cache.
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
+pub struct AddItemCommand {
+	/// The cache item to add
+	pub item: CacheItem,
+}
+impl_conversions!(AddItemCommand, CacheCommand::AddItem, CacheCommand, OdiliaCommand::Cache);
+
 /// Set new text contents for a cache item.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SetTextCommand {
@@ -104,6 +125,7 @@ pub struct SetTextCommand {
 	pub apply_to: CacheKey,
 }
 impl_conversions!(SetTextCommand, CacheCommand::SetText, CacheCommand, OdiliaCommand::Cache);
+
 /// Set new state for a cache item.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SetStateCommand {

@@ -4,7 +4,10 @@
 
 use crate::cache::{CacheKey, ExternalCacheItem};
 use crate::traits::StateView;
-use atspi_common::events::object::{StateChangedEvent, TextCaretMovedEvent, TextChangedEvent, ChildrenChangedEvent};
+use atspi_common::events::{
+	object::{StateChangedEvent, TextCaretMovedEvent, TextChangedEvent, ChildrenChangedEvent},
+	AddAccessibleEvent, RemoveAccessibleEvent,
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -29,3 +32,5 @@ impl_state_view!(TextCaretMovedEvent, CaretPositionView);
 impl_state_view!(TextChangedEvent, ExternalCacheItem);
 impl_state_view!(StateChangedEvent, ExternalCacheItem);
 impl_state_view!(ChildrenChangedEvent, ());
+impl_state_view!(AddAccessibleEvent, ());
+impl_state_view!(RemoveAccessibleEvent, ());
