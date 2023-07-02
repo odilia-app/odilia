@@ -1,6 +1,5 @@
 mod cache;
-mod document;
-mod object;
+mod objects;
 
 use std::{collections::HashMap, sync::Arc};
 
@@ -16,7 +15,7 @@ use atspi_common::events::Event;
 use atspi_common::{InterfaceSet, MatchType, MatcherArgs, Role, ScrollType};
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
-	result::OdiliaResult,
+	OdiliaResult,
 };
 use ssip_client_async::Priority;
 
@@ -89,7 +88,7 @@ pub async fn sr_event(
 			    },
 			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
 						tracing::debug!("Changing mode to {:?}", new_sr_mode);
-						let mut sr_mode = state.mode.lock().await;
+						let mut sr_mode = state.mode.write().await;
 						*sr_mode = new_sr_mode;
 			    }
 			    _ => { continue; }
@@ -178,13 +177,6 @@ async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<Vec<ScreenReaderEvent>> {
 	// Dispatch based on interface
 	Ok(match &event {
-		Event::Object(object_event) => {
-			object::dispatch(state, object_event).await?
-		}
-		Event::Document(document_event) => {
-			document::dispatch(state, document_event).await?
-		}
-		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await,
 		other_event => {
 			tracing::debug!(
 				"Ignoring event with unknown interface: {:#?}",
