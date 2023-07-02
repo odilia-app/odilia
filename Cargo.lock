@@ -673,6 +673,7 @@ checksum = "23342abe12aba583913b2e62f22225ff9c950774065e4bfb61a19cd9770fec40"
 dependencies = [
  "futures-channel",
  "futures-core",
+ "futures-executor",
  "futures-io",
  "futures-sink",
  "futures-task",
@@ -696,6 +697,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4bca583b7e26f571124fe5b7561d49cb2868d79116cfa0eefce955557c6fee8c"
 
 [[package]]
+name = "futures-executor"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccecee823288125bd88b4d7f565c9e58e41858e47ab72e8ea2d64e93624386e0"
+dependencies = [
+ "futures-core",
+ "futures-task",
+ "futures-util",
+]
+
+[[package]]
 name = "futures-io"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -717,6 +729,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-macro"
+version = "0.3.28"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "89ca545a94061b6365f2c7355b4b32bd20df3ff95f02da9329b34ccc3bd6ee72"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.18",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -734,8 +757,10 @@ version = "0.3.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26b01e40b772d54cf6c6d721c1d1abd0647a0106a12ecaa1c186273392a69533"
 dependencies = [
+ "futures-channel",
  "futures-core",
  "futures-io",
+ "futures-macro",
  "futures-sink",
  "futures-task",
  "memchr",
@@ -1049,6 +1074,7 @@ dependencies = [
 name = "odilia"
 version = "0.1.4"
 dependencies = [
+ "async-trait",
  "atspi",
  "atspi-client",
  "atspi-common",
@@ -1062,9 +1088,12 @@ dependencies = [
  "odilia-common",
  "odilia-input",
  "odilia-tts",
+ "parking_lot",
+ "serde",
  "serde_json",
  "serde_plain",
  "ssip-client-async",
+ "static_assertions",
  "tokio",
  "tokio-test",
  "tracing",
@@ -1088,8 +1117,10 @@ dependencies = [
  "atspi-proxies",
  "criterion",
  "dashmap",
+ "futures",
  "fxhash",
  "odilia-common",
+ "parking_lot",
  "rand",
  "serde",
  "serde_json",
@@ -1109,6 +1140,7 @@ dependencies = [
  "bitflags",
  "dashmap",
  "fxhash",
+ "parking_lot",
  "serde",
  "serde_plain",
  "smartstring",

@@ -54,3 +54,4 @@ serde_plain = "1.0.1"
 smartstring = { version = "1.0.1", features = ["serde"] }
 dashmap = "5.4.0"
 fxhash = "0.2.1"
+async-trait = "0.1.68"
