@@ -1,17 +1,16 @@
 use crate::{
 	state::ScreenReaderState,
-	traits::{IntoOdiliaCommands, StateView, Command, IntoStateView, MutableStateView, IntoMutableStateView},
+	traits::{IntoOdiliaCommands, StateView, Command, MutableStateView, IntoMutableStateView},
 };
-use std::sync::Arc;
+
 use async_trait::async_trait;
-use atspi_common::events::object::{ObjectEvents, TextChangedEvent};
-use odilia_common::events::{ScreenReaderEvent};
+use atspi_common::events::object::{TextChangedEvent};
+
 use odilia_common::{
-	cache::{CacheKey, ExternalCacheItem},
 	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, SetTextCommand},
 };
-use odilia_cache::{CacheRef, CacheValue, CacheItem};
+use odilia_cache::{CacheValue};
 
 impl MutableStateView for SetTextCommand {
 	type View = CacheValue;

@@ -1,18 +1,17 @@
 use std::sync::Arc;
 use crate::{
 	state::ScreenReaderState,
-	traits::{IntoOdiliaCommands, IntoStateView, Command, StateView, MutableStateView, IntoMutableStateView},
+	traits::{IntoOdiliaCommands, Command, StateView, MutableStateView, IntoMutableStateView},
 };
 use async_trait::async_trait;
 use atspi_common::events::AddAccessibleEvent;
-use atspi_common::State;
-use odilia_common::events::{ScreenReaderEvent};
+
+
 use odilia_common::{
-	cache::ExternalCacheItem,
-	errors::{OdiliaError, CacheError},
+	errors::{OdiliaError},
 	commands::{OdiliaCommand, AddItemCommand},
 };
-use odilia_cache::{CacheRef, CacheValue, CacheItem, Cache};
+use odilia_cache::{Cache};
 
 #[async_trait]
 impl IntoOdiliaCommands for AddAccessibleEvent {

@@ -1,21 +1,20 @@
 use crate::{
 	state::ScreenReaderState,
-	traits::{IntoOdiliaCommands, IntoStateView, Command, StateView, MutableStateView, IntoMutableStateView},
+	traits::{IntoOdiliaCommands, Command, StateView, MutableStateView, IntoMutableStateView},
 };
 use async_trait::async_trait;
 use atspi_common::events::object::ChildrenChangedEvent;
-use atspi_common::State;
-use odilia_common::events::{ScreenReaderEvent};
+
+
 use odilia_common::{
-	cache::ExternalCacheItem,
 	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, ChangeChildCommand},
 };
-use odilia_cache::{CacheRef, CacheValue, CacheItem};
+use odilia_cache::{CacheRef, CacheValue};
 
 #[async_trait]
 impl IntoOdiliaCommands for ChildrenChangedEvent {
-	async fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	async fn commands(&self, _state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
 		Ok(vec![ChangeChildCommand {
 			index: self.index_in_parent as usize,
 			new_child: self.child.clone().into(),

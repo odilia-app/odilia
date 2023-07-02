@@ -5,13 +5,12 @@ use crate::{
 use async_trait::async_trait;
 use atspi_common::events::object::StateChangedEvent;
 use atspi_common::State;
-use odilia_common::events::{ScreenReaderEvent};
+
 use odilia_common::{
-	cache::ExternalCacheItem,
 	errors::{OdiliaError, CacheError},
 	commands::{OdiliaCommand, SetStateCommand},
 };
-use odilia_cache::{CacheRef, CacheValue, CacheItem};
+use odilia_cache::{CacheValue};
 
 #[async_trait]
 impl IntoStateView for StateChangedEvent {

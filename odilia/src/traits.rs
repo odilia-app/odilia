@@ -27,8 +27,8 @@
 use crate::state::ScreenReaderState;
 
 use async_trait::async_trait;
-use serde::{Serialize, Deserialize};
-use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent, commands::{OdiliaCommand, CacheCommand}};
+
+use odilia_common::{errors::OdiliaError, commands::{OdiliaCommand}};
 pub use odilia_common::traits::StateView;
 
 /// Implemented by any type which executes a speciic, defined action and modifies state.

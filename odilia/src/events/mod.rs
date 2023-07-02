@@ -1,7 +1,7 @@
 mod cache;
 mod objects;
 
-use std::{collections::HashMap, sync::Arc};
+use std::{sync::Arc};
 
 use futures::stream::StreamExt;
 use tokio::sync::{
@@ -10,14 +10,13 @@ use tokio::sync::{
 };
 
 use crate::state::ScreenReaderState;
-use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
+
 use atspi_common::events::Event;
-use atspi_common::{InterfaceSet, MatchType, MatcherArgs, Role, ScrollType};
+
 use odilia_common::{
-	events::{Direction, ScreenReaderEvent},
-	OdiliaResult,
+	events::{ScreenReaderEvent},
 };
-use ssip_client_async::Priority;
+
 
 /*
 pub async fn structural_navigation(
@@ -174,7 +173,7 @@ async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 	}
 }
 
-async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<Vec<ScreenReaderEvent>> {
+async fn dispatch(_state: &ScreenReaderState, event: Event) -> eyre::Result<Vec<ScreenReaderEvent>> {
 	// Dispatch based on interface
 	Ok(match &event {
 		other_event => {

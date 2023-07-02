@@ -8,7 +8,7 @@ use tokio::sync::{mpsc::Sender};
 
 use zbus::{fdo::DBusProxy, MatchRule, MessageType};
 
-use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
+
 use atspi_common::{
 	events::{HasMatchRule, HasRegistryEventString},
 	Event,
@@ -18,7 +18,6 @@ use atspi_proxies::{accessible::AccessibleProxy};
 use odilia_cache::{Cache as InnerCache, CacheItem};
 use odilia_common::{
 	errors::{ConfigError},
-	ScreenReaderMode,
 	settings::ApplicationConfig,
   events::ScreenReaderEvent,
 	cache::{AccessiblePrimitive},

@@ -1,18 +1,17 @@
 use std::sync::atomic::{AtomicI32, Ordering};
 use crate::{
 	state::ScreenReaderState,
-	traits::{IntoOdiliaCommands, StateView, Command, IntoStateView, MutableStateView, IntoMutableStateView},
+	traits::{IntoOdiliaCommands, StateView, Command, MutableStateView, IntoMutableStateView},
 };
 use std::sync::Arc;
 use async_trait::async_trait;
-use atspi_common::events::object::{ObjectEvents, TextCaretMovedEvent};
-use odilia_common::events::{ScreenReaderEvent};
+use atspi_common::events::object::{TextCaretMovedEvent};
+
 use odilia_common::{
-	cache::{CacheKey, ExternalCacheItem},
-	errors::{OdiliaError, CacheError},
+	errors::{OdiliaError},
 	commands::{OdiliaCommand, SetCaretPositionCommand},
 };
-use odilia_cache::{CacheRef, CacheValue, CacheItem};
+
 
 impl MutableStateView for SetCaretPositionCommand {
 	type View = Arc<AtomicI32>;
@@ -36,7 +35,7 @@ impl Command for SetCaretPositionCommand {
 #[async_trait]
 impl IntoOdiliaCommands for TextCaretMovedEvent {
 	// TODO: handle speaking if in an aria-live region
-	async fn commands(&self, state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	async fn commands(&self, _state_view: &<Self as StateView>::View) -> Result<Vec<OdiliaCommand>, OdiliaError> {
 		Ok(vec![
 			SetCaretPositionCommand {
 				new_position: self.position,
