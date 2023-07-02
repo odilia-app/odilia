@@ -5,11 +5,12 @@
 use atspi_common::AtspiError;
 use serde_plain::Error as SerdePlainError;
 use std::{error::Error, fmt};
+use crate::cache::CacheKey;
 
 /// The common Odilia error type.
 /// This is specifically typed as a `#[non_exhaustive]` enum so that adding a new variant of error type doesn ot cause an API break.
 #[non_exhaustive]
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum OdiliaError {
 	/// See: [`atspi_common::error::AtspiError`].
 	Atspi(AtspiError),
@@ -34,7 +35,7 @@ pub enum OdiliaError {
 }
 
 /// Errors when loading or reading from settings.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum ConfigError {
 	/// [`tini`] errors are converted into a string. These are usually errors about parsing the file.
 	Tini(String),
@@ -74,7 +75,7 @@ impl std::fmt::Display for ConfigError {
 impl std::error::Error for ConfigError {}
 /// Errors when dealing with Odilia's cache.
 /// The types are defined in [`crate::cache`], but the implementation is in an external crate.
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum CacheError {
 	/// The cache is not avaialbe.
 	NotAvailable,
@@ -82,6 +83,10 @@ pub enum CacheError {
 	NoItem,
 	/// A lock (read or write) could not be aquired on the cache.
 	NoLock,
+	/// An item in the cache should be invalidated since some data did not match expectations.
+	/// This usually only happens when an event attempts to modify a piece of the cache which does not match the expectation from the event (for example, a child index not being valid, or the wrong cache item is in that index).
+	/// This should be handled by refreshing the data for the contained item, referenced to by CacheKey.
+	Invalidated(CacheKey),
 }
 impl std::fmt::Display for CacheError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -89,6 +94,7 @@ impl std::fmt::Display for CacheError {
 			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
 			Self::NoItem => f.write_str("No item in cache found."),
       Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
+			Self::Invalidated(key) => f.write_str("A cache item has been invalidated: {:?}"),
 		}
 	}
 }
@@ -132,7 +138,7 @@ impl fmt::Display for OdiliaError {
 
 /// Errors when converting a variety of type into an [`AccessiblePrimitive`].
 /// This is the same type as [`CacheKey`].
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub enum AccessiblePrimitiveConversionError {
 	/// An error parsing some value.
 	/// This should rarely, if ever happen.
