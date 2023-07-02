@@ -24,7 +24,9 @@ pub struct CacheRef {
 	pub item: Weak<Mutex<CacheItem>>,
 }
 impl CacheItem {
-	async fn from_cache_ref(cache_ref: CacheRef) -> Result<CacheItem, OdiliaError> {
+  /// Defines the conversion between a cache ref and a cache item.
+  /// Since this requires an asyncronous operation, it must be defined using an implementation block, and not a trait like `From`, or `TryFrom`.
+	pub async fn from_cache_ref(cache_ref: CacheRef) -> Result<CacheItem, OdiliaError> {
 		Ok(Weak::upgrade(&cache_ref.item)
 			.ok_or(CacheError::NoItem)?
 			.lock()
