@@ -3,7 +3,8 @@ use std::{collections::HashMap, error::Error};
 use tracing::{info, instrument};
 
 use serde::{Deserialize, Serialize};
-use zbus::{dbus_proxy, zvariant::Value, Connection, SignalStream};
+
+use zbus::{dbus_proxy, zvariant::Value, Connection, MessageStream};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Action {
@@ -39,48 +40,58 @@ trait FreedesktopNotifications {
 }
 
 #[instrument]
-pub async fn listen_to_dbus_notifications() -> SignalStream<'static> {
-    info!("initializing dbus connection");
-    let connection = Connection::session().await.unwrap();
-    info!("initializing dbus proxy for connection");
-    let proxy = FreedesktopNotificationsProxy::builder(&connection)
-        .destination("org.freedesktop.Notifications")
-        .expect("unable to use the notification thingy")
-        .build()
-        .await
-        .unwrap();
-    info!("listening for notifications");
-    proxy.receive_signal("Notify").await.unwrap()
-}
-#[instrument]
-pub fn create_stream<'a>(
-    signal_stream: SignalStream<'a>,
-) -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> + 'a {
-    signal_stream.map(|signal| {
-        let (app_name, _, _, summary, body, actions): (
-            String,
-            u32,
-            String,
-            String,
-            String,
-            Vec<String>,
-        ) = signal.body().unwrap();
-        info!(
-            app_name = app_name,
-            body = body,
-            "got a notification, adding it to stream"
-        );
-        Ok(Notification {
-            app_name,
-            title: summary,
-            body,
-            actions: actions
-                .into_iter()
-                .map(|action| Action {
-                    name: action,
-                    method: "".into(), // We don't have the method info here
-                })
-                .collect(),
-        })
-    })
+pub async fn listen_to_dbus_notifications() -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
+   info!("initializing dbus connection");
+   let connection = Connection::session().await.unwrap();
+   info!("setting dbus connection to monitor mode");
+   connection
+       .call_method(
+           Some("org.freedesktop.DBus"),
+           "/org/freedesktop/DBus",
+           Some("org.freedesktop.DBus.Monitoring"),
+           "BecomeMonitor",
+           &(&[] as &[&str], 0u32),
+       )
+       .await
+       .unwrap();
+   info!("connection is now in monitor mode");
+   info!("listening for notifications");
+   MessageStream::from(connection).fuse().filter_map(|message| {
+       match message {
+           Ok(msg) => {
+               if msg.interface() == Some("org.freedesktop.Notifications".try_into().unwrap())
+                  && msg.member() == Some("Notify".try_into().unwrap())
+               {
+                  let (app_name, _, _, summary, body, actions): (
+                      String,
+                      u32,
+                      String,
+                      String,
+                      String,
+                      Vec<String>,
+                  ) = msg.body().unwrap();
+                  info!(
+                      app_name = app_name,
+                      body = body,
+                      "got a notification, adding it to stream"
+                  );
+                  futures::future::ready(Some(Ok(Notification {
+                      app_name,
+                      title: summary,
+                      body,
+                      actions: actions
+                          .into_iter()
+                          .map(|action| Action {
+                              name: action,
+                              method: "".into(), // We don't have the method info here
+                          })
+                          .collect(),
+                  })))
+               } else {
+                  futures::future::ready(None)
+               }
+           },
+           Err(_) => futures::future::ready(None),
+       }
+   })
 }

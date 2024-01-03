@@ -1,5 +1,4 @@
 use futures::StreamExt;
-
 use odilia_notify::*;
 use std::{collections::HashMap, error::Error};
 use zbus::{dbus_proxy, zvariant::Value, Connection};
@@ -23,6 +22,7 @@ trait FreedesktopNotifications {
     ) -> Result<(), Box<dyn Error>>;
 }
 #[tokio::test]
+
 async fn test_listen_to_dbus_notifications() {
     // Create a new connection
     let connection = Connection::session().await.unwrap();
@@ -34,35 +34,45 @@ async fn test_listen_to_dbus_notifications() {
         .build()
         .await
         .unwrap();
+
+    // Spawn a new task to listen for notifications
+    let listener_task = tokio::spawn(async move {
+        listen_to_dbus_notifications()
+            .await
+            .for_each(|result| {
+                match result {
+                    Ok(notification) => {
+                        assert_eq!(notification.app_name, "test_app");
+                        assert_eq!(notification.title, "Test Summary");
+                        // Add more assertions for the other fields of the notification
+                    }
+                    Err(_) => {}
+                }
+                futures::future::ready(())
+            })
+            .await;
+    });
+
+    // Delay sending the notification
+    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+
     // Send a Notify signal
     if let Err(_) = proxy
-            .notify(
-                "test_app",
-                0,
-                "",
-                "Test Summary",
-                "Test Body",
-                vec![],
-                HashMap::new(),
-                5000,
-            )
-            .await {
+        .notify(
+            "test_app",
+            0,
+            "",
+            "Test Summary",
+            "Test Body",
+            vec![],
+            HashMap::new(),
+            5000,
+        )
+        .await
+    {
         eprintln!("something went terribly wrong")
     }
 
-    // Listen for notifications
-    let signal_stream = listen_to_dbus_notifications().await;
-    let mut stream = create_stream(signal_stream);
-    while let Some(result) = stream.next().await {
-        match result {
-            Ok(notification) => {
-                assert_eq!(notification.app_name, "test_app");
-                assert_eq!(notification.title, "Test Summary");
-                // Add more assertions for the other fields of the notification
-                break;
-            }
-            Err(_) => continue,
-        }
-    }
-
+    // Await the listener task
+    listener_task.await.unwrap();
 }
