@@ -1,14 +1,9 @@
-use futures::StreamExt;
-
-use futures::Stream;
-use std::collections::HashMap;
-use std::error::Error;
+use futures::{Stream, StreamExt};
+use std::{collections::HashMap, error::Error};
+use tracing::{info, instrument};
 
 use serde::{Deserialize, Serialize};
-use zbus::dbus_proxy;
-use zbus::zvariant::Value;
-use zbus::Connection;
-use zbus::SignalStream;
+use zbus::{dbus_proxy, zvariant::Value, Connection, SignalStream};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Action {
@@ -23,10 +18,14 @@ pub struct Notification {
     pub body: String,
     pub actions: Vec<Action>,
 }
-#[dbus_proxy(interface = "org.freedesktop.Notifications", default_service = "org.freedesktop.Notifications", default_path = "/org/freedesktop/Notifications")]
+#[dbus_proxy(
+    interface = "org.freedesktop.Notifications",
+    default_service = "org.freedesktop.Notifications",
+    default_path = "/org/freedesktop/Notifications"
+)]
 trait FreedesktopNotifications {
     #[dbus_proxy(signal)]
-    fn notify(
+    async fn notify(
         &self,
         app_name: &str,
         replaces_id: u32,
@@ -39,16 +38,21 @@ trait FreedesktopNotifications {
     );
 }
 
+#[instrument]
 pub async fn listen_to_dbus_notifications() -> SignalStream<'static> {
+    info!("initializing dbus connection");
     let connection = Connection::session().await.unwrap();
+    info!("initializing dbus proxy for connection");
     let proxy = FreedesktopNotificationsProxy::builder(&connection)
         .destination("org.freedesktop.Notifications")
         .expect("unable to use the notification thingy")
         .build()
         .await
         .unwrap();
+    info!("listening for notifications");
     proxy.receive_signal("Notify").await.unwrap()
 }
+#[instrument]
 pub fn create_stream<'a>(
     signal_stream: SignalStream<'a>,
 ) -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> + 'a {
@@ -61,14 +65,19 @@ pub fn create_stream<'a>(
             String,
             Vec<String>,
         ) = signal.body().unwrap();
+        info!(
+            app_name = app_name,
+            body = body,
+            "got a notification, adding it to stream"
+        );
         Ok(Notification {
-            app_name: app_name.into(),
-            title: summary.into(),
-            body: body.into(),
+            app_name,
+            title: summary,
+            body,
             actions: actions
                 .into_iter()
                 .map(|action| Action {
-                    name: action.into(),
+                    name: action,
                     method: "".into(), // We don't have the method info here
                 })
                 .collect(),

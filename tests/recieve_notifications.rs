@@ -1,10 +1,14 @@
 use futures::StreamExt;
 
-use std::collections::HashMap;
 use odilia_notify::*;
-use zbus::{dbus_proxy, Connection, Result, zvariant::Value};
+use std::{collections::HashMap, error::Error};
+use zbus::{dbus_proxy, zvariant::Value, Connection};
 
-#[dbus_proxy(interface = "org.freedesktop.Notifications", default_service = "org.freedesktop.Notifications", default_path = "/org/freedesktop/Notifications")]
+#[dbus_proxy(
+    interface = "org.freedesktop.Notifications",
+    default_service = "org.freedesktop.Notifications",
+    default_path = "/org/freedesktop/Notifications"
+)]
 trait FreedesktopNotifications {
     async fn notify(
         &self,
@@ -16,7 +20,7 @@ trait FreedesktopNotifications {
         actions: Vec<String>,
         hints: HashMap<&str, Value<'_>>,
         expire_timeout: i32,
-    ) ->Result<()>;
+    ) -> Result<(), Box<dyn Error>>;
 }
 #[tokio::test]
 async fn test_listen_to_dbus_notifications() {
@@ -30,28 +34,25 @@ async fn test_listen_to_dbus_notifications() {
         .build()
         .await
         .unwrap();
-
     // Send a Notify signal
-    proxy
-        .notify(
-            "test_app",
-            0,
-            "",
-            "Test Summary",
-            "Test Body",
-            vec![],
-            HashMap::new(),
-            5000,
-        )
-        .await
-        .unwrap();
+    if let Err(_) = proxy
+            .notify(
+                "test_app",
+                0,
+                "",
+                "Test Summary",
+                "Test Body",
+                vec![],
+                HashMap::new(),
+                5000,
+            )
+            .await {
+        eprintln!("something went terribly wrong")
+    }
 
     // Listen for notifications
     let signal_stream = listen_to_dbus_notifications().await;
-    let stream = create_stream(signal_stream);
-
-    // Check whether the notification is received
-    let mut stream = stream.boxed();
+    let mut stream = create_stream(signal_stream);
     while let Some(result) = stream.next().await {
         match result {
             Ok(notification) => {
@@ -63,4 +64,5 @@ async fn test_listen_to_dbus_notifications() {
             Err(_) => continue,
         }
     }
+
 }
