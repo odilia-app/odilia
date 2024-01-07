@@ -4,7 +4,7 @@ use tracing::{info, instrument};
 
 use serde::{Deserialize, Serialize};
 
-use zbus::{dbus_proxy, zvariant::Value, Connection, MessageStream};
+use zbus::{zvariant::Value, Connection, MessageStream};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Action {
@@ -19,26 +19,6 @@ pub struct Notification {
     pub body: String,
     pub actions: Vec<Action>,
 }
-#[dbus_proxy(
-    interface = "org.freedesktop.Notifications",
-    default_service = "org.freedesktop.Notifications",
-    default_path = "/org/freedesktop/Notifications"
-)]
-trait FreedesktopNotifications {
-    #[dbus_proxy(signal)]
-    async fn notify(
-        &self,
-        app_name: &str,
-        replaces_id: u32,
-        app_icon: &str,
-        summary: &str,
-        body: &str,
-        actions: Vec<String>,
-        hints: HashMap<&str, Value<'s>>,
-        expire_timeout: i32,
-    );
-}
-
 #[instrument]
 pub async fn listen_to_dbus_notifications(
 ) -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
