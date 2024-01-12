@@ -1,6 +1,6 @@
-use futures::{StreamExt, future::ready};
+use futures::TryStreamExt;
 use odilia_notify::*;
-use std::{collections::HashMap, error::Error};
+use std::{collections::HashMap, error::Error, time::Duration};
 use zbus::{dbus_proxy, zvariant::Value, Connection};
 
 #[dbus_proxy(
@@ -9,6 +9,7 @@ use zbus::{dbus_proxy, zvariant::Value, Connection};
     default_path = "/org/freedesktop/Notifications"
 )]
 trait FreedesktopNotifications {
+    #[allow(clippy::too_many_arguments)]
     async fn notify(
         &self,
         app_name: &str,
@@ -22,7 +23,7 @@ trait FreedesktopNotifications {
     ) -> Result<(), Box<dyn Error>>;
 }
 #[tokio::test]
-async fn test_listen_to_dbus_notifications() {
+async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
     // Create a new connection
     let connection = Connection::session().await.unwrap();
     // Create a proxy for the org.freedesktop.Notifications interface
@@ -30,27 +31,22 @@ async fn test_listen_to_dbus_notifications() {
         .destination("org.freedesktop.Notifications")
         .unwrap()
         .build()
-        .await
-        .unwrap();
+        .await?;
+
     // Spawn a new task to listen for notifications
     let listener_task = tokio::spawn(async move {
-        listen_to_dbus_notifications()
-            .await
-            .for_each(|result| {
-                if let Ok(notification) = result {
-                    assert_eq!(notification.app_name, "test_app");
-                    assert_eq!(notification.title, "Test Summary");
-                }
-                ready(())
-            })
-            .await;
+        let mut stream=listen_to_dbus_notifications().await;
+        while let Some(notification) = stream.try_next().await.unwrap() {
+            assert_eq!(notification.app_name, "test_app");
+            assert_eq!(notification.title, "Test Summary");
+        }
+        Ok::<(), Box<dyn Error + Send>>(())
     });
-
     // Delay sending the notification
-    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+    tokio::time::sleep(Duration::from_secs(1)).await;
 
-    // Send a Notify signal
-    if let Err(_) = proxy
+    // Send a Notification to see if it's correctly recieved on the other side
+    proxy
         .notify(
             "test_app",
             0,
@@ -59,13 +55,9 @@ async fn test_listen_to_dbus_notifications() {
             "Test Body",
             vec![],
             HashMap::new(),
-            5000,
-        )
-        .await
-    {
-        eprintln!("something went terribly wrong")
-    }
-
+            5000)
+        .await?;
     // Await the listener task
-    listener_task.await.unwrap();
+    listener_task.await?.unwrap();
+    Ok(())
 }

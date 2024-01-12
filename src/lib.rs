@@ -69,37 +69,32 @@ pub async fn listen_to_dbus_notifications(
         .unwrap();
 
     MessageStream::from(monitor.connection())
-
+        //poling futures after they're complete is not allowed.
+        //Therefore, in a similar fassion, calling next on a stream which yielded all its values is prohibited.
+        //Although this stream in particular is an infinite one, being pedantic never hurts, so let's fuze it to make the caller panic if we somehow reach the end of the stream and we're still asked to produce a value
         .fuse()
-        .filter_map(|message| {
-            match message {
-                Ok(msg) => {
-                    if msg.interface() == Some("org.freedesktop.Notifications".try_into().unwrap())
-                        && msg.member() == Some("Notify".try_into().unwrap())
-                    {
-                        let (app_name, _, _, summary, body, actions, _, _): RawNotifyMethodSignature = msg.body().unwrap();
-                        info!(
-                            app_name = app_name,
-                            body = body,
-                            "got a notification, adding it to stream"
-                        );
-                        futures::future::ready(Some(Ok(Notification {
-                            app_name,
-                            title: summary,
-                            body,
-                            actions: actions
-                                .into_iter()
-                                .map(|action| Action {
-                                    name: action,
-                                    method: "".into(), // We don't have the method info here
-                                })
-                                .collect(),
-                        })))
-                    } else {
-                        futures::future::ready(None)
-                    }
-                }
-                Err(_) => futures::future::ready(None),
-            }
+        //the first signal we get is a name lost signal, because entering monitor mode causes the daemon to make our connection drop all names, even if this one in particular has none.
+        //Therefore, we must skip hopefully only one value from the beginning of the stream
+        .skip(1)
+        .map(|message| {
+            let (app_name, _, _, summary, body, actions, _, _): RawNotifyMethodSignature =
+                message?.body()?;
+            info!(
+                %app_name,
+                %body,
+                "got a notification, adding it to stream"
+            );
+            Ok(Notification {
+                app_name,
+                title: summary,
+                body,
+                actions: actions
+                    .into_iter()
+                    .map(|action| Action {
+                        name: action,
+                        method: "".into(), // We don't have the method info here
+                    })
+                    .collect(),
+            })
         })
 }
