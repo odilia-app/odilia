@@ -1,11 +1,12 @@
 use futures::{Stream, StreamExt};
-use std::{collections::HashMap, error::Error, ops::Deref};
+use std::{collections::HashMap, error::Error, ops::Deref, sync::Arc};
 use tracing::{debug, info, instrument};
 
 use serde::{Deserialize, Serialize};
 
 use zbus::{
-    fdo::MonitoringProxy, zvariant::Value, Connection, MatchRule, MessageStream, MessageType,
+    fdo::MonitoringProxy, zvariant::Value, Connection, MatchRule, Message, MessageStream,
+    MessageType,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -31,9 +32,31 @@ type RawNotifyMethodSignature<'a> = (
     HashMap<String, Value<'a>>,
     i32,
 );
+impl TryFrom<Message> for Notification {
+    type Error = zbus::Error;
 
+    fn try_from(value: Message) -> Result<Self, Self::Error> {
+        let (app_name, _, _, summary, body, actions, _, _): RawNotifyMethodSignature =
+            value.body()?;
+        let actions = actions
+            .into_iter()
+            .map(|action| Action {
+                name: action,
+                method: "".into(), // We don't have the method info here
+            })
+            .collect();
+
+        Ok(Notification {
+            app_name,
+            title: summary,
+            body,
+            actions,
+        })
+    }
+}
 #[instrument]
-pub async fn listen_to_dbus_notifications() -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
+pub async fn listen_to_dbus_notifications(
+) -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
     info!("initializing dbus connection");
     let connection = Connection::session().await.unwrap();
     info!("setting dbus connection to monitor mode");
@@ -72,24 +95,9 @@ pub async fn listen_to_dbus_notifications() -> impl Stream<Item = Result<Notific
         //Therefore, we must skip hopefully only one value from the beginning of the stream
         .skip(1)
         .map(|message| {
-            let (app_name, _, _, summary, body, actions, _, _): RawNotifyMethodSignature =
-                message?.body()?;
-            info!(
-                %app_name,
-                %body,
-                "got a notification, adding it to stream"
-            );
-            Ok(Notification {
-                app_name,
-                title: summary,
-                body,
-                actions: actions
-                    .into_iter()
-                    .map(|action| Action {
-                        name: action,
-                        method: "".into(), // We don't have the method info here
-                    })
-                    .collect(),
-            })
+            let message = Arc::try_unwrap(message?).unwrap(); // Extract the Message from the Arc, I'm not sure whether this will work or not. Todo: try to find a better way of doing this
+            let notification = message.try_into()?;
+            debug!(?notification, "adding notification to stream");
+            Ok(notification)
         })
 }
