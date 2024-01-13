@@ -26,7 +26,8 @@ Notification::new()
 .appname("test-notify")
 .summary("test summary")
 .body("test body")
-.show()?;
+.show_async()
+.await?;
     // Await the listener task
     listener_task.await?.unwrap();
     Ok(())
