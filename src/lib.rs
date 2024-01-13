@@ -33,8 +33,7 @@ type RawNotifyMethodSignature<'a> = (
 );
 
 #[instrument]
-pub async fn listen_to_dbus_notifications(
-) -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
+pub async fn listen_to_dbus_notifications() -> impl Stream<Item = Result<Notification, Box<dyn Error + Send + Sync + 'static>>> {
     info!("initializing dbus connection");
     let connection = Connection::session().await.unwrap();
     info!("setting dbus connection to monitor mode");
@@ -69,10 +68,6 @@ pub async fn listen_to_dbus_notifications(
         .unwrap();
 
     MessageStream::from(monitor.connection())
-        //poling futures after they're complete is not allowed.
-        //Therefore, in a similar fassion, calling next on a stream which yielded all its values is prohibited.
-        //Although this stream in particular is an infinite one, being pedantic never hurts, so let's fuze it to make the caller panic if we somehow reach the end of the stream and we're still asked to produce a value
-        .fuse()
         //the first signal we get is a name lost signal, because entering monitor mode causes the daemon to make our connection drop all names, even if this one in particular has none.
         //Therefore, we must skip hopefully only one value from the beginning of the stream
         .skip(1)
