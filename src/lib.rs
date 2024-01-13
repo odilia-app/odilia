@@ -44,9 +44,6 @@ pub async fn listen_to_dbus_notifications(
         .unwrap();
 
     MessageStream::from(monitor.connection())
-        //the first signal we get is a name lost signal, because entering monitor mode causes the daemon to make our connection drop all names, even if this one in particular has none.
-        //Therefore, we must skip hopefully only one value from the beginning of the stream
-        .skip(1)
         .map(|message| {
             let message = Arc::try_unwrap(message?).unwrap(); // Extract the Message from the Arc, I'm not sure whether this will work or not. Todo: try to find a better way of doing this
             let notification = message.try_into()?;
