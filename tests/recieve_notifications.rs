@@ -22,12 +22,12 @@ async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     // Send a Notification to see if it's correctly recieved on the other side
-Notification::new()
-.appname("test-notify")
-.summary("test summary")
-.body("test body")
-.show_async()
-.await?;
+    Notification::new()
+        .appname("test-notify")
+        .summary("test summary")
+        .body("test body")
+        .show_async()
+        .await?;
     // Await the listener task
     listener_task.await?.unwrap();
     Ok(())
