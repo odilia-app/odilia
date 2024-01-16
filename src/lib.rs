@@ -3,7 +3,6 @@ use std::{error::Error, ops::Deref, sync::Arc};
 use tracing::{debug, info, instrument};
 
 use zbus::{fdo::MonitoringProxy, Connection, MatchRule, MessageStream, MessageType};
-mod action;
 mod notification;
 use notification::Notification;
 

@@ -15,7 +15,6 @@ async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
         assert_eq!(notification.app_name, "test-notify");
         assert_eq!(notification.body, "test body");
         assert_eq!(notification.title, "test summary");
-        assert!(notification.actions.is_empty());
         Ok::<(), Box<dyn Error + Send>>(())
     });
     // Delay sending the notification
