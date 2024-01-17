@@ -3,7 +3,6 @@ use std::{error::Error, ops::Deref, sync::Arc};
 use tracing::{debug, info, instrument};
 
 use zbus::{fdo::MonitoringProxy, Connection, MatchRule, MessageStream, MessageType};
-mod action;
 mod notification;
 use notification::Notification;
 
@@ -43,11 +42,10 @@ pub async fn listen_to_dbus_notifications(
         .await
         .unwrap();
 
-    MessageStream::from(monitor.connection())
-        .map(|message| {
-            let message = Arc::try_unwrap(message?).unwrap(); // Extract the Message from the Arc, I'm not sure whether this will work or not. Todo: try to find a better way of doing this
-            let notification = message.try_into()?;
-            debug!(?notification, "adding notification to stream");
-            Ok(notification)
-        })
+    MessageStream::from(monitor.connection()).map(|message| {
+        let message = Arc::try_unwrap(message?).unwrap(); // Extract the Message from the Arc, I'm not sure whether this will work or not. Todo: try to find a better way of doing this
+        let notification = message.try_into()?;
+        debug!(?notification, "adding notification to stream");
+        Ok(notification)
+    })
 }

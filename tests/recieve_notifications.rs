@@ -15,19 +15,18 @@ async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
         assert_eq!(notification.app_name, "test-notify");
         assert_eq!(notification.body, "test body");
         assert_eq!(notification.title, "test summary");
-        assert!(notification.actions.is_empty());
         Ok::<(), Box<dyn Error + Send>>(())
     });
     // Delay sending the notification
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     // Send a Notification to see if it's correctly recieved on the other side
-Notification::new()
-.appname("test-notify")
-.summary("test summary")
-.body("test body")
-.show_async()
-.await?;
+    Notification::new()
+        .appname("test-notify")
+        .summary("test summary")
+        .body("test body")
+        .show_async()
+        .await?;
     // Await the listener task
     listener_task.await?.unwrap();
     Ok(())

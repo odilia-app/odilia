@@ -4,46 +4,34 @@ use serde::{Deserialize, Serialize};
 
 use zbus::{zvariant::Value, Message};
 
-use action::Action;
-
-use crate::action;
-
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Notification {
     pub app_name: String,
     pub title: String,
     pub body: String,
-    pub actions: Vec<Action>,
 }
-type RawNotifyMethodSignature<'a> = (
+
+type MessageBody<'a> = (
     String,
     u32,
+    &'a str,
     String,
     String,
-    String,
-    Vec<String>,
-    HashMap<String, Value<'a>>,
+    Vec<&'a str>,
+    HashMap<&'a str, Value<'a>>,
     i32,
 );
+
 impl TryFrom<Message> for Notification {
     type Error = zbus::Error;
 
     fn try_from(value: Message) -> Result<Self, Self::Error> {
-        let (app_name, _, _, summary, body, actions, _, _): RawNotifyMethodSignature =
-            value.body()?;
-        let actions = actions
-            .into_iter()
-            .map(|action| Action {
-                name: action,
-                method: "".into(), // We don't have the method info here
-            })
-            .collect();
+        let (app_name, _, _, title, body, ..) = value.body::<MessageBody>()?;
 
         Ok(Notification {
             app_name,
-            title: summary,
+            title,
             body,
-            actions,
         })
     }
 }
