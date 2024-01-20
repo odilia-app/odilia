@@ -49,6 +49,7 @@ tracing-tree.workspace = true
 tracing.workspace = true
 xdg = "2.4.1"
 zbus.workspace = true
+odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
 
 [dev-dependencies]
 lazy_static = "1.4.0"

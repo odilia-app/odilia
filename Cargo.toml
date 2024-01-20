@@ -1,10 +1,11 @@
 [workspace]
 default-members = ["odilia"]
 members = [
-	"cache",
+  "cache",
   "common",
   "input",
   "odilia",
+"odilia-notify",
 ]
 
 [profile.release]
