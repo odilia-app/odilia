@@ -1,0 +1,17 @@
+[package]
+name = "odilia-notify"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures = "0.3.30"
+serde = { version = "1.0.194", features = ["derive"] }
+thiserror = "1.0.56"
+tokio = { version = "1.35.1", features = ["full"] }
+tracing = "0.1.40"
+zbus = { version = "3.14.1", features = ["tokio"] }
+
+[dev-dependencies]
+notify-rust = "4.10.0"
