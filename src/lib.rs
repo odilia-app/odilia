@@ -1,5 +1,4 @@
 use futures::{Stream, StreamExt};
-use std::{ops::Deref, sync::Arc};
 use tracing::{debug, info, instrument};
 
 use zbus::{fdo::MonitoringProxy, Connection, MatchRule, MessageStream, MessageType};
@@ -30,11 +29,10 @@ pub async fn listen_to_dbus_notifications() -> Result<impl Stream<Item = Notific
     debug!(?notify_rule, "finished generating rule");
     info!("listening for notifications");
     let notify_rule = notify_rule.to_string();
-    monitor.become_monitor(&[notify_rule.deref()], 0).await?;
+    monitor.become_monitor(&[notify_rule.as_str()], 0).await?;
 
     let stream = MessageStream::from(monitor.connection()).filter_map(move |message| async {
-        let message = Arc::into_inner(message.ok()?)?; // Extract the Message from the Arc, I'm not sure whether this will work or not. Todo: try to find a better way of doing this
-        let notification = message.try_into().ok()?;
+        let notification = message.ok()?.try_into().ok()?;
         debug!(?notification, "adding notification to stream");
         Some(notification)
     });

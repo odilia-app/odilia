@@ -20,7 +20,7 @@ async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
     // Delay sending the notification
     tokio::time::sleep(Duration::from_secs(1)).await;
 
-    // Send a Notification to see if it's correctly recieved on the other side
+    // Send a Notification to see if it's correctly received on the other side
     Notification::new()
         .appname("test-notify")
         .summary("test summary")
