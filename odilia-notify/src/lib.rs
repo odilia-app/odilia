@@ -38,5 +38,6 @@ pub async fn listen_to_dbus_notifications() -> Result<impl Stream<Item = Notific
         debug!(?notification, "adding notification to stream");
         Some(notification)
     });
+    //pinn the stream on the heap, because it's otherwise unusable. Warning: this inccurs additional memory allocations and is not exactly pretty, so alternative solutions should be found
     Ok(Box::pin(stream))
 }
