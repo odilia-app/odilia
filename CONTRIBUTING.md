@@ -32,7 +32,7 @@ Finally, add the following to the root `Cargo.toml`:
 ```toml
 [profile.bench]
 debug = true
-``
+```
 
 Now, you can run the following commands to produce flamegraphes for individual benchmarks with the following command:
 
