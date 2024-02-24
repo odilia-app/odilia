@@ -7,6 +7,7 @@
 	unsafe_code
 )]
 
+use eyre::Context;
 use ssip_client_async::{
 	fifo::asynchronous_tokio::Builder,
 	tokio::{AsyncClient, Request},
@@ -41,7 +42,8 @@ pub async fn create_ssip_client(
               .stdout(Stdio::null())
               .stderr(Stdio::null())
               .spawn()
-              .expect("Error running `speech-dispatcher --spawn`; this is a fatal error.");
+              .context("Error running `speech-dispatcher --spawn`; this is a fatal error.")
+			?;
 					tracing::debug!(
 						"Attempting to connect to speech-dispatcher again!"
 					);
