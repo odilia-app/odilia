@@ -1,5 +1,4 @@
 use odilia_common::{events::ScreenReaderEvent, modes::ScreenReaderMode};
-use serde_json;
 
 fn main() {
 	// a blank event that does nothing

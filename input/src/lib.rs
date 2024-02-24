@@ -98,7 +98,7 @@ pub async fn sr_event_receiver(
 	if Path::new(&sock_file_path).exists() {
 		tracing::trace!("Sockfile exists, attempting to remove it.");
 		match fs::remove_file(&sock_file_path).await {
-			Ok(_) => {
+			Ok(()) => {
 				tracing::debug!("Removed old socket file");
 			}
 			Err(e) => {
@@ -113,7 +113,7 @@ pub async fn sr_event_receiver(
 	}
 
 	match fs::write(&pid_file_path, id().to_string()).await {
-		Ok(_) => {}
+		Ok(()) => {}
 		Err(e) => {
 			tracing::error!("Unable to write to {}: {}", pid_file_path, e);
 			exit(1);
