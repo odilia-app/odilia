@@ -12,7 +12,7 @@ mod events;
 mod logging;
 mod state;
 
-use std::{process::exit, string, sync::Arc};
+use std::{process::exit, sync::Arc};
 
 use eyre::WrapErr;
 use futures::{future::FutureExt, StreamExt};
