@@ -39,7 +39,10 @@ pub struct ScreenReaderState {
 
 impl ScreenReaderState {
 	#[tracing::instrument]
-	pub async fn new(ssip: Sender<SSIPRequest>) -> eyre::Result<ScreenReaderState> {
+	pub async fn new(
+		ssip: Sender<SSIPRequest>,
+		config_override: Option<&std::path::Path>,
+	) -> eyre::Result<ScreenReaderState> {
 		let atspi = AccessibilityConnection::open()
 			.await
 			.wrap_err("Could not connect to at-spi bus")?;
@@ -50,20 +53,32 @@ impl ScreenReaderState {
 		let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
 		tracing::debug!("Reading configuration");
-		let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+
+		let config_path = if config_override.is_none() {
+			let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
             "unable to find the odilia config directory according to the xdg dirs specification",
-        );
-		let config_path = xdg_dirs.place_config_file("config.toml").expect(
+        	);
+			let config_path = xdg_dirs.place_config_file("config.toml").expect(
 			"unable to place configuration file. Maybe your system is readonly?",
-		);
-		if !config_path.exists() {
-			fs::write(&config_path, include_str!("../config.toml"))
-				.expect("Unable to copy default config file.");
-		}
-		let config_path = config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned();
+			);
+
+			if !config_path.exists() {
+				fs::write(&config_path, include_str!("../config.toml"))
+					.expect("Unable to copy default config file.");
+			}
+			config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
+		} else {
+			config_override
+				.unwrap()
+				.to_str()
+				.ok_or(ConfigError::PathNotFound)?
+				.to_owned()
+		};
+
 		tracing::debug!(path=%config_path, "loading configuration file");
 		let config = ApplicationConfig::new(&config_path)
 			.wrap_err("unable to load configuration file")?;
+
 		tracing::debug!("configuration loaded successfully");
 
 		let previous_caret_position = AtomicI32::new(0);
