@@ -209,7 +209,7 @@ pub mod dispatch_tests {
 		let (send, _recv) = channel(32);
 		let cache = serde_json::from_str(include_str!("wcag_cache_items.json"))
 			.context("unable to load cache data from json file")?;
-		let state = ScreenReaderState::new(send)
+		let state = ScreenReaderState::new(send, None)
 			.await
 			.context("unable to realise screenreader state")?;
 		state.cache
