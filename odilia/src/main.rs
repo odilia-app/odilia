@@ -41,7 +41,7 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 	Ok(())
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> eyre::Result<()> {
 	logging::init();
 	// Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.

@@ -10,11 +10,16 @@ use tokio::sync::{
 };
 
 use crate::state::ScreenReaderState;
+use crate::traits::{
+	IntoOdiliaCommands, Command, IntoStateView, IntoMutableStateView,
+};
 
-use atspi_common::events::Event;
+use atspi_common::events::{Event, CacheEvents};
 
 use odilia_common::{
+	errors::OdiliaError,
 	events::{ScreenReaderEvent},
+	commands::OdiliaCommand,
 };
 
 
@@ -137,6 +142,7 @@ pub async fn process(
 	rx: &mut Receiver<Event>,
 	shutdown_rx: &mut broadcast::Receiver<i32>,
 ) {
+	let mut event_id: u64 = 0;
 	loop {
 		tokio::select! {
 			event = rx.recv() => {
@@ -144,8 +150,9 @@ pub async fn process(
 				Some(good_event) => {
 		let state_arc = Arc::clone(&state);
 		tokio::task::spawn(
-		  dispatch_wrapper(state_arc, good_event)
+		  dispatch_wrapper(state_arc, good_event, event_id)
 		);
+		event_id += 1;
 				},
 				None => {
 				    tracing::debug!("Event was none.");
@@ -161,8 +168,8 @@ pub async fn process(
 	}
 }
 
-async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
-  match dispatch(&state, good_event).await {
+async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event, event_id: u64) {
+  match dispatch(&state, good_event, event_id).await {
     Err(e) => {
       tracing::error!(error = %e, "Could not handle event");
     },
@@ -173,15 +180,33 @@ async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 	}
 }
 
-async fn dispatch(_state: &ScreenReaderState, event: Event) -> eyre::Result<Vec<ScreenReaderEvent>> {
+async fn handle_command<C: IntoMutableStateView + Command + std::fmt::Debug>(command: C, state: &ScreenReaderState, event_id: u64) -> Result<(), OdiliaError> {
+	tracing::trace!("Command received ({event_id}): {:?}", command);
+	let mutable_state = command.create_view(&state).await?;
+	tracing::trace!("Mutable state grab successful ({event_id})");
+	Ok(command.execute(mutable_state).await?)
+}
+
+async fn handle_event<E: IntoStateView + IntoOdiliaCommands + std::fmt::Debug>(event: E, state: &ScreenReaderState, event_id: u64) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	tracing::trace!("Event received ({event_id}): {:?}", event);
+	let state_view = <E as IntoStateView>::create_view(&event, state).await?;
+	tracing::trace!("Read-only state grab successful ({event_id})");
+	Ok(<E as IntoOdiliaCommands>::commands(&event, &state_view).await?)
+}
+
+async fn dispatch(state: &ScreenReaderState, event: Event, event_id: u64) -> eyre::Result<Vec<OdiliaCommand>> {
 	// Dispatch based on interface
-	Ok(match &event {
+	Ok(match event {
+		Event::Cache(CacheEvents::Add(add)) => {
+			let commands = add.commands(&()).await?;
+			commands
+		},
 		other_event => {
 			tracing::debug!(
 				"Ignoring event with unknown interface: {:#?}",
 				other_event
 			);
-      vec![]
+			vec![]
 		}
 	})
 	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;

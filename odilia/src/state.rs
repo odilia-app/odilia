@@ -21,6 +21,7 @@ use odilia_common::{
 	settings::ApplicationConfig,
   events::ScreenReaderEvent,
 	cache::{AccessiblePrimitive},
+	commands::OdiliaCommand,
 	OdiliaResult,
 };
 use std::sync::Arc;
@@ -145,7 +146,7 @@ impl ScreenReaderState {
 		})
 	}
   
-  pub async fn apply_all(&self, _events: Vec<ScreenReaderEvent>) -> OdiliaResult<bool> {
+  pub async fn apply_all(&self, _events: Vec<OdiliaCommand>) -> OdiliaResult<bool> {
     Ok(true)
   }
 
