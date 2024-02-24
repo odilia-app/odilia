@@ -8,12 +8,14 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+mod cli;
 mod events;
 mod logging;
 mod state;
 
 use std::{process::exit, sync::Arc};
 
+use clap::Parser;
 use eyre::WrapErr;
 use futures::{future::FutureExt, StreamExt};
 use tokio::{
@@ -22,6 +24,7 @@ use tokio::{
 	sync::mpsc,
 };
 
+use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
@@ -48,6 +51,8 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
+	let args = Args::parse();
+
 	logging::init();
 	// Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true).await {
@@ -63,7 +68,7 @@ async fn main() -> eyre::Result<()> {
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::tokio::Request>(128);
 	// Initialize state
-	let state = Arc::new(ScreenReaderState::new(ssip_req_tx).await?);
+	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, args.config.as_deref()).await?);
 	let mut ssip = odilia_tts::create_ssip_client().await?;
 
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
