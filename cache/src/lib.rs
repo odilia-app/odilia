@@ -231,7 +231,7 @@ impl CacheItem {
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
 		let children: Vec<CacheRef> =
-			AccessiblePrimitive::try_from(atspi_cache_item.object.clone())?
+			AccessiblePrimitive::from(atspi_cache_item.object.clone())
 				.into_accessible(connection)
 				.await?
 				.get_children()
@@ -240,9 +240,9 @@ impl CacheItem {
 				.map(|child_object_pair| CacheRef::new(child_object_pair.into()))
 				.collect();
 		Ok(Self {
-			object: atspi_cache_item.object.try_into()?,
-			app: atspi_cache_item.app.try_into()?,
-			parent: CacheRef::new(atspi_cache_item.parent.try_into()?),
+			object: atspi_cache_item.object.into(),
+			app: atspi_cache_item.app.into(),
+			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: atspi_cache_item.index,
 			children_num: atspi_cache_item.children,
 			interfaces: atspi_cache_item.ifaces,
@@ -376,7 +376,7 @@ impl Accessible for CacheItem {
 					object_pairs
 						.into_iter()
 						.map(|object_pair| {
-							cache.get(&object_pair.try_into()?).ok_or(
+							cache.get(&object_pair.into()).ok_or(
 								OdiliaError::Cache(
 									CacheError::NoItem,
 								),
@@ -565,8 +565,7 @@ impl Text for CacheItem {
 				})
 				// get "all" words that match; there should be only one result
 				.collect::<Vec<_>>()
-				// get the first result
-				.get(0)
+				.first()
 				// if there's no matching word (out of bounds)
 				.ok_or_else(|| OdiliaError::Generic("Out of bounds".to_string()))?
 				// clone the reference into a value
@@ -892,8 +891,8 @@ pub async fn accessible_to_cache_item(
 	}?;
 	Ok(CacheItem {
 		object: accessible.try_into()?,
-		app: app.try_into()?,
-		parent: CacheRef::new(parent.try_into()?),
+		app: app.into(),
+		parent: CacheRef::new(parent.into()),
 		index,
 		children_num,
 		interfaces,
