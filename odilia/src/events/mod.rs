@@ -195,19 +195,26 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 #[cfg(test)]
 pub mod dispatch_tests {
 	use crate::ScreenReaderState;
+	use eyre::Context;
 	use tokio::sync::mpsc::channel;
 
 	#[tokio::test]
-	async fn test_full_cache() {
-		let state = generate_state().await;
+	async fn test_full_cache() -> eyre::Result<()> {
+		let state = generate_state().await?;
 		assert_eq!(state.cache.by_id.len(), 14_738);
+		Ok(())
 	}
 
-	pub async fn generate_state() -> ScreenReaderState {
+	pub async fn generate_state() -> eyre::Result<ScreenReaderState> {
 		let (send, _recv) = channel(32);
-		let cache = serde_json::from_str(include_str!("wcag_cache_items.json")).unwrap();
-		let state = ScreenReaderState::new(send, None).await.unwrap();
-		state.cache.add_all(cache).unwrap();
-		state
+		let cache = serde_json::from_str(include_str!("wcag_cache_items.json"))
+			.context("unable to load cache data from json file")?;
+		let state = ScreenReaderState::new(send, None)
+			.await
+			.context("unable to realise screenreader state")?;
+		state.cache
+			.add_all(cache)
+			.context("unable to add cache to the system")?;
+		Ok(state)
 	}
 }
