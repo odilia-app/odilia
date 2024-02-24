@@ -7,6 +7,7 @@
 	unsafe_code
 )]
 
+use eyre::Context;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use std::{
@@ -119,7 +120,7 @@ pub async fn sr_event_receiver(
 		}
 	}
 
-	let listener = UnixListener::bind(sock_file_path).expect("Could not open socket");
+	let listener = UnixListener::bind(sock_file_path).context("Could not open socket")?;
 	tracing::debug!("Listener activated!");
 	loop {
 		tokio::select! {
