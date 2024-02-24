@@ -31,10 +31,8 @@ use atspi_common::events::{document, object};
 async fn notifications_monitor(state: Arc<ScreenReaderState>) -> eyre::Result<()> {
 	let mut stream = listen_to_dbus_notifications().await?;
 	while let Some(notification) = stream.next().await {
-		let notification_message = format!(
-			"new notification from {}, {}, {}.",
-			notification.app_name, notification.title, notification.body
-		);
+		let notification_message =
+			format!("new notification: {}, {}.", notification.title, notification.body);
 		state.say(Priority::Important, notification_message).await;
 	}
 	Ok(())
