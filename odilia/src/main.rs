@@ -24,7 +24,7 @@ use tokio::{
 	sync::mpsc,
 };
 
-use crate::cli::CliArgs;
+use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
 use ssip_client_async::Priority;
@@ -42,7 +42,7 @@ async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Re
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
-	let args = CliArgs::parse();
+	let args = Args::parse();
 
 	logging::init();
 	// Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.

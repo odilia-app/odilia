@@ -69,7 +69,7 @@ impl ScreenReaderState {
 			config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
 		} else {
 			config_override
-				.unwrap()
+				.expect("Config override was provided but is None")
 				.to_str()
 				.ok_or(ConfigError::PathNotFound)?
 				.to_owned()
