@@ -85,14 +85,14 @@ async fn main() -> eyre::Result<()> {
 	let mut shutdown_rx_atspi_recv = shutdown_tx.subscribe();
 	let atspi_event_receiver =
 		events::receive(Arc::clone(&state), atspi_event_tx, &mut shutdown_rx_atspi_recv)
-			.map(|_| Ok::<_, eyre::Report>(()));
+			.map(|()| Ok::<_, eyre::Report>(()));
 	let mut shutdown_rx_atspi_proc_recv = shutdown_tx.subscribe();
 	let atspi_event_processor = events::process(
 		Arc::clone(&state),
 		&mut atspi_event_rx,
 		&mut shutdown_rx_atspi_proc_recv,
 	)
-	.map(|_| Ok::<_, eyre::Report>(()));
+	.map(|()| Ok::<_, eyre::Report>(()));
 	let mut shutdown_rx_odilia_recv = shutdown_tx.subscribe();
 	let odilia_event_receiver = sr_event_receiver(sr_event_tx, &mut shutdown_rx_odilia_recv)
 		.map(|r| r.wrap_err("Could not process Odilia events"));

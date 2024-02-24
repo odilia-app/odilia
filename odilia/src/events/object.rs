@@ -188,7 +188,7 @@ mod text_changed {
 		// if atomic state is false, then only read out the portion which has been added
 		// otherwise, do not continue through this function
 		let text_to_say =
-			if atomic { cache_text.to_string() } else { (&event.text).try_into()? };
+			if atomic { cache_text.to_string() } else { (&event.text).into() };
 		let prioirty = live_to_priority(&live);
 		state.say(prioirty, text_to_say).await;
 		Ok(())
@@ -204,7 +204,7 @@ mod text_changed {
 	) -> eyre::Result<()> {
 		let accessible = state.new_accessible(event).await?;
 		let cache_item = state.get_or_create_event_object_to_cache(event).await?;
-		let updated_text: String = (&event.text).try_into()?;
+		let updated_text: String = (&event.text).into();
 		let current_text = cache_item.text;
 		let (start_pos, update_length) =
 			(usize::try_from(event.start_pos)?, usize::try_from(event.length)?);
@@ -536,6 +536,7 @@ mod tests {
 	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
 	lazy_static! {
 		static ref ZBUS_CONN: AccessibilityConnection =
+			#[allow(clippy::unwrap_used)]
 			block_on(AccessibilityConnection::open()).unwrap();
 		static ref CACHE_ARC: Arc<Cache> =
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));

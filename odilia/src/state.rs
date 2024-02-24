@@ -88,7 +88,7 @@ impl ScreenReaderState {
 		&self,
 		atspi_cache_item: atspi_common::CacheItem,
 	) -> OdiliaResult<CacheItem> {
-		let prim = atspi_cache_item.object.clone().try_into()?;
+		let prim = atspi_cache_item.object.clone().into();
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_cache_item(
 				atspi_cache_item,
