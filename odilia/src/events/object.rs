@@ -536,6 +536,7 @@ mod tests {
 	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
 	lazy_static! {
 		static ref ZBUS_CONN: AccessibilityConnection =
+			#[allow(clippy::unwrap_used)]
 			block_on(AccessibilityConnection::open()).unwrap();
 		static ref CACHE_ARC: Arc<Cache> =
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
