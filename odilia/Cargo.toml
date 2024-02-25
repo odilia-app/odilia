@@ -14,7 +14,7 @@ homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
 edition = "2021"
-rust-version = "1.74"
+rust-version = "1.75"
 publish = true
 
 [package.metadata.release]
