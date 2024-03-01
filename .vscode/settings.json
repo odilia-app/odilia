@@ -1,0 +1,5 @@
+{
+    "rust-analyzer.linkedProjects": [
+        "./odilia-notify/Cargo.toml"
+    ]
+}
