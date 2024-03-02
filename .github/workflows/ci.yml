@@ -39,7 +39,9 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd
+        run: sudo apt -y install at-spi2-core systemd pam-dbus-notify notify-send
+      - name: test-notifications
+        run: notify-send "test summary" "test body"
       - name: Run tests
         run: cargo test
   clippy:
