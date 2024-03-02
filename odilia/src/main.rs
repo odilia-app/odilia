@@ -17,7 +17,7 @@ use std::{process::exit, sync::Arc};
 
 use clap::Parser;
 use eyre::WrapErr;
-use futures::future::FutureExt;
+use futures::{future::FutureExt, StreamExt};
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::broadcast::{self, error::SendError},
@@ -27,10 +27,19 @@ use tokio::{
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use odilia_input::sr_event_receiver;
+use odilia_notify::listen_to_dbus_notifications;
 use ssip_client_async::Priority;
 
 use atspi_common::events::{document, object};
-
+async fn notifications_monitor(state: Arc<ScreenReaderState>) -> eyre::Result<()> {
+	let mut stream = listen_to_dbus_notifications().await?;
+	while let Some(notification) = stream.next().await {
+		let notification_message =
+			format!("new notification: {}, {}.", notification.title, notification.body);
+		state.say(Priority::Important, notification_message).await;
+	}
+	Ok(())
+}
 async fn sigterm_signal_watcher(shutdown_tx: broadcast::Sender<i32>) -> eyre::Result<()> {
 	let mut c = signal(SignalKind::interrupt())?;
 	tracing::debug!("Watching for Ctrl+C");
@@ -110,6 +119,9 @@ async fn main() -> eyre::Result<()> {
 	.map(|r| r.wrap_err("Could not process Odilia event"));
 	let signal_receiver = sigterm_signal_watcher(shutdown_tx)
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
+	let notification_task = notifications_monitor(Arc::clone(&state))
+		.map(|r| r.wrap_err("Could not process signal shutdown."));
+
 	tokio::try_join!(
 		signal_receiver,
 		atspi_event_receiver,
@@ -117,6 +129,7 @@ async fn main() -> eyre::Result<()> {
 		odilia_event_receiver,
 		odilia_event_processor,
 		ssip_event_receiver,
+		notification_task,
 	)?;
 	tracing::debug!("All listeners have stopped.");
 	tracing::debug!("Goodbye, Odilia!");
