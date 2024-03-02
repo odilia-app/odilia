@@ -42,8 +42,7 @@ jobs:
         run: sudo apt -y install at-spi2-core systemd dunst libnotify-bin dbus-x11 xvfb
       - name: setup dbus
         run:
-          #sudo systemctl start dbus-broker
-          #sudo systemctl start notification-daemon ;
+          sudo systemctl start dbus
           eval `dbus-launch --sh-syntax --exit-with-session`;
           xvfb-run dunst --screen 0 600x400x8 &
       - name: test_notifications
