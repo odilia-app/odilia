@@ -39,7 +39,12 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb
+      - name: setup dbus and notification daemon
+        run:
+          sudo systemctl start dbus;
+          systemctl --user start dbus;
+          xvfb-run dunst --screen 0 600x400x8 &
       - name: Run tests
         run: cargo test
   clippy:
