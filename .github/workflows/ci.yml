@@ -43,7 +43,8 @@ jobs:
       - name: setup dbus
         run:
           sudo systemctl start dbus;
-          eval `dbus-launch --sh-syntax --exit-with-session`;
+          systemctl --user start dbus;
+          #eval `dbus-launch --sh-syntax --exit-with-session`;
           xvfb-run dunst --screen 0 600x400x8 &
       - name: test_notifications
         run: notify-send "test summary" "test body"
