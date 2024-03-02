@@ -39,7 +39,7 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd pam-dbus-notify notify-send
+        run: sudo apt -y install at-spi2-core systemd dbus-notify notify-osd
       - name: test-notifications
         run: notify-send "test summary" "test body"
       - name: Run tests
