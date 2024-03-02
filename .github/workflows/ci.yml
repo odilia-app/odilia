@@ -45,7 +45,7 @@ jobs:
           #sudo systemctl start dbus-broker
           #sudo systemctl start notification-daemon ;
           eval `dbus-launch --sh-syntax --exit-with-session`;
-          xvfb :0 --screen 0 600x400x8 &
+          xvfb-run :0 --screen 0 600x400x8 &
           dunst &
       - name: test_notifications
         run: notify-send "test summary" "test body"
