@@ -44,7 +44,8 @@ jobs:
         run:
           #sudo systemctl start dbus-broker
           #sudo systemctl start notification-daemon ;
-          eval `dbus-launch --sh-syntax --exit-with-session` 
+          eval `dbus-launch --sh-syntax --exit-with-session`;
+          dunst &
       - name: test_notifications
         run: notify-send "test summary" "test body"
       - name: Run tests
