@@ -39,14 +39,12 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst libnotify-bin dbus-x11 xvfb
-      - name: setup dbus
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb
+      - name: setup dbus and notification daemon
         run:
           sudo systemctl start dbus;
           systemctl --user start dbus;
           xvfb-run dunst --screen 0 600x400x8 &
-      - name: test_notifications
-        run: notify-send "test summary" "test body"
       - name: Run tests
         run: cargo test
   clippy:
