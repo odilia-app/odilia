@@ -41,6 +41,7 @@ jobs:
       - name: Install Dependencies
         run: sudo apt -y install at-spi2-core systemd notification-daemon libnotify-bin
       name: setup dbus
+        run: systemctl start dbus-broker
         eval `dbus-launch --sh-syntax --exit-with-session`
       - name: test-notifications
         run: notify-send "test summary" "test body"
