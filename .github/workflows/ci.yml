@@ -43,7 +43,7 @@ jobs:
       - name: setup dbus
         run:
           #sudo systemctl start dbus-broker
-          sudo systemctl start notification-daemon ;
+          #sudo systemctl start notification-daemon ;
           eval `dbus-launch --sh-syntax --exit-with-session` 
       - name: test_notifications
         run: notify-send "test summary" "test body"
