@@ -39,11 +39,11 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd notification-daemon libnotify-bin dbus-broker
+        run: sudo apt -y install at-spi2-core systemd notification-daemon libnotify-bin dbus-x11
       - name: setup dbus
         run:
-          sudo systemctl start dbus-broker
-          #eval `dbus-launch --sh-syntax --exit-with-session`
+          #sudo systemctl start dbus-broker
+          eval `dbus-launch --sh-syntax --exit-with-session`
       - name: test_notifications
         run: notify-send "test summary" "test body"
       - name: Run tests
