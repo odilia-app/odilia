@@ -43,7 +43,7 @@ jobs:
       - name: setup dbus
         run:
           sudo systemctl start dbus-broker
-          eval `dbus-launch --sh-syntax --exit-with-session`
+          #eval `dbus-launch --sh-syntax --exit-with-session`
       - name: test_notifications
         run: notify-send "test summary" "test body"
       - name: Run tests
