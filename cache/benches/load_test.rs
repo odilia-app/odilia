@@ -23,13 +23,13 @@ macro_rules! load_items {
 /// This is different from `add` in that it postpones populating references
 /// until after all items have been added.
 fn add_all(cache: &Cache, items: Vec<CacheItem>) {
-	cache.add_all(items);
+	let _ = cache.add_all(items);
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
 fn add(cache: &Cache, items: Vec<CacheItem>) {
 	for item in items {
-		cache.add(item);
+		let _ = cache.add(item);
 	}
 }
 
@@ -43,7 +43,7 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
 			let mut item = item_ref_copy.write().expect("Could not lock item");
-			let _root = ROOT_A11Y.clone();
+			let _root = ROOT_A11Y;
 			if matches!(&item.object.id, _root) {
 				break;
 			}
@@ -71,8 +71,8 @@ async fn traverse_up(children: Vec<CacheItem>) {
 					panic!("Odilia error {:?}", e);
 				}
 			};
-			let root_ = ROOT_A11Y.clone();
-			if matches!(item.object.id.clone(), root_) {
+			let _root = ROOT_A11Y;
+			if matches!(item.object.id.clone(), _root) {
 				break;
 			}
 		}
@@ -93,7 +93,7 @@ async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items:
 	let cache_1 = Arc::new(cache);
 	let cache_2 = Arc::clone(&cache_1);
 	let mut write_handle = tokio::spawn(async move {
-		cache_1.add_all(items);
+		let _ = cache_1.add_all(items);
 	});
 	let mut read_handle = tokio::spawn(async move {
 		let mut ids = VecDeque::from(ids);
@@ -196,7 +196,7 @@ fn cache_benchmark(c: &mut Criterion) {
 				item
 			})
 			.collect();
-		cache.add_all(all_items);
+		let _ = cache.add_all(all_items);
 		let children = cache
 			.by_id
 			.iter()
