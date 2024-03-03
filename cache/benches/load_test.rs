@@ -4,8 +4,6 @@ use std::{
 	time::Duration,
 };
 
-use atspi::accessible::Accessible;
-use atspi_client::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 
