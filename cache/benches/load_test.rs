@@ -43,8 +43,8 @@ async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
 		loop {
 			let item_ref_copy = Arc::clone(&item_ref);
 			let mut item = item_ref_copy.write().expect("Could not lock item");
-			let root_ = ROOT_A11Y.clone();
-			if matches!(&item.object.id, root_) {
+			let _root = ROOT_A11Y.clone();
+			if matches!(&item.object.id, _root) {
 				break;
 			}
 			item_ref = item.parent_ref().expect("Could not get parent reference");
