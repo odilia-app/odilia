@@ -25,8 +25,6 @@ impl TryFrom<Arc<Message>> for Notification {
 }
 #[cfg(test)]
 mod tests {
-	use zbus::names::UniqueName;
-
 	use super::*;
 	#[test]
 	fn correctly_formatted_message_leads_to_a_correct_notification() -> Result<(), zbus::Error>
