@@ -4,6 +4,8 @@ use std::{
 	time::Duration,
 };
 
+use atspi_connection::AccessibilityConnection;
+use atspi_proxies::accessible::Accessible;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 
@@ -220,7 +222,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(&rt).iter_batched(
 			|| {
 				children.iter()
-					.map(|am| Arc::clone(&am).read().unwrap().clone())
+					.map(|am| Arc::clone(am).read().unwrap().clone())
 					.collect()
 			},
 			|cs| async { traverse_up(cs).await },
