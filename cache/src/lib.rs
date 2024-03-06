@@ -6,6 +6,7 @@
 	clippy::unwrap_used,
 	unsafe_code
 )]
+#![allow(clippy::multiple_crate_versions)]
 
 use std::{
 	collections::HashMap,
