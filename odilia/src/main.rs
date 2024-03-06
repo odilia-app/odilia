@@ -31,12 +31,23 @@ use odilia_notify::listen_to_dbus_notifications;
 use ssip_client_async::Priority;
 
 use atspi_common::events::{document, object};
-async fn notifications_monitor(state: Arc<ScreenReaderState>) -> eyre::Result<()> {
+async fn notifications_monitor(
+	state: Arc<ScreenReaderState>,
+	shutdown_rx: &mut broadcast::Receiver<i32>,
+) -> eyre::Result<()> {
 	let mut stream = listen_to_dbus_notifications().await?;
-	while let Some(notification) = stream.next().await {
-		let notification_message =
+	loop {
+		tokio::select! {
+		    Some(notification) = stream.next() => {
+		      let notification_message =
 			format!("new notification: {}, {}.", notification.title, notification.body);
-		state.say(Priority::Important, notification_message).await;
+		      state.say(Priority::Important, notification_message).await;
+		    },
+		    _ = shutdown_rx.recv() => {
+		      tracing::debug!("Shutting down notification task.");
+		      break;
+		    },
+		}
 	}
 	Ok(())
 }
@@ -117,9 +128,10 @@ async fn main() -> eyre::Result<()> {
 		&mut shutdown_rx_odilia_proc_recv,
 	)
 	.map(|r| r.wrap_err("Could not process Odilia event"));
-	let signal_receiver = sigterm_signal_watcher(shutdown_tx)
+	let mut shutdown_rx_notif = shutdown_tx.subscribe();
+	let notification_task = notifications_monitor(Arc::clone(&state), &mut shutdown_rx_notif)
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
-	let notification_task = notifications_monitor(Arc::clone(&state))
+	let signal_receiver = sigterm_signal_watcher(shutdown_tx)
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
 
 	tokio::try_join!(
