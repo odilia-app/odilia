@@ -25,7 +25,6 @@ impl TryFrom<Arc<Message>> for Notification {
 
 	fn try_from(msg: Arc<Message>) -> Result<Self, Self::Error> {
 		let mb: MessageBody = msg.body()?;
-		println!("{mb:?}");
 		let (app_name, _, _, title, body, actions, mut options, _) = mb;
 		let actions = actions
 			.iter()
