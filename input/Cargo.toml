@@ -20,4 +20,5 @@ once_cell = "1.16.0"
 serde_json.workspace = true
 sysinfo = { version = "0.26.8", default_features = false }
 tokio.workspace = true
+tokio-util.workspace=true
 tracing.workspace = true
