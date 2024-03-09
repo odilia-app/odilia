@@ -4,11 +4,17 @@ use serde::{Deserialize, Serialize};
 
 use zbus::{zvariant::Value, Message};
 
-#[derive(Debug, Serialize, Deserialize)]
+use crate::action::Action;
+use crate::urgency::Urgency;
+use itertools::Itertools;
+
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notification {
 	pub app_name: String,
 	pub title: String,
 	pub body: String,
+	pub urgency: Urgency,
+	pub actions: Vec<Action>,
 }
 
 type MessageBody<'a> =
@@ -18,9 +24,24 @@ impl TryFrom<Arc<Message>> for Notification {
 	type Error = zbus::Error;
 
 	fn try_from(msg: Arc<Message>) -> Result<Self, Self::Error> {
-		let (app_name, _, _, title, body, ..) = msg.body::<MessageBody>()?;
+		let mb: MessageBody = msg.body()?;
+		let (app_name, _, _, title, body, actions, mut options, _) = mb;
+		let actions = actions
+			.iter()
+			.tuples()
+			.map(|(name, method)| Action {
+				name: name.to_string(),
+				method: method.to_string(),
+			})
+			.collect();
+		// any error in deserailizing the value (including lack of "urgency" key in options
+		// hashmap)  will give it an urgency of Normal
+		let urgency = options
+			.remove("urgency")
+			.and_then(|o| o.try_into().ok())
+			.unwrap_or(Urgency::Normal);
 
-		Ok(Notification { app_name, title, body })
+		Ok(Notification { app_name, title, body, actions, urgency })
 	}
 }
 #[cfg(test)]

@@ -173,7 +173,7 @@ jobs:
           systemctl --user start dbus;
           xvfb-run dunst --screen 0 600x400x8 &
       - name: cargo llvm-cov
-        run: cargo llvm-cov --locked --lcov --output-path lcov.info
+        run: cargo llvm-cov --lcov --output-path lcov.info
       - name: Upload to codecov.io
         uses: codecov/codecov-action@v3
         with:

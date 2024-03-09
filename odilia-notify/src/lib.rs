@@ -2,7 +2,9 @@ use futures::{Stream, StreamExt};
 use tracing::{debug, info, instrument};
 
 use zbus::{fdo::MonitoringProxy, Connection, MatchRule, MessageStream, MessageType};
+mod action;
 mod notification;
+mod urgency;
 use notification::Notification;
 mod error;
 use error::NotifyError;
