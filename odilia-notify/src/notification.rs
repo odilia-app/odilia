@@ -8,7 +8,7 @@ use crate::action::Action;
 use crate::urgency::Urgency;
 use itertools::Itertools;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notification {
 	pub app_name: String,
 	pub title: String,
