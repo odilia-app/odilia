@@ -1,4 +1,3 @@
-use core::panic;
 use std::{fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
@@ -42,7 +41,7 @@ pub struct ScreenReaderState {
 enum ConfigType {
 	CliOverride,
 	XDGConfigHome,
-	ETC,
+	Etc,
 	CreateDefault,
 }
 
@@ -77,7 +76,7 @@ impl ScreenReaderState {
 		{
 			ConfigType::XDGConfigHome
 		} else if std::path::Path::new("/etc/odilia/config.toml").exists() {
-			ConfigType::ETC
+			ConfigType::Etc
 		} else {
 			ConfigType::CreateDefault
 		};
@@ -92,6 +91,7 @@ impl ScreenReaderState {
 				let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
 					"unable to find the odilia config directory according to the xdg dirs specification",
 				);
+
 				let config_path = xdg_dirs.place_config_file("config.toml").expect(
 					"unable to place configuration file. Maybe your system is readonly?",
 				);
@@ -102,7 +102,7 @@ impl ScreenReaderState {
 				}
 				config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
 			}
-			ConfigType::ETC => "/etc/odilia/config.toml".to_owned(),
+			ConfigType::Etc => "/etc/odilia/config.toml".to_owned(),
 		};
 
 		tracing::debug!(path=%config_path, "loading configuration file");
