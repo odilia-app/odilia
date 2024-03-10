@@ -1520,6 +1520,7 @@ dependencies = [
  "atspi",
  "atspi-client",
  "atspi-common",
+ "atspi-connection",
  "atspi-proxies",
  "criterion",
  "dashmap",
