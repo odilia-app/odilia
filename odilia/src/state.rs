@@ -37,7 +37,6 @@ pub struct ScreenReaderState {
 	pub cache: Arc<Cache>,
 }
 
-#[derive(Debug)]
 enum ConfigType {
 	CliOverride,
 	XDGConfigHome,
