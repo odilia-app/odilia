@@ -13,7 +13,7 @@ mod events;
 mod logging;
 mod state;
 
-use std::{process::exit, sync::Arc};
+use std::{process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
@@ -26,6 +26,7 @@ use ssip_client_async::Priority;
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
+	time::timeout,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
@@ -54,14 +55,15 @@ async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	tracker: TaskTracker,
 ) -> eyre::Result<()> {
+	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
 	let mut c = signal(SignalKind::interrupt())?;
 	tracing::debug!("Watching for Ctrl+C");
 	c.recv().await;
 	tracing::debug!("Asking all processes to stop.");
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
-	tracing::debug!("waiting for all tasks to finish");
-	tracker.close();
+	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
+	timeout(timeout_duration, tracker.wait()).await?;
 	tracing::debug!("All listeners have stopped.");
 	tracing::debug!("Goodbye, Odilia!");
 	Ok(())
@@ -78,7 +80,7 @@ async fn main() -> eyre::Result<()> {
 	//initialize a task tracker, which will allow us to wait for all tasks to finish
 	let tracker = TaskTracker::new();
 
-	// Make sure applications with dynamic accessibility supprt do expose their AT-SPI2 interfaces.
+	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true).await {
 		tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
