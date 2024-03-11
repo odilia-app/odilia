@@ -55,6 +55,7 @@ xdg = "2.4.1"
 zbus.workspace = true
 odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
 clap = { version = "4.5.1", features = ["derive"] }
+tokio-util.workspace=true
 
 [dev-dependencies]
 lazy_static = "1.4.0"

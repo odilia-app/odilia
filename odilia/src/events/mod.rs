@@ -5,10 +5,8 @@ mod object;
 use std::{collections::HashMap, sync::Arc};
 
 use futures::stream::StreamExt;
-use tokio::sync::{
-	broadcast,
-	mpsc::{Receiver, Sender},
-};
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio_util::sync::CancellationToken;
 
 use crate::state::ScreenReaderState;
 use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
@@ -66,8 +64,8 @@ pub async fn structural_navigation(
 
 pub async fn sr_event(
 	state: Arc<ScreenReaderState>,
-	sr_events: &mut Receiver<ScreenReaderEvent>,
-	shutdown_rx: &mut broadcast::Receiver<i32>,
+	mut sr_events: Receiver<ScreenReaderEvent>,
+	shutdown: CancellationToken,
 ) -> eyre::Result<()> {
 	loop {
 		tokio::select! {
@@ -94,7 +92,7 @@ pub async fn sr_event(
 			};
 			continue;
 		    }
-		    _ = shutdown_rx.recv() => {
+		    () = shutdown.cancelled() => {
 			tracing::debug!("sr_event cancelled");
 			break;
 		    }
@@ -107,7 +105,7 @@ pub async fn sr_event(
 pub async fn receive(
 	state: Arc<ScreenReaderState>,
 	tx: Sender<Event>,
-	shutdown_rx: &mut broadcast::Receiver<i32>,
+	shutdown: CancellationToken,
 ) {
 	let events = state.atspi.event_stream();
 	tokio::pin!(events);
@@ -123,7 +121,7 @@ pub async fn receive(
 			}
 			continue;
 		    }
-		    _ = shutdown_rx.recv() => {
+		    () = shutdown.cancelled() => {
 			tracing::debug!("receive function is done");
 			break;
 		    }
@@ -134,8 +132,8 @@ pub async fn receive(
 //#[tracing::instrument(level = "debug")]
 pub async fn process(
 	state: Arc<ScreenReaderState>,
-	rx: &mut Receiver<Event>,
-	shutdown_rx: &mut broadcast::Receiver<i32>,
+	mut rx: Receiver<Event>,
+	shutdown: CancellationToken,
 ) {
 	loop {
 		tokio::select! {
@@ -153,7 +151,7 @@ pub async fn process(
 			    };
 			    continue;
 			}
-			_ = shutdown_rx.recv() => {
+			() = shutdown.cancelled() => {
 			    tracing::debug!("process function is done");
 			    break;
 			}

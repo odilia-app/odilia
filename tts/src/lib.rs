@@ -10,9 +10,7 @@
 
 use eyre::Context;
 use ssip_client_async::{
-	fifo::asynchronous_tokio::Builder,
-	tokio::{AsyncClient, Request},
-	ClientName,
+	fifo::asynchronous_tokio::Builder, tokio::AsyncClient, ClientName, Request,
 };
 use std::{
 	io::ErrorKind,
@@ -22,8 +20,9 @@ use std::{
 use tokio::{
 	io::{BufReader, BufWriter},
 	net::unix::{OwnedReadHalf, OwnedWriteHalf},
-	sync::{broadcast, mpsc::Receiver},
+	sync::mpsc::Receiver,
 };
+use tokio_util::sync::CancellationToken;
 
 /// Creates a new async SSIP client which can be sent commends, and can await responses to.
 /// # Errors
@@ -75,9 +74,9 @@ pub async fn create_ssip_client(
 /// Errors may also be returned during cleanup via the `shutdown_tx` parameter, since shutting down the connection to speech dispatcher can also potentially error.
 /// Any of these failures will result in this function exiting with an `Err(_)` variant.
 pub async fn handle_ssip_commands(
-	client: &mut AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
+	mut client: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
 	requests: Receiver<Request>,
-	shutdown_tx: &mut broadcast::Receiver<i32>,
+	shutdown: CancellationToken,
 ) -> eyre::Result<()> {
 	tokio::pin!(requests);
 	loop {
@@ -91,7 +90,7 @@ pub async fn handle_ssip_commands(
 		  tracing::debug!("Response from server: {:#?}", response);
 		}
 				      }
-				      _ = shutdown_tx.recv() => {
+				      () = shutdown.cancelled() => {
 		      tracing::debug!("Saying goodbye message.");
 		      client
 			      .send(Request::Speak).await?

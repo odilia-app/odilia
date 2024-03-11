@@ -18,7 +18,8 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::broadcast, sync::mpsc::Sender};
+use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::mpsc::Sender};
+use tokio_util::sync::CancellationToken;
 
 fn get_log_file_name() -> String {
 	let time = if let Ok(n) = SystemTime::now().duration_since(UNIX_EPOCH) {
@@ -54,7 +55,7 @@ fn get_log_file_name() -> String {
 /// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
 pub async fn sr_event_receiver(
 	event_sender: Sender<ScreenReaderEvent>,
-	shutdown_rx: &mut broadcast::Receiver<i32>,
+	shutdown: CancellationToken,
 ) -> eyre::Result<()> {
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
@@ -153,7 +154,7 @@ pub async fn sr_event_receiver(
 			    }
 			    continue;
 			}
-			_ = shutdown_rx.recv() => {
+			() = shutdown.cancelled() => {
 			    tracing::debug!("Shutting down input socker.");
 			    break;
 			}
