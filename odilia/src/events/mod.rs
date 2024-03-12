@@ -18,6 +18,7 @@ use odilia_common::{
 };
 use ssip_client_async::Priority;
 
+#[tracing::instrument(level = "debug", skip_all, ret, err)]
 pub async fn structural_navigation(
 	state: &ScreenReaderState,
 	dir: Direction,
@@ -62,6 +63,7 @@ pub async fn structural_navigation(
 	}
 }
 
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn sr_event(
 	state: Arc<ScreenReaderState>,
 	mut sr_events: Receiver<ScreenReaderEvent>,
@@ -81,7 +83,7 @@ pub async fn sr_event(
 			    },
 			    Some(ScreenReaderEvent::StopSpeech) => {
 			      tracing::debug!("Stopping speech!");
-			      let _: bool = state.stop_speech().await;
+			      state.stop_speech().await;
 			    },
 			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
 						tracing::debug!("Changing mode to {:?}", new_sr_mode);
@@ -101,7 +103,7 @@ pub async fn sr_event(
 	Ok(())
 }
 
-//#[tracing::instrument(level = "debug"i, skip(state))]
+#[tracing::instrument(level = "debug", skip_all)]
 pub async fn receive(
 	state: Arc<ScreenReaderState>,
 	tx: Sender<Event>,
@@ -129,7 +131,7 @@ pub async fn receive(
 	}
 }
 
-//#[tracing::instrument(level = "debug")]
+#[tracing::instrument(level = "debug", skip_all)]
 pub async fn process(
 	state: Arc<ScreenReaderState>,
 	mut rx: Receiver<Event>,
@@ -159,6 +161,7 @@ pub async fn process(
 	}
 }
 
+#[tracing::instrument(level = "debug", skip(state))]
 async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 	if let Err(e) = dispatch(&state, good_event).await {
 		tracing::error!(error = %e, "Could not handle event");
@@ -167,6 +170,7 @@ async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
 	}
 }
 
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 	// Dispatch based on interface
 	match &event {
@@ -184,8 +188,6 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 			);
 		}
 	}
-	//let accessible_id = state.new_accessible(&interface).await?.path().try_into()?;
-	//state.update_accessible(accessible_id).await;
 	state.event_history_update(event).await;
 	Ok(())
 }

@@ -28,7 +28,13 @@ pub fn init() {
 	let subscriber = tracing_subscriber::Registry::default()
 		.with(env_filter)
 		.with(ErrorLayer::default())
-		.with(HierarchicalLayer::new(4).with_ansi(false).with_bracketed_fields(true));
+		.with(HierarchicalLayer::new(4)
+			.with_ansi(true)
+			.with_bracketed_fields(true)
+			.with_targets(true)
+			.with_deferred_spans(true)
+			.with_span_retrace(true)
+			.with_indent_lines(true));
 	if let Err(e) = tracing::subscriber::set_global_default(subscriber) {
 		eprintln!("Warning: Failed to set log handler: {e}");
 	}

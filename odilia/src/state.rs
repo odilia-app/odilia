@@ -4,7 +4,7 @@ use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
-use tracing::debug;
+use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
@@ -45,15 +45,19 @@ enum ConfigType {
 }
 
 impl ScreenReaderState {
-	#[tracing::instrument]
+	#[tracing::instrument(skip_all)]
 	pub async fn new(
 		ssip: Sender<SSIPRequest>,
 		config_override: Option<&std::path::Path>,
 	) -> eyre::Result<ScreenReaderState> {
 		let atspi = AccessibilityConnection::open()
+			.instrument(tracing::info_span!("connecting to at-spi bus"))
 			.await
 			.wrap_err("Could not connect to at-spi bus")?;
 		let dbus = DBusProxy::new(atspi.connection())
+			.instrument(tracing::debug_span!(
+				"creating dbus proxy for accessibility connection"
+			))
 			.await
 			.wrap_err("Failed to create org.freedesktop.DBus proxy")?;
 
@@ -127,7 +131,7 @@ impl ScreenReaderState {
 			cache,
 		})
 	}
-
+	#[tracing::instrument(level="debug", skip(self) ret, err)]
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,
 		atspi_cache_item: atspi_common::CacheItem,
@@ -143,6 +147,7 @@ impl ScreenReaderState {
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
+	#[tracing::instrument(skip_all, level = "debug", ret, err)]
 	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
@@ -208,7 +213,7 @@ impl ScreenReaderState {
 		// TODO: add logic for punctuation
 		Ok(text_selection)
 	}
-
+	#[tracing::instrument(skip_all)]
 	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
@@ -225,15 +230,15 @@ impl ScreenReaderState {
 	pub fn connection(&self) -> &zbus::Connection {
 		self.atspi.connection()
 	}
-
+	#[tracing::instrument(skip(self))]
 	pub async fn stop_speech(&self) -> bool {
 		self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await.is_ok()
 	}
-
+	#[tracing::instrument(name = "closing speech dispatcher connection", skip(self))]
 	pub async fn close_speech(&self) -> bool {
 		self.ssip.send(SSIPRequest::Quit).await.is_ok()
 	}
-
+	#[tracing::instrument(skip(self))]
 	pub async fn say(&self, priority: Priority, text: String) -> bool {
 		if self.ssip.send(SSIPRequest::SetPriority(priority)).await.is_err() {
 			return false;
@@ -298,6 +303,7 @@ impl ScreenReaderState {
 			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
 			.await
 	}
+	#[tracing::instrument(skip_all, ret, err)]
 	pub async fn new_accessible<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
@@ -311,6 +317,7 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
+	#[tracing::instrument(skip_all, ret, err)]
 	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {
 		let cache_rule = MatchRule::builder()
 			.msg_type(MessageType::Signal)

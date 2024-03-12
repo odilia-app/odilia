@@ -15,7 +15,7 @@ use ssip_client_async::{
 use std::{
 	io::ErrorKind,
 	process::{exit, Command, Stdio},
-	thread, time,
+	time,
 };
 use tokio::{
 	io::{BufReader, BufWriter},
@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 /// Creates a new async SSIP client which can be sent commends, and can await responses to.
 /// # Errors
 /// There may be errors when trying to send the initial registration command, or when parsing the response.
+#[tracing::instrument(level = "debug", err)]
 pub async fn create_ssip_client(
 ) -> eyre::Result<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>> {
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
@@ -47,7 +48,7 @@ pub async fn create_ssip_client(
 					tracing::debug!(
 						"Attempting to connect to speech-dispatcher again!"
 					);
-					thread::sleep(time::Duration::from_millis(500));
+					tokio::time::sleep(time::Duration::from_secs(1)).await;
 					Builder::new().build().await?
 				} else {
 					tracing::debug!("Speech dispatcher could not be started.");
@@ -65,14 +66,15 @@ pub async fn create_ssip_client(
 	Ok(ssip_core)
 }
 
-/// A handler task for incomming SSIP requests.
-/// This function will run until it receives a requrst via the `shutdown_tx`'s sender half.
+/// A handler task for incoming SSIP requests
+/// This function will run untill it gets canceled via the cancellation token
 ///
 /// # Errors
 ///
 /// This function will return an error if anything within it fails. It may fail to read a value from the channel, it may fail to run an SSIP command, or fail to parse the response.
-/// Errors may also be returned during cleanup via the `shutdown_tx` parameter, since shutting down the connection to speech dispatcher can also potentially error.
+/// Errors may also be returned during cleanup via the `cancellation_token` parameter, since shutting down the connection to speech dispatcher can also potentially error.
 /// Any of these failures will result in this function exiting with an `Err(_)` variant.
+#[tracing::instrument(level = "debug", skip_all, err)]
 pub async fn handle_ssip_commands(
 	mut client: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
 	requests: Receiver<Request>,
@@ -83,11 +85,11 @@ pub async fn handle_ssip_commands(
 		tokio::select! {
 				      request_option = requests.recv() => {
 					      if let Some(request) = request_option {
-		  tracing::debug!("SSIP command received");
+		  tracing::debug!(?request, "SSIP command received");
 		  let response = client
 		    .send(request).await?
 		    .receive().await?;
-		  tracing::debug!("Response from server: {:#?}", response);
+		  tracing::debug!(?response, "Recieved response from server");
 		}
 				      }
 				      () = shutdown.cancelled() => {
@@ -102,8 +104,8 @@ pub async fn handle_ssip_commands(
 		      let response = client
 			.send(Request::Quit).await?
 			.receive().await?;
-		      tracing::debug!("Response from server: {:?}", response);
-					      tracing::debug!("SSIP command interpreter is shut down.");
+		      tracing::debug!(?response, "Recieved response from server");
+					      tracing::debug!("SSIP command interpreter shutdown completed");
 					      break;
 				      }
 			      }
