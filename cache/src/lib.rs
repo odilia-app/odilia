@@ -44,7 +44,7 @@ type ThreadSafeCache = Arc<InnerCache>;
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
 	/// The accessible ID, which is an arbitrary string specified by the application.
-	/// It is guarenteed to be unique per application.
+	/// It is guaranteed to be unique per application.
 	/// Examples:
 	/// * /org/a11y/atspi/accessible/1234
 	/// * /org/a11y/atspi/accessible/null
@@ -62,6 +62,7 @@ impl AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
+	#[tracing::instrument(skip_all, level = "trace", ret, err)]
 	pub async fn into_accessible<'a>(
 		self,
 		conn: &zbus::Connection,
@@ -79,6 +80,7 @@ impl AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
+	#[tracing::instrument(skip_all, level = "trace", ret, err)]
 	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
@@ -90,16 +92,15 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-	/// Turns any `atspi::event` type into an `AccessiblePrimtive`, the basic type which is used for keys in the cache.
+	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
 	/// # Errors
 	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
+	#[tracing::instrument(skip_all, level = "trace", ret, err)]
 	pub fn from_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = event.sender();
-		//.map_err(|_| AccessiblePrimitiveConversionError::ErrSender)?
-		//.ok_or(AccessiblePrimitiveConversionError::NoSender)?;
-		let path = event.path(); //.ok_or(AccessiblePrimitiveConversionError::NoPathId)?;
+		let path = event.path();
 		let id = path.to_string();
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
@@ -107,6 +108,7 @@ impl AccessiblePrimitive {
 impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
+	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(
 		atspi_accessible: atspi::events::Accessible,
 	) -> Result<AccessiblePrimitive, Self::Error> {
@@ -117,6 +119,7 @@ impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
 impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
+	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(
 		so: (OwnedUniqueName, OwnedObjectPath),
 	) -> Result<AccessiblePrimitive, Self::Error> {
@@ -128,12 +131,14 @@ impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	}
 }
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
+	#[tracing::instrument(level = "trace", ret)]
 	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
 		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
 	}
 }
 impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
+	#[tracing::instrument(level = "trace", ret)]
 	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
 		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
 	}
@@ -141,6 +146,7 @@ impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
+	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
@@ -150,6 +156,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
+	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
@@ -160,25 +167,25 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
-	// The accessible object (within the application)	(so)
+	/// The accessible object (within the application)    (so)
 	pub object: AccessiblePrimitive,
-	// The application (root object(?)	  (so)
+	/// The application (root object(?)      (so)
 	pub app: AccessiblePrimitive,
-	// The parent object.  (so)
+	/// The parent object.  (so)
 	pub parent: CacheRef,
-	// The accessbile index in parent.	i
+	/// The accessible index in parent.I
 	pub index: i32,
-	// Child count of the accessible  i
+	/// Child count of the accessible.I
 	pub children_num: i32,
-	// The exposed interfece(s) set.  as
+	/// The exposed interface(s) set
 	pub interfaces: InterfaceSet,
-	// Accessible role. u
+	/// Accessible role. u
 	pub role: Role,
-	// The states applicable to the accessible.  au
+	/// The states applicable to the accessible.  au
 	pub states: StateSet,
-	// The text of the accessible.
+	/// The text of the accessible
 	pub text: String,
-	// The children (ids) of the accessible.
+	/// The children (ids) of the accessible
 	pub children: Vec<CacheRef>,
 
 	#[serde(skip)]
@@ -188,6 +195,7 @@ impl CacheItem {
 	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
 	/// # Errors
 	/// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
 		let parent_ref = Weak::upgrade(&self.parent.item);
 		if let Some(p) = parent_ref {
@@ -208,6 +216,7 @@ impl CacheItem {
 	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
+	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
 		event: &T,
 		cache: Weak<Cache>,
@@ -226,6 +235,7 @@ impl CacheItem {
 	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
 	///
 	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
+	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_cache_item(
 		atspi_cache_item: atspi_common::CacheItem,
 		cache: Weak<Cache>,
@@ -259,6 +269,7 @@ impl CacheItem {
 	/// # Errors
 	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
 	/// 2. Any children keys' values are not found in the cache itself.
+	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		let children = self
@@ -278,9 +289,9 @@ impl CacheItem {
 /// A composition of an accessible ID and (possibly) a reference
 /// to its `CacheItem`, if the item has not been dropped from the cache yet.
 /// TODO if desirable, we could make one direction strong references (e.g. have
-/// the parent be an Arc, xor have the children be Arcs). Might even be possible to have both.
+/// the parent be an Arc, or have the children be Arcs). Might even be possible to have both.
 /// BUT - is it even desirable to keep an item pinned in an Arc from its
-/// releatives after it has been removed from the cache?
+/// relatives after it has been removed from the cache?
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CacheRef {
 	pub key: CacheKey,
@@ -290,6 +301,7 @@ pub struct CacheRef {
 
 impl CacheRef {
 	#[must_use]
+	#[tracing::instrument(level = "trace", skip_all, ret)]
 	pub fn new(key: AccessiblePrimitive) -> Self {
 		Self { key, item: Weak::new() }
 	}
@@ -301,23 +313,27 @@ impl CacheRef {
 }
 
 impl From<AccessiblePrimitive> for CacheRef {
+	#[tracing::instrument(level = "trace", ret)]
 	fn from(value: AccessiblePrimitive) -> Self {
 		Self::new(value)
 	}
 }
 
 #[inline]
+#[tracing::instrument(level = "trace", ret, err)]
 async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'_>> {
 	let cache = strong_cache(&cache_item.cache)?;
 	Ok(cache_item.object.clone().into_accessible(&cache.connection).await?)
 }
 #[inline]
+#[tracing::instrument(level = "trace", ret, err)]
 async fn as_text(cache_item: &CacheItem) -> OdiliaResult<TextProxy<'_>> {
 	let cache = strong_cache(&cache_item.cache)?;
 	Ok(cache_item.object.clone().into_text(&cache.connection).await?)
 }
 
 #[inline]
+#[tracing::instrument(level = "trace", ret, err)]
 fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
 }
@@ -325,7 +341,6 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 #[async_trait]
 impl Accessible for CacheItem {
 	type Error = OdiliaError;
-
 	async fn get_application(&self) -> Result<Self, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
@@ -673,6 +688,7 @@ pub struct Cache {
 impl Cache {
 	/// create a new, fresh cache
 	#[must_use]
+	#[tracing::instrument(level = "debug", ret)]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
 			by_id: Arc::new(DashMap::with_capacity_and_hasher(
@@ -687,6 +703,7 @@ impl Cache {
 	/// never two items with the same ID stored in the cache at the same time).
 	/// # Errors
 	/// Fails if the internal call to [`Self::add_ref`] fails.
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
 		let id = cache_item.object.clone();
 		self.add_ref(id, &Arc::new(RwLock::new(cache_item)))
@@ -695,6 +712,7 @@ impl Cache {
 	/// Add an item via a reference instead of creating the reference.
 	/// # Errors
 	/// Can error if [`Cache::populate_references`] errors. The insertion is guarenteed to succeed.
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add_ref(
 		&self,
 		id: CacheKey,
@@ -705,6 +723,7 @@ impl Cache {
 	}
 
 	/// Remove a single cache item. This function can not fail.
+		#[tracing::instrument(level="trace", ret)]
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
@@ -713,6 +732,7 @@ impl Cache {
 	/// You will need to either get a read or a write lock on any item returned from this function.
 	/// It also may return `None` if a value is not matched to the key.
 	#[must_use]
+		#[tracing::instrument(level="trace", ret)]
 	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
@@ -722,12 +742,14 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
+		#[tracing::instrument(level="trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[must_use]
+	#[tracing::instrument(level="trace", ret)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
@@ -736,6 +758,7 @@ impl Cache {
 	/// associated with an id.
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
+	#[tracing::instrument(level="trace", ret, err)]
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		cache_items
 			.into_iter()
@@ -750,6 +773,7 @@ impl Cache {
 			.try_for_each(|item| Self::populate_references(&self.by_id, &item))
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
+	#[tracing::instrument(level="trace", ret)]
 	pub fn remove_all(&self, ids: &Vec<CacheKey>) {
 		for id in ids {
 			self.by_id.remove(id);
@@ -763,7 +787,8 @@ impl Cache {
 	///
 	/// # Errors
 	///
-	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be aquired on the `CacheItem` being modified.
+	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
+	#[tracing::instrument(level="trace", skip(modify), ret, err)]
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
@@ -790,6 +815,7 @@ impl Cache {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
+	#[tracing::instrument(level="debug", ret, err)]
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
@@ -817,12 +843,12 @@ impl Cache {
 	/// # Errors
 	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
 	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
+	#[tracing::instrument(level="trace", ret, err)]
 	pub fn populate_references(
 		cache: &ThreadSafeCache,
 		item_ref: &Arc<RwLock<CacheItem>>,
 	) -> Result<(), OdiliaError> {
 		let item_wk_ref = Arc::downgrade(item_ref);
-
 		let mut item = item_ref.write()?;
 		let item_key = item.object.clone();
 
@@ -869,6 +895,7 @@ impl Cache {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
+#[tracing::instrument(level="trace", ret, err)]
 pub async fn accessible_to_cache_item(
 	accessible: &AccessibleProxy<'_>,
 	cache: Weak<Cache>,
