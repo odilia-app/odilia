@@ -37,7 +37,9 @@ async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
 	shutdown: CancellationToken,
 ) -> eyre::Result<()> {
-	let mut stream = listen_to_dbus_notifications().instrument(tracing::info_span!("creating notification listener")).await?;
+	let mut stream = listen_to_dbus_notifications()
+		.instrument(tracing::info_span!("creating notification listener"))
+		.await?;
 	loop {
 		tokio::select! {
 		    Some(notification) = stream.next() => {
@@ -74,7 +76,7 @@ async fn sigterm_signal_watcher(
 #[tracing::instrument]
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
-	let args = Args::	parse();
+	let args = Args::parse();
 	logging::init();
 
 	//initialize the primary token for task cancelation
@@ -84,7 +86,10 @@ async fn main() -> eyre::Result<()> {
 	let tracker = TaskTracker::new();
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
-	if let Err(e) = atspi_connection::set_session_accessibility(true).instrument(tracing::info_span!("setting accessibility enabled flag")).await {
+	if let Err(e) = atspi_connection::set_session_accessibility(true)
+		.instrument(tracing::info_span!("setting accessibility enabled flag"))
+		.await
+	{
 		tracing::error!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
 	let (sr_event_tx, sr_event_rx) = mpsc::channel(128);

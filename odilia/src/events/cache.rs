@@ -2,7 +2,7 @@ use crate::ScreenReaderState;
 use atspi::events::{AddAccessibleEvent, CacheEvents, RemoveAccessibleEvent};
 use odilia_cache::AccessiblePrimitive;
 
-#[tracing::instrument(level="debug", skip(state), ret, err)]
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {
 	match event {
 		CacheEvents::Add(add_event) => add_accessible(state, add_event).await?,
@@ -11,7 +11,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::R
 	Ok(())
 }
 
-#[tracing::instrument(level="debug", skip(state), ret, err)]
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn add_accessible(
 	state: &ScreenReaderState,
 	event: &AddAccessibleEvent,
@@ -21,7 +21,7 @@ pub async fn add_accessible(
 	Ok(())
 }
 
-#[tracing::instrument(level="debug", skip(state), ret, err)]
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub fn remove_accessible(
 	state: &ScreenReaderState,
 	event: &RemoveAccessibleEvent,

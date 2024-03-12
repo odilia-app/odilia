@@ -723,7 +723,7 @@ impl Cache {
 	}
 
 	/// Remove a single cache item. This function can not fail.
-		#[tracing::instrument(level="trace", ret)]
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn remove(&self, id: &CacheKey) {
 		self.by_id.remove(id);
 	}
@@ -732,7 +732,7 @@ impl Cache {
 	/// You will need to either get a read or a write lock on any item returned from this function.
 	/// It also may return `None` if a value is not matched to the key.
 	#[must_use]
-		#[tracing::instrument(level="trace", ret)]
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
 		self.by_id.get(id).as_deref().cloned()
 	}
@@ -742,14 +742,14 @@ impl Cache {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-		#[tracing::instrument(level="trace", ret)]
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[must_use]
-	#[tracing::instrument(level="trace", ret)]
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
@@ -758,7 +758,7 @@ impl Cache {
 	/// associated with an id.
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
-	#[tracing::instrument(level="trace", ret, err)]
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		cache_items
 			.into_iter()
@@ -773,7 +773,7 @@ impl Cache {
 			.try_for_each(|item| Self::populate_references(&self.by_id, &item))
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
-	#[tracing::instrument(level="trace", ret)]
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn remove_all(&self, ids: &Vec<CacheKey>) {
 		for id in ids {
 			self.by_id.remove(id);
@@ -788,7 +788,7 @@ impl Cache {
 	/// # Errors
 	///
 	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
-	#[tracing::instrument(level="trace", skip(modify), ret, err)]
+	#[tracing::instrument(level = "trace", skip(modify), ret, err)]
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
@@ -815,7 +815,7 @@ impl Cache {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
-	#[tracing::instrument(level="debug", ret, err)]
+	#[tracing::instrument(level = "debug", ret, err)]
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
@@ -843,7 +843,7 @@ impl Cache {
 	/// # Errors
 	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
 	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
-	#[tracing::instrument(level="trace", ret, err)]
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn populate_references(
 		cache: &ThreadSafeCache,
 		item_ref: &Arc<RwLock<CacheItem>>,
@@ -895,7 +895,7 @@ impl Cache {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-#[tracing::instrument(level="trace", ret, err)]
+#[tracing::instrument(level = "trace", ret, err)]
 pub async fn accessible_to_cache_item(
 	accessible: &AccessibleProxy<'_>,
 	cache: Weak<Cache>,
