@@ -5,6 +5,7 @@ use atspi_common::events::{
 };
 use odilia_common::errors::OdiliaError;
 
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn load_complete(
 	state: &ScreenReaderState,
 	event: &LoadCompleteEvent,
@@ -20,6 +21,7 @@ pub async fn load_complete(
 	Ok(())
 }
 
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn dispatch(state: &ScreenReaderState, event: &DocumentEvents) -> eyre::Result<()> {
 	// Dispatch based on member
 	match event {
