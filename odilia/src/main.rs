@@ -31,11 +31,13 @@ use tokio::{
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use atspi_common::events::{document, object};
+use tracing::Instrument;
+#[tracing::instrument(skip(state, shutdown))]
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
 	shutdown: CancellationToken,
 ) -> eyre::Result<()> {
-	let mut stream = listen_to_dbus_notifications().await?;
+	let mut stream = listen_to_dbus_notifications().instrument(tracing::info_span!("creating notification listener")).await?;
 	loop {
 		tokio::select! {
 		    Some(notification) = stream.next() => {
@@ -51,14 +53,14 @@ async fn notifications_monitor(
 	}
 	Ok(())
 }
+#[tracing::instrument]
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	tracker: TaskTracker,
 ) -> eyre::Result<()> {
 	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
 	let mut c = signal(SignalKind::interrupt())?;
-	tracing::debug!("Watching for Ctrl+C");
-	c.recv().await;
+	c.recv().instrument(tracing::debug_span!("Watching for Ctrl+C")).await;
 	tracing::debug!("Asking all processes to stop.");
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
@@ -69,9 +71,10 @@ async fn sigterm_signal_watcher(
 	Ok(())
 }
 
+#[tracing::instrument]
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
-	let args = Args::parse();
+	let args = Args::	parse();
 	logging::init();
 
 	//initialize the primary token for task cancelation
@@ -81,15 +84,15 @@ async fn main() -> eyre::Result<()> {
 	let tracker = TaskTracker::new();
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
-	if let Err(e) = atspi_connection::set_session_accessibility(true).await {
-		tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
+	if let Err(e) = atspi_connection::set_session_accessibility(true).instrument(tracing::info_span!("setting accessibility enabled flag")).await {
+		tracing::error!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
 	let (sr_event_tx, sr_event_rx) = mpsc::channel(128);
 	// this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
 	// If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
 	let (atspi_event_tx, atspi_event_rx) = mpsc::channel(128);
-	// this is the chanel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then wdaiting for the receiving message can block other long-running operations like structural navigation.
-	// Although in the future, this may possibly be remidied through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
+	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
+	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	// Initialize state
@@ -99,8 +102,8 @@ async fn main() -> eyre::Result<()> {
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
 		tracing::debug!("Welcome message spoken.");
 	} else {
-		tracing::debug!("Welcome message failed. Odilia is not able to continue in this state. Existing now.");
-		let _: bool = state.close_speech().await;
+		tracing::error!("Welcome message failed. Odilia is not able to continue in this state. Exiting now.");
+		state.close_speech().await;
 		exit(1);
 	}
 
