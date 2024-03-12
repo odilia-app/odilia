@@ -1,6 +1,7 @@
 use crate::state::ScreenReaderState;
 use atspi_common::events::object::ObjectEvents;
 
+#[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::Result<()> {
 	// Dispatch based on member
 	match event {
@@ -36,6 +37,7 @@ mod text_changed {
 	use std::collections::HashMap;
 
 	#[inline]
+	#[tracing::instrument(level = "trace")]
 	pub fn update_string_insert(
 		start_pos: usize,
 		update_length: usize,
@@ -100,7 +102,8 @@ mod text_changed {
 
 	#[inline]
 	/// Get the live state of a set of attributes.
-	/// Although the function only currently tests one attributes, in the future it may be imporant to inspect many attributes, compare them, or do additional logic.
+	/// Although the function only currently tests one attribute, in the future it may be important to inspect many attributes, compare them, or do additional logic.
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn get_live_state(attributes: &HashMap<String, String>) -> OdiliaResult<AriaLive> {
 		match attributes.get("live") {
 			None => Err(OdiliaError::NoAttributeError("live".to_string())),
@@ -109,8 +112,8 @@ mod text_changed {
 	}
 
 	#[inline]
-	/// if the aria-live attribute is set to "polite", then set the prioirty of the message to speak once all other messages are done
-	/// if the aria-live attribute is set to "assertive", thenset the priority of the message to speak immediately, stop all other messages, and do not interrupt that piece of speech
+	/// if the aria-live attribute is set to "polite", then set the priority of the message to speak once all other messages are done
+	/// if the aria-live attribute is set to "assertive", then set the priority of the message to speak immediately, stop all other messages, and do not interrupt that piece of speech
 	/// otherwise, do not continue
 	pub fn live_to_priority(live_str: &AriaLive) -> Priority {
 		match live_str {
@@ -121,6 +124,7 @@ mod text_changed {
 	}
 
 	#[inline]
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn get_atomic_state(attributes: &HashMap<String, String>) -> OdiliaResult<AriaAtomic> {
 		match attributes.get("atomic") {
 			None => Err(OdiliaError::NoAttributeError("atomic".to_string())),
@@ -158,6 +162,7 @@ mod text_changed {
 		}
 	}
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn dispatch(
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
@@ -175,6 +180,7 @@ mod text_changed {
 		Ok(())
 	}
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn speak_insertion(
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
@@ -189,14 +195,15 @@ mod text_changed {
 		// otherwise, do not continue through this function
 		let text_to_say =
 			if atomic { cache_text.to_string() } else { (&event.text).into() };
-		let prioirty = live_to_priority(&live);
-		state.say(prioirty, text_to_say).await;
+		let priority = live_to_priority(&live);
+		state.say(priority, text_to_say).await;
 		Ok(())
 	}
 
 	/// The `insert` boolean, if set to true, will update the text in the cache.
 	/// If it is set to false, the selection will be removed.
 	/// The [`TextChangedEvent::operation`] value will *NOT* be checked by this function.
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn insert_or_delete(
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
@@ -251,6 +258,7 @@ mod children_changed {
 	use odilia_common::{errors::OdiliaError, result::OdiliaResult};
 	use std::sync::Arc;
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn dispatch(
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
@@ -263,6 +271,7 @@ mod children_changed {
 		}
 		Ok(())
 	}
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn add(
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
@@ -283,6 +292,7 @@ mod children_changed {
 	) -> Result<AccessiblePrimitive, OdiliaError> {
 		Ok(event.child.clone().try_into()?)
 	}
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
 		let prim = get_child_primitive(event)?;
 		state.cache.remove(&prim);
@@ -305,6 +315,7 @@ mod text_caret_moved {
 	};
 	use tracing::debug;
 
+	#[tracing::instrument(level = "debug", ret, err)]
 	pub async fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
@@ -343,8 +354,8 @@ mod text_caret_moved {
 			.await?;
 		// if words are the same
 		if first_word == last_word ||
-			 // if the end position of the first word immediately peceeds the start of the second word
-			 first_word.2.abs_diff(last_word.1) == 1
+			// if the end position of the first word immediately preceeds the start of the second word
+			first_word.2.abs_diff(last_word.1) == 1
 		{
 			return new_item.get_text(first_position, last_position).await;
 		}
@@ -367,7 +378,7 @@ mod text_caret_moved {
 		event: &TextCaretMovedEvent,
 	) -> eyre::Result<bool> {
 		let current_caret_pos = event.position;
-		// if the carat position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
+		// if the caret position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
 		if current_caret_pos != 0 {
 			return Ok(false);
 		}
@@ -390,6 +401,7 @@ mod text_caret_moved {
 	}
 
 	// TODO: left/right vs. up/down, and use generated speech
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn text_cursor_moved(
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
@@ -418,6 +430,7 @@ mod text_caret_moved {
 		Ok(())
 	}
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn dispatch(
 		state: &ScreenReaderState,
 		event: &TextCaretMovedEvent,
@@ -454,6 +467,7 @@ mod state_changed {
 		}
 	}
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn dispatch(
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
@@ -487,6 +501,7 @@ mod state_changed {
 		Ok(())
 	}
 
+	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub async fn focused(
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
