@@ -100,7 +100,8 @@ impl ScreenReaderState {
 				);
 
 				if !config_path.exists() {
-					fs::write(&config_path, include_str!("../config.toml"))
+					let toml = toml::to_string(&ApplicationConfig::default())?;
+					fs::write(&config_path, toml)
 						.expect("Unable to copy default config file.");
 				}
 				config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
