@@ -23,19 +23,19 @@ pub enum OdiliaError {
 }
 #[derive(Debug)]
 pub enum ConfigError {
-	Tini(tini::Error),
+	Figment(figment::Error),
 	ValueNotFound,
 	PathNotFound,
 }
-impl From<tini::Error> for ConfigError {
-	fn from(t_err: tini::Error) -> Self {
-		Self::Tini(t_err)
+impl From<figment::Error> for ConfigError {
+	fn from(t_err: figment::Error) -> Self {
+		Self::Figment(t_err)
 	}
 }
 impl std::fmt::Display for ConfigError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Tini(t) => t.fmt(f),
+			Self::Figment(t) => t.fmt(f),
 			Self::ValueNotFound => f.write_str("Vlaue not found in config file."),
 			Self::PathNotFound => {
 				f.write_str("The path for the config file was not found.")
