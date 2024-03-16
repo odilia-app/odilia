@@ -20,4 +20,4 @@ smartstring = "1.0.1"
 thiserror = "1.0.37"
 zbus.workspace = true
 serde_plain.workspace = true
-figment = { version = "0.10.14", features = ["toml", "test", "env"] }
+figment = "0.10.15"

@@ -1,3 +1,7 @@
+use figment::{
+	providers::{Env, Format, Serialized, Toml},
+	Figment,
+};
 use std::{fs, sync::atomic::AtomicI32};
 
 use circular_queue::CircularQueue;
@@ -16,11 +20,8 @@ use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{CacheError, ConfigError},
-	modes::ScreenReaderMode,
-	settings::ApplicationConfig,
-	types::TextSelectionArea,
-	Result as OdiliaResult,
+	errors::CacheError, modes::ScreenReaderMode, settings::ApplicationConfig,
+	types::TextSelectionArea, Result as OdiliaResult,
 };
 use std::sync::Arc;
 
@@ -35,13 +36,6 @@ pub struct ScreenReaderState {
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
-}
-
-enum ConfigType {
-	CliOverride,
-	XDGConfigHome,
-	Etc,
-	CreateDefault,
 }
 
 impl ScreenReaderState {
@@ -65,54 +59,39 @@ impl ScreenReaderState {
 
 		tracing::debug!("Reading configuration");
 
-		// In order of prioritization, do configuration via cli, then XDG_CONFIG_HOME, then /etc/,
+		// In order of prioritization, do environment variables, configuration via cli, then XDG_CONFIG_HOME, then /etc/odilia,
 		// Otherwise create it in XDG_CONFIG_HOME
-		let config_type = if config_override.is_some() {
-			ConfigType::CliOverride
-
-		// First check makes sure unwrap is safe
-		} else if xdg::BaseDirectories::with_prefix("odilia").is_ok()
-			&& xdg::BaseDirectories::with_prefix("odilia")
-				.expect("This error should never occur")
-				.find_config_file("config.toml")
-				.is_some()
-		{
-			ConfigType::XDGConfigHome
-		} else if std::path::Path::new("/etc/odilia/config.toml").exists() {
-			ConfigType::Etc
+		//default configuration first, because that doesn't affect the priority outlined above
+		let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
+		//environment variables
+		let figment = figment.merge(Env::prefixed("ODILIA_"));
+		//cli override, if applicable
+		let figment = if let Some(path) = config_override {
+			figment.merge(Toml::file(path))
 		} else {
-			ConfigType::CreateDefault
+			figment
 		};
+		//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
+		let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+			"unable to find the odilia config directory according to the xdg dirs specification",
+		);
 
-		let config_path = match config_type {
-			ConfigType::CliOverride => config_override
-				.expect("Config override was provided but is None")
-				.to_str()
-				.ok_or(ConfigError::PathNotFound)?
-				.to_owned(),
-			ConfigType::XDGConfigHome | ConfigType::CreateDefault => {
-				let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-					"unable to find the odilia config directory according to the xdg dirs specification",
-				);
+		let config_path = xdg_dirs.place_config_file("config.toml").expect(
+			"unable to place configuration file. Maybe your system is readonly?",
+		);
 
-				let config_path = xdg_dirs.place_config_file("config.toml").expect(
-					"unable to place configuration file. Maybe your system is readonly?",
-				);
-
-				if !config_path.exists() {
-					let toml = toml::to_string(&ApplicationConfig::default())?;
-					fs::write(&config_path, toml)
-						.expect("Unable to copy default config file.");
-				}
-				config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
-			}
-			ConfigType::Etc => "/etc/odilia/config.toml".to_owned(),
-		};
-
-		tracing::debug!(path=%config_path, "loading configuration file");
-		let config = ApplicationConfig::new(&config_path)
-			.wrap_err("unable to load configuration file")?;
-
+		if !config_path.exists() {
+			let toml = toml::to_string(&ApplicationConfig::default())?;
+			fs::write(&config_path, toml)
+				.expect("Unable to create default config file.");
+		}
+		//next, the xdg configuration
+		let figment = figment
+			.merge(Toml::file(&config_path))
+			//last, the configuration system wide, in /etc/odilia/config.toml
+			.merge(Toml::file("/etc/odilia/config.toml"));
+		//realise the configuration and freeze it into place
+		let config: ApplicationConfig = figment.extract()?;
 		tracing::debug!("configuration loaded successfully");
 
 		let previous_caret_position = AtomicI32::new(0);
