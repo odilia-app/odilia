@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(clippy::module_name_repetitions)]
 pub struct SpeechSettings {
-	pub rate: i32,
+	pub rate: i8,
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
