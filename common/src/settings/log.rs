@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub struct LogSettings {
 	level: String,
 }
-impl LogSettings {
-	pub fn new(level: String) -> Self {
-		Self { level }
+impl Default for LogSettings {
+	fn default() -> Self {
+		Self { level: "info".to_owned() }
 	}
 }
