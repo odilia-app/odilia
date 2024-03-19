@@ -95,12 +95,12 @@ async fn main() -> eyre::Result<()> {
 	// In order of prioritization, do environment variables, configuration via cli, then XDG_CONFIG_HOME, then /etc/odilia,
 	// Otherwise create it in XDG_CONFIG_HOME
 	//default configuration first, because that doesn't affect the priority outlined above
-	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
+	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()))
 	//environment variables
-	let figment = figment.merge(Env::prefixed("ODILIA_"));
+	.join(Env::prefixed("ODILIA_"));
 	//cli override, if applicable
 	let figment = if let Some(path) = args.config {
-		figment.merge(Toml::file(path))
+		figment.join(Toml::file(path))
 	} else {
 		figment
 	};
@@ -119,12 +119,12 @@ async fn main() -> eyre::Result<()> {
 	}
 	//next, the xdg configuration
 	let figment = figment
-		.merge(Toml::file(&config_path))
+		.join(Toml::file(&config_path))
 		//last, the configuration system wide, in /etc/odilia/config.toml
-		.merge(Toml::file("/etc/odilia/config.toml"));
+		.join(Toml::file("/etc/odilia/config.toml"));
 	//realise the configuration and freeze it into place
 	let config: ApplicationConfig = figment.extract()?;
-	tracing::debug!("configuration loaded successfully");
+	tracing::debug!(?config, "configuration loaded successfully");
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true)
