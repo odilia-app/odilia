@@ -91,14 +91,11 @@ async fn main() -> eyre::Result<()> {
 	// Otherwise create it in XDG_CONFIG_HOME
 	//default configuration first, because that doesn't affect the priority outlined above
 	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()))
-	//environment variables
-	.join(Env::prefixed("ODILIA_"));
+		//environment variables
+		.join(Env::prefixed("ODILIA_").split("_"));
 	//cli override, if applicable
-	let figment = if let Some(path) = args.config {
-		figment.join(Toml::file(path))
-	} else {
-		figment
-	};
+	let figment =
+		if let Some(path) = args.config { figment.join(Toml::file(path)) } else { figment };
 	//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
 	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
 			"unable to find the odilia config directory according to the xdg dirs specification",
@@ -121,7 +118,7 @@ async fn main() -> eyre::Result<()> {
 	let config: ApplicationConfig = figment.extract()?;
 	tracing::debug!(?config, "configuration loaded successfully");
 
-// Make sure applications 		with dynamic accessibility support do expose their AT-SPI2 interfaces.
+	// Make sure applications 		with dynamic accessibility support do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true).await {
 		tracing::debug!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
