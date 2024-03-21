@@ -4,15 +4,38 @@ use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
 
+use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
 
+use tower::util::BoxService;
 use tower::filter::Filter;
 use tower::Service;
 
 type Response = ();
 type Request = atspi::Event;
 type Error = OdiliaError;
+
+pub struct Handlers<S, U, E> {
+    state: S,
+    atspi_handlers: HashMap<(String, String), BoxService<atspi::Event, U, E>>,
+}
+impl<S, U, E> Handlers<S, U, E> 
+where S: Clone + Send {
+    fn add_listener<'a, H, T>(&mut self, handler: H) 
+    where H: Handler<T, S, E> + Send,
+          E: atspi::GenericEvent<'a> + TryFrom<atspi::Event>, {
+        self.atspi_handlers.insert(
+            (<E as atspi::GenericEvent>::DBUS_MEMBER.into(),
+            <E as atspi::GenericEvent>::DBUS_INTERFACE.into()),
+            BoxService::new(
+                atspi_event_handler(
+                    handler.with_state(self.state.clone())
+                )
+            )
+        );
+    }
+}
 
 pub trait Handler<T, S, E>: Clone {
 	type Future: Future<Output = Result<Response, Error>> + Send + 'static;
@@ -25,7 +48,8 @@ pub trait Handler<T, S, E>: Clone {
 fn atspi_event_handler<H, T, S, E>(h: HandlerService<H, T, S, E>) -> impl Service<Request>
 where
 	S: Clone,
-	E: TryFrom<Request, Error = Error>,
+	E: TryFrom<Request>,
+  <E as TryFrom<Request>>::Error: Send + Sync + std::error::Error + 'static,
 	H: Handler<T, S, E>,
 {
 	Filter::new(h, <E as TryFrom<Request>>::try_from)
