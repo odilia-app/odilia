@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -5,6 +7,7 @@ use std::marker::PhantomData;
 use std::task::Context;
 use std::task::Poll;
 
+use tower::filter::Filter;
 use tower::Service;
 
 type Response = ();
@@ -17,6 +20,15 @@ pub trait Handler<T, S, E>: Clone {
 		HandlerService { handler: self, state, _marker: PhantomData }
 	}
 	fn call(self, req: E, state: S) -> Self::Future;
+}
+
+fn atspi_event_handler<H, T, S, E>(h: HandlerService<H, T, S, E>) -> impl Service<Request>
+where
+	S: Clone,
+	E: TryFrom<Request, Error = Error>,
+	H: Handler<T, S, E>,
+{
+	Filter::new(h, <E as TryFrom<Request>>::try_from)
 }
 
 impl<F, Fut, S, E> Handler<((),), S, E> for F
@@ -81,7 +93,7 @@ pub struct HandlerService<H, T, S, E> {
 	_marker: PhantomData<fn(E) -> T>,
 }
 
-impl<H, T, S, E> Service<Request> for HandlerService<H, T, S, E>
+impl<H, T, S, E> Service<E> for HandlerService<H, T, S, E>
 where
 	H: Handler<T, S, E>,
 	S: Clone,
@@ -95,9 +107,9 @@ where
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
 	}
-	fn call(&mut self, req: Request) -> Self::Future {
+	fn call(&mut self, req: E) -> Self::Future {
 		let handler = self.handler.clone();
 		let state = self.state.clone();
-		handler.call(req.try_into().expect("Must be converted from a certain type"), state)
+		handler.call(req, state)
 	}
 }
