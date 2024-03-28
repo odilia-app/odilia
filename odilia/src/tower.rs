@@ -4,13 +4,11 @@ use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
 
-use futures::future::{err, ok, Ready, ready, Either};
-use std::collections::HashMap;
+use futures::future::{err, Ready, Either};
 use std::task::Context;
 use std::task::Poll;
 
 use tower::Layer;
-use tower::ServiceExt;
 use tower::util::BoxService;
 use tower::filter::Filter;
 use tower::Service;
@@ -19,33 +17,24 @@ type Response = ();
 type Request = atspi::Event;
 type Error = OdiliaError;
 
-pub struct Handlers<S, U, E> {
+pub struct Handlers<S> {
     state: S,
-    atspi_handlers: HashMap<(String, String), BoxService<atspi::Event, U, E>>,
+    atspi_handlers: Vec<BoxService<atspi::Event, (), Error>>,
 }
-impl<S, U, E> Handlers<S, U, E> 
+impl<S> Handlers<S> 
 where S: Clone + Send + Sync + 'static {
-    fn add_listener<'a, H, T>(&mut self, handler: H) 
+    fn add_listener<'a, H, T, E>(&mut self, handler: H) 
     where H: Handler<T, S, E> + Send + Sync + 'static,
           E: atspi::GenericEvent<'a> + TryFrom<atspi::Event> + Send + Sync + 'static,
-          <E as TryFrom<atspi::Event>>::Error: Send + Sync + std::fmt::Debug {
-        let tfl: TryIntoLayer<E, Request> = TryIntoLayer::new();
-        let ws = handler.with_state(self.state.clone());
+          <E as TryFrom<atspi::Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
+          OdiliaError: From<<E as TryFrom<atspi::Event>>::Error>,
+          T: 'static {
+        let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
         let state = self.state.clone();
-        let tfs = tfl.layer(ws);
-        let bs = BoxService::new(tfs);
-        //self.atspi_handlers.insert(("".into(),"".into()), bs);
-        /*
-        self.atspi_handlers.insert(
-            (<E as atspi::GenericEvent>::DBUS_MEMBER.into(),
-            <E as atspi::GenericEvent>::DBUS_INTERFACE.into()),
-            BoxService::new(
-                atspi_event_handler(
-                    handler.with_state(self.state.clone())
-                )
-            )
-        );
-        */
+        let ws = handler.with_state(state);
+        let tfserv = tflayer.layer(ws);
+        let bs = BoxService::new(tfserv);
+        self.atspi_handlers.push(bs);
     }
 }
 
@@ -81,11 +70,11 @@ where
     }
 }
 
-impl<O, E, I: TryInto<O, Error=E>, S, R, Fut1> Service<I> for TryIntoService<O, I, S, R, Fut1>
+impl<O, E, I: TryInto<O>, S, R, Fut1> Service<I> for TryIntoService<O, I, S, R, Fut1>
 where
     O: TryFrom<I>,
-    <O as TryFrom<I>>::Error: Into<E>,
-    S: Service<O, Response=R, Error=E, Future=Fut1>,
+    E: From<<O as TryFrom<I>>::Error> + From<<I as TryInto<O>>::Error>,
+    S: Service<O, Response=R, Future=Fut1>,
     Fut1: Future<Output = Result<R, E>>,
 {
     type Response = R;
