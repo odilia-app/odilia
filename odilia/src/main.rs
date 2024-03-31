@@ -13,7 +13,7 @@ mod events;
 mod logging;
 mod state;
 
-use std::{fs, process::exit, sync::Arc, time::Duration};
+use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
@@ -91,36 +91,7 @@ async fn main() -> eyre::Result<()> {
 	let tracker = TaskTracker::new();
 
 	tracing::debug!("Reading configuration");
-
-	// In order of prioritization, do environment variables, configuration via cli, then XDG_CONFIG_HOME, then /etc/odilia,
-	// Otherwise create it in XDG_CONFIG_HOME
-	//default configuration first, because that doesn't affect the priority outlined above
-	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()))
-		//environment variables
-		.join(Env::prefixed("ODILIA_").split("_"));
-	//cli override, if applicable
-	let figment =
-		if let Some(path) = args.config { figment.join(Toml::file(path)) } else { figment };
-	//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
-	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-			"unable to find the odilia config directory according to the xdg dirs specification",
-		);
-
-	let config_path = xdg_dirs
-		.place_config_file("config.toml")
-		.expect("unable to place configuration file. Maybe your system is readonly?");
-
-	if !config_path.exists() {
-		let toml = toml::to_string(&ApplicationConfig::default())?;
-		fs::write(&config_path, toml).expect("Unable to create default config file.");
-	}
-	//next, the xdg configuration
-	let figment = figment
-		.join(Toml::file(&config_path))
-		//last, the configuration system wide, in /etc/odilia/config.toml
-		.join(Toml::file("/etc/odilia/config.toml"));
-	//realise the configuration and freeze it into place
-	let config: ApplicationConfig = figment.extract()?;
+	let config = load_configuration(args.config)?;
 	tracing::debug!(?config, "configuration loaded successfully");
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
@@ -188,4 +159,36 @@ async fn main() -> eyre::Result<()> {
 		.await
 		.wrap_err("can not process interrupt signal");
 	Ok(())
+}
+
+fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, eyre::Report> {
+	// In order, do environment variables, a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
+	// If XDG_CONFIG_HOME based configuration wasn't found, create one with default values for the user to alter, for the next run of odilia
+	//default configuration first, because that doesn't affect the priority outlined above
+	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()))
+		//environment variables
+		.join(Env::prefixed("ODILIA_").split("_"));
+	//cli override, if applicable
+	let figment =
+		if let Some(path) = cli_overide { figment.join(Toml::file(path)) } else { figment };
+	//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
+	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+			"unable to find the odilia config directory according to the xdg dirs specification",
+		);
+
+	let config_path = xdg_dirs
+		.place_config_file("config.toml")
+		.expect("unable to place configuration file. Maybe your system is readonly?");
+
+	if !config_path.exists() {
+		let toml = toml::to_string(&ApplicationConfig::default())?;
+		fs::write(&config_path, toml).expect("Unable to create default config file.");
+	}
+	//next, the xdg configuration
+	let figment = figment
+		.join(Toml::file(&config_path))
+		//last, the configuration system wide, in /etc/odilia/config.toml
+		.join(Toml::file("/etc/odilia/config.toml"));
+	//realise the configuration and freeze it into place
+	Ok(figment.extract()?)
 }
