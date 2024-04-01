@@ -10,7 +10,6 @@ use std::task::Poll;
 
 use tower::Layer;
 use tower::util::BoxService;
-use tower::filter::Filter;
 use tower::Service;
 
 type Response = ();
@@ -99,16 +98,6 @@ pub trait Handler<T, S, E>: Clone {
 		HandlerService { handler: self, state, _marker: PhantomData }
 	}
 	fn call(self, req: E, state: S) -> Self::Future;
-}
-
-fn atspi_event_handler<H, T, S, E>(h: HandlerService<H, T, S, E>) -> impl Service<Request>
-where
-	S: Clone,
-	E: TryFrom<Request>,
-  <E as TryFrom<Request>>::Error: Send + Sync + std::error::Error + 'static,
-	H: Handler<T, S, E>,
-{
-	Filter::new(h, <E as TryFrom<Request>>::try_from)
 }
 
 impl<F, Fut, S, E> Handler<((),), S, E> for F
