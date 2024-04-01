@@ -85,7 +85,7 @@ where
 	fn call(&mut self, req: I) -> Self::Future {
 		match req.try_into() {
 			Ok(o) => Either::Left(self.inner.call(o)),
-			Err(e) => Either::Right(err::<R, E>(e.into())),
+			Err(e) => Either::Right(err(e.into())),
 		}
 	}
 }
