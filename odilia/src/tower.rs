@@ -4,12 +4,12 @@ use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
 
-use futures::future::{err, Ready, Either};
+use futures::future::{err, Either, Ready};
 use std::task::Context;
 use std::task::Poll;
 
-use tower::Layer;
 use tower::util::BoxService;
+use tower::Layer;
 use tower::Service;
 
 type Response = ();
@@ -17,79 +17,77 @@ type Request = atspi::Event;
 type Error = OdiliaError;
 
 pub struct Handlers<S> {
-    state: S,
-    atspi_handlers: Vec<BoxService<atspi::Event, (), Error>>,
+	state: S,
+	atspi_handlers: Vec<BoxService<atspi::Event, (), Error>>,
 }
-impl<S> Handlers<S> 
-where S: Clone + Send + Sync + 'static {
-    fn add_listener<'a, H, T, E>(&mut self, handler: H) 
-    where H: Handler<T, S, E> + Send + Sync + 'static,
-          E: atspi::GenericEvent<'a> + TryFrom<atspi::Event> + Send + Sync + 'static,
-          <E as TryFrom<atspi::Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
-          OdiliaError: From<<E as TryFrom<atspi::Event>>::Error>,
-          T: 'static {
-        let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
-        let state = self.state.clone();
-        let ws = handler.with_state(state);
-        let tfserv = tflayer.layer(ws);
-        let bs = BoxService::new(tfserv);
-        self.atspi_handlers.push(bs);
-    }
+impl<S> Handlers<S>
+where
+	S: Clone + Send + Sync + 'static,
+{
+	fn add_listener<'a, H, T, E>(&mut self, handler: H)
+	where
+		H: Handler<T, S, E> + Send + Sync + 'static,
+		E: atspi::GenericEvent<'a> + TryFrom<atspi::Event> + Send + Sync + 'static,
+		<E as TryFrom<atspi::Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
+		OdiliaError: From<<E as TryFrom<atspi::Event>>::Error>,
+		T: 'static,
+	{
+		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
+		let state = self.state.clone();
+		let ws = handler.with_state(state);
+		let tfserv = tflayer.layer(ws);
+		let bs = BoxService::new(tfserv);
+		self.atspi_handlers.push(bs);
+	}
 }
 
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
-    inner: S,
-    _marker: PhantomData<fn(O, I, Fut1) -> R>,
+	inner: S,
+	_marker: PhantomData<fn(O, I, Fut1) -> R>,
 }
-impl<O, E, I: TryInto<O, Error=E>, S, R, Fut1> TryIntoService<O, I, S, R, Fut1> {
-    fn new(inner: S) -> Self {
-        TryIntoService {
-            inner,
-            _marker: PhantomData,
-        }
-    }
+impl<O, E, I: TryInto<O, Error = E>, S, R, Fut1> TryIntoService<O, I, S, R, Fut1> {
+	fn new(inner: S) -> Self {
+		TryIntoService { inner, _marker: PhantomData }
+	}
 }
 pub struct TryIntoLayer<O, I: TryInto<O>> {
-    _marker: PhantomData<fn(I) -> O>,
+	_marker: PhantomData<fn(I) -> O>,
 }
-impl<O, E, I: TryInto<O, Error=E>> TryIntoLayer<O, I> {
-    fn new() -> Self {
-        TryIntoLayer {
-            _marker: PhantomData,
-        }
-    }
+impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
+	fn new() -> Self {
+		TryIntoLayer { _marker: PhantomData }
+	}
 }
 
 impl<I: TryInto<O>, O, S, Fut1> Layer<S> for TryIntoLayer<O, I>
 where
-    S: Service<O, Future=Fut1> {
-    type Service = TryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
-    fn layer(&self, inner: S) -> Self::Service {
-        TryIntoService::new(inner)
-    }
+	S: Service<O, Future = Fut1>,
+{
+	type Service = TryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
+	fn layer(&self, inner: S) -> Self::Service {
+		TryIntoService::new(inner)
+	}
 }
 
 impl<O, E, I: TryInto<O>, S, R, Fut1> Service<I> for TryIntoService<O, I, S, R, Fut1>
 where
-    O: TryFrom<I>,
-    E: From<<O as TryFrom<I>>::Error> + From<<I as TryInto<O>>::Error>,
-    S: Service<O, Response=R, Future=Fut1>,
-    Fut1: Future<Output = Result<R, E>>,
+	O: TryFrom<I>,
+	E: From<<O as TryFrom<I>>::Error> + From<<I as TryInto<O>>::Error>,
+	S: Service<O, Response = R, Future = Fut1>,
+	Fut1: Future<Output = Result<R, E>>,
 {
-    type Response = R;
-    type Future = Either<Fut1, Ready<Result<R, E>>>;
-    type Error = E;
-    fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-        Poll::Ready(Ok(()))
-    }
-    fn call(&mut self, req: I) -> Self::Future {
-       match req.try_into() {
-           Ok(o) => Either::Left(self.inner.call(o)),
-           Err(e) => {
-               Either::Right(err::<R, E>(e.into()))
-           }
-       }
-    }
+	type Response = R;
+	type Future = Either<Fut1, Ready<Result<R, E>>>;
+	type Error = E;
+	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		Poll::Ready(Ok(()))
+	}
+	fn call(&mut self, req: I) -> Self::Future {
+		match req.try_into() {
+			Ok(o) => Either::Left(self.inner.call(o)),
+			Err(e) => Either::Right(err::<R, E>(e.into())),
+		}
+	}
 }
 
 pub trait Handler<T, S, E>: Clone {
