@@ -50,11 +50,11 @@ You can find us in the following places:
 - [Discord](https://discord.gg/RVpRb9nS6K)
 - IRC: irc.libera.chat
   - #odilia-dev (development)
-  - #odilia (general)
+  - #odilia-general (general)
   - #odilia-offtopic (off-topic)
 - Matrix: stealthy.club
   - #odilia-dev (development)
-  - #odilia (general)
+  - #odilia-general (general)
   - #odilia-offtopic (off-topic)
 
 ## Contributing
