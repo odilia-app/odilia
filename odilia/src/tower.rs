@@ -1,24 +1,28 @@
 #![allow(dead_code)]
 
 use odilia_common::errors::OdiliaError;
+use atspi::Event;
+use atspi::events::object::ObjectEvents;
+use atspi::GenericEvent;
 use std::future::Future;
 use std::marker::PhantomData;
 
-use futures::future::{err, Either, Ready};
+use futures::future::{err, Either, Ready, ok};
 use std::task::Context;
 use std::task::Poll;
+use std::collections::HashMap;
 
 use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
 type Response = ();
-type Request = atspi::Event;
+type Request = Event;
 type Error = OdiliaError;
 
 pub struct Handlers<S> {
 	state: S,
-	atspi_handlers: Vec<BoxService<atspi::Event, (), Error>>,
+	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, (), Error>>>,
 }
 impl<S> Handlers<S>
 where
@@ -27,18 +31,59 @@ where
 	fn add_listener<'a, H, T, E>(&mut self, handler: H)
 	where
 		H: Handler<T, S, E> + Send + Sync + 'static,
-		E: atspi::GenericEvent<'a> + TryFrom<atspi::Event> + Send + Sync + 'static,
-		<E as TryFrom<atspi::Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
-		OdiliaError: From<<E as TryFrom<atspi::Event>>::Error>,
+		E: atspi::GenericEvent<'a> + TryFrom<Event> + Send + Sync + 'static,
+		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
+		OdiliaError: From<<E as TryFrom<Event>>::Error>,
 		T: 'static,
 	{
 		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
 		let ws = handler.with_state(state);
 		let tfserv = tflayer.layer(ws);
+    let dn = (
+        <E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
+        <E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+    );
 		let bs = BoxService::new(tfserv);
-		self.atspi_handlers.push(bs);
+		self.atspi_handlers.entry(dn)
+        .or_default()
+        .push(bs);
 	}
+}
+
+pub struct HandlersService<S, Fut> {
+    inner: Handlers<S>,
+    _marker: PhantomData<Fut>,
+}
+impl<S, Fut, E> Service<E> for HandlersService<S, Fut> 
+where
+    S: Send + Sync + Clone + 'static,
+    Fut: Future<Output = Result<(), Error>>,
+    E: for<'a> GenericEvent<'a> + Into<Event> + Clone,
+{
+    type Response = ();
+    type Error = Error;
+    type Future = Fut;
+    fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Error>> {
+        Poll::Ready(Ok(()))
+    }
+    fn call(&mut self, ev: E) -> Self::Future {
+        let dn = (
+            <E as atspi::GenericEvent<'_>>::DBUS_MEMBER.into(),
+            <E as atspi::GenericEvent<'_>>::DBUS_INTERFACE.into(),
+        );
+        let hands = self.inner.atspi_handlers.entry(dn).or_default();
+        for hand in hands {
+            hand.call(ev.clone().into());
+        }
+        Ok(())
+        /*
+        match req.try_into() {
+          Ok(o) => Either::Left(self.inner.call(o)),
+          Err(e) => Either::Right(err(e.into())),
+        }
+        */
+    }
 }
 
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
