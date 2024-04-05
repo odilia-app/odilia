@@ -36,6 +36,21 @@ pub struct ScreenReaderState {
 	pub cache: Arc<Cache>,
 }
 
+pub struct Speech(pub Sender<SSIPRequest>);
+
+impl From<Arc<ScreenReaderState>> for Speech {
+    fn from(state: Arc<ScreenReaderState>) -> Speech {
+        Speech(state.ssip.clone())
+    }
+}
+
+enum ConfigType {
+	CliOverride,
+	XDGConfigHome,
+	Etc,
+	CreateDefault,
+}
+
 impl ScreenReaderState {
 	#[tracing::instrument(skip_all)]
 	pub async fn new(
