@@ -16,6 +16,7 @@ mod tower;
 
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
+use crate::tower::Handlers;
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use clap::Parser;
@@ -79,7 +80,14 @@ async fn sigterm_signal_watcher(
 	Ok(())
 }
 
+use atspi::events::document::LoadCompleteEvent;
+
 #[tracing::instrument]
+async fn doc_loaded(loaded: LoadCompleteEvent) -> Result<(), odilia_common::errors::OdiliaError> {
+    println!("Doc loaded!");
+    Ok(())
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
 	let args = Args::parse();
@@ -134,15 +142,21 @@ async fn main() -> eyre::Result<()> {
 		state.add_cache_match_rule(),
 	)?;
 
+    // load handlers
+  let mut handlers = Handlers::new(state.clone())
+    .add_listener(doc_loaded);
+
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
+  /*
 	let atspi_event_receiver =
 		events::receive(Arc::clone(&state), atspi_event_tx, token.clone())
 			.map(|()| Ok::<_, eyre::Report>(()));
 	let atspi_event_processor =
 		events::process(Arc::clone(&state), atspi_event_rx, token.clone())
 			.map(|()| Ok::<_, eyre::Report>(()));
+  */
 	let odilia_event_receiver = sr_event_receiver(sr_event_tx, token.clone())
 		.map(|r| r.wrap_err("Could not process Odilia events"));
 	let odilia_event_processor =
@@ -150,13 +164,15 @@ async fn main() -> eyre::Result<()> {
 			.map(|r| r.wrap_err("Could not process Odilia event"));
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
+  let atspi_handlers_task = handlers.atspi_handler(state.atspi.event_stream());
 
-	tracker.spawn(atspi_event_receiver);
-	tracker.spawn(atspi_event_processor);
+	//tracker.spawn(atspi_event_receiver);
+	//tracker.spawn(atspi_event_processor);
 	tracker.spawn(odilia_event_receiver);
 	tracker.spawn(odilia_event_processor);
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
+	tracker.spawn(atspi_handlers_task);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
 		.await
