@@ -1,18 +1,18 @@
 #![allow(dead_code)]
 
-use odilia_common::errors::OdiliaError;
 use atspi::events::{document::DocumentEvents, object::ObjectEvents};
 use atspi::AtspiError;
 use atspi::Event;
 use atspi::GenericEvent;
+use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
 
-use futures::future::{err, Either, Ready, ok, join_all, FutureExt, JoinAll};
+use futures::future::{err, join_all, ok, Either, FutureExt, JoinAll, Ready};
 use futures::{Stream, StreamExt};
+use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
-use std::collections::HashMap;
 
 use tower::util::BoxService;
 use tower::Layer;
@@ -30,49 +30,59 @@ impl<S> Handlers<S>
 where
 	S: Clone + Send + Sync + 'static,
 {
-  pub fn new(state: S) -> Self {
-      Handlers {
-          state,
-          atspi_handlers: HashMap::new(),
-      }
-  }
-  pub async fn atspi_handler<R>(mut self, mut events: R)
-  where R: Stream<Item = Result<Event, AtspiError>> + Unpin {
-    std::pin::pin!(&mut events);
-    while let Some(Ok(ev)) = events.next().await {
-        let r = match ev {
-            Event::Object(ObjectEvents::StateChanged(e)) => self.call_event_listeners(e).await,
-            Event::Object(ObjectEvents::TextCaretMoved(e)) => self.call_event_listeners(e).await,
-            Event::Object(ObjectEvents::ChildrenChanged(e)) => self.call_event_listeners(e).await,
-            Event::Object(ObjectEvents::TextChanged(e)) => self.call_event_listeners(e).await,
-            Event::Document(DocumentEvents::LoadComplete(e)) => self.call_event_listeners(e).await,
-            _ => {
-                println!("Not implemented yet....");
-                vec![Ok(())]
-            },
-        };
-        for res in r {
-            if let Ok(resp) = res {
-            } else if let Err(err) = res {
-                println!("ERR: {:?}", err);
-            }
-        }
-    }
-  }
-  async fn call_event_listeners<'a, E>(&mut self, ev: E) -> Vec<Result<(), Error> >
-  where
-    E: atspi::GenericEvent<'a> + Into<Event> + Send + Sync + 'a {
-    let dn = (
-        <E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
-        <E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
-    );
-    let input = ev.into();
-    let mut handlers = vec![];
-    for hand in self.atspi_handlers.entry(dn).or_default() {
-        handlers.push(hand.call(input.clone()));
-    }
-    join_all(handlers).await
-  }
+	pub fn new(state: S) -> Self {
+		Handlers { state, atspi_handlers: HashMap::new() }
+	}
+	pub async fn atspi_handler<R>(mut self, mut events: R)
+	where
+		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
+	{
+		std::pin::pin!(&mut events);
+		while let Some(Ok(ev)) = events.next().await {
+			let r = match ev {
+				Event::Object(ObjectEvents::StateChanged(e)) => {
+					self.call_event_listeners(e).await
+				}
+				Event::Object(ObjectEvents::TextCaretMoved(e)) => {
+					self.call_event_listeners(e).await
+				}
+				Event::Object(ObjectEvents::ChildrenChanged(e)) => {
+					self.call_event_listeners(e).await
+				}
+				Event::Object(ObjectEvents::TextChanged(e)) => {
+					self.call_event_listeners(e).await
+				}
+				Event::Document(DocumentEvents::LoadComplete(e)) => {
+					self.call_event_listeners(e).await
+				}
+				_ => {
+					println!("Not implemented yet....");
+					vec![Ok(())]
+				}
+			};
+			for res in r {
+				if let Ok(resp) = res {
+				} else if let Err(err) = res {
+					println!("ERR: {:?}", err);
+				}
+			}
+		}
+	}
+	async fn call_event_listeners<'a, E>(&mut self, ev: E) -> Vec<Result<(), Error>>
+	where
+		E: atspi::GenericEvent<'a> + Into<Event> + Send + Sync + 'a,
+	{
+		let dn = (
+			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
+			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+		);
+		let input = ev.into();
+		let mut handlers = vec![];
+		for hand in self.atspi_handlers.entry(dn).or_default() {
+			handlers.push(hand.call(input.clone()));
+		}
+		join_all(handlers).await
+	}
 	pub fn add_listener<'a, H, T, E>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, S, E> + Send + Sync + 'static,
@@ -85,18 +95,13 @@ where
 		let state = self.state.clone();
 		let ws = handler.with_state(state);
 		let tfserv = tflayer.layer(ws);
-    let dn = (
-        <E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
-        <E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
-    );
+		let dn = (
+			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
+			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+		);
 		let bs = BoxService::new(tfserv);
-		self.atspi_handlers.entry(dn)
-        .or_default()
-        .push(bs);
-    Self {
-        state: self.state,
-        atspi_handlers: self.atspi_handlers,
-    }
+		self.atspi_handlers.entry(dn).or_default().push(bs);
+		Self { state: self.state, atspi_handlers: self.atspi_handlers }
 	}
 }
 
