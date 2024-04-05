@@ -20,7 +20,7 @@ use ssip::Request as SSIPRequest;
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::Handlers;
+use crate::tower::{Handlers, Command};
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -85,12 +85,12 @@ async fn sigterm_signal_watcher(
 use atspi::events::document::LoadCompleteEvent;
 
 #[tracing::instrument]
-async fn doc_loaded(loaded: LoadCompleteEvent, Speech(ssip): Speech) -> Result<(), odilia_common::errors::OdiliaError> {
+async fn doc_loaded(loaded: LoadCompleteEvent, Speech(ssip): Speech) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
   ssip.send(SSIPRequest::SetPriority(Priority::Text)).await.unwrap();
   ssip.send(SSIPRequest::Speak).await.unwrap();
   ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()]))).await.unwrap();
-	Ok(())
+	Ok(vec![])
 }
 
 #[tokio::main(flavor = "current_thread")]

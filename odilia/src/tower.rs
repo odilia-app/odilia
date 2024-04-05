@@ -18,13 +18,15 @@ use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
-type Response = ();
+pub struct Command;
+
+type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
 pub struct Handlers<S> {
 	state: S,
-	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, (), Error>>>,
+	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
 }
 impl<S> Handlers<S>
 where
@@ -57,7 +59,7 @@ where
 				}
 				_ => {
 					println!("Not implemented yet....");
-					vec![Ok(())]
+					vec![Ok(vec![])]
 				}
 			};
 			for res in r {
@@ -68,7 +70,7 @@ where
 			}
 		}
 	}
-	async fn call_event_listeners<'a, E>(&mut self, ev: E) -> Vec<Result<(), Error>>
+	async fn call_event_listeners<'a, E>(&mut self, ev: E) -> Vec<Result<Response, Error>>
 	where
 		E: atspi::GenericEvent<'a> + Into<Event> + Send + Sync + 'a,
 	{
