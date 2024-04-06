@@ -79,11 +79,16 @@ where
 			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
 		);
 		let input = ev.into();
-		let mut handlers = vec![];
+    // NOTE: Why not use join_all(...) ?
+    // Because this drives the futures concurrently, and we want ordered handlers.
+    // Otherwise, we cannot guarentee that the caching functions get run first.
+    // we could move caching to a separate, ordered system, then parallelize the other functions,
+    // if we determine this is a performance problem.
+    let mut results = vec![];
 		for hand in self.atspi_handlers.entry(dn).or_default() {
-			handlers.push(hand.call(input.clone()));
+			results.push(hand.call(input.clone()).await);
 		}
-		join_all(handlers).await
+		results
 	}
 	pub fn add_listener<'a, H, T, E>(mut self, handler: H) -> Self
 	where
