@@ -18,7 +18,10 @@ use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
-pub struct Command;
+#[derive(Debug)]
+pub enum Command {
+    Speak(String),
+}
 
 type Response = Vec<Command>;
 type Request = Event;
@@ -27,13 +30,14 @@ type Error = OdiliaError;
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
+  command_handlers: HashMap<Command, Vec<BoxService<Command, (), Error>>>,
 }
 impl<S> Handlers<S>
 where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new() }
+		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: HashMap::new() }
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
@@ -108,7 +112,7 @@ where
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers }
+		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
 	}
 }
 

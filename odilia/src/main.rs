@@ -84,7 +84,7 @@ async fn sigterm_signal_watcher(
 
 use atspi::events::document::LoadCompleteEvent;
 
-#[tracing::instrument]
+#[tracing::instrument(ret)]
 async fn doc_loaded(loaded: LoadCompleteEvent, Speech(ssip): Speech) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
   ssip.send(SSIPRequest::SetPriority(Priority::Text)).await.unwrap();
