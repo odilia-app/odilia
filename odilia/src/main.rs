@@ -44,7 +44,7 @@ async fn notifications_monitor(
 		tokio::select! {
 		    Some(notification) = stream.next() => {
 		      let notification_message =
-			format!("new notification: {}, {}.", notification.title, notification.body);
+			format!("new notification: {}, {}, {}.", notification.app_name, notification.title, notification.body);
 		      state.say(Priority::Important, notification_message).await;
 		    },
 		    () = shutdown.cancelled() => {
