@@ -21,14 +21,17 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::mpsc::Sender};
 use tokio_util::sync::CancellationToken;
 
+#[tracing::instrument(ret)]
 fn get_log_file_name() -> String {
+	tracing::info!("getting unix timestamp for current time");
 	let time = if let Ok(n) = SystemTime::now().duration_since(UNIX_EPOCH) {
+		tracing::info!(timestamp=?n, "success");
 		n.as_secs().to_string()
 	} else {
-		tracing::error!("SystemTime before UnixEpoch!");
+		tracing::error!("SystemTime before UnixEpoch? how is that possible?");
 		exit(1);
 	};
-
+	tracing::info!("searching for xdg environment variables");
 	match env::var("XDG_DATA_HOME") {
 		Ok(val) => {
 			tracing::info!(
@@ -37,7 +40,7 @@ fn get_log_file_name() -> String {
 			format!("{val}/sohks/sohks-{time}.log")
 		}
 		Err(e) => {
-			tracing::trace!(
+			tracing::warn!(
                 "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
                 e
             );
@@ -48,11 +51,12 @@ fn get_log_file_name() -> String {
 }
 
 /// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
-/// This function will exit upon cancelation via a message from `shutdown_rx` parameter.
+/// This function will exit upon the expiry of the cancellation token passed in.
 /// # Errors
 /// This function will return an error type if the same function is already running.
 /// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
 /// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
+#[tracing::instrument(skip_all)]
 pub async fn sr_event_receiver(
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown: CancellationToken,
@@ -62,6 +66,7 @@ pub async fn sr_event_receiver(
 
 	let log_path = Path::new(&log_file_name);
 	tracing::debug!("Socket file located at: {:?}", sock_file_path);
+	tracing::debug!("creating log directory");
 	if let Some(p) = log_path.parent() {
 		if !p.exists() {
 			if let Err(e) = fs::create_dir_all(p).await {
@@ -70,10 +75,11 @@ pub async fn sr_event_receiver(
 		}
 	}
 
+	tracing::debug!("checking for already running program");
 	if Path::new(&pid_file_path).exists() {
-		tracing::trace!(
-			"Reading {} file and checking for running instances.",
-			pid_file_path
+		tracing::debug!(
+			%pid_file_path, "Reading pid file  and checking for running instances"
+
 		);
 		let odilias_pid = match fs::read_to_string(&pid_file_path).await {
 			Ok(odilias_pid) => odilias_pid,
@@ -98,7 +104,7 @@ pub async fn sr_event_receiver(
 	}
 
 	if Path::new(&sock_file_path).exists() {
-		tracing::trace!("Sockfile exists, attempting to remove it.");
+		tracing::debug!("Sockfile exists, attempting to remove it.");
 		match fs::remove_file(&sock_file_path).await {
 			Ok(()) => {
 				tracing::debug!("Removed old socket file");
@@ -113,6 +119,7 @@ pub async fn sr_event_receiver(
 			}
 		};
 	}
+	tracing::debug!(%pid_file_path, "writing current ID to pid file");
 
 	match fs::write(&pid_file_path, id().to_string()).await {
 		Ok(()) => {}
@@ -155,7 +162,7 @@ pub async fn sr_event_receiver(
 			    continue;
 			}
 			() = shutdown.cancelled() => {
-			    tracing::debug!("Shutting down input socker.");
+			    tracing::debug!("Shutting down input socket due to cancellation token");
 			    break;
 			}
 		    }
@@ -163,6 +170,7 @@ pub async fn sr_event_receiver(
 	Ok(())
 }
 
+#[tracing::instrument(ret)]
 fn get_file_paths() -> (String, String) {
 	match env::var("XDG_RUNTIME_DIR") {
 		Ok(val) => {
@@ -176,7 +184,7 @@ fn get_file_paths() -> (String, String) {
 			(pid_file_path, sock_file_path)
 		}
 		Err(e) => {
-			tracing::trace!("XDG_RUNTIME_DIR Variable is not set, falling back on hardcoded path.\nError: {:#?}", e);
+			tracing::warn!(error=%e, "XDG_RUNTIME_DIR Variable is not set, falling back to hardcoded path");
 
 			let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
 			let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
