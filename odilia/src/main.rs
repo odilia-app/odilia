@@ -13,6 +13,7 @@ mod events;
 mod logging;
 mod state;
 mod tower;
+mod commands;
 
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
