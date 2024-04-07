@@ -96,7 +96,7 @@ where
 	}
 	pub fn add_listener<'a, H, T, E>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, S, E> + Send + Sync + 'static,
+		H: Handler<T, S, E, Response = Vec<Command>> + Send + Sync + 'static,
 		E: atspi::GenericEvent<'a> + TryFrom<Event> + Send + Sync + 'static,
 		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
 		OdiliaError: From<<E as TryFrom<Event>>::Error>,
@@ -166,7 +166,8 @@ where
 }
 
 pub trait Handler<T, S, E>: Clone {
-	type Future: Future<Output = Result<Response, Error>> + Send + 'static;
+	type Response;
+	type Future: Future<Output = Result<Self::Response, Error>> + Send + 'static;
 	fn with_state(self, state: S) -> HandlerService<Self, T, S, E> {
 		HandlerService { handler: self, state, _marker: PhantomData }
 	}
@@ -179,6 +180,7 @@ where
 	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
 	S: Clone,
 {
+	type Response = Response;
 	type Future = Fut;
 	fn call(self, _req: E, _state: S) -> Self::Future {
 		self()
@@ -191,6 +193,7 @@ where
 	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
 	S: Clone,
 {
+	type Response = Response;
 	type Future = Fut;
 	fn call(self, req: E, _state: S) -> Self::Future {
 		self(req)
@@ -204,6 +207,7 @@ where
 	T1: From<S>,
 {
 	type Future = Fut;
+	type Response = Response;
 	fn call(self, req: E, state: S) -> Self::Future {
 		self(req, (state.clone()).into())
 	}
@@ -223,6 +227,7 @@ where
 	T1: From<S>,
 	T2: From<S>,
 {
+	type Response = Response;
 	type Future = Fut;
 	fn call(self, req: E, state: S) -> Self::Future {
 		self(req, state.clone().into(), state.clone().into())
@@ -243,7 +248,7 @@ where
 	E: TryFrom<Request>,
 	<E as TryFrom<Request>>::Error: std::fmt::Debug,
 {
-	type Response = Response;
+	type Response = <H as Handler<T, S, E>>::Response;
 	type Future = <H as Handler<T, S, E>>::Future;
 	type Error = Error;
 
