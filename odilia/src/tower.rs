@@ -94,7 +94,7 @@ where
 		}
 		results
 	}
-	pub fn add_listener<'a, H, T, E>(mut self, handler: H) -> Self
+	pub fn atspi_listener<'a, H, T, E>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, S, E, Response = Vec<Command>> + Send + Sync + 'static,
 		E: atspi::GenericEvent<'a> + TryFrom<Event> + Send + Sync + 'static,

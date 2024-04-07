@@ -149,7 +149,7 @@ async fn main() -> eyre::Result<()> {
 	)?;
 
 	// load handlers
-	let mut handlers = Handlers::new(state.clone()).add_listener(doc_loaded);
+	let mut handlers = Handlers::new(state.clone()).atspi_listener(doc_loaded);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
