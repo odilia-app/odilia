@@ -9,6 +9,7 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
+use futures::future::MaybeDone;
 use futures::future::BoxFuture;
 use futures::future::{err, join_all, ok, Either, JoinAll, Ready, FutureExt as FatFutureExt};
 use futures_lite::FutureExt;
@@ -16,6 +17,7 @@ use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
+use std::collections::VecDeque;
 
 use tower::util::BoxService;
 use tower::util::BoxCloneService;
@@ -33,30 +35,47 @@ type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
-pub struct SerialFutures<'a, T, O> {
-    inner: Vec<BoxFuture<'a, T>>,
-    complete: Vec<T>,
-    _marker: PhantomData<O>,
+/// `SerialFuture` is a way to link a variable number of dependent futures.
+/// You can race!() two `SerialFuture`s, which will cause the two, non-dependent chains of futures to poll concurrently, while completing the individual serial futures, well, serially.
+/// 
+/// Why not just use `.await`? like so:
+///
+/// ```rust,norun
+/// return (fut1.await, fut2.await, ...);
+/// ```
+///
+/// Because you may have a variable number of functions that need to run in series.
+/// Think of handlers for an event, if you want the results to be deterministic, you will need to run the event listeners in series, even if multiple events could come in and each trigger its own set of listeners to execute syhncronously, the set of all even listeners can technically be run concorrently.
+pub struct SerialFutures<F>
+where F: Future {
+		// TODO: look into MaybeDone
+    inner: Pin<Box<[MaybeDone<F>]>>,
 }
-impl<'a, T, O> Future for SerialFutures<'a, T, O> 
-where O: FromIterator<T> {
-    type Output = O;
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut all_done = true;
-        for fut in self.inner.as_mut() {
-            if fut.poll(cx).is_pending() {
-                all_done = false;
-            }
-        }
-        if !all_done {
-            return Poll::Pending;
-        }
-        Poll::Ready(
-            self.inner
-                .iter_mut()
-                .map(|e| e.now_or_never().unwrap())
-                .collect()
-        )
+fn serial_futures<I>(iter: I) -> SerialFutures<I::Item> 
+where I: IntoIterator,
+I::Item: Future {
+	SerialFutures {
+		inner: iter.into_iter().map(MaybeDone::Future).collect::<Box<[_]>>().into(),
+	}
+}
+impl<F> Unpin for SerialFutures<F>
+where F: Future {}
+
+impl<F> Future for SerialFutures<F>
+where F: Future + Unpin {
+    type Output = Vec<F::Output>;
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+			for mut mfut in self.inner.as_mut().get_mut() {
+				match mfut {
+					MaybeDone::Future(fut) => match fut.poll(cx) {
+						Poll::Pending => return Poll::Pending,
+						_ => { continue; },
+					},
+					_ => { continue; },
+				}
+			}
+			let result = self.inner.as_mut().get_mut().iter_mut().map(|f| Pin::new(f)).map(|e| e.take_output().unwrap()).collect();
+			Poll::Ready(result)
     }
 }
 
@@ -64,27 +83,37 @@ pub struct SerialHandlers<I, O, E, F> {
     inner: Vec<BoxService<I, O, E>>,
     _marker: PhantomData<F>,
 }
-impl<I, O, E, F> Service<I> for SerialHandlers<I, O, E, F>
+
+pub trait MultiService<Request> {
+    type Response;
+    type Error;
+    type Future: Future<Output = Vec<Result<Self::Response, Self::Error>>>;
+
+    fn poll_ready(
+        &mut self, 
+        cx: &mut Context<'_>
+    ) -> Poll<Result<(), Self::Error>>;
+    fn call(&mut self, req: Request) -> Self::Future;
+}
+
+impl<I, O, E, F> MultiService<I> for SerialHandlers<I, O, E, F>
 where F: Future<Output = Result<O, E>>,
       I: Clone {
     type Response = O;
     type Error = E;
-    type Future = F;
+    type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
     fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
         for mut service in &mut self.inner {
-            match service.poll_ready(ctx) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(Ok(_)) => continue,
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
-            }
+            let _ = service.poll_ready(ctx)?;
         }
         Poll::Ready(Ok(()))
     }
     fn call(&mut self, req: I) -> Self::Future {
+				let mut futs = vec![];
         for mut service in &mut self.inner {
-            let _ = service.call(req.clone());
+            futs.push(service.call(req.clone()));
         }
-        todo!()
+				serial_futures(futs)
     }
 }
 
