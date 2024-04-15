@@ -79,14 +79,12 @@ where F: futures::TryFuture + Unpin {
     }
 }
 
-pub struct SerialHandlers<I, O, E, F> {
+pub struct SerialHandlers<I, O, E> {
     inner: Vec<BoxService<I, O, E>>,
-    _marker: PhantomData<F>,
 }
 
-impl<I, O, E, F> Service<I> for SerialHandlers<I, O, E, F>
-where F: Future<Output = Result<O, E>>,
-      I: Clone {
+impl<I, O, E> Service<I> for SerialHandlers<I, O, E>
+where I: Clone {
     type Response = Vec<Result<O, E>>;
     type Error = E;
     type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
@@ -108,7 +106,9 @@ where F: Future<Output = Result<O, E>>,
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
+	//hands2: Steer<BoxService<Event, Response, Error>, EventTypePicker, Event>,
 }
+
 impl<S> Handlers<S>
 where
 	S: Clone + Send + Sync + 'static,
