@@ -7,14 +7,20 @@ use atspi::GenericEvent;
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
+use std::pin::Pin;
 
-use futures::future::{err, join_all, ok, Either, FutureExt, JoinAll, Ready};
+use futures::future::BoxFuture;
+use futures::future::{err, join_all, ok, Either, JoinAll, Ready, FutureExt as FatFutureExt};
+use futures_lite::FutureExt;
 use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
 
 use tower::util::BoxService;
+use tower::util::BoxCloneService;
+use tower::steer::Steer;
+use tower::steer::Picker;
 use tower::Layer;
 use tower::Service;
 
@@ -27,17 +33,71 @@ type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
+pub struct SerialFutures<'a, T, O> {
+    inner: Vec<BoxFuture<'a, T>>,
+    complete: Vec<T>,
+    _marker: PhantomData<O>,
+}
+impl<'a, T, O> Future for SerialFutures<'a, T, O> 
+where O: FromIterator<T> {
+    type Output = O;
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut all_done = true;
+        for fut in self.inner.as_mut() {
+            if fut.poll(cx).is_pending() {
+                all_done = false;
+            }
+        }
+        if !all_done {
+            return Poll::Pending;
+        }
+        Poll::Ready(
+            self.inner
+                .iter_mut()
+                .map(|e| e.now_or_never().unwrap())
+                .collect()
+        )
+    }
+}
+
+pub struct SerialHandlers<I, O, E, F> {
+    inner: Vec<BoxService<I, O, E>>,
+    _marker: PhantomData<F>,
+}
+impl<I, O, E, F> Service<I> for SerialHandlers<I, O, E, F>
+where F: Future<Output = Result<O, E>>,
+      I: Clone {
+    type Response = O;
+    type Error = E;
+    type Future = F;
+    fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
+        for mut service in &mut self.inner {
+            match service.poll_ready(ctx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Ok(_)) => continue,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            }
+        }
+        Poll::Ready(Ok(()))
+    }
+    fn call(&mut self, req: I) -> Self::Future {
+        for mut service in &mut self.inner {
+            let _ = service.call(req.clone());
+        }
+        todo!()
+    }
+}
+
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
-  command_handlers: HashMap<Command, Vec<BoxService<Command, (), Error>>>,
 }
 impl<S> Handlers<S>
 where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: HashMap::new() }
+		Handlers { state, atspi_handlers: HashMap::new() }
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
@@ -112,7 +172,7 @@ where
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
+		Self { state: self.state, atspi_handlers: self.atspi_handlers }
 	}
 }
 

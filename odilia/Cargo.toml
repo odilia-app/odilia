@@ -58,8 +58,9 @@ tokio-util.workspace=true
 toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
-tower = { version = "0.4.13", features = ["util", "filter"] }
+tower = { version = "0.4.13", features = ["util", "filter", "steer"] }
 ssip = "0.1.0"
+futures-lite = "2.3.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
