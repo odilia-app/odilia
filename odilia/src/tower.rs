@@ -53,7 +53,7 @@ where F: Future {
 }
 fn serial_futures<I>(iter: I) -> SerialFutures<I::Item> 
 where I: IntoIterator,
-I::Item: Future {
+I::Item: futures::TryFuture {
 	SerialFutures {
 		inner: iter.into_iter().map(MaybeDone::Future).collect::<Box<[_]>>().into(),
 	}
@@ -62,8 +62,8 @@ impl<F> Unpin for SerialFutures<F>
 where F: Future {}
 
 impl<F> Future for SerialFutures<F>
-where F: Future + Unpin {
-    type Output = Vec<F::Output>;
+where F: futures::TryFuture + Unpin {
+    type Output = Result<Vec<F::Output>, F::Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 			for mut mfut in self.inner.as_mut().get_mut() {
 				match mfut {
@@ -75,7 +75,7 @@ where F: Future + Unpin {
 				}
 			}
 			let result = self.inner.as_mut().get_mut().iter_mut().map(|f| Pin::new(f)).map(|e| e.take_output().unwrap()).collect();
-			Poll::Ready(result)
+			Poll::Ready(Ok(result))
     }
 }
 
@@ -84,22 +84,10 @@ pub struct SerialHandlers<I, O, E, F> {
     _marker: PhantomData<F>,
 }
 
-pub trait MultiService<Request> {
-    type Response;
-    type Error;
-    type Future: Future<Output = Vec<Result<Self::Response, Self::Error>>>;
-
-    fn poll_ready(
-        &mut self, 
-        cx: &mut Context<'_>
-    ) -> Poll<Result<(), Self::Error>>;
-    fn call(&mut self, req: Request) -> Self::Future;
-}
-
-impl<I, O, E, F> MultiService<I> for SerialHandlers<I, O, E, F>
+impl<I, O, E, F> Service<I> for SerialHandlers<I, O, E, F>
 where F: Future<Output = Result<O, E>>,
       I: Clone {
-    type Response = O;
+    type Response = Vec<Result<O, E>>;
     type Error = E;
     type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
     fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
