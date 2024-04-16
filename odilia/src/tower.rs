@@ -9,6 +9,8 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
+use futures::stream::iter;
+use futures::future::{Lazy, lazy};
 use futures::future::MaybeDone;
 use futures::future::BoxFuture;
 use futures::future::{err, join_all, ok, Either, JoinAll, Ready, FutureExt as FatFutureExt};
@@ -84,16 +86,22 @@ pub struct SerialHandlers<I, O, E> {
 }
 
 impl<I, O, E> Service<I> for SerialHandlers<I, O, E>
-where I: Clone {
+where I: Clone + Send + Sync + Default,
+			O: Send,
+			E: Send {
     type Response = Vec<Result<O, E>>;
     type Error = E;
-    type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
+    //type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
+    type Future = Box<dyn Future<Output = Result<Vec<Result<O, E>>, E>> + Send + Unpin>;
+    //type Future = Box<dyn Future<Output=()> + Send + Unpin>;
     fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
         for mut service in &mut self.inner {
             let _ = service.poll_ready(ctx)?;
         }
         Poll::Ready(Ok(()))
     }
+
+		/*
     fn call(&mut self, req: I) -> Self::Future {
 				let mut futs = vec![];
         for mut service in &mut self.inner {
@@ -101,12 +109,34 @@ where I: Clone {
         }
 				serial_futures(futs)
     }
+		*/
+    fn call(&mut self, req: I) -> Self::Future {
+				Box::new(
+							iter(
+								self.inner.iter_mut()
+										.map(|s| (s, req.clone()))
+										.map(futures::future::ready)
+							)
+							.then(|f| f)
+							.then(|(f,i)| f.call(i))
+							.collect::<Vec<Result<O,E>>>()
+							.map(|v| Ok(v))
+				)
+				/*
+				let mut futs = vec![];
+        for mut service in &mut self.inner {
+            futs.push(service.call(req.clone()));
+        }
+				Box::new(
+					iter(futs).flatten()
+				)
+				*/
+    }
 }
 
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
-	//hands2: Steer<BoxService<Event, Response, Error>, EventTypePicker, Event>,
 }
 
 impl<S> Handlers<S>
