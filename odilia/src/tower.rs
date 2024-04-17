@@ -82,18 +82,46 @@ where F: futures::TryFuture + Unpin {
 }
 
 pub struct SerialHandlers<I, O, E> {
-    inner: Vec<BoxService<I, O, E>>,
+    inner: Vec<BoxCloneService<I, O, E>>,
+}
+#[pin_project::pin_project]
+pub struct SerialServiceFuture<I, O, E> {
+	req: I,
+	inner: Vec<BoxCloneService<I, O, E>>,
+	results: Vec<Result<O, E>>,
+}
+
+impl<I, O, E> Future for SerialServiceFuture<I, O, E>
+where
+    I: Clone,
+    // Assuming YourInnerType implements a call function.
+{
+    type Output = Result<Vec<Result<O, E>>, E>;
+
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let rc = self.req.clone();
+				let mut this = self.project();
+        loop {
+            if let Some(s) = this.inner.into_iter().next() {
+                match s.call(rc.clone()).poll(cx) {
+										Poll::Pending => return Poll::Pending,
+										Poll::Ready(result) => {
+											this.results.push(result);
+										},
+								}
+            }
+        }
+				return Poll::Ready(Ok(self.results));
+    }
 }
 
 impl<I, O, E> Service<I> for SerialHandlers<I, O, E>
-where I: Clone + Send + Sync + Default,
+where I: Clone + Send + Sync,
 			O: Send,
 			E: Send {
     type Response = Vec<Result<O, E>>;
     type Error = E;
-    //type Future = SerialFutures<Pin<Box<dyn futures_lite::Future<Output = Result<O, E>> + std::marker::Send>>>;
-    type Future = Box<dyn Future<Output = Result<Vec<Result<O, E>>, E>> + Send + Unpin>;
-    //type Future = Box<dyn Future<Output=()> + Send + Unpin>;
+    type Future = SerialServiceFuture<I, O, E>;
     fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
         for mut service in &mut self.inner {
             let _ = service.poll_ready(ctx)?;
@@ -101,42 +129,51 @@ where I: Clone + Send + Sync + Default,
         Poll::Ready(Ok(()))
     }
 
-		/*
     fn call(&mut self, req: I) -> Self::Future {
-				let mut futs = vec![];
-        for mut service in &mut self.inner {
-            futs.push(service.call(req.clone()));
-        }
-				serial_futures(futs)
+				let len = self.inner.len();
+				let ic = self.inner.clone();
+				SerialServiceFuture {
+					inner: ic,
+					req,
+					results: Vec::with_capacity(len),
+				}
     }
-		*/
-    fn call(&mut self, req: I) -> Self::Future {
-				Box::new(
-							iter(
-								self.inner.iter_mut()
-										.map(|s| (s, req.clone()))
-										.map(futures::future::ready)
-							)
-							.then(|f| f)
-							.then(|(f,i)| f.call(i))
-							.collect::<Vec<Result<O,E>>>()
-							.map(|v| Ok(v))
-				)
-				/*
-				let mut futs = vec![];
-        for mut service in &mut self.inner {
-            futs.push(service.call(req.clone()));
-        }
-				Box::new(
-					iter(futs).flatten()
-				)
-				*/
-    }
+}
+
+struct EventTypePicker {
+	types: Vec<(String, String)>,
+}
+impl EventTypePicker {
+	fn new() -> Self {
+		EventTypePicker { types: vec![] }
+	}
+	fn add_if_new_event_type<'a, E>(&mut self) 
+	where E: GenericEvent<'a> {
+		let dn = (
+			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
+			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+		);
+		let mut idx = None;
+		for (i,di) in self.types.iter().enumerate() {
+			if di == &dn {
+				idx = Some(i);
+			}
+		}
+		if let None = idx {
+			self.types.push(dn);
+		}
+	}
+}
+impl Picker<SerialHandlers<Event, Response, Error>, Event> for EventTypePicker {
+	fn pick(&mut self, r: &Event, services: &[SerialHandlers<Event, Response, Error>]) -> usize {
+		todo!()
+	}
 }
 
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
+	hands2: Steer<SerialHandlers<Event, Response, Error>, EventTypePicker, Event>,
 }
 
 impl<S> Handlers<S>
@@ -144,7 +181,7 @@ where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new() }
+		Handlers { state, atspi_handlers: HashMap::new(), hands2: Steer::new(vec![], EventTypePicker::new()) }
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
@@ -219,7 +256,7 @@ where
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers }
+		Self { state: self.state, atspi_handlers: self.atspi_handlers, hands2: Steer::new(vec![], EventTypePicker::new()) }
 	}
 }
 
