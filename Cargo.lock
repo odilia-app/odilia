@@ -351,34 +351,20 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atspi"
-version = "0.16.0"
+version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c9212da2086f77502f3f384c2c802705f0681cc4937be2417978f8e6243099b3"
+checksum = "0b0e6aa3f7b617b3fd296defcbd186159e8182f968805ce4b509f8aa2bddaa30"
 dependencies = [
- "atspi-client",
  "atspi-common",
  "atspi-connection",
  "atspi-proxies",
 ]
 
 [[package]]
-name = "atspi-client"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e464e7a0e29d619091668329fe3b0de0351227f9a7bf36ce3c79e2c417f744c5"
-dependencies = [
- "async-trait",
- "atspi-common",
- "atspi-proxies",
- "static_assertions",
- "zbus",
-]
-
-[[package]]
 name = "atspi-common"
-version = "0.1.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d03467fb79afd9e86e63aa908d542df63171abb02e66cb4e28978ec1e1da7870"
+checksum = "67f7c733947d5eb53e7b6c740b8822428813c9f6fd8745c02aa890fde87b5dd6"
 dependencies = [
  "enumflags2",
  "serde",
@@ -390,42 +376,23 @@ dependencies = [
 
 [[package]]
 name = "atspi-connection"
-version = "0.1.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8531aef8ca768b5ecc601b2838dba66b7142f24c5dde587be0900aef96eaf43f"
+checksum = "2980b9b690d2a76554cc3e3a984ff69c79ba7cc100f919c39f443780437b81bc"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
- "futures-lite 1.13.0",
+ "futures-lite 2.2.0",
  "zbus",
-]
-
-[[package]]
-name = "atspi-macros"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95a1ad0c51b69e83d6f551707598e0b53d14336b16867d0372df31210556c0b0"
-dependencies = [
- "proc-macro-crate",
- "proc-macro2",
- "quote",
- "regex",
- "serde",
- "syn 1.0.109",
- "zbus",
- "zvariant",
 ]
 
 [[package]]
 name = "atspi-proxies"
-version = "0.1.0"
+version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c539f2c42b6f9c513902c55cf1c48c78140a186b63feb77df1845ef8464275a0"
+checksum = "0619da7b6b282cea5a94b8536526659fccab4a0677cee1d05c6783b37ae5a2e8"
 dependencies = [
- "async-trait",
  "atspi-common",
- "atspi-macros",
- "enumflags2",
  "serde",
  "zbus",
 ]
@@ -1506,7 +1473,6 @@ name = "odilia"
 version = "0.1.4"
 dependencies = [
  "atspi",
- "atspi-client",
  "atspi-common",
  "atspi-connection",
  "atspi-proxies",
@@ -1541,7 +1507,6 @@ version = "0.3.0"
 dependencies = [
  "async-trait",
  "atspi",
- "atspi-client",
  "atspi-common",
  "atspi-connection",
  "atspi-proxies",
@@ -1990,18 +1955,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fb1c873e1b9b056a4dc4c0c198b24c3ffa059243875552b2bd0933b1aee4ce2"
 dependencies = [
  "serde_derive",
-]
-
-[[package]]
-name = "serde-xml-rs"
-version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0bf1ba0696ccf0872866277143ff1fd14d22eec235d2b23702f95e6660f7dfa"
-dependencies = [
- "log",
- "serde",
- "thiserror",
- "xml-rs",
 ]
 
 [[package]]
@@ -2829,12 +2782,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "xml-rs"
-version = "0.8.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0fcb9cbac069e033553e8bb871be2fbdffcab578eb25bd0f7c508cedc6dcd75a"
-
-[[package]]
 name = "zbus"
 version = "3.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2863,7 +2810,6 @@ dependencies = [
  "ordered-stream",
  "rand",
  "serde",
- "serde-xml-rs",
  "serde_repr",
  "sha1",
  "static_assertions",
