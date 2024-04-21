@@ -5,11 +5,10 @@ use atspi_proxies::{
 	collection::CollectionProxy, component::ComponentProxy, document::DocumentProxy,
 	editable_text::EditableTextProxy, hyperlink::HyperlinkProxy, hypertext::HypertextProxy,
 	image::ImageProxy, selection::SelectionProxy, table::TableProxy,
-	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy, AtspiProxy,
+	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
 use std::ops::Deref;
 use zbus::{
-	blocking::Proxy as ProxyBlocking, blocking::ProxyBuilder as ProxyBuilderBlocking,
 	CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault,
 };
 

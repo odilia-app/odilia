@@ -18,8 +18,6 @@ use std::{
 	sync::{Arc, RwLock, Weak},
 };
 
-use async_trait::async_trait;
-use atspi_client::{convertable::Convertable, text_ext::TextExt};
 use atspi_common::{
 	object_ref::ObjectRef, ClipType, CoordType, GenericEvent, Granularity, InterfaceSet,
 	RelationType, Role, StateSet,

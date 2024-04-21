@@ -2,64 +2,64 @@ use crate::convertable::Convertable;
 use crate::AccessiblePrimitive;
 use crate::CacheProperties;
 use crate::OdiliaError;
-use async_trait::async_trait;
-use atspi_common::{AtspiError as Error, MatchArgs, ObjectRef, RelationType, Role};
-use atspi_proxies::{accessible::AccessibleProxy, hyperlink::HyperlinkProxy, text::TextProxy};
+use atspi_common::{AtspiError as Error, ObjectRef, RelationType, Role};
+use atspi_proxies::accessible::AccessibleProxy;
 use std::collections::HashMap;
+use std::future::Future;
 
 pub trait AccessibleExt {
 	type Error: std::error::Error;
-	async fn get_application_ext<'a>(&self) -> Result<AccessibleProxy<'a>, Self::Error>
+	fn get_application_ext<'a>(&self) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_parent_ext<'a>(&self) -> Result<AccessibleProxy<'a>, Self::Error>
+	fn get_parent_ext<'a>(&self) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_children_ext<'a>(&self) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	fn get_children_ext<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_siblings<'a>(&self) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	fn get_siblings<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_children_indexes<'a>(&self) -> Result<Vec<i32>, Self::Error>;
-	async fn get_siblings_before<'a>(&self) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	fn get_children_indexes<'a>(&self) -> impl Future<Output = Result<Vec<i32>, Self::Error>> + Send;
+	fn get_siblings_before<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_siblings_after<'a>(&self) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	fn get_siblings_after<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_children_caret<'a>(
+	fn get_children_caret<'a>(
 		&self,
 		after: bool,
-	) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
 	/* TODO: not sure where these should go since it requires both Text as a self interface and
 	 * Hyperlink as children interfaces. */
-	async fn get_next<'a>(
+	fn get_next<'a>(
 		&self,
 		role: Role,
 		backward: bool,
 		already_visited: &'a mut Vec<ObjectRef>,
-	) -> Result<Option<AccessibleProxy<'a>>, Self::Error>
+	) -> impl Future<Output = Result<Option<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
 	/// Get all edges for a given accessible object.
 	/// This means: all children, siblings, and parent, in that order.
 	/// If a direction is specified, then it will only get the appicable matching siblings/children.
 	/// This also checks if the element supports the text interface, and then checks if the caret position is contained within the string, if it is, then children are also handled by direction.
-	async fn edges<'a>(
+	fn edges<'a>(
 		&self,
 		backward: Option<bool>,
-	) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn get_relation_set_ext<'a>(
+	fn get_relation_set_ext<'a>(
 		&self,
-	) -> Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>
+	) -> impl Future<Output = Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	async fn match_(&self, role: Role) -> Result<bool, OdiliaError>;
+	fn match_(&self, role: Role) -> impl Future<Output = Result<bool, OdiliaError>> + Send;
 }
 
 #[allow(clippy::module_name_repetitions)]
