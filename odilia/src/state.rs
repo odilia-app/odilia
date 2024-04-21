@@ -5,16 +5,21 @@ use eyre::WrapErr;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, Instrument};
-use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
+use zbus::{
+	fdo::DBusProxy,
+	names::{BusName, UniqueName},
+	zvariant::ObjectPath,
+	MatchRule, MessageType,
+};
 
-use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
 use atspi_common::{
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
 	Event,
 };
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::Convertable;
+use odilia_cache::{AccessibleExt, AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
 	errors::CacheError,
 	modes::ScreenReaderMode,
@@ -43,7 +48,7 @@ impl ScreenReaderState {
 		ssip: Sender<SSIPRequest>,
 		config: ApplicationConfig,
 	) -> eyre::Result<ScreenReaderState> {
-		let atspi = AccessibilityConnection::open()
+		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
 			.await
 			.wrap_err("Could not connect to at-spi bus")?;
@@ -122,6 +127,22 @@ impl ScreenReaderState {
 		let prim = atspi_cache_item.object.clone().into();
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_cache_item(
+				atspi_cache_item,
+				Arc::downgrade(&Arc::clone(&self.cache)),
+				self.atspi.connection(),
+			)
+			.await?)?;
+		}
+		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
+	}
+	#[tracing::instrument(level="debug", skip(self) ret, err)]
+	pub async fn get_or_create_atspi_legacy_cache_item_to_cache(
+		&self,
+		atspi_cache_item: atspi_common::LegacyCacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let prim = atspi_cache_item.object.clone().into();
+		if self.cache.get(&prim).is_none() {
+			self.cache.add(CacheItem::from_atspi_legacy_cache_item(
 				atspi_cache_item,
 				Arc::downgrade(&Arc::clone(&self.cache)),
 				self.atspi.connection(),
@@ -264,7 +285,12 @@ impl ScreenReaderState {
 		let mut history = self.accessible_history.lock().await;
 		history.push(new_a11y);
 	}
-	pub async fn build_cache<'a>(&self, dest: UniqueName<'a>) -> OdiliaResult<CacheProxy<'a>> {
+	pub async fn build_cache<'a, T>(&self, dest: T) -> OdiliaResult<CacheProxy<'a>>
+	where
+		T: std::fmt::Display,
+		T: TryInto<BusName<'a>>,
+		<T as TryInto<BusName<'a>>>::Error: Into<zbus::Error>,
+	{
 		debug!("CACHE SENDER: {dest}");
 		Ok(CacheProxy::builder(self.connection())
 			.destination(dest)?

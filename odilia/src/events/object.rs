@@ -305,7 +305,7 @@ mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::TextCaretMovedEvent;
 	use atspi_common::Granularity;
-	use atspi_proxies::text::Text;
+	use atspi_proxies::text::TextProxy;
 	use odilia_cache::CacheItem;
 	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
@@ -445,7 +445,7 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::{events::object::StateChangedEvent, State};
-	use atspi_proxies::accessible::Accessible;
+	use atspi_proxies::accessible::AccessibleProxy;
 	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
@@ -472,25 +472,16 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let a11y_state: State = match serde_plain::from_str(&event.state) {
-			Ok(s) => s,
-			Err(e) => {
-				tracing::error!("Not able to deserialize state: {}", event.state);
-				return Err(e.into());
-			}
-		};
 		let state_value = event.enabled == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, a11y_state, state_value) {
+		match update_state(state, &a11y_prim, event.state, state_value) {
 			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
-			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
+			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state),
 			Err(e) => return Err(e),
 		};
-		// Dispatch based on kind
-		let state_type = serde_plain::from_str(&event.state)?;
 		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (state_type, event.enabled == 1) {
+		match (event.state, event.enabled == 1) {
 			(State::Focused, true) => focused(state, event).await?,
 			(state, enabled) => tracing::debug!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
