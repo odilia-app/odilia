@@ -357,7 +357,7 @@ mod text_caret_moved {
 			// if the end position of the first word immediately preceeds the start of the second word
 			first_word.2.abs_diff(last_word.1) == 1
 		{
-			return new_item.get_text(first_position, last_position).await;
+			return new_item.get_text(first_position, last_position);
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
 		if first_position == 0 && usize::try_from(last_position)? == new_item.text.len() {
@@ -504,23 +504,22 @@ mod state_changed {
 			}
 		}
 
-		let (name, description, role, relation) = tokio::try_join!(
+		let (name, description, relation) = tokio::try_join!(
 			accessible.name(),
 			accessible.description(),
-			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
 		state.update_accessible(accessible.object.clone()).await;
 		tracing::debug!(
 			"Focus event received on: {:?} with role {}",
 			accessible.object.id,
-			role
+			accessible.role,
 		);
 		tracing::debug!("Relations: {:?}", relation);
 
 		state.say(
 			ssip_client_async::Priority::Text,
-			format!("{name}, {role}. {description}"),
+			format!("{name}, {0}. {description}", accessible.role),
 		)
 		.await;
 

@@ -19,7 +19,8 @@ use std::{
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, GenericEvent, Granularity, InterfaceSet,
+  Granularity, CoordType, ClipType,
+	object_ref::ObjectRef, GenericEvent, InterfaceSet,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -253,7 +254,7 @@ impl CacheItem {
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: atspi_cache_item.index,
-			children_num: atspi_cache_item.children as usize,
+			children_num: atspi_cache_item.children.try_into().expect("Negative values are not permitted for children_num"),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -458,6 +459,7 @@ impl CacheItem {
 			.cloned()
 	}
 }
+
 impl CacheItem {
 	pub async fn add_selection(
 		&self,
@@ -705,7 +707,6 @@ impl CacheItem {
 		Ok(i32::try_from(self.text.len())?)
 	}
 }
-*/
 
 /// An internal cache used within Odilia.
 ///
@@ -958,7 +959,7 @@ pub async fn accessible_to_cache_item(
 		app: app.into(),
 		parent: CacheRef::new(parent.into()),
 		index,
-		children_num: children_num as usize,
+		children_num: children_num.try_into().expect("Negative numbers are not permitted for children_num"),
 		interfaces,
 		role,
 		states,
