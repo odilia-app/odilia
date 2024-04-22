@@ -255,7 +255,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 				.into_iter()
 				.for_each(|edge| stack.push(edge));
 		}
-		return Ok(None);
+		Ok(None)
 	}
 	async fn get_relation_set_ext<'a>(
 		&self,

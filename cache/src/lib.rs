@@ -174,7 +174,7 @@ pub struct CacheItem {
 	/// The accessible index in parent.I
 	pub index: i32,
 	/// Child count of the accessible.I
-	pub children_num: i32,
+	pub children_num: usize,
 	/// The exposed interface(s) set
 	pub interfaces: InterfaceSet,
 	/// Accessible role. u
@@ -253,7 +253,7 @@ impl CacheItem {
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: atspi_cache_item.index,
-			children_num: atspi_cache_item.children,
+			children_num: atspi_cache_item.children as usize,
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -288,7 +288,7 @@ impl CacheItem {
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index,
-			children_num: atspi_cache_item.children.len() as i32,
+			children_num: atspi_cache_item.children.len(),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -376,29 +376,51 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 }
 
 impl CacheItem {
-	pub async fn get_application(&self) -> Result<Self, OdiliaError> {
+  /// See [`atspi_proxies::accessible::Accessible::get_application`]
+  /// # Errors
+  /// - [`CacheError::NoItem`] if application is not in cache
+	pub fn get_application(&self) -> Result<Self, OdiliaError> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
-	pub async fn parent(&self) -> Result<Self, OdiliaError> {
+  /// See [`atspi_proxies::accessible::Accessible::parent`]
+  /// # Errors
+  /// - [`CacheError::NoItem`] if application is not in cache
+	pub fn parent(&self) -> Result<Self, OdiliaError> {
 		let parent_item = self
 			.parent
 			.clone_inner()
 			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
+  /// See [`atspi_proxies::accessible::Accessible::get_attributes`]
+  /// # Errors
+  /// - If the item is no longer available over the AT-SPI connection.
 	pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
 		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
+  /// See [`atspi_proxies::accessible::Accessible::name`]
+  /// # Errors
+  /// - If the item is no longer available over the AT-SPI connection.
 	pub async fn name(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.name().await?)
 	}
+  /// See [`atspi_proxies::accessible::Accessible::locale`]
+  /// # Errors
+  /// - If the item is no longer available over the AT-SPI connection.
 	pub async fn locale(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.locale().await?)
 	}
+  /// See [`atspi_proxies::accessible::Accessible::description`]
+  /// # Errors
+  /// - If the item is no longer available over the AT-SPI connection.
 	pub async fn description(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.description().await?)
 	}
+  /// See [`atspi_proxies::accessible::Accessible::get_realtion_set`]
+  /// # Errors
+  /// - If the item is no longer available over the AT-SPI connection.
+  /// - The items mentioned are not in the cache.
 	pub async fn get_relation_set(
 		&self,
 	) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
@@ -426,23 +448,14 @@ impl CacheItem {
 			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
-	pub async fn get_role_name(&self) -> Result<String, OdiliaError> {
-		Ok(as_accessible(self).await?.get_role_name().await?)
-	}
-	pub async fn get_state(&self) -> Result<StateSet, OdiliaError> {
-		Ok(self.states)
-	}
-	pub async fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
+  /// See [`atspi_proxies::accessible::Accessible::get_child_at_index`]
+  /// # Errors
+  /// - The items mentioned are not in the cache.
+	pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
 		self.get_children()?
 			.get(usize::try_from(idx)?)
 			.ok_or(CacheError::NoItem.into())
 			.cloned()
-	}
-	pub async fn get_localized_role_name(&self) -> Result<String, OdiliaError> {
-		Ok(as_accessible(self).await?.get_localized_role_name().await?)
-	}
-	pub async fn accessible_id(&self) -> Result<String, OdiliaError> {
-		Ok(self.object.id.to_string())
 	}
 }
 impl CacheItem {
@@ -609,7 +622,7 @@ impl CacheItem {
 		// this variation does NOT get a semantic line. It gets a visual line.
 		Ok(as_text(self).await?.get_string_at_offset(offset, granularity).await?)
 	}
-	pub async fn get_text(
+	pub fn get_text(
 		&self,
 		start_offset: i32,
 		end_offset: i32,
@@ -619,9 +632,9 @@ impl CacheItem {
 			.map(std::borrow::ToOwned::to_owned)
 			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
 	}
-	pub async fn get_all_text(&self) -> Result<String, OdiliaError> {
-		let length_of_string = self.character_count().await?;
-		Ok(self.get_text(0, length_of_string).await?)
+	pub fn get_all_text(&self) -> Result<String, OdiliaError> {
+		let length_of_string = self.character_count()?;
+		Ok(self.get_text(0, length_of_string)?)
 	}
 	pub async fn get_text_after_offset(
 		&self,
@@ -688,10 +701,11 @@ impl CacheItem {
 	pub async fn caret_offset(&self) -> Result<i32, OdiliaError> {
 		Ok(as_text(self).await?.caret_offset().await?)
 	}
-	pub async fn character_count(&self) -> Result<i32, OdiliaError> {
+	pub fn character_count(&self) -> Result<i32, OdiliaError> {
 		Ok(i32::try_from(self.text.len())?)
 	}
 }
+*/
 
 /// An internal cache used within Odilia.
 ///
@@ -944,7 +958,7 @@ pub async fn accessible_to_cache_item(
 		app: app.into(),
 		parent: CacheRef::new(parent.into()),
 		index,
-		children_num,
+		children_num: children_num as usize,
 		interfaces,
 		role,
 		states,
