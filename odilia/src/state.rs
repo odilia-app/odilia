@@ -5,12 +5,7 @@ use eyre::WrapErr;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, Instrument};
-use zbus::{
-	fdo::DBusProxy,
-	names::{BusName, UniqueName},
-	zvariant::ObjectPath,
-	MatchRule, MessageType,
-};
+use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi_common::{
 	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
@@ -368,7 +363,7 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event.sender().to_owned();
+		let sender = event.sender().clone();
 		let path = event.path().to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
 			.cache_properties(zbus::CacheProperties::No)

@@ -9,7 +9,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::R
 	match event {
 		CacheEvents::Add(add_event) => add_accessible(state, add_event).await?,
 		CacheEvents::LegacyAdd(ladd_event) => {
-			legacy_add_accessible(state, ladd_event).await?
+			legacy_add_accessible(state, ladd_event).await?;
 		}
 		CacheEvents::Remove(rem_event) => remove_accessible(state, rem_event)?,
 	}
