@@ -7,6 +7,9 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
+#![allow(clippy::missing_errors_doc)]
+#![allow(clippy::missing_panics_doc)]
+#![allow(clippy::too_many_arguments)]
 
 mod convertable;
 pub use convertable::Convertable;
@@ -571,7 +574,7 @@ impl CacheItem {
 	) -> Result<(String, usize, usize), OdiliaError> {
 		// optimisations that don't call out to DBus.
 		if granularity == Granularity::Paragraph {
-			return Ok((self.text.clone(), 0, self.text.len().try_into()?));
+			return Ok((self.text.clone(), 0, self.text.len()));
 		} else if granularity == Granularity::Char {
 			let range = offset..=offset;
 			return Ok((
@@ -652,7 +655,7 @@ impl CacheItem {
 	}
 	pub fn get_all_text(&self) -> Result<String, OdiliaError> {
 		let length_of_string = self.character_count();
-		Ok(self.get_text(0, length_of_string)?)
+		self.get_text(0, length_of_string)
 	}
 	pub async fn get_text_after_offset(
 		&self,
@@ -716,9 +719,14 @@ impl CacheItem {
 			.set_selection(selection_num, start_offset, end_offset)
 			.await?)
 	}
+	/// Get the live caret offset from the system
+	/// # Errors
+	/// - Fails of the [`self.object_ref`] referes to an invalid item on the bus
+	/// - An IPC error from `zbus` it detected.
 	pub async fn caret_offset(&self) -> Result<i32, OdiliaError> {
 		Ok(as_text(self).await?.caret_offset().await?)
 	}
+	#[must_use]
 	pub fn character_count(&self) -> usize {
 		self.text.len()
 	}
