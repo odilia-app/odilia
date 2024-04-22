@@ -319,8 +319,8 @@ mod text_caret_moved {
 	pub async fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
-		new_position: i32,
-		old_position: i32,
+		new_position: usize,
+		old_position: usize,
 	) -> Result<String, OdiliaError> {
 		let new_id = new_item.object.clone();
 		let old_id = old_item.object.clone();
@@ -418,7 +418,14 @@ mod text_caret_moved {
 				let old_item =
 					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
 				let new_pos = event.position;
-				new_position(new_item, old_item, new_pos, old_pos).await?
+				new_position(
+					new_item,
+					old_item,
+					new_pos.try_into()
+						.expect("Can not convert between i32 and usize"),
+					old_pos,
+				)
+				.await?
 			}
 			None => {
 				// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
@@ -437,7 +444,12 @@ mod text_caret_moved {
 	) -> eyre::Result<()> {
 		text_cursor_moved(state, event).await?;
 
-		state.previous_caret_position.store(event.position, Ordering::Relaxed);
+		state.previous_caret_position.store(
+			event.position
+				.try_into()
+				.expect("Converting from an i32 to a usize must not fail"),
+			Ordering::Relaxed,
+		);
 		Ok(())
 	}
 } // end of text_caret_moved

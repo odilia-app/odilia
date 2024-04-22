@@ -8,9 +8,7 @@ use atspi_proxies::{
 	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
 use std::ops::Deref;
-use zbus::{
-	CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault,
-};
+use zbus::{CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault};
 
 #[allow(clippy::module_name_repetitions)]
 #[async_trait]

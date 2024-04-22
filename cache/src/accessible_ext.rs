@@ -9,23 +9,37 @@ use std::future::Future;
 
 pub trait AccessibleExt {
 	type Error: std::error::Error;
-	fn get_application_ext<'a>(&self) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
+	fn get_application_ext<'a>(
+		&self,
+	) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_parent_ext<'a>(&self) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
+	fn get_parent_ext<'a>(
+		&self,
+	) -> impl Future<Output = Result<AccessibleProxy<'a>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_children_ext<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
+	fn get_children_ext<'a>(
+		&self,
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_siblings<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
+	fn get_siblings<'a>(
+		&self,
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_children_indexes<'a>(&self) -> impl Future<Output = Result<Vec<i32>, Self::Error>> + Send;
-	fn get_siblings_before<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
+	fn get_children_indexes<'a>(
+		&self,
+	) -> impl Future<Output = Result<Vec<i32>, Self::Error>> + Send;
+	fn get_siblings_before<'a>(
+		&self,
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_siblings_after<'a>(&self) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
+	fn get_siblings_after<'a>(
+		&self,
+	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
 	fn get_children_caret<'a>(
@@ -56,7 +70,9 @@ pub trait AccessibleExt {
 		Self: Sized;
 	fn get_relation_set_ext<'a>(
 		&self,
-	) -> impl Future<Output = Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>> + Send
+	) -> impl Future<
+		Output = Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>,
+	> + Send
 	where
 		Self: Sized;
 	fn match_(&self, role: Role) -> impl Future<Output = Result<bool, OdiliaError>> + Send;

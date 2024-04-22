@@ -19,8 +19,7 @@ use std::{
 };
 
 use atspi_common::{
-  Granularity, CoordType, ClipType,
-	object_ref::ObjectRef, GenericEvent, InterfaceSet,
+	object_ref::ObjectRef, ClipType, CoordType, GenericEvent, Granularity, InterfaceSet,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -254,7 +253,10 @@ impl CacheItem {
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: atspi_cache_item.index,
-			children_num: atspi_cache_item.children.try_into().expect("Negative values are not permitted for children_num"),
+			children_num: atspi_cache_item
+				.children
+				.try_into()
+				.expect("Negative values are not permitted for children_num"),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -377,16 +379,16 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 }
 
 impl CacheItem {
-  /// See [`atspi_proxies::accessible::Accessible::get_application`]
-  /// # Errors
-  /// - [`CacheError::NoItem`] if application is not in cache
+	/// See [`atspi_proxies::accessible::Accessible::get_application`]
+	/// # Errors
+	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn get_application(&self) -> Result<Self, OdiliaError> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
-  /// See [`atspi_proxies::accessible::Accessible::parent`]
-  /// # Errors
-  /// - [`CacheError::NoItem`] if application is not in cache
+	/// See [`atspi_proxies::accessible::Accessible::parent`]
+	/// # Errors
+	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn parent(&self) -> Result<Self, OdiliaError> {
 		let parent_item = self
 			.parent
@@ -394,34 +396,34 @@ impl CacheItem {
 			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
-  /// See [`atspi_proxies::accessible::Accessible::get_attributes`]
-  /// # Errors
-  /// - If the item is no longer available over the AT-SPI connection.
+	/// See [`atspi_proxies::accessible::Accessible::get_attributes`]
+	/// # Errors
+	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
 		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
-  /// See [`atspi_proxies::accessible::Accessible::name`]
-  /// # Errors
-  /// - If the item is no longer available over the AT-SPI connection.
+	/// See [`atspi_proxies::accessible::Accessible::name`]
+	/// # Errors
+	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn name(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.name().await?)
 	}
-  /// See [`atspi_proxies::accessible::Accessible::locale`]
-  /// # Errors
-  /// - If the item is no longer available over the AT-SPI connection.
+	/// See [`atspi_proxies::accessible::Accessible::locale`]
+	/// # Errors
+	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn locale(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.locale().await?)
 	}
-  /// See [`atspi_proxies::accessible::Accessible::description`]
-  /// # Errors
-  /// - If the item is no longer available over the AT-SPI connection.
+	/// See [`atspi_proxies::accessible::Accessible::description`]
+	/// # Errors
+	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn description(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.description().await?)
 	}
-  /// See [`atspi_proxies::accessible::Accessible::get_realtion_set`]
-  /// # Errors
-  /// - If the item is no longer available over the AT-SPI connection.
-  /// - The items mentioned are not in the cache.
+	/// See [`atspi_proxies::accessible::Accessible::get_realtion_set`]
+	/// # Errors
+	/// - If the item is no longer available over the AT-SPI connection.
+	/// - The items mentioned are not in the cache.
 	pub async fn get_relation_set(
 		&self,
 	) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
@@ -449,9 +451,9 @@ impl CacheItem {
 			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
-  /// See [`atspi_proxies::accessible::Accessible::get_child_at_index`]
-  /// # Errors
-  /// - The items mentioned are not in the cache.
+	/// See [`atspi_proxies::accessible::Accessible::get_child_at_index`]
+	/// # Errors
+	/// - The items mentioned are not in the cache.
 	pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
 		self.get_children()?
 			.get(usize::try_from(idx)?)
@@ -564,15 +566,14 @@ impl CacheItem {
 	}
 	pub async fn get_string_at_offset(
 		&self,
-		offset: i32,
+		offset: usize,
 		granularity: Granularity,
-	) -> Result<(String, i32, i32), Self::Error> {
-		let uoffset = usize::try_from(offset)?;
+	) -> Result<(String, usize, usize), OdiliaError> {
 		// optimisations that don't call out to DBus.
 		if granularity == Granularity::Paragraph {
 			return Ok((self.text.clone(), 0, self.text.len().try_into()?));
 		} else if granularity == Granularity::Char {
-			let range = uoffset..=uoffset;
+			let range = offset..=offset;
 			return Ok((
 				self.text
 					.get(range)
@@ -603,11 +604,9 @@ impl CacheItem {
 						.map(|(idx, _)| idx)?;
 					// calculate based on start
 					let end = start + word.len();
-					let i_start = i32::try_from(start).ok()?;
-					let i_end = i32::try_from(end).ok()?;
 					// if the offset if within bounds
-					if uoffset >= start && uoffset <= end {
-						Some((word.to_string(), i_start, i_end))
+					if offset >= start && offset <= end {
+						Some((word.to_string(), start, end))
 					} else {
 						None
 					}
@@ -622,20 +621,37 @@ impl CacheItem {
 		}
 		// any other variations, in particular, Granularity::Line, will need to call out to DBus. It's just too complex to calculate, get updates for bounding boxes, etc.
 		// this variation does NOT get a semantic line. It gets a visual line.
-		Ok(as_text(self).await?.get_string_at_offset(offset, granularity).await?)
+		let dbus_version = as_text(self)
+			.await?
+			.get_string_at_offset(
+				offset.try_into().expect("Can not convert between usize and i32"),
+				granularity,
+			)
+			.await?;
+		Ok((
+			dbus_version.0,
+			dbus_version
+				.1
+				.try_into()
+				.expect("Can not convert between usize and i32"),
+			dbus_version
+				.2
+				.try_into()
+				.expect("Can not convert between usize and i32"),
+		))
 	}
 	pub fn get_text(
 		&self,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<String, Self::Error> {
+		start_offset: usize,
+		end_offset: usize,
+	) -> Result<String, OdiliaError> {
 		self.text
-			.get(usize::try_from(start_offset)?..usize::try_from(end_offset)?)
+			.get(start_offset..end_offset)
 			.map(std::borrow::ToOwned::to_owned)
 			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
 	}
 	pub fn get_all_text(&self) -> Result<String, OdiliaError> {
-		let length_of_string = self.character_count()?;
+		let length_of_string = self.character_count();
 		Ok(self.get_text(0, length_of_string)?)
 	}
 	pub async fn get_text_after_offset(
@@ -703,8 +719,8 @@ impl CacheItem {
 	pub async fn caret_offset(&self) -> Result<i32, OdiliaError> {
 		Ok(as_text(self).await?.caret_offset().await?)
 	}
-	pub fn character_count(&self) -> Result<i32, OdiliaError> {
-		Ok(i32::try_from(self.text.len())?)
+	pub fn character_count(&self) -> usize {
+		self.text.len()
 	}
 }
 
@@ -959,7 +975,9 @@ pub async fn accessible_to_cache_item(
 		app: app.into(),
 		parent: CacheRef::new(parent.into()),
 		index,
-		children_num: children_num.try_into().expect("Negative numbers are not permitted for children_num"),
+		children_num: children_num
+			.try_into()
+			.expect("Negative numbers are not permitted for children_num"),
 		interfaces,
 		role,
 		states,
