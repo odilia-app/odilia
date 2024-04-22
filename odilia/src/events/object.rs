@@ -547,7 +547,7 @@ mod tests {
 	lazy_static! {
 		static ref ZBUS_CONN: AccessibilityConnection =
 			#[allow(clippy::unwrap_used)]
-			block_on(AccessibilityConnection::open()).unwrap();
+			block_on(AccessibilityConnection::new()).unwrap();
 		static ref CACHE_ARC: Arc<Cache> =
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
