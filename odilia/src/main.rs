@@ -162,12 +162,10 @@ async fn main() -> eyre::Result<()> {
 }
 
 fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, eyre::Report> {
-	// In order, do environment variables, a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
+	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
 	// If XDG_CONFIG_HOME based configuration wasn't found, create one with default values for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above
-	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()))
-		//environment variables
-		.join(Env::prefixed("ODILIA_").split("_"));
+	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
 	//cli override, if applicable
 	let figment =
 		if let Some(path) = cli_overide { figment.join(Toml::file(path)) } else { figment };
