@@ -184,9 +184,9 @@ fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig,
 	}
 	//next, the xdg configuration
 	let figment = figment
-		.join(Toml::file(&config_path))
+		.admerge(Toml::file(&config_path))
 		//last, the configuration system wide, in /etc/odilia/config.toml
-		.join(Toml::file("/etc/odilia/config.toml"));
+		.admerge(Toml::file("/etc/odilia/config.toml"));
 	//realise the configuration and freeze it into place
 	Ok(figment.extract()?)
 }
