@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 #[allow(clippy::module_name_repetitions)]
 pub struct SpeechSettings {
 	pub rate: i8,
+	pub pitch: i8,
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
-		Self { rate: 50 }
+		Self { rate: 50, pitch: 0}
 	}
 }
