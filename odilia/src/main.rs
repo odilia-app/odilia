@@ -20,7 +20,7 @@ use crate::state::ScreenReaderState;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
-	providers::{Env, Format, Serialized, Toml},
+	providers::{Format, Serialized, Toml},
 	Figment,
 };
 use futures::{future::FutureExt, StreamExt};
