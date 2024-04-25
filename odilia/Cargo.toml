@@ -58,6 +58,7 @@ clap = { version = "4.5.1", features = ["derive"] }
 tokio-util.workspace=true
 toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
+tracing-journald = "0.3.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"

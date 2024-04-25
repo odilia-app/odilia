@@ -92,7 +92,7 @@ async fn main() -> eyre::Result<()> {
 	//initializing configuration
 	let config = load_configuration(args.config)?;
 	//initialize logging, with the provided config
-	logging::init(&config);
+	logging::init(&config)?;
 
 	tracing::info!(?config, "this configuration was used to prepair odilia");
 

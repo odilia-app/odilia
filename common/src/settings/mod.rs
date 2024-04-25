@@ -1,5 +1,5 @@
-mod log;
-mod speech;
+pub mod log;
+pub mod speech;
 
 use log::LogSettings;
 use speech::SpeechSettings;
