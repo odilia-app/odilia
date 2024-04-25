@@ -72,6 +72,16 @@ impl ScreenReaderState {
 			config.speech.module.clone(),
 		))
 		.await?;
+		ssip.send(SSIPRequest::SetLanguage(
+			ssip_client_async::ClientScope::Current,
+			config.speech.language.clone(),
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetSynthesisVoice(
+			ssip_client_async::ClientScope::Current,
+			config.speech.person.clone(),
+		))
+		.await?;
 		ssip.send(SSIPRequest::SetRate(
 			ssip_client_async::ClientScope::Current,
 			config.speech.rate,
