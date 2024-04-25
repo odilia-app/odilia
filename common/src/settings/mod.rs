@@ -14,4 +14,3 @@ pub struct ApplicationConfig {
 	pub speech: SpeechSettings,
 	pub log: LogSettings,
 }
-

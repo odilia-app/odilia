@@ -16,7 +16,10 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
-		Self { level: "info".to_owned(), logger: LoggingKind::File("/var/log/odilia.log".into()) }
+		Self {
+			level: "info".to_owned(),
+			logger: LoggingKind::File("/var/log/odilia.log".into()),
+		}
 	}
 }
 

@@ -13,12 +13,20 @@ pub struct SpeechSettings {
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
-		Self { rate: 50, pitch: 0, volume: 100, module: "espeak-ng".into(), language: "en-US".into(), person: "English (America)+Max".into(), punctuation: PunctuationSpellingMode::Some}
+		Self {
+			rate: 50,
+			pitch: 0,
+			volume: 100,
+			module: "espeak-ng".into(),
+			language: "en-US".into(),
+			person: "English (America)+Max".into(),
+			punctuation: PunctuationSpellingMode::Some,
+		}
 	}
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum PunctuationSpellingMode{
+pub enum PunctuationSpellingMode {
 	Some,
 	Most,
 	None,
