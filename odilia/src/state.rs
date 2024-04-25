@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicI32;
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
+use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
@@ -16,7 +16,7 @@ use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::CacheError, modes::ScreenReaderMode, settings::ApplicationConfig,
+	errors::CacheError, modes::ScreenReaderMode, settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea, Result as OdiliaResult,
 };
 use std::sync::Arc;
@@ -82,6 +82,14 @@ impl ScreenReaderState {
 			config.speech.person.clone(),
 		))
 		.await?;
+		//doing it this way for now. It could have been done with a From impl, but I don't want to make ssip_client_async a dependency of odilia_common, so this conversion is done directly inside state, especially since this enum isn't supposed to grow any further, in complexity or variants
+		let punctuation_mode=match config.speech.punctuation{
+			PunctuationSpellingMode::Some => PunctuationMode::Some,
+			PunctuationSpellingMode::Most => PunctuationMode::Most,
+			PunctuationSpellingMode::None => PunctuationMode::None,
+			PunctuationSpellingMode::All => PunctuationMode::All,
+		};
+		ssip.send(SSIPRequest::SetPunctuationMode(ssip_client_async::ClientScope::Current, punctuation_mode)).await?;
 		ssip.send(SSIPRequest::SetRate(
 			ssip_client_async::ClientScope::Current,
 			config.speech.rate,

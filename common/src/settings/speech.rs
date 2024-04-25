@@ -9,9 +9,18 @@ pub struct SpeechSettings {
 	pub module: String,
 	pub language: String,
 	pub person: String,
+	pub punctuation: PunctuationSpellingMode,
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
-		Self { rate: 50, pitch: 0, volume: 100, module: "espeak-ng".into(), language: "en-US".into(), person: "English (America)+Max".into()}
+		Self { rate: 50, pitch: 0, volume: 100, module: "espeak-ng".into(), language: "en-US".into(), person: "English (America)+Max".into(), punctuation: PunctuationSpellingMode::Some}
 	}
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum PunctuationSpellingMode{
+	Some,
+	Most,
+	None,
+	All,
 }
