@@ -5,9 +5,10 @@ use serde::{Deserialize, Serialize};
 pub struct SpeechSettings {
 	pub rate: i8,
 	pub pitch: i8,
+	pub volume: i8,
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
-		Self { rate: 50, pitch: 0}
+		Self { rate: 50, pitch: 0, volume: 100}
 	}
 }
