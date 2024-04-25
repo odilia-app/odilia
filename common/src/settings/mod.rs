@@ -11,18 +11,7 @@ use serde::{Deserialize, Serialize};
 /// the only way this config should change is if the configuration file changes, in which case the entire view will be replaced to reflect the fact
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct ApplicationConfig {
-	speech: SpeechSettings,
-	log: LogSettings,
+	pub speech: SpeechSettings,
+	pub log: LogSettings,
 }
 
-impl ApplicationConfig {
-	#[must_use]
-	pub fn log(&self) -> &LogSettings {
-		&self.log
-	}
-
-	#[must_use]
-	pub fn speech(&self) -> &SpeechSettings {
-		&self.speech
-	}
-}

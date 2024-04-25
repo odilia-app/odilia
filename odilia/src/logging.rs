@@ -5,24 +5,21 @@
 
 use std::env;
 
+use odilia_common::settings::ApplicationConfig;
 use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::{prelude::*, EnvFilter};
 use tracing_tree::HierarchicalLayer;
 
-#[cfg(not(debug_assertions))]
-const DEFAULT_LOG_FILTER: &str = "none";
-#[cfg(debug_assertions)]
-const DEFAULT_LOG_FILTER: &str = "debug";
-
-/// Initialise the logging stack.
-pub fn init() {
+/// Initialise the logging stack
+/// this requires an application configuration structure, so configuration must be initialized before logging is
+pub fn init(config:&ApplicationConfig) {
 	let env_filter = match env::var("ODILIA_LOG").or_else(|_| env::var("RUST_LOG")) {
 		Ok(s) => EnvFilter::from(s),
-		Err(env::VarError::NotPresent) => EnvFilter::from(DEFAULT_LOG_FILTER),
+		Err(env::VarError::NotPresent) => EnvFilter::from(&config.log.level),
 		Err(e) => {
 			eprintln!("Warning: Failed to read log filter from ODILIA_LOG or RUST_LOG: {e}");
-			EnvFilter::from(DEFAULT_LOG_FILTER)
+			EnvFilter::from(&config.log.level)
 		}
 	};
 	let subscriber = tracing_subscriber::Registry::default()

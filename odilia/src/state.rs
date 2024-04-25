@@ -59,7 +59,7 @@ impl ScreenReaderState {
 		let cache = Arc::new(Cache::new(atspi.connection().clone()));
 		ssip.send(SSIPRequest::SetRate(
 			ssip_client_async::ClientScope::Current,
-			config.speech().rate,
+			config.speech.rate,
 		))
 		.await?;
 		Ok(Self {

@@ -82,7 +82,6 @@ async fn sigterm_signal_watcher(
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
 	let args = Args::parse();
-	logging::init();
 
 	//initialize the primary token for task cancelation
 	let token = CancellationToken::new();
@@ -90,9 +89,12 @@ async fn main() -> eyre::Result<()> {
 	//initialize a task tracker, which will allow us to wait for all tasks to finish
 	let tracker = TaskTracker::new();
 
-	tracing::debug!("Reading configuration");
+	//initializing configuration
 	let config = load_configuration(args.config)?;
-	tracing::debug!(?config, "configuration loaded successfully");
+	//initialize logging, with the provided config
+	logging::init(&config);
+
+	tracing::info!(?config, "this configuration was used to prepair odilia");
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true)
