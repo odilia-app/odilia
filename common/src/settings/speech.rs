@@ -6,9 +6,10 @@ pub struct SpeechSettings {
 	pub rate: i8,
 	pub pitch: i8,
 	pub volume: i8,
+	pub module: String,
 }
 impl Default for SpeechSettings {
 	fn default() -> Self {
-		Self { rate: 50, pitch: 0, volume: 100}
+		Self { rate: 50, pitch: 0, volume: 100, module: "espeak-ng".into()}
 	}
 }

@@ -57,9 +57,21 @@ impl ScreenReaderState {
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Arc::new(Cache::new(atspi.connection().clone()));
-		ssip.send(SSIPRequest::SetPitch(ssip_client_async::ClientScope::Current, config.speech.pitch)).await?;
-		ssip.send(SSIPRequest::SetVolume(ssip_client_async::ClientScope::Current, config.speech.volume)).await?;
-		
+		ssip.send(SSIPRequest::SetPitch(
+			ssip_client_async::ClientScope::Current,
+			config.speech.pitch,
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetVolume(
+			ssip_client_async::ClientScope::Current,
+			config.speech.volume,
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetOutputModule(
+			ssip_client_async::ClientScope::Current,
+			config.speech.module.clone(),
+		))
+		.await?;
 		ssip.send(SSIPRequest::SetRate(
 			ssip_client_async::ClientScope::Current,
 			config.speech.rate,
