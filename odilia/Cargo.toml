@@ -34,6 +34,7 @@ atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
 atspi-connection.workspace = true
+atspi-client.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
 futures = { version = "^0.3.25", default-features = false }

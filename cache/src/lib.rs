@@ -8,21 +8,19 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-mod convertable;
-use convertable::Convertable;
-
 use std::{
 	collections::HashMap,
 	sync::{Arc, RwLock, Weak},
 };
 
 use async_trait::async_trait;
+use atspi_client::{convertable::Convertable, text_ext::TextExt};
 use atspi_common::{
-	ClipType, CoordType, GenericEvent, Granularity, InterfaceSet, RelationType, Role, StateSet, object_ref::ObjectRef,
+	ClipType, CoordType, GenericEvent, Granularity, InterfaceSet, RelationType, Role, StateSet,
 };
 use atspi_proxies::{
-	accessible::AccessibleProxy,
-	text::TextProxy,
+	accessible::{Accessible, AccessibleProxy},
+	text::{Text, TextProxy},
 };
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
@@ -36,16 +34,6 @@ use zbus::{
 	zvariant::{ObjectPath, OwnedObjectPath},
 	CacheProperties, ProxyBuilder,
 };
-
-trait AllText {
-    async fn get_all_text(&self) -> Result<String, OdiliaError>;
-}
-impl AllText for TextProxy<'_> {
-    async fn get_all_text(&self) -> Result<String, OdiliaError> {
-      let length_of_string = self.character_count().await?;
-      Ok(self.get_text(0, length_of_string).await?)
-    }
-}
 
 type CacheKey = AccessiblePrimitive;
 type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
@@ -117,23 +105,29 @@ impl AccessiblePrimitive {
 		Ok(Self { id, sender: sender.as_str().into() })
 	}
 }
-impl From<ObjectRef> for AccessiblePrimitive {
-	fn from(
-		atspi_accessible: ObjectRef,
-	) -> AccessiblePrimitive {
+impl TryFrom<atspi::events::Accessible> for AccessiblePrimitive {
+	type Error = AccessiblePrimitiveConversionError;
+
+	#[tracing::instrument(level = "trace", ret, err)]
+	fn try_from(
+		atspi_accessible: atspi::events::Accessible,
+	) -> Result<AccessiblePrimitive, Self::Error> {
 		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.into()
+		tuple_converter.try_into()
 	}
 }
-impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-	fn from(
+impl TryFrom<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
+	type Error = AccessiblePrimitiveConversionError;
+
+	#[tracing::instrument(level = "trace", ret, err)]
+	fn try_from(
 		so: (OwnedUniqueName, OwnedObjectPath),
-	) -> AccessiblePrimitive {
+	) -> Result<AccessiblePrimitive, Self::Error> {
 		let accessible_id = so.1;
-		AccessiblePrimitive {
+		Ok(AccessiblePrimitive {
 			id: accessible_id.to_string(),
 			sender: so.0.as_str().into(),
-		}
+		})
 	}
 }
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
@@ -344,31 +338,48 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
 }
 
-impl CacheItem {
-	async fn get_application(&self) -> Result<Self, OdiliaError> {
+#[async_trait]
+impl Accessible for CacheItem {
+	type Error = OdiliaError;
+	async fn get_application(&self) -> Result<Self, Self::Error> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
-	async fn parent(&self) -> Result<Self, OdiliaError> {
+	async fn parent(&self) -> Result<Self, Self::Error> {
 		let parent_item = self
 			.parent
 			.clone_inner()
 			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
-	async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
+	async fn get_children(&self) -> Result<Vec<Self>, Self::Error> {
+		self.get_children()
+	}
+	async fn child_count(&self) -> Result<i32, Self::Error> {
+		Ok(self.children_num)
+	}
+	async fn get_index_in_parent(&self) -> Result<i32, Self::Error> {
+		Ok(self.index)
+	}
+	async fn get_role(&self) -> Result<Role, Self::Error> {
+		Ok(self.role)
+	}
+	async fn get_interfaces(&self) -> Result<InterfaceSet, Self::Error> {
+		Ok(self.interfaces)
+	}
+	async fn get_attributes(&self) -> Result<HashMap<String, String>, Self::Error> {
 		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
-	async fn name(&self) -> Result<String, OdiliaError> {
+	async fn name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.name().await?)
 	}
-	async fn locale(&self) -> Result<String, OdiliaError> {
+	async fn locale(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.locale().await?)
 	}
-	async fn description(&self) -> Result<String, OdiliaError> {
+	async fn description(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.description().await?)
 	}
-	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
+	async fn get_relation_set(&self) -> Result<Vec<(RelationType, Vec<Self>)>, Self::Error> {
 		let cache = strong_cache(&self.cache)?;
 		as_accessible(self)
 			.await?
@@ -393,39 +404,42 @@ impl CacheItem {
 			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
-	async fn get_role_name(&self) -> Result<String, OdiliaError> {
+	async fn get_role_name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.get_role_name().await?)
 	}
-	async fn get_state(&self) -> Result<StateSet, OdiliaError> {
+	async fn get_state(&self) -> Result<StateSet, Self::Error> {
 		Ok(self.states)
 	}
-	async fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
-    self.get_children()?
+	async fn get_child_at_index(&self, idx: i32) -> Result<Self, Self::Error> {
+		<Self as Accessible>::get_children(self)
+			.await?
 			.get(usize::try_from(idx)?)
 			.ok_or(CacheError::NoItem.into())
 			.cloned()
 	}
-	async fn get_localized_role_name(&self) -> Result<String, OdiliaError> {
+	async fn get_localized_role_name(&self) -> Result<String, Self::Error> {
 		Ok(as_accessible(self).await?.get_localized_role_name().await?)
 	}
-	async fn accessible_id(&self) -> Result<String, OdiliaError> {
+	async fn accessible_id(&self) -> Result<String, Self::Error> {
 		Ok(self.object.id.to_string())
 	}
 }
+#[async_trait]
+impl Text for CacheItem {
+	type Error = OdiliaError;
 
-impl CacheItem {
 	async fn add_selection(
 		&self,
 		start_offset: i32,
 		end_offset: i32,
-	) -> Result<bool, OdiliaError> {
+	) -> Result<bool, Self::Error> {
 		Ok(as_text(self).await?.add_selection(start_offset, end_offset).await?)
 	}
 	async fn get_attribute_run(
 		&self,
 		offset: i32,
 		include_defaults: bool,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
+	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.get_attribute_run(offset, include_defaults)
@@ -435,16 +449,16 @@ impl CacheItem {
 		&self,
 		offset: i32,
 		attribute_name: &str,
-	) -> Result<String, OdiliaError> {
+	) -> Result<String, Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.get_attribute_value(offset, attribute_name)
 			.await?)
 	}
-	async fn get_text_attributes(
+	async fn get_attributes(
 		&self,
 		offset: i32,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
+	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_attributes(offset).await?)
 	}
 	async fn get_bounded_ranges(
@@ -456,7 +470,7 @@ impl CacheItem {
 		coord_type: CoordType,
 		x_clip_type: ClipType,
 		y_clip_type: ClipType,
-	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, OdiliaError> {
+	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.get_bounded_ranges(
@@ -470,27 +484,27 @@ impl CacheItem {
 			)
 			.await?)
 	}
-	async fn get_character_at_offset(&self, offset: i32) -> Result<i32, OdiliaError> {
+	async fn get_character_at_offset(&self, offset: i32) -> Result<i32, Self::Error> {
 		Ok(as_text(self).await?.get_character_at_offset(offset).await?)
 	}
 	async fn get_character_extents(
 		&self,
 		offset: i32,
 		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), OdiliaError> {
+	) -> Result<(i32, i32, i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_character_extents(offset, coord_type).await?)
 	}
 	async fn get_default_attribute_set(
 		&self,
-	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
+	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
 		Ok(as_text(self).await?.get_default_attribute_set().await?)
 	}
 	async fn get_default_attributes(
 		&self,
-	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
+	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
 		Ok(as_text(self).await?.get_default_attributes().await?)
 	}
-	async fn get_nselections(&self) -> Result<i32, OdiliaError> {
+	async fn get_nselections(&self) -> Result<i32, Self::Error> {
 		Ok(as_text(self).await?.get_nselections().await?)
 	}
 	async fn get_offset_at_point(
@@ -498,7 +512,7 @@ impl CacheItem {
 		x: i32,
 		y: i32,
 		coord_type: CoordType,
-	) -> Result<i32, OdiliaError> {
+	) -> Result<i32, Self::Error> {
 		Ok(as_text(self).await?.get_offset_at_point(x, y, coord_type).await?)
 	}
 	async fn get_range_extents(
@@ -506,20 +520,20 @@ impl CacheItem {
 		start_offset: i32,
 		end_offset: i32,
 		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), OdiliaError> {
+	) -> Result<(i32, i32, i32, i32), Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.get_range_extents(start_offset, end_offset, coord_type)
 			.await?)
 	}
-	async fn get_selection(&self, selection_num: i32) -> Result<(i32, i32), OdiliaError> {
+	async fn get_selection(&self, selection_num: i32) -> Result<(i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_selection(selection_num).await?)
 	}
 	async fn get_string_at_offset(
 		&self,
 		offset: i32,
 		granularity: Granularity,
-	) -> Result<(String, i32, i32), OdiliaError> {
+	) -> Result<(String, i32, i32), Self::Error> {
 		let uoffset = usize::try_from(offset)?;
 		// optimisations that don't call out to DBus.
 		if granularity == Granularity::Paragraph {
@@ -581,40 +595,34 @@ impl CacheItem {
 		&self,
 		start_offset: i32,
 		end_offset: i32,
-	) -> Result<String, OdiliaError> {
+	) -> Result<String, Self::Error> {
 		self.text
 			.get(usize::try_from(start_offset)?..usize::try_from(end_offset)?)
 			.map(std::borrow::ToOwned::to_owned)
 			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
 	}
-  async fn get_all_text(
-    &self
-  ) -> Result<String, OdiliaError> {
-      let length_of_string = self.character_count().await?;
-      Ok(self.get_text(0, length_of_string).await?)
-  }
 	async fn get_text_after_offset(
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
+	) -> Result<(String, i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_text_after_offset(offset, type_).await?)
 	}
 	async fn get_text_at_offset(
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
+	) -> Result<(String, i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_text_at_offset(offset, type_).await?)
 	}
 	async fn get_text_before_offset(
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
+	) -> Result<(String, i32, i32), Self::Error> {
 		Ok(as_text(self).await?.get_text_before_offset(offset, type_).await?)
 	}
-	async fn remove_selection(&self, selection_num: i32) -> Result<bool, OdiliaError> {
+	async fn remove_selection(&self, selection_num: i32) -> Result<bool, Self::Error> {
 		Ok(as_text(self).await?.remove_selection(selection_num).await?)
 	}
 	async fn scroll_substring_to(
@@ -622,7 +630,7 @@ impl CacheItem {
 		start_offset: i32,
 		end_offset: i32,
 		type_: u32,
-	) -> Result<bool, OdiliaError> {
+	) -> Result<bool, Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.scroll_substring_to(start_offset, end_offset, type_)
@@ -635,13 +643,13 @@ impl CacheItem {
 		type_: u32,
 		x: i32,
 		y: i32,
-	) -> Result<bool, OdiliaError> {
+	) -> Result<bool, Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.scroll_substring_to_point(start_offset, end_offset, type_, x, y)
 			.await?)
 	}
-	async fn set_caret_offset(&self, offset: i32) -> Result<bool, OdiliaError> {
+	async fn set_caret_offset(&self, offset: i32) -> Result<bool, Self::Error> {
 		Ok(as_text(self).await?.set_caret_offset(offset).await?)
 	}
 	async fn set_selection(
@@ -649,16 +657,16 @@ impl CacheItem {
 		selection_num: i32,
 		start_offset: i32,
 		end_offset: i32,
-	) -> Result<bool, OdiliaError> {
+	) -> Result<bool, Self::Error> {
 		Ok(as_text(self)
 			.await?
 			.set_selection(selection_num, start_offset, end_offset)
 			.await?)
 	}
-	async fn caret_offset(&self) -> Result<i32, OdiliaError> {
+	async fn caret_offset(&self) -> Result<i32, Self::Error> {
 		Ok(as_text(self).await?.caret_offset().await?)
 	}
-	async fn character_count(&self) -> Result<i32, OdiliaError> {
+	async fn character_count(&self) -> Result<i32, Self::Error> {
 		Ok(i32::try_from(self.text.len())?)
 	}
 }
