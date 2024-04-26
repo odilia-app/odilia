@@ -122,7 +122,7 @@ impl AccessiblePrimitive {
 impl From<ObjectRef> for AccessiblePrimitive {
 	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
 		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.try_into()
+		tuple_converter.into()
 	}
 }
 impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
@@ -470,14 +470,14 @@ impl CacheItem {
 		&self,
 		start_offset: i32,
 		end_offset: i32,
-	) -> Result<bool, Self::Error> {
+	) -> Result<bool, OdiliaError> {
 		Ok(as_text(self).await?.add_selection(start_offset, end_offset).await?)
 	}
 	pub async fn get_attribute_run(
 		&self,
 		offset: i32,
 		include_defaults: bool,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
+	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.get_attribute_run(offset, include_defaults)
@@ -487,7 +487,7 @@ impl CacheItem {
 		&self,
 		offset: i32,
 		attribute_name: &str,
-	) -> Result<String, Self::Error> {
+	) -> Result<String, OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.get_attribute_value(offset, attribute_name)
@@ -496,7 +496,7 @@ impl CacheItem {
 	pub async fn get_text_attributes(
 		&self,
 		offset: i32,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), Self::Error> {
+	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
 		Ok(as_text(self).await?.get_attributes(offset).await?)
 	}
 	pub async fn get_bounded_ranges(
@@ -508,7 +508,7 @@ impl CacheItem {
 		coord_type: CoordType,
 		x_clip_type: ClipType,
 		y_clip_type: ClipType,
-	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, Self::Error> {
+	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.get_bounded_ranges(
@@ -529,17 +529,17 @@ impl CacheItem {
 		&self,
 		offset: i32,
 		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), Self::Error> {
+	) -> Result<(i32, i32, i32, i32), OdiliaError> {
 		Ok(as_text(self).await?.get_character_extents(offset, coord_type).await?)
 	}
 	pub async fn get_default_attribute_set(
 		&self,
-	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
+	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
 		Ok(as_text(self).await?.get_default_attribute_set().await?)
 	}
 	pub async fn get_default_attributes(
 		&self,
-	) -> Result<std::collections::HashMap<String, String>, Self::Error> {
+	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
 		Ok(as_text(self).await?.get_default_attributes().await?)
 	}
 	pub async fn get_nselections(&self) -> Result<i32, OdiliaError> {
@@ -550,7 +550,7 @@ impl CacheItem {
 		x: i32,
 		y: i32,
 		coord_type: CoordType,
-	) -> Result<i32, Self::Error> {
+	) -> Result<i32, OdiliaError> {
 		Ok(as_text(self).await?.get_offset_at_point(x, y, coord_type).await?)
 	}
 	pub async fn get_range_extents(
@@ -558,7 +558,7 @@ impl CacheItem {
 		start_offset: i32,
 		end_offset: i32,
 		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), Self::Error> {
+	) -> Result<(i32, i32, i32, i32), OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.get_range_extents(start_offset, end_offset, coord_type)
@@ -661,21 +661,21 @@ impl CacheItem {
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
+	) -> Result<(String, i32, i32), OdiliaError> {
 		Ok(as_text(self).await?.get_text_after_offset(offset, type_).await?)
 	}
 	pub async fn get_text_at_offset(
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
+	) -> Result<(String, i32, i32), OdiliaError> {
 		Ok(as_text(self).await?.get_text_at_offset(offset, type_).await?)
 	}
 	pub async fn get_text_before_offset(
 		&self,
 		offset: i32,
 		type_: u32,
-	) -> Result<(String, i32, i32), Self::Error> {
+	) -> Result<(String, i32, i32), OdiliaError> {
 		Ok(as_text(self).await?.get_text_before_offset(offset, type_).await?)
 	}
 	pub async fn remove_selection(&self, selection_num: i32) -> Result<bool, OdiliaError> {
@@ -686,7 +686,7 @@ impl CacheItem {
 		start_offset: i32,
 		end_offset: i32,
 		type_: u32,
-	) -> Result<bool, Self::Error> {
+	) -> Result<bool, OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.scroll_substring_to(start_offset, end_offset, type_)
@@ -699,7 +699,7 @@ impl CacheItem {
 		type_: u32,
 		x: i32,
 		y: i32,
-	) -> Result<bool, Self::Error> {
+	) -> Result<bool, OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.scroll_substring_to_point(start_offset, end_offset, type_, x, y)
@@ -713,7 +713,7 @@ impl CacheItem {
 		selection_num: i32,
 		start_offset: i32,
 		end_offset: i32,
-	) -> Result<bool, Self::Error> {
+	) -> Result<bool, OdiliaError> {
 		Ok(as_text(self)
 			.await?
 			.set_selection(selection_num, start_offset, end_offset)
