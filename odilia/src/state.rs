@@ -1,8 +1,8 @@
-use std::{fs, sync::atomic::AtomicI32};
+use std::sync::atomic::AtomicI32;
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
-use ssip_client_async::{MessageScope, Priority, Request as SSIPRequest};
+use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::UniqueName, zvariant::ObjectPath, MatchRule, MessageType};
@@ -16,9 +16,9 @@ use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::{CacheError, ConfigError},
+	errors::CacheError,
 	modes::ScreenReaderMode,
-	settings::ApplicationConfig,
+	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
 	Result as OdiliaResult,
 };
@@ -37,18 +37,11 @@ pub struct ScreenReaderState {
 	pub cache: Arc<Cache>,
 }
 
-enum ConfigType {
-	CliOverride,
-	XDGConfigHome,
-	Etc,
-	CreateDefault,
-}
-
 impl ScreenReaderState {
 	#[tracing::instrument(skip_all)]
 	pub async fn new(
 		ssip: Sender<SSIPRequest>,
-		config_override: Option<&std::path::Path>,
+		config: ApplicationConfig,
 	) -> eyre::Result<ScreenReaderState> {
 		let atspi = AccessibilityConnection::open()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
@@ -63,62 +56,52 @@ impl ScreenReaderState {
 
 		let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
-		tracing::debug!("Reading configuration");
-
-		// In order of prioritization, do configuration via cli, then XDG_CONFIG_HOME, then /etc/,
-		// Otherwise create it in XDG_CONFIG_HOME
-		let config_type = if config_override.is_some() {
-			ConfigType::CliOverride
-
-		// First check makes sure unwrap is safe
-		} else if xdg::BaseDirectories::with_prefix("odilia").is_ok()
-			&& xdg::BaseDirectories::with_prefix("odilia")
-				.expect("This error should never occur")
-				.find_config_file("config.toml")
-				.is_some()
-		{
-			ConfigType::XDGConfigHome
-		} else if std::path::Path::new("/etc/odilia/config.toml").exists() {
-			ConfigType::Etc
-		} else {
-			ConfigType::CreateDefault
-		};
-
-		let config_path = match config_type {
-			ConfigType::CliOverride => config_override
-				.expect("Config override was provided but is None")
-				.to_str()
-				.ok_or(ConfigError::PathNotFound)?
-				.to_owned(),
-			ConfigType::XDGConfigHome | ConfigType::CreateDefault => {
-				let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-					"unable to find the odilia config directory according to the xdg dirs specification",
-				);
-
-				let config_path = xdg_dirs.place_config_file("config.toml").expect(
-					"unable to place configuration file. Maybe your system is readonly?",
-				);
-
-				if !config_path.exists() {
-					fs::write(&config_path, include_str!("../config.toml"))
-						.expect("Unable to copy default config file.");
-				}
-				config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
-			}
-			ConfigType::Etc => "/etc/odilia/config.toml".to_owned(),
-		};
-
-		tracing::debug!(path=%config_path, "loading configuration file");
-		let config = ApplicationConfig::new(&config_path)
-			.wrap_err("unable to load configuration file")?;
-
-		tracing::debug!("configuration loaded successfully");
-
 		let previous_caret_position = AtomicI32::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Arc::new(Cache::new(atspi.connection().clone()));
-
+		ssip.send(SSIPRequest::SetPitch(
+			ssip_client_async::ClientScope::Current,
+			config.speech.pitch,
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetVolume(
+			ssip_client_async::ClientScope::Current,
+			config.speech.volume,
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetOutputModule(
+			ssip_client_async::ClientScope::Current,
+			config.speech.module.clone(),
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetLanguage(
+			ssip_client_async::ClientScope::Current,
+			config.speech.language.clone(),
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetSynthesisVoice(
+			ssip_client_async::ClientScope::Current,
+			config.speech.person.clone(),
+		))
+		.await?;
+		//doing it this way for now. It could have been done with a From impl, but I don't want to make ssip_client_async a dependency of odilia_common, so this conversion is done directly inside state, especially since this enum isn't supposed to grow any further, in complexity or variants
+		let punctuation_mode = match config.speech.punctuation {
+			PunctuationSpellingMode::Some => PunctuationMode::Some,
+			PunctuationSpellingMode::Most => PunctuationMode::Most,
+			PunctuationSpellingMode::None => PunctuationMode::None,
+			PunctuationSpellingMode::All => PunctuationMode::All,
+		};
+		ssip.send(SSIPRequest::SetPunctuationMode(
+			ssip_client_async::ClientScope::Current,
+			punctuation_mode,
+		))
+		.await?;
+		ssip.send(SSIPRequest::SetRate(
+			ssip_client_async::ClientScope::Current,
+			config.speech.rate,
+		))
+		.await?;
 		Ok(Self {
 			atspi,
 			dbus,

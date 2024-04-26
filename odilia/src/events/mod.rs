@@ -196,6 +196,7 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 pub mod dispatch_tests {
 	use crate::ScreenReaderState;
 	use eyre::Context;
+	use odilia_common::settings::ApplicationConfig;
 	use tokio::sync::mpsc::channel;
 
 	#[tokio::test]
@@ -209,7 +210,7 @@ pub mod dispatch_tests {
 		let (send, _recv) = channel(32);
 		let cache = serde_json::from_str(include_str!("wcag_cache_items.json"))
 			.context("unable to load cache data from json file")?;
-		let state = ScreenReaderState::new(send, None)
+		let state = ScreenReaderState::new(send, ApplicationConfig::default())
 			.await
 			.context("unable to realise screenreader state")?;
 		state.cache

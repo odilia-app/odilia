@@ -3,10 +3,32 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(clippy::module_name_repetitions)]
 pub struct SpeechSettings {
-	pub rate: i32,
+	pub rate: i8,
+	pub pitch: i8,
+	pub volume: i8,
+	pub module: String,
+	pub language: String,
+	pub person: String,
+	pub punctuation: PunctuationSpellingMode,
 }
-impl SpeechSettings {
-	pub fn new(rate: i32) -> Self {
-		Self { rate }
+impl Default for SpeechSettings {
+	fn default() -> Self {
+		Self {
+			rate: 50,
+			pitch: 0,
+			volume: 100,
+			module: "espeak-ng".into(),
+			language: "en-US".into(),
+			person: "English (America)+Max".into(),
+			punctuation: PunctuationSpellingMode::Some,
+		}
 	}
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum PunctuationSpellingMode {
+	Some,
+	Most,
+	None,
+	All,
 }

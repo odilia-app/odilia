@@ -13,13 +13,18 @@ mod events;
 mod logging;
 mod state;
 
-use std::{process::exit, sync::Arc, time::Duration};
+use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use clap::Parser;
 use eyre::WrapErr;
+use figment::{
+	providers::{Format, Serialized, Toml},
+	Figment,
+};
 use futures::{future::FutureExt, StreamExt};
+use odilia_common::settings::ApplicationConfig;
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
 use ssip_client_async::Priority;
@@ -77,13 +82,19 @@ async fn sigterm_signal_watcher(
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> eyre::Result<()> {
 	let args = Args::parse();
-	logging::init();
 
 	//initialize the primary token for task cancelation
 	let token = CancellationToken::new();
 
 	//initialize a task tracker, which will allow us to wait for all tasks to finish
 	let tracker = TaskTracker::new();
+
+	//initializing configuration
+	let config = load_configuration(args.config)?;
+	//initialize logging, with the provided config
+	logging::init(&config)?;
+
+	tracing::info!(?config, "this configuration was used to prepair odilia");
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
 	if let Err(e) = atspi_connection::set_session_accessibility(true)
@@ -101,7 +112,7 @@ async fn main() -> eyre::Result<()> {
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	// Initialize state
-	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, args.config.as_deref()).await?);
+	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
 
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
@@ -150,4 +161,34 @@ async fn main() -> eyre::Result<()> {
 		.await
 		.wrap_err("can not process interrupt signal");
 	Ok(())
+}
+
+fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, eyre::Report> {
+	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
+	// If XDG_CONFIG_HOME based configuration wasn't found, create one with default values for the user to alter, for the next run of odilia
+	//default configuration first, because that doesn't affect the priority outlined above
+	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
+	//cli override, if applicable
+	let figment =
+		if let Some(path) = cli_overide { figment.join(Toml::file(path)) } else { figment };
+	//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
+	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+			"unable to find the odilia config directory according to the xdg dirs specification",
+		);
+
+	let config_path = xdg_dirs
+		.place_config_file("config.toml")
+		.expect("unable to place configuration file. Maybe your system is readonly?");
+
+	if !config_path.exists() {
+		let toml = toml::to_string(&ApplicationConfig::default())?;
+		fs::write(&config_path, toml).expect("Unable to create default config file.");
+	}
+	//next, the xdg configuration
+	let figment = figment
+		.admerge(Toml::file(&config_path))
+		//last, the configuration system wide, in /etc/odilia/config.toml
+		.admerge(Toml::file("/etc/odilia/config.toml"));
+	//realise the configuration and freeze it into place
+	Ok(figment.extract()?)
 }
