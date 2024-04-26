@@ -256,10 +256,7 @@ impl CacheItem {
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: atspi_cache_item.index.try_into().ok(),
-			children_num: atspi_cache_item
-				.children
-				.try_into()
-        .ok(),
+			children_num: atspi_cache_item.children.try_into().ok(),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -980,9 +977,7 @@ pub async fn accessible_to_cache_item(
 		app: app.into(),
 		parent: CacheRef::new(parent.into()),
 		index: index.try_into().ok(),
-		children_num: children_num
-			.try_into()
-      .ok(),
+		children_num: children_num.try_into().ok(),
 		interfaces,
 		role,
 		states,
