@@ -1,4 +1,4 @@
-use std::{fs, sync::atomic::AtomicUsize};
+use std::sync::atomic::AtomicUsize;
 
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
@@ -57,55 +57,6 @@ impl ScreenReaderState {
 		let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
 		tracing::debug!("Reading configuration");
-
-		// In order of prioritization, do configuration via cli, then XDG_CONFIG_HOME, then /etc/,
-		// Otherwise create it in XDG_CONFIG_HOME
-		let config_type = if config_override.is_some() {
-			ConfigType::CliOverride
-
-		// First check makes sure unwrap is safe
-		} else if xdg::BaseDirectories::with_prefix("odilia").is_ok()
-			&& xdg::BaseDirectories::with_prefix("odilia")
-				.expect("This error should never occur")
-				.find_config_file("config.toml")
-				.is_some()
-		{
-			ConfigType::XDGConfigHome
-		} else if std::path::Path::new("/etc/odilia/config.toml").exists() {
-			ConfigType::Etc
-		} else {
-			ConfigType::CreateDefault
-		};
-
-		let config_path = match config_type {
-			ConfigType::CliOverride => config_override
-				.expect("Config override was provided but is None")
-				.to_str()
-				.ok_or(ConfigError::PathNotFound)?
-				.to_owned(),
-			ConfigType::XDGConfigHome | ConfigType::CreateDefault => {
-				let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-					"unable to find the odilia config directory according to the xdg dirs specification",
-				);
-
-				let config_path = xdg_dirs.place_config_file("config.toml").expect(
-					"unable to place configuration file. Maybe your system is readonly?",
-				);
-
-				if !config_path.exists() {
-					fs::write(&config_path, include_str!("../config.toml"))
-						.expect("Unable to copy default config file.");
-				}
-				config_path.to_str().ok_or(ConfigError::PathNotFound)?.to_owned()
-			}
-			ConfigType::Etc => "/etc/odilia/config.toml".to_owned(),
-		};
-
-		tracing::debug!(path=%config_path, "loading configuration file");
-		let config = ApplicationConfig::new(&config_path)
-			.wrap_err("unable to load configuration file")?;
-
-		tracing::debug!("configuration loaded successfully");
 
 		let previous_caret_position = AtomicUsize::new(0);
 		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
