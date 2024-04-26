@@ -175,9 +175,9 @@ pub struct CacheItem {
 	/// The parent object.  (so)
 	pub parent: CacheRef,
 	/// The accessible index in parent.I
-	pub index: i32,
+	pub index: Option<usize>,
 	/// Child count of the accessible.I
-	pub children_num: usize,
+	pub children_num: Option<usize>,
 	/// The exposed interface(s) set
 	pub interfaces: InterfaceSet,
 	/// Accessible role. u
@@ -255,11 +255,11 @@ impl CacheItem {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
-			index: atspi_cache_item.index,
+			index: atspi_cache_item.index.try_into().ok(),
 			children_num: atspi_cache_item
 				.children
 				.try_into()
-				.expect("Negative values are not permitted for children_num"),
+        .ok(),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -293,8 +293,8 @@ impl CacheItem {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
-			index,
-			children_num: atspi_cache_item.children.len(),
+			index: index.try_into().ok(),
+			children_num: Some(atspi_cache_item.children.len()),
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
@@ -916,9 +916,6 @@ impl Cache {
 		let parent_key = item.parent.key.clone();
 		let parent_ref_opt = cache.get(&parent_key);
 
-		// Update this item's parent reference
-		let ix_opt = usize::try_from(item.index).ok();
-
 		// Update this item's children references
 		for child_ref in &mut item.children {
 			if let Some(child_arc) = cache.get(&child_ref.key).as_ref() {
@@ -930,7 +927,7 @@ impl Cache {
 		// TODO: Should there be errors for the non let bindings?
 		if let Some(parent_ref) = parent_ref_opt {
 			item.parent.item = Arc::downgrade(&parent_ref);
-			if let Some(ix) = ix_opt {
+			if let Some(ix) = item.index {
 				if let Some(cache_ref) = parent_ref
 					.write()?
 					.children
@@ -982,10 +979,10 @@ pub async fn accessible_to_cache_item(
 		object: accessible.try_into()?,
 		app: app.into(),
 		parent: CacheRef::new(parent.into()),
-		index,
+		index: index.try_into().ok(),
 		children_num: children_num
 			.try_into()
-			.expect("Negative numbers are not permitted for children_num"),
+      .ok(),
 		interfaces,
 		role,
 		states,

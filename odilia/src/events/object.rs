@@ -564,8 +564,8 @@ mod tests {
 				sender: ":1.2".into(),
 			}
 			.into(),
-			index: 323,
-			children_num: 0,
+			index: Some(323),
+			children_num: Some(0),
 			interfaces: InterfaceSet::new(
 				Interface::Accessible
 					| Interface::Collection | Interface::Component
