@@ -480,15 +480,14 @@ mod state_changed {
 		let state_value = event.enabled == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, event.state, state_value) {
-			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
-			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state),
-			Err(e) => return Err(e),
+		match update_state(state, &a11y_prim, event.state, state_value)? {
+			false => tracing::debug!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
+			true => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state),
 		};
 		// enabled can only be 1 or 0, but is not a boolean over dbus
 		match (event.state, event.enabled == 1) {
 			(State::Focused, true) => focused(state, event).await?,
-			(state, enabled) => tracing::debug!(
+			(state, enabled) => tracing::trace!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
 				state,
 				enabled
