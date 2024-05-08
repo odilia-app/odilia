@@ -42,7 +42,7 @@ pub trait Convertable {
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
-	/// GenerallyProxy, it fails if the accessible item does not implement to collection interface.
+	/// it fails if the accessible item does not implement to collection interface.
 	fn to_collection(
 		&self,
 	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
@@ -50,7 +50,7 @@ pub trait Convertable {
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
-	/// GenerallyProxy, it fails if the accessible item does not implement to component interface.
+	/// it fails if the accessible item does not implement to component interface.
 	fn to_component(&self) -> impl Future<Output = Result<ComponentProxy, Self::Error>> + Send;
 	fn to_document(&self) -> impl Future<Output = Result<DocumentProxy, Self::Error>> + Send;
 	fn to_hypertext(&self) -> impl Future<Output = Result<HypertextProxy, Self::Error>> + Send;

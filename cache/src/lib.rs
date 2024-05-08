@@ -587,10 +587,8 @@ impl CacheItem {
 				.text
 				// [char]
 				.split_whitespace()
-				// [(idx, char)]
-				.enumerate()
 				// [(word, start, end)]
-				.filter_map(|(_, word)| {
+				.filter_map(|word| {
 					let start = self
 						.text
 						// [(idx, char)]
