@@ -77,18 +77,6 @@ pub trait AccessibleExt {
 	fn match_(&self, role: Role) -> impl Future<Output = Result<bool, OdiliaError>> + Send;
 }
 
-#[allow(clippy::module_name_repetitions)]
-pub trait AccessibleExtError: Convertable {
-	type Error: std::error::Error
-		+ From<<Self as Convertable>::Error>
-		// TODO: add all convertable error types
-		+ From<std::num::TryFromIntError>
-		+ Send;
-}
-impl AccessibleExtError for AccessibleProxy<'_> {
-	type Error = Error;
-}
-
 impl AccessibleExt for AccessibleProxy<'_> {
 	type Error = OdiliaError;
 	async fn get_application_ext<'a>(&self) -> Result<AccessibleProxy<'a>, Self::Error>
