@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -20,11 +20,12 @@ pub struct Notification {
 type MessageBody<'a> =
 	(String, u32, &'a str, String, String, Vec<&'a str>, HashMap<&'a str, Value<'a>>, i32);
 
-impl TryFrom<Arc<Message>> for Notification {
+impl TryFrom<Message> for Notification {
 	type Error = zbus::Error;
 
-	fn try_from(msg: Arc<Message>) -> Result<Self, Self::Error> {
-		let mb: MessageBody = msg.body()?;
+	fn try_from(msg: Message) -> Result<Self, Self::Error> {
+		let body = msg.body();
+		let mb: MessageBody = body.deserialize()?;
 		let (app_name, _, _, title, body, actions, mut options, _) = mb;
 		let actions = actions
 			.iter()
