@@ -2,7 +2,7 @@ use crate::convertable::Convertable;
 use crate::AccessiblePrimitive;
 use crate::CacheProperties;
 use crate::OdiliaError;
-use atspi_common::{AtspiError as Error, ObjectRef, RelationType, Role};
+use atspi_common::{ObjectRef, RelationType, Role};
 use atspi_proxies::accessible::AccessibleProxy;
 use std::collections::HashMap;
 use std::future::Future;
