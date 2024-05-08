@@ -30,10 +30,7 @@ pub async fn structural_navigation(
 		Some(acc) => acc.into_accessible(state.atspi.connection()).await?,
 		None => return Ok(false),
 	};
-	if let Some(next) = curr
-		.get_next(role, dir == Direction::Backward, &mut Vec::new())
-		.await?
-	{
+	if let Some(next) = curr.get_next(role, dir == Direction::Backward).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
 		let curr_prim = curr.try_into()?;

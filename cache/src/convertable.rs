@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use atspi::Interface;
 use atspi_proxies::{
 	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
@@ -7,11 +6,11 @@ use atspi_proxies::{
 	image::ImageProxy, selection::SelectionProxy, table::TableProxy,
 	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
+use std::future::Future;
 use std::ops::Deref;
 use zbus::{CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault};
 
 #[allow(clippy::module_name_repetitions)]
-#[async_trait]
 pub trait Convertable {
 	type Error: std::error::Error;
 
@@ -22,41 +21,50 @@ pub trait Convertable {
 	/// Generally, it fails if the accessible item does not implement to accessible interface.
 	/// This shouldn't be possible, but this function may fail for other reasons.
 	/// For example, to convert a [`zbus::Proxy`] into a [`Self::Accessible`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
-	async fn to_accessible(&self) -> Result<AccessibleProxy, Self::Error>;
+	fn to_accessible(
+		&self,
+	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;
 	/// Creates an [`Self::Action`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to action interface.
-	async fn to_action(&self) -> Result<ActionProxy, Self::Error>;
+	fn to_action(&self) -> impl Future<Output = Result<ActionProxy, Self::Error>> + Send;
 	/// Creates an [`Self::Application`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to application interface.
-	async fn to_application(&self) -> Result<ApplicationProxy, Self::Error>;
+	fn to_application(
+		&self,
+	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
 	/// Creates an [`Collection`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// GenerallyProxy, it fails if the accessible item does not implement to collection interface.
-	async fn to_collection(&self) -> Result<CollectionProxy, Self::Error>;
+	fn to_collection(
+		&self,
+	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
 	/// Creates an [`Component`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// GenerallyProxy, it fails if the accessible item does not implement to component interface.
-	async fn to_component(&self) -> Result<ComponentProxy, Self::Error>;
-	async fn to_document(&self) -> Result<DocumentProxy, Self::Error>;
-	async fn to_hypertext(&self) -> Result<HypertextProxy, Self::Error>;
-	async fn to_hyperlink(&self) -> Result<HyperlinkProxy, Self::Error>;
-	async fn to_image(&self) -> Result<ImageProxy, Self::Error>;
-	async fn to_selection(&self) -> Result<SelectionProxy, Self::Error>;
-	async fn to_table(&self) -> Result<TableProxy, Self::Error>;
-	async fn to_table_cell(&self) -> Result<TableCellProxy, Self::Error>;
-	async fn to_text(&self) -> Result<TextProxy, Self::Error>;
-	async fn to_editable_text(&self) -> Result<EditableTextProxy, Self::Error>;
-	async fn to_value(&self) -> Result<ValueProxy, Self::Error>;
+	fn to_component(&self) -> impl Future<Output = Result<ComponentProxy, Self::Error>> + Send;
+	fn to_document(&self) -> impl Future<Output = Result<DocumentProxy, Self::Error>> + Send;
+	fn to_hypertext(&self) -> impl Future<Output = Result<HypertextProxy, Self::Error>> + Send;
+	fn to_hyperlink(&self) -> impl Future<Output = Result<HyperlinkProxy, Self::Error>> + Send;
+	fn to_image(&self) -> impl Future<Output = Result<ImageProxy, Self::Error>> + Send;
+	fn to_selection(&self) -> impl Future<Output = Result<SelectionProxy, Self::Error>> + Send;
+	fn to_table(&self) -> impl Future<Output = Result<TableProxy, Self::Error>> + Send;
+	fn to_table_cell(&self)
+		-> impl Future<Output = Result<TableCellProxy, Self::Error>> + Send;
+	fn to_text(&self) -> impl Future<Output = Result<TextProxy, Self::Error>> + Send;
+	fn to_editable_text(
+		&self,
+	) -> impl Future<Output = Result<EditableTextProxy, Self::Error>> + Send;
+	fn to_value(&self) -> impl Future<Output = Result<ValueProxy, Self::Error>> + Send;
 }
 
 #[inline]
@@ -93,7 +101,6 @@ async fn convert_to_new_type<
 		.await
 }
 
-#[async_trait]
 impl<'a, T: Deref<Target = Proxy<'a>> + ProxyDefault + Sync> Convertable for T {
 	type Error = zbus::Error;
 	/* no guard due to assumption it is always possible */

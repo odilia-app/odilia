@@ -42,7 +42,7 @@ pub trait AccessibleExt {
 	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_children_caret<'a>(
+	fn get_children_from_caret<'a>(
 		&self,
 		after: bool,
 	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
@@ -54,7 +54,6 @@ pub trait AccessibleExt {
 		&self,
 		role: Role,
 		backward: bool,
-		already_visited: &'a mut Vec<ObjectRef>,
 	) -> impl Future<Output = Result<Option<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
@@ -119,13 +118,13 @@ impl AccessibleExt for AccessibleProxy<'_> {
 	where
 		Self: Sized,
 	{
-		let children_parts = self.get_children().await?;
+		let children_refs = self.get_children().await?;
 		let mut children = Vec::new();
-		for child_parts in children_parts {
+		for child_refs in children_refs {
 			let acc = AccessibleProxy::builder(self.connection())
-				.destination(child_parts.name)?
+				.destination(child_refs.name)?
 				.cache_properties(CacheProperties::No)
-				.path(child_parts.path)?
+				.path(child_refs.path)?
 				.build()
 				.await?;
 			children.push(acc);
@@ -180,14 +179,14 @@ impl AccessibleExt for AccessibleProxy<'_> {
 			.collect();
 		Ok(children)
 	}
-	async fn get_children_caret<'a>(
+	async fn get_children_from_caret<'a>(
 		&self,
 		backward: bool,
 	) -> Result<Vec<AccessibleProxy<'a>>, Self::Error>
 	where
 		Self: Sized,
 	{
-		let mut children_after_before = Vec::new();
+		let mut children_from_cursor = Vec::new();
 		let text_iface = self.to_text().await?;
 		let caret_pos = text_iface.caret_offset().await?;
 		let children_hyperlink = self.get_children_ext().await?;
@@ -197,14 +196,14 @@ impl AccessibleExt for AccessibleProxy<'_> {
 				if (start_index <= caret_pos && backward)
 					|| (start_index >= caret_pos && !backward)
 				{
-					children_after_before.push(child);
+					children_from_cursor.push(child);
 				}
 			// include all children which do not identify their positions, for some reason
 			} else {
-				children_after_before.push(child);
+				children_from_cursor.push(child);
 			}
 		}
-		Ok(children_after_before)
+		Ok(children_from_cursor)
 	}
 	async fn edges<'a>(
 		&self,
@@ -216,7 +215,8 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		let mut edge_elements = Vec::new();
 		let children = match backward {
 			Some(backward) => {
-				if let Ok(caret_children) = self.get_children_caret(backward).await
+				if let Ok(caret_children) =
+					self.get_children_from_caret(backward).await
 				{
 					caret_children
 				} else {
@@ -240,11 +240,11 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		&self,
 		role: Role,
 		backward: bool,
-		visited: &'a mut Vec<ObjectRef>,
 	) -> Result<Option<AccessibleProxy<'a>>, Self::Error>
 	where
 		Self: Sized,
 	{
+		let mut visited = Vec::new();
 		let mut stack: Vec<AccessibleProxy<'_>> = Vec::new();
 		let edges = self.edges(Some(backward)).await?;
 		edges.into_iter().for_each(|edge| stack.push(edge));
