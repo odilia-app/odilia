@@ -72,10 +72,11 @@ async fn convert_to_new_type<
 	'a,
 	'b,
 	T: From<Proxy<'b>> + ProxyDefault,
-	U: Deref<Target = Proxy<'a>> + ProxyDefault,
+	U: AsRef<Proxy<'a>> + ProxyDefault,
 >(
 	from: &U,
 ) -> zbus::Result<T> {
+	let from = from.as_ref();
 	// first thing is first, we need to creat an accessible to query the interfaces.
 	let accessible = AccessibleProxy::builder(from.connection())
 		.destination(from.destination())?
@@ -92,7 +93,7 @@ async fn convert_to_new_type<
 	// otherwise, make a new Proxy with the related type.
 	let path = from.path().to_owned();
 	let dest = from.destination().to_owned();
-	ProxyBuilder::<'b, T>::new_bare(from.connection())
+	ProxyBuilder::<'b, T>::new(from.connection())
 		.interface(<T as ProxyDefault>::INTERFACE)?
 		.destination(dest)?
 		.cache_properties(CacheProperties::No)
@@ -101,7 +102,7 @@ async fn convert_to_new_type<
 		.await
 }
 
-impl<'a, T: Deref<Target = Proxy<'a>> + ProxyDefault + Sync> Convertable for T {
+impl<'a, T: AsRef<Proxy<'a>> + ProxyDefault + Sync> Convertable for T {
 	type Error = zbus::Error;
 	/* no guard due to assumption it is always possible */
 	async fn to_accessible(&self) -> zbus::Result<AccessibleProxy> {

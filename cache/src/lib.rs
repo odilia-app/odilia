@@ -22,7 +22,8 @@ use std::{
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, GenericEvent, Granularity, InterfaceSet,
+	object_ref::ObjectRef, ClipType, CoordType, Granularity, InterfaceSet,
+	EventProperties,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -110,7 +111,7 @@ impl AccessiblePrimitive {
 	/// # Errors
 	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
 	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub fn from_event<'a, T: GenericEvent<'a>>(
+	pub fn from_event<T: EventProperties>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = event.sender();
@@ -218,7 +219,7 @@ impl CacheItem {
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
+	pub async fn from_atspi_event<T: EventProperties>(
 		event: &T,
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
