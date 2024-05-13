@@ -31,11 +31,10 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.21.0", default-features = false, features = ["tokio"] }
-atspi-client = { version = "0.1.0", default-features = false, features = ["tokio"] }
-atspi-proxies = { version = "0.5.0", default-features = false, features = ["tokio"] }
-atspi-common = { version = "0.5.0", default-features = false, features = ["tokio"] }
-atspi-connection = { version = "0.5.0", default-features = false, features = ["tokio"] }
+atspi = { git = "https://github.com/odilia-app/atspi/", version = "0.21.0", default-features = false, features = ["tokio"] }
+atspi-proxies = { git = "https://github.com/odilia-app/atspi/", version = "0.5.0", default-features = false, features = ["tokio"] }
+atspi-common = { git = "https://github.com/odilia-app/atspi/", version = "0.5.0", default-features = false, features = ["tokio"] }
+atspi-connection = { git = "https://github.com/odilia-app/atspi/", version = "0.5.0", default-features = false, features = ["tokio"] }
 odilia-common = { version = "0.3.0", path = "./common" }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
@@ -50,6 +49,6 @@ tracing-log = "^0.1.3"
 tracing-subscriber = { version = "0.3.16", default-features = false, features = ["env-filter", "parking_lot"] }
 tracing-error = "^0.2.0"
 tracing-tree = "^0.2.2"
-zbus = { version = "3.14.1", features = ["tokio"] }
+zbus = { version = "4.2", features = ["tokio"] }
 serde_plain = "1.0.1"
 
