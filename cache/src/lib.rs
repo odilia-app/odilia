@@ -22,8 +22,7 @@ use std::{
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, Granularity, InterfaceSet,
-	EventProperties,
+	object_ref::ObjectRef, ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -35,7 +34,7 @@ use odilia_common::{
 };
 use serde::{Deserialize, Serialize};
 use zbus::{
-	names::OwnedUniqueName,
+	names::{OwnedBusName, OwnedUniqueName},
 	zvariant::{ObjectPath, OwnedObjectPath},
 	CacheProperties, ProxyBuilder,
 };
@@ -126,6 +125,12 @@ impl From<ObjectRef> for AccessiblePrimitive {
 		tuple_converter.into()
 	}
 }
+impl From<(OwnedBusName, OwnedObjectPath)> for AccessiblePrimitive {
+	fn from(so: (OwnedBusName, OwnedObjectPath)) -> AccessiblePrimitive {
+		let accessible_id = so.1;
+		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() }
+	}
+}
 impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	fn from(so: (OwnedUniqueName, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
@@ -150,6 +155,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
@@ -160,6 +166,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })

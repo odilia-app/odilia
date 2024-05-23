@@ -273,8 +273,9 @@ impl AccessibleExt for AccessibleProxy<'_> {
 			let mut related_vec = Vec::new();
 			for related in relation.1 {
 				let related_ap: AccessiblePrimitive = related.into();
-				let ap: AccessibleProxy<'_> =
-					related_ap.into_accessible(self.as_ref().connection()).await?;
+				let ap: AccessibleProxy<'_> = related_ap
+					.into_accessible(self.as_ref().connection())
+					.await?;
 				related_vec.push(ap);
 			}
 			relations.insert(relation.0, related_vec);

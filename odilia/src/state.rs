@@ -8,7 +8,7 @@ use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi_common::{
-	events::{GenericEvent, HasMatchRule, HasRegistryEventString},
+	events::{EventProperties, HasMatchRule, HasRegistryEventString},
 	Event,
 };
 use atspi_connection::AccessibilityConnection;
@@ -147,7 +147,7 @@ impl ScreenReaderState {
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
-	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a>>(
+	pub async fn get_or_create_event_object_to_cache<T: EventProperties>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
@@ -308,9 +308,9 @@ impl ScreenReaderState {
 			.await
 	}
 	#[tracing::instrument(skip_all, ret, err)]
-	pub async fn new_accessible<'a, T: GenericEvent<'a>>(
-		&self,
-		event: &T,
+	pub async fn new_accessible<'a, T: EventProperties>(
+		&'a self,
+		event: &'a T,
 	) -> OdiliaResult<AccessibleProxy<'_>> {
 		let sender = event.sender().clone();
 		let path = event.path().to_owned();
