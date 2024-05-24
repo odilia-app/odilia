@@ -38,7 +38,7 @@ pub trait Convertable<'a> {
 	fn to_application(
 		&self,
 	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
-  
+
 	/// Creates an [`CollectionProxy`] from the existing accessible item.
 	/// # Errors
 	///
@@ -98,7 +98,7 @@ async fn convert_to_new_type<
 	// otherwise, make a new Proxy with the related type.
 	let path = from.path().to_owned();
 	let dest = from.destination().to_owned();
-  
+
 	ProxyBuilder::<T>::new(from.connection())
 		.interface(<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?)?
 		.destination(dest)?

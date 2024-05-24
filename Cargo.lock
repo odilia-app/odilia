@@ -369,7 +369,7 @@ checksum = "be534b16650e35237bb1ed189ba2aab86ce65e88cc84c66f4935ba38575cecbf"
 dependencies = [
  "atspi-common",
  "atspi-connection",
- "atspi-proxies 0.5.0",
+ "atspi-proxies",
 ]
 
 [[package]]
@@ -384,20 +384,6 @@ dependencies = [
  "zbus",
  "zbus-lockstep",
  "zbus-lockstep-macros",
- "zbus_names",
- "zvariant",
-]
-
-[[package]]
-name = "atspi-common"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67f7c733947d5eb53e7b6c740b8822428813c9f6fd8745c02aa890fde87b5dd6"
-dependencies = [
- "enumflags2",
- "serde",
- "static_assertions",
- "zbus",
  "zbus_names",
  "zvariant",
 ]
@@ -424,17 +410,6 @@ dependencies = [
  "serde",
  "zbus",
  "zvariant",
-]
-
-[[package]]
-name = "atspi-proxies"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0619da7b6b282cea5a94b8536526659fccab4a0677cee1d05c6783b37ae5a2e8"
-dependencies = [
- "atspi-common 0.5.0",
- "serde",
- "zbus",
 ]
 
 [[package]]
@@ -1553,7 +1528,7 @@ dependencies = [
  "atspi",
  "atspi-common",
  "atspi-connection",
- "atspi-proxies 0.5.0",
+ "atspi-proxies",
  "circular-queue",
  "clap 4.5.4",
  "eyre",
@@ -1589,7 +1564,7 @@ dependencies = [
  "atspi",
  "atspi-common",
  "atspi-connection",
- "atspi-proxies 0.5.0",
+ "atspi-proxies",
  "criterion",
  "dashmap",
  "fxhash",
@@ -1610,7 +1585,7 @@ name = "odilia-common"
 version = "0.3.0"
 dependencies = [
  "atspi",
- "atspi-common 0.5.0",
+ "atspi-common",
  "bitflags 1.3.2",
  "figment",
  "serde",
