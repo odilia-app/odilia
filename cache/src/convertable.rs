@@ -29,6 +29,7 @@ pub trait Convertable<'a> {
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to action interface.
 	fn to_action(&self) -> impl Future<Output = Result<ActionProxy, Self::Error>> + Send;
+
 	/// Creates an [`ApplicationProxy`] from the existing accessible item.
 	/// # Errors
 	///
@@ -37,6 +38,7 @@ pub trait Convertable<'a> {
 	fn to_application(
 		&self,
 	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
+  
 	/// Creates an [`CollectionProxy`] from the existing accessible item.
 	/// # Errors
 	///
@@ -45,6 +47,7 @@ pub trait Convertable<'a> {
 	fn to_collection(
 		&self,
 	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
+
 	/// Creates an [`ComponentProxy`] from the existing accessible item.
 	/// # Errors
 	///
@@ -76,6 +79,7 @@ async fn convert_to_new_type<
 	from: &U,
 ) -> zbus::Result<T> {
 	let from = from.inner();
+
 	// first thing is first, we need to creat an accessible to query the interfaces.
 	let accessible = AccessibleProxy::builder(from.connection())
 		.destination(from.destination())?
@@ -94,6 +98,7 @@ async fn convert_to_new_type<
 	// otherwise, make a new Proxy with the related type.
 	let path = from.path().to_owned();
 	let dest = from.destination().to_owned();
+  
 	ProxyBuilder::<T>::new(from.connection())
 		.interface(<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?)?
 		.destination(dest)?
