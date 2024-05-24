@@ -51,14 +51,10 @@ mod tests {
 	#[test]
 	fn correctly_formatted_message_leads_to_a_correct_notification() -> Result<(), zbus::Error>
 	{
-		// Simulate a method call to the org.freedesktop.notifications interface
-		let message = Message::method(
-			Some(":0.1"), //I can't pass none here, because of type needed errors, so passing dummy values for now
-			Some(":0.3"), //same here
-			"/org/freedesktop/notifications",
-			Some("org.freedesktop.notifications"),
-			"notify",
-			&(
+		let message = Message::method("/org/freedesktop/notifications", "notify")?
+			.sender(":0.1")?
+			.interface("org.freedesktop.notifications")?
+			.build(&(
 				"ExampleApp",
 				0u32,
 				"summary",
@@ -67,11 +63,7 @@ mod tests {
 				Vec::<&str>::new(),
 				HashMap::<&str, Value>::new(),
 				0,
-			),
-		)?;
-
-		//make this into an arc, to use the try_from implementation used in the wild
-		let message = Arc::new(message);
+			))?;
 		// Convert the Message into a Notification
 		let notification = Notification::try_from(message)?;
 
