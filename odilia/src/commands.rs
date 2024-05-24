@@ -1,9 +1,7 @@
 use crate::tower::Handler;
-use crate::state::ScreenReaderState;
 use crate::tower::Command;
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
-use std::marker::PhantomData;
 
 type Request = Command;
 type Response = ();

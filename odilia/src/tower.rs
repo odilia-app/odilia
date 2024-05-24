@@ -3,23 +3,19 @@
 use atspi::events::{document::DocumentEvents, object::ObjectEvents};
 use atspi::AtspiError;
 use atspi::Event;
-use atspi::GenericEvent;
+use atspi::BusProperties;
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
-use futures::stream::iter;
-use futures::future::{Lazy, lazy};
 use futures::future::MaybeDone;
-use futures::future::BoxFuture;
-use futures::future::{err, join_all, ok, Either, JoinAll, Ready, FutureExt as FatFutureExt};
+use futures::future::{err, Either, Ready, FutureExt as FatFutureExt};
 use futures_lite::FutureExt;
 use futures::{Stream, StreamExt};
 use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
-use std::collections::VecDeque;
 
 use tower::util::BoxService;
 use tower::util::BoxCloneService;
@@ -67,7 +63,7 @@ impl<F> Future for SerialFutures<F>
 where F: futures::TryFuture + Unpin {
     type Output = Result<Vec<F::Output>, F::Error>;
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-			for mut mfut in self.inner.as_mut().get_mut() {
+			for mfut in self.inner.as_mut().get_mut() {
 				match mfut {
 					MaybeDone::Future(fut) => match fut.poll(cx) {
 						Poll::Pending => return Poll::Pending,
@@ -98,9 +94,9 @@ where
 {
     type Output = Result<Vec<Result<O, E>>, E>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let rc = self.req.clone();
-				let mut this = self.project();
+				let this = self.project();
         loop {
             if let Some(s) = this.inner.into_iter().next() {
                 match s.call(rc.clone()).poll(cx) {
@@ -123,7 +119,7 @@ where I: Clone + Send + Sync,
     type Error = E;
     type Future = SerialServiceFuture<I, O, E>;
     fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
-        for mut service in &mut self.inner {
+        for service in &mut self.inner {
             let _ = service.poll_ready(ctx)?;
         }
         Poll::Ready(Ok(()))
@@ -147,11 +143,11 @@ impl EventTypePicker {
 	fn new() -> Self {
 		EventTypePicker { types: vec![] }
 	}
-	fn add_if_new_event_type<'a, E>(&mut self) 
-	where E: GenericEvent<'a> {
+	fn add_if_new_event_type<E>(&mut self) 
+	where E: BusProperties {
 		let dn = (
-			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
-			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
+			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
 		);
 		let mut idx = None;
 		for (i,di) in self.types.iter().enumerate() {
@@ -218,13 +214,13 @@ where
 			}
 		}
 	}
-	async fn call_event_listeners<'a, E>(&mut self, ev: E) -> Vec<Result<Response, Error>>
+	async fn call_event_listeners<E>(&mut self, ev: E) -> Vec<Result<Response, Error>>
 	where
-		E: atspi::GenericEvent<'a> + Into<Event> + Send + Sync + 'a,
+		E: atspi::BusProperties + Into<Event> + Send + Sync,
 	{
 		let dn = (
-			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
-			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
+			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
 		);
 		let input = ev.into();
     // NOTE: Why not use join_all(...) ?
@@ -238,10 +234,10 @@ where
 		}
 		results
 	}
-	pub fn atspi_listener<'a, H, T, E>(mut self, handler: H) -> Self
+	pub fn atspi_listener<H, T, E>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, S, E, Response = Vec<Command>> + Send + Sync + 'static,
-		E: atspi::GenericEvent<'a> + TryFrom<Event> + Send + Sync + 'static,
+		E: atspi::BusProperties + TryFrom<Event> + Send + Sync + 'static,
 		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
 		OdiliaError: From<<E as TryFrom<Event>>::Error>,
 		T: 'static,
@@ -251,8 +247,8 @@ where
 		let ws = handler.with_state(state);
 		let tfserv = tflayer.layer(ws);
 		let dn = (
-			<E as atspi::GenericEvent<'a>>::DBUS_MEMBER.into(),
-			<E as atspi::GenericEvent<'a>>::DBUS_INTERFACE.into(),
+			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
+			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);

@@ -61,6 +61,7 @@ tracing-journald = "0.3.0"
 tower = { version = "0.4.13", features = ["util", "filter", "steer"] }
 ssip = "0.1.0"
 futures-lite = "2.3.0"
+pin-project = "1.1.5"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
