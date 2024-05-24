@@ -34,7 +34,7 @@ use odilia_common::{
 };
 use serde::{Deserialize, Serialize};
 use zbus::{
-	names::{OwnedBusName, OwnedUniqueName},
+	names::OwnedUniqueName,
 	zvariant::{ObjectPath, OwnedObjectPath},
 	CacheProperties, ProxyBuilder,
 };
