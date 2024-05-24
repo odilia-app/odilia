@@ -1,4 +1,3 @@
-#[allow(async_fn_in_trait)]
 use atspi::Interface;
 use atspi_proxies::{
 	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
