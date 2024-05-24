@@ -312,7 +312,7 @@ impl CacheItem {
 				.collect(),
 		})
 	}
-	// Same as [`Accessible::get_children`], just offered as a non-async version.
+	// Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
 	/// Get a `Vec` of children with the same type as `Self`.
 	/// # Errors
 	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
@@ -387,14 +387,14 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 }
 
 impl CacheItem {
-	/// See [`atspi_proxies::accessible::Accessible::get_application`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_application`]
 	/// # Errors
 	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn get_application(&self) -> Result<Self, OdiliaError> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
-	/// See [`atspi_proxies::accessible::Accessible::parent`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::parent`]
 	/// # Errors
 	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn parent(&self) -> Result<Self, OdiliaError> {
@@ -404,31 +404,31 @@ impl CacheItem {
 			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_attributes`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
 		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::name`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::name`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn name(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.name().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::locale`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::locale`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn locale(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.locale().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::description`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::description`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn description(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.description().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_realtion_set`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_relation_set`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	/// - The items mentioned are not in the cache.
@@ -459,7 +459,7 @@ impl CacheItem {
 			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_child_at_index`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
 	/// # Errors
 	/// - The items mentioned are not in the cache.
 	pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {

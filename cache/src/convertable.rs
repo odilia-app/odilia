@@ -1,3 +1,5 @@
+#[allow(async_fn_in_trait)]
+
 use atspi::Interface;
 use atspi_proxies::{
 	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
@@ -13,23 +15,23 @@ use zbus::{proxy::ProxyImpl, CacheProperties, Error, Proxy, ProxyBuilder, ProxyD
 pub trait Convertable<'a> {
 	type Error: std::error::Error;
 
-	/// Creates an [`Self::Accessible`] from the existing accessible item.
+	/// Creates an [`AccessibleProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation of.
 	/// Generally, it fails if the accessible item does not implement to accessible interface.
 	/// This shouldn't be possible, but this function may fail for other reasons.
-	/// For example, to convert a [`zbus::Proxy`] into a [`Self::Accessible`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
+	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
 	fn to_accessible(
 		&self,
 	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;
-	/// Creates an [`Self::Action`] from the existing accessible item.
+	/// Creates an [`ActionProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to action interface.
 	fn to_action(&self) -> impl Future<Output = Result<ActionProxy, Self::Error>> + Send;
-	/// Creates an [`Self::Application`] from the existing accessible item.
+	/// Creates an [`ApplicationProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
@@ -37,7 +39,7 @@ pub trait Convertable<'a> {
 	fn to_application(
 		&self,
 	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
-	/// Creates an [`Collection`] from the existing accessible item.
+	/// Creates an [`CollectionProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
@@ -45,7 +47,7 @@ pub trait Convertable<'a> {
 	fn to_collection(
 		&self,
 	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
-	/// Creates an [`Component`] from the existing accessible item.
+	/// Creates an [`ComponentProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
