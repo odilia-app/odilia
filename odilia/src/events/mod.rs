@@ -2,16 +2,17 @@ mod cache;
 mod document;
 mod object;
 
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use futures::stream::StreamExt;
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 
 use crate::state::ScreenReaderState;
-use atspi_client::{accessible_ext::AccessibleExt, convertable::Convertable};
 use atspi_common::events::Event;
-use atspi_common::{InterfaceSet, MatchType, MatcherArgs, Role, ScrollType};
+use atspi_common::{Role, ScrollType};
+use odilia_cache::AccessibleExt;
+use odilia_cache::Convertable;
 use odilia_common::{
 	events::{Direction, ScreenReaderEvent},
 	result::OdiliaResult,
@@ -29,21 +30,7 @@ pub async fn structural_navigation(
 		Some(acc) => acc.into_accessible(state.atspi.connection()).await?,
 		None => return Ok(false),
 	};
-	let roles = vec![role];
-	let attributes = HashMap::new();
-	let interfaces = InterfaceSet::empty();
-	let mt: MatcherArgs = (
-		roles,
-		MatchType::Invalid,
-		attributes,
-		MatchType::Invalid,
-		interfaces,
-		MatchType::Invalid,
-	);
-	if let Some(next) = curr
-		.get_next(&mt, dir == Direction::Backward, &mut Vec::new())
-		.await?
-	{
+	if let Some(next) = curr.get_next(role, dir == Direction::Backward).await? {
 		let comp = next.to_component().await?;
 		let texti = next.to_text().await?;
 		let curr_prim = curr.try_into()?;

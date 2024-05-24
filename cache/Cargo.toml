@@ -22,7 +22,6 @@ serde = "1.0.147"
 tokio.workspace = true
 tracing.workspace = true
 zbus.workspace = true
-async-trait = "0.1.64"
 fxhash = "0.2.1"
 smartstring = { version = "1.0.1", features = ["serde"] }
 

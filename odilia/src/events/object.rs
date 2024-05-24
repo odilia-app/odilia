@@ -255,7 +255,7 @@ mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::ChildrenChangedEvent;
 	use odilia_cache::{AccessiblePrimitive, CacheItem};
-	use odilia_common::{errors::OdiliaError, result::OdiliaResult};
+	use odilia_common::result::OdiliaResult;
 	use std::sync::Arc;
 
 	#[tracing::instrument(level = "debug", skip(state), ret, err)]
@@ -276,7 +276,7 @@ mod children_changed {
 		state: &ScreenReaderState,
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
-		let accessible = get_child_primitive(event)?
+		let accessible = get_child_primitive(event)
 			.into_accessible(state.atspi.connection())
 			.await?;
 		let _: OdiliaResult<CacheItem> = state
@@ -287,14 +287,12 @@ mod children_changed {
 		Ok(())
 	}
 	#[inline]
-	fn get_child_primitive(
-		event: &ChildrenChangedEvent,
-	) -> Result<AccessiblePrimitive, OdiliaError> {
-		Ok(event.child.clone().try_into()?)
+	fn get_child_primitive(event: &ChildrenChangedEvent) -> AccessiblePrimitive {
+		event.child.clone().into()
 	}
 	#[tracing::instrument(level = "debug", skip(state), ret, err)]
 	pub fn remove(state: &ScreenReaderState, event: &ChildrenChangedEvent) -> eyre::Result<()> {
-		let prim = get_child_primitive(event)?;
+		let prim = get_child_primitive(event);
 		state.cache.remove(&prim);
 		tracing::debug!("Remove a single item from cache.");
 		Ok(())
@@ -305,7 +303,6 @@ mod text_caret_moved {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::TextCaretMovedEvent;
 	use atspi_common::Granularity;
-	use atspi_proxies::text::Text;
 	use odilia_cache::CacheItem;
 	use odilia_common::errors::{CacheError, OdiliaError};
 	use ssip_client_async::Priority;
@@ -319,18 +316,15 @@ mod text_caret_moved {
 	pub async fn new_position(
 		new_item: CacheItem,
 		old_item: CacheItem,
-		new_position: i32,
-		old_position: i32,
+		new_position: usize,
+		old_position: usize,
 	) -> Result<String, OdiliaError> {
 		let new_id = new_item.object.clone();
 		let old_id = old_item.object.clone();
-		// NOTE: the errors here should never happen. Unless the user is at a position which is larger than the unsigned native integer size on the machine *and also* smaller than i32::MAX. This seems extremely rare.
-		let new_pos = usize::try_from(new_position)?;
-		let old_pos = usize::try_from(old_position)?;
 
 		// if the user has moved into a new item, then also read a whole line.
 		debug!("{new_id:?},{old_id:?}");
-		debug!("{old_pos},{new_pos}");
+		debug!("{old_position},{new_position}");
 		if new_id != old_id {
 			return Ok(new_item
 				.get_string_at_offset(new_position, Granularity::Line)
@@ -340,7 +334,7 @@ mod text_caret_moved {
 		let first_position = min(new_position, old_position);
 		let last_position = max(new_position, old_position);
 		// if there is one character between the old and new position
-		if new_pos.abs_diff(old_pos) == 1 {
+		if new_position.abs_diff(old_position) == 1 {
 			return Ok(new_item
 				.get_string_at_offset(first_position, Granularity::Char)
 				.await?
@@ -357,10 +351,10 @@ mod text_caret_moved {
 			// if the end position of the first word immediately preceeds the start of the second word
 			first_word.2.abs_diff(last_word.1) == 1
 		{
-			return new_item.get_text(first_position, last_position).await;
+			return new_item.get_text(first_position, last_position);
 		}
 		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
-		if first_position == 0 && usize::try_from(last_position)? == new_item.text.len() {
+		if first_position == 0 && last_position == new_item.text.len() {
 			return Ok(new_item.text.clone());
 		}
 		Ok(new_item
@@ -418,7 +412,14 @@ mod text_caret_moved {
 				let old_item =
 					state.cache.get(&old_prim).ok_or(CacheError::NoItem)?;
 				let new_pos = event.position;
-				new_position(new_item, old_item, new_pos, old_pos).await?
+				new_position(
+					new_item,
+					old_item,
+					new_pos.try_into()
+						.expect("Can not convert between i32 and usize"),
+					old_pos,
+				)
+				.await?
 			}
 			None => {
 				// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
@@ -437,7 +438,12 @@ mod text_caret_moved {
 	) -> eyre::Result<()> {
 		text_cursor_moved(state, event).await?;
 
-		state.previous_caret_position.store(event.position, Ordering::Relaxed);
+		state.previous_caret_position.store(
+			event.position
+				.try_into()
+				.expect("Converting from an i32 to a usize must not fail"),
+			Ordering::Relaxed,
+		);
 		Ok(())
 	}
 } // end of text_caret_moved
@@ -445,7 +451,6 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::{events::object::StateChangedEvent, State};
-	use atspi_proxies::accessible::Accessible;
 	use odilia_cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
@@ -472,27 +477,18 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let a11y_state: State = match serde_plain::from_str(&event.state) {
-			Ok(s) => s,
-			Err(e) => {
-				tracing::error!("Not able to deserialize state: {}", event.state);
-				return Err(e.into());
-			}
-		};
 		let state_value = event.enabled == 1;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event)?;
-		match update_state(state, &a11y_prim, a11y_state, state_value) {
-			Ok(false) => tracing::error!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id),
-			Ok(true) => tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, a11y_state),
-			Err(e) => return Err(e),
-		};
-		// Dispatch based on kind
-		let state_type = serde_plain::from_str(&event.state)?;
+		if update_state(state, &a11y_prim, event.state, state_value)? {
+			tracing::debug!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id);
+		} else {
+			tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state);
+		}
 		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (state_type, event.enabled == 1) {
+		match (event.state, event.enabled == 1) {
 			(State::Focused, true) => focused(state, event).await?,
-			(state, enabled) => tracing::debug!(
+			(state, enabled) => tracing::trace!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
 				state,
 				enabled
@@ -513,23 +509,22 @@ mod state_changed {
 			}
 		}
 
-		let (name, description, role, relation) = tokio::try_join!(
+		let (name, description, relation) = tokio::try_join!(
 			accessible.name(),
 			accessible.description(),
-			accessible.get_localized_role_name(),
 			accessible.get_relation_set(),
 		)?;
 		state.update_accessible(accessible.object.clone()).await;
 		tracing::debug!(
 			"Focus event received on: {:?} with role {}",
 			accessible.object.id,
-			role
+			accessible.role,
 		);
 		tracing::debug!("Relations: {:?}", relation);
 
 		state.say(
 			ssip_client_async::Priority::Text,
-			format!("{name}, {role}. {description}"),
+			format!("{name}, {0}. {description}", accessible.role),
 		)
 		.await;
 
@@ -552,7 +547,7 @@ mod tests {
 	lazy_static! {
 		static ref ZBUS_CONN: AccessibilityConnection =
 			#[allow(clippy::unwrap_used)]
-			block_on(AccessibilityConnection::open()).unwrap();
+			block_on(AccessibilityConnection::new()).unwrap();
 		static ref CACHE_ARC: Arc<Cache> =
 			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
 		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
@@ -569,8 +564,8 @@ mod tests {
 				sender: ":1.2".into(),
 			}
 			.into(),
-			index: 323,
-			children_num: 0,
+			index: Some(323),
+			children_num: Some(0),
 			interfaces: InterfaceSet::new(
 				Interface::Accessible
 					| Interface::Collection | Interface::Component
