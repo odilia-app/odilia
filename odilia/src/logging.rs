@@ -15,15 +15,10 @@ use tracing_tree::HierarchicalLayer;
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
 pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
-	let env_filter =
-		match env::var("APP_LOG").or_else(|_| env::var("RUST_LOG")) {
-			Ok(s) => EnvFilter::from(s),
-			Err(env::VarError::NotPresent) => EnvFilter::from(&config.log.level),
-			Err(e) => {
-				eprintln!("Warning: Failed to read log filter from APP_LOG or RUST_LOG: {e}");
-				EnvFilter::from(&config.log.level)
-			}
-		};
+	let env_filter = match env::var("APP_LOG").or_else(|_| env::var("RUST_LOG")) {
+		Ok(s) => EnvFilter::from(s),
+		_ => EnvFilter::from(&config.log.level),
+	};
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this and a forced dereference at the end would do
 	let output_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
