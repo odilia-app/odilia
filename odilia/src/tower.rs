@@ -21,35 +21,12 @@ use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
-use enum_dispatch::enum_dispatch;
-
-use strum::{EnumDiscriminants, Display};
-
-trait CommandType {
-	const CTYPE: CommandDiscriminants;
-}
-#[enum_dispatch]
-trait CommandTypeDynamic {
-	fn ctype(&self) -> CommandDiscriminants;
-}
-impl<T: CommandType> CommandTypeDynamic for T {
-	fn ctype(&self) -> CommandDiscriminants {
-		T::CTYPE
-	}
-}
-
-#[derive(Debug,Clone)]
-pub struct Speak(String);
-impl CommandType for Speak {
-	const CTYPE: CommandDiscriminants = CommandDiscriminants::Speak;
-}
-
-#[derive(Debug,Clone,EnumDiscriminants)]
-#[strum_discriminants(derive(Ord,PartialOrd,Display))]
-#[enum_dispatch(CommandTypeDynamic)]
-pub enum Command {
-	Speak(Speak),
-}
+use odilia_common::command::{
+	OdiliaCommand as Command,
+	OdiliaCommandDiscriminants as CommandDiscriminants,
+	Speak,
+	CommandType, CommandTypeDynamic,
+};
 
 type Response = Vec<Command>;
 type Request = Event;

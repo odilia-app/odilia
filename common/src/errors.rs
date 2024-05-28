@@ -22,6 +22,13 @@ pub enum OdiliaError {
 	Config(ConfigError),
 	PoisoningError,
 	Generic(String),
+	Static(&'static str),
+}
+
+impl From<&'static str> for OdiliaError {
+	fn from(s: &'static str) -> OdiliaError {
+		Self::Static(s)
+	}
 }
 
 #[derive(Debug)]

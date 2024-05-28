@@ -27,4 +27,3 @@ impl CommandType for Speak {
 pub enum OdiliaCommand {
 	Speak(Speak),
 }
-
