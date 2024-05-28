@@ -9,21 +9,21 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 
 use futures::future::MaybeDone;
-use futures::future::{err, Either, Ready, FutureExt as FatFutureExt};
-use futures_lite::FutureExt;
+use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
+use futures_lite::FutureExt;
 use std::collections::HashMap;
 use std::task::Context;
 use std::task::Poll;
 
-use tower::util::BoxService;
 use tower::util::BoxCloneService;
+use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
 #[derive(Debug)]
 pub enum Command {
-    Speak(String),
+	Speak(String),
 }
 
 type Response = Vec<Command>;
@@ -32,7 +32,7 @@ type Error = OdiliaError;
 
 /// `SerialFuture` is a way to link a variable number of dependent futures.
 /// You can race!() two `SerialFuture`s, which will cause the two, non-dependent chains of futures to poll concurrently, while completing the individual serial futures, well, serially.
-/// 
+///
 /// Why not just use `.await`? like so:
 ///
 /// ```rust,norun
@@ -42,40 +42,56 @@ type Error = OdiliaError;
 /// Because you may have a variable number of functions that need to run in series.
 /// Think of handlers for an event, if you want the results to be deterministic, you will need to run the event listeners in series, even if multiple events could come in and each trigger its own set of listeners to execute syhncronously, the set of all even listeners can technically be run concorrently.
 pub struct SerialFutures<F>
-where F: Future {
-		// TODO: look into MaybeDone
-    inner: Pin<Box<[MaybeDone<F>]>>,
+where
+	F: Future,
+{
+	// TODO: look into MaybeDone
+	inner: Pin<Box<[MaybeDone<F>]>>,
 }
-fn serial_futures<I>(iter: I) -> SerialFutures<I::Item> 
-where I: IntoIterator,
-I::Item: futures::TryFuture {
+fn serial_futures<I>(iter: I) -> SerialFutures<I::Item>
+where
+	I: IntoIterator,
+	I::Item: futures::TryFuture,
+{
 	SerialFutures {
 		inner: iter.into_iter().map(MaybeDone::Future).collect::<Box<[_]>>().into(),
 	}
 }
-impl<F> Unpin for SerialFutures<F>
-where F: Future {}
+impl<F> Unpin for SerialFutures<F> where F: Future {}
 
 impl<F> Future for SerialFutures<F>
-where F: futures::TryFuture + Unpin {
-    type Output = Result<Vec<F::Output>, F::Error>;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-			for mfut in self.inner.as_mut().get_mut() {
-				match mfut {
-					MaybeDone::Future(fut) => match fut.poll(cx) {
-						Poll::Pending => return Poll::Pending,
-						_ => { continue; },
-					},
-					_ => { continue; },
+where
+	F: futures::TryFuture + Unpin,
+{
+	type Output = Result<Vec<F::Output>, F::Error>;
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		for mfut in self.inner.as_mut().get_mut() {
+			match mfut {
+				MaybeDone::Future(fut) => match fut.poll(cx) {
+					Poll::Pending => return Poll::Pending,
+					_ => {
+						continue;
+					}
+				},
+				_ => {
+					continue;
 				}
 			}
-			let result = self.inner.as_mut().get_mut().iter_mut().map(|f| Pin::new(f)).map(|e| e.take_output().unwrap()).collect();
-			Poll::Ready(Ok(result))
-    }
+		}
+		let result = self
+			.inner
+			.as_mut()
+			.get_mut()
+			.iter_mut()
+			.map(|f| Pin::new(f))
+			.map(|e| e.take_output().unwrap())
+			.collect();
+		Poll::Ready(Ok(result))
+	}
 }
 
 pub struct SerialHandlers<I, O, E> {
-    inner: Vec<BoxCloneService<I, O, E>>,
+	inner: Vec<BoxCloneService<I, O, E>>,
 }
 
 #[pin_project::pin_project]
@@ -87,57 +103,59 @@ pub struct SerialServiceFuture<I, O, E> {
 
 impl<I, O, E> Future for SerialServiceFuture<I, O, E>
 where
-    I: Clone,
-    // Assuming YourInnerType implements a call function.
+	I: Clone,
+	O: Clone,
+	E: Clone,
+	// Assuming YourInnerType implements a call function.
 {
-    type Output = Result<Vec<Result<O, E>>, E>;
+	type Output = Result<Vec<Result<O, E>>, E>;
 
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let rc = self.req.clone();
-				let this = self.project();
-        loop {
-            if let Some(s) = this.inner.into_iter().next() {
-                match s.call(rc.clone()).poll(cx) {
-										Poll::Pending => return Poll::Pending,
-										Poll::Ready(result) => {
-											this.results.push(result);
-										},
-								}
-            }
-        }
-				return Poll::Ready(Ok(self.results));
-    }
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+		let this = self.as_mut().project();
+		let rc = this.req.clone();
+		loop {
+			if let Some(s) = this.inner.into_iter().next() {
+				match s.call(rc.clone()).poll(cx) {
+					Poll::Pending => return Poll::Pending,
+					Poll::Ready(result) => {
+						this.results.push(result);
+					}
+				}
+			} else {
+				break;
+			}
+		}
+		return Poll::Ready(Ok(this.results.to_vec()));
+	}
 }
 
 impl<I, O, E> Service<I> for SerialHandlers<I, O, E>
-where I: Clone + Send + Sync,
-			O: Send,
-			E: Send {
-    type Response = Vec<Result<O, E>>;
-    type Error = E;
-    type Future = SerialServiceFuture<I, O, E>;
-    fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
-        for service in &mut self.inner {
-            let _ = service.poll_ready(ctx)?;
-        }
-        Poll::Ready(Ok(()))
-    }
+where
+	I: Clone + Send + Sync,
+	O: Send + Clone,
+	E: Send + Clone,
+{
+	type Response = Vec<Result<O, E>>;
+	type Error = E;
+	type Future = SerialServiceFuture<I, O, E>;
+	fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
+		for service in &mut self.inner {
+			let _ = service.poll_ready(ctx)?;
+		}
+		Poll::Ready(Ok(()))
+	}
 
-    fn call(&mut self, req: I) -> Self::Future {
-				let len = self.inner.len();
-				let ic = self.inner.clone();
-				SerialServiceFuture {
-					inner: ic,
-					req,
-					results: Vec::with_capacity(len),
-				}
-    }
+	fn call(&mut self, req: I) -> Self::Future {
+		let len = self.inner.len();
+		let ic = self.inner.clone();
+		SerialServiceFuture { inner: ic, req, results: Vec::with_capacity(len) }
+	}
 }
-
 
 pub struct Handlers<S> {
 	state: S,
-	atspi_handlers: HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
+	atspi_handlers:
+		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
 }
 
 impl<S> Handlers<S>
@@ -153,10 +171,7 @@ where
 	{
 		std::pin::pin!(&mut events);
 		while let Some(Ok(ev)) = events.next().await {
-			let dn = (
-				ev.member(),
-				ev.interface(),
-			);
+			let dn = (ev.member(), ev.interface());
 			// NOTE: Why not use join_all(...) ?
 			// Because this drives the futures concurrently, and we want ordered handlers.
 			// Otherwise, we cannot guarentee that the caching functions get run first.
@@ -166,9 +181,9 @@ where
 			match self.atspi_handlers.get_mut(&dn) {
 				Some(hands) => {
 					for hand in hands {
-						results.push(hand.call(ev.clone()));
+						results.push(hand.call(ev.clone()).await);
 					}
-				},
+				}
 				None => {
 					tracing::trace!("There are no associated handler functions for {}:{}", ev.interface(), ev.member());
 				}
@@ -184,12 +199,12 @@ where
 			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
 		);
 		let input = ev.into();
-    // NOTE: Why not use join_all(...) ?
-    // Because this drives the futures concurrently, and we want ordered handlers.
-    // Otherwise, we cannot guarentee that the caching functions get run first.
-    // we could move caching to a separate, ordered system, then parallelize the other functions,
-    // if we determine this is a performance problem.
-    let mut results = vec![];
+		// NOTE: Why not use join_all(...) ?
+		// Because this drives the futures concurrently, and we want ordered handlers.
+		// Otherwise, we cannot guarentee that the caching functions get run first.
+		// we could move caching to a separate, ordered system, then parallelize the other functions,
+		// if we determine this is a performance problem.
+		let mut results = vec![];
 		for hand in self.atspi_handlers.entry(dn).or_default() {
 			results.push(hand.call(input.clone()).await);
 		}

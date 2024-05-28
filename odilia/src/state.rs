@@ -39,9 +39,9 @@ pub struct ScreenReaderState {
 pub struct Speech(pub Sender<SSIPRequest>);
 
 impl From<Arc<ScreenReaderState>> for Speech {
-    fn from(state: Arc<ScreenReaderState>) -> Speech {
-        Speech(state.ssip.clone())
-    }
+	fn from(state: Arc<ScreenReaderState>) -> Speech {
+		Speech(state.ssip.clone())
+	}
 }
 
 enum ConfigType {

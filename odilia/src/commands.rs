@@ -1,5 +1,5 @@
-use crate::tower::Handler;
 use crate::tower::Command;
+use crate::tower::Handler;
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
 
@@ -20,7 +20,7 @@ where
 	}
 }
 
-impl<F, Fut, S, E, T1> Handler<(Request,T1), S, E> for F
+impl<F, Fut, S, E, T1> Handler<(Request, T1), S, E> for F
 where
 	F: FnOnce(E, T1) -> Fut + Clone + Send,
 	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
@@ -33,4 +33,3 @@ where
 		self(req, state.into())
 	}
 }
-

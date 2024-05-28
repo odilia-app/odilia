@@ -9,19 +9,18 @@
 #![allow(clippy::multiple_crate_versions)]
 
 mod cli;
+mod commands;
 mod events;
 mod logging;
 mod state;
 mod tower;
-mod commands;
 
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
-use ssip::Request as SSIPRequest;
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::{Handlers, Command};
+use crate::tower::{Command, Handlers};
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -32,6 +31,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::settings::ApplicationConfig;
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
+use ssip::Request as SSIPRequest;
 use ssip_client_async::Priority;
 use tokio::{
 	signal::unix::{signal, SignalKind},
@@ -86,11 +86,16 @@ async fn sigterm_signal_watcher(
 use atspi::events::document::LoadCompleteEvent;
 
 #[tracing::instrument(ret)]
-async fn doc_loaded(loaded: LoadCompleteEvent, Speech(ssip): Speech) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
+async fn doc_loaded(
+	loaded: LoadCompleteEvent,
+	Speech(ssip): Speech,
+) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
-  ssip.send(SSIPRequest::SetPriority(Priority::Text)).await.unwrap();
-  ssip.send(SSIPRequest::Speak).await.unwrap();
-  ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()]))).await.unwrap();
+	ssip.send(SSIPRequest::SetPriority(Priority::Text)).await.unwrap();
+	ssip.send(SSIPRequest::Speak).await.unwrap();
+	ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()])))
+		.await
+		.unwrap();
 	Ok(vec![])
 }
 
