@@ -1,9 +1,8 @@
 #![allow(dead_code)]
 
-use atspi::events::{document::DocumentEvents, object::ObjectEvents};
 use atspi::AtspiError;
 use atspi::Event;
-use atspi::BusProperties;
+use atspi::EventTypeProperties;
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -19,8 +18,6 @@ use std::task::Poll;
 
 use tower::util::BoxService;
 use tower::util::BoxCloneService;
-use tower::steer::Steer;
-use tower::steer::Picker;
 use tower::Layer;
 use tower::Service;
 
@@ -80,6 +77,7 @@ where F: futures::TryFuture + Unpin {
 pub struct SerialHandlers<I, O, E> {
     inner: Vec<BoxCloneService<I, O, E>>,
 }
+
 #[pin_project::pin_project]
 pub struct SerialServiceFuture<I, O, E> {
 	req: I,
@@ -136,40 +134,10 @@ where I: Clone + Send + Sync,
     }
 }
 
-struct EventTypePicker {
-	types: Vec<(String, String)>,
-}
-impl EventTypePicker {
-	fn new() -> Self {
-		EventTypePicker { types: vec![] }
-	}
-	fn add_if_new_event_type<E>(&mut self) 
-	where E: BusProperties {
-		let dn = (
-			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
-			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
-		);
-		let mut idx = None;
-		for (i,di) in self.types.iter().enumerate() {
-			if di == &dn {
-				idx = Some(i);
-			}
-		}
-		if let None = idx {
-			self.types.push(dn);
-		}
-	}
-}
-impl Picker<SerialHandlers<Event, Response, Error>, Event> for EventTypePicker {
-	fn pick(&mut self, r: &Event, services: &[SerialHandlers<Event, Response, Error>]) -> usize {
-		todo!()
-	}
-}
 
 pub struct Handlers<S> {
 	state: S,
-	atspi_handlers: HashMap<(String, String), Vec<BoxService<Event, Response, Error>>>,
-	hands2: Steer<SerialHandlers<Event, Response, Error>, EventTypePicker, Event>,
+	atspi_handlers: HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
 }
 
 impl<S> Handlers<S>
@@ -177,7 +145,7 @@ where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new(), hands2: Steer::new(vec![], EventTypePicker::new()) }
+		Handlers { state, atspi_handlers: HashMap::new() }
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
@@ -185,31 +153,24 @@ where
 	{
 		std::pin::pin!(&mut events);
 		while let Some(Ok(ev)) = events.next().await {
-			let r = match ev {
-				Event::Object(ObjectEvents::StateChanged(e)) => {
-					self.call_event_listeners(e).await
-				}
-				Event::Object(ObjectEvents::TextCaretMoved(e)) => {
-					self.call_event_listeners(e).await
-				}
-				Event::Object(ObjectEvents::ChildrenChanged(e)) => {
-					self.call_event_listeners(e).await
-				}
-				Event::Object(ObjectEvents::TextChanged(e)) => {
-					self.call_event_listeners(e).await
-				}
-				Event::Document(DocumentEvents::LoadComplete(e)) => {
-					self.call_event_listeners(e).await
-				}
-				_ => {
-					println!("Not implemented yet....");
-					vec![Ok(vec![])]
-				}
-			};
-			for res in r {
-				if let Ok(resp) = res {
-				} else if let Err(err) = res {
-					println!("ERR: {:?}", err);
+			let dn = (
+				ev.member(),
+				ev.interface(),
+			);
+			// NOTE: Why not use join_all(...) ?
+			// Because this drives the futures concurrently, and we want ordered handlers.
+			// Otherwise, we cannot guarentee that the caching functions get run first.
+			// we could move caching to a separate, ordered system, then parallelize the other functions,
+			// if we determine this is a performance problem.
+			let mut results = vec![];
+			match self.atspi_handlers.get_mut(&dn) {
+				Some(hands) => {
+					for hand in hands {
+						results.push(hand.call(ev.clone()));
+					}
+				},
+				None => {
+					tracing::trace!("There are no associated handler functions for {}:{}", ev.interface(), ev.member());
 				}
 			}
 		}
@@ -247,12 +208,12 @@ where
 		let ws = handler.with_state(state);
 		let tfserv = tflayer.layer(ws);
 		let dn = (
-			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
-			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
+			<E as atspi::BusProperties>::DBUS_MEMBER,
+			<E as atspi::BusProperties>::DBUS_INTERFACE,
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers, hands2: Steer::new(vec![], EventTypePicker::new()) }
+		Self { state: self.state, atspi_handlers: self.atspi_handlers }
 	}
 }
 
