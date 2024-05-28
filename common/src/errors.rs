@@ -1,9 +1,9 @@
+use crate::command::OdiliaCommand;
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
 use smartstring::alias::String as SmartString;
 use std::{error::Error, fmt, str::FromStr};
-use crate::command::OdiliaCommand;
 
 #[derive(Debug)]
 pub enum OdiliaError {
@@ -46,7 +46,7 @@ macro_rules! send_err_impl {
 				OdiliaError::SendError($variant(t_err.0))
 			}
 		}
-	}
+	};
 }
 
 send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi);
@@ -55,7 +55,6 @@ send_err_impl!(tokio::sync::broadcast::error::SendError<OdiliaCommand>, SendErro
 send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command);
 send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
 send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip);
-
 
 #[derive(Debug)]
 pub enum ConfigError {
