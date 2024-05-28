@@ -12,7 +12,7 @@ use futures::future::MaybeDone;
 use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
 use futures_lite::FutureExt;
-use std::collections::{HashMap, BTreeMap};
+use std::collections::{BTreeMap, HashMap};
 use std::task::Context;
 use std::task::Poll;
 
@@ -22,10 +22,8 @@ use tower::Layer;
 use tower::Service;
 
 use odilia_common::command::{
-	OdiliaCommand as Command,
-	OdiliaCommandDiscriminants as CommandDiscriminants,
-	Speak,
-	CommandType, CommandTypeDynamic,
+	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
+	OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
 };
 
 type Response = Vec<Command>;
@@ -158,8 +156,7 @@ pub struct Handlers<S> {
 	state: S,
 	atspi_handlers:
 		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
-	command_handlers:
-		BTreeMap<CommandDiscriminants, Vec<BoxService<Command, (), Error>>>,
+	command_handlers: BTreeMap<CommandDiscriminants, Vec<BoxService<Command, (), Error>>>,
 }
 
 impl<S> Handlers<S>
@@ -167,7 +164,11 @@ where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: BTreeMap::new() }
+		Handlers {
+			state,
+			atspi_handlers: HashMap::new(),
+			command_handlers: BTreeMap::new(),
+		}
 	}
 	pub async fn command_handler<R>(mut self, mut commands: R)
 	where
@@ -239,12 +240,12 @@ where
 		}
 		results
 	}
-	pub fn command_listener<H, T, C>(mut self, handler: H) -> Self 
+	pub fn command_listener<H, T, C>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, S, C, Response = ()> + Send + Sync + 'static,
-		C: CommandType + TryFrom<Command> + Send + Sync + 'static,
-		<C as TryFrom<Command>>::Error: Send + Sync + Into<Error>,
-		OdiliaError: From<<C as TryFrom<Command>>::Error>,
+		C: CommandType + Send + Sync + 'static,
+		Command: TryInto<C>,
+		OdiliaError: From<<Command as TryInto<C>>::Error>,
 		T: 'static,
 	{
 		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
@@ -254,7 +255,11 @@ where
 		let dn = C::CTYPE;
 		let bs = BoxService::new(tfserv);
 		self.command_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
+		Self {
+			state: self.state,
+			atspi_handlers: self.atspi_handlers,
+			command_handlers: self.command_handlers,
+		}
 	}
 	pub fn atspi_listener<H, T, E>(mut self, handler: H) -> Self
 	where
@@ -274,7 +279,11 @@ where
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
+		Self {
+			state: self.state,
+			atspi_handlers: self.atspi_handlers,
+			command_handlers: self.command_handlers,
+		}
 	}
 }
 
@@ -308,8 +317,8 @@ where
 
 impl<O, E, I: TryInto<O>, S, R, Fut1> Service<I> for TryIntoService<O, I, S, R, Fut1>
 where
-	O: TryFrom<I>,
-	E: From<<O as TryFrom<I>>::Error> + From<<I as TryInto<O>>::Error>,
+	I: TryInto<O>,
+	E: From<<I as TryInto<O>>::Error>,
 	S: Service<O, Response = R, Future = Fut1>,
 	Fut1: Future<Output = Result<R, E>>,
 {
@@ -421,4 +430,3 @@ where
 		handler.call(req, state)
 	}
 }
-

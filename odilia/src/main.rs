@@ -20,7 +20,7 @@ use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::{Command, Handlers};
+use crate::tower::Handlers;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -28,7 +28,12 @@ use figment::{
 	Figment,
 };
 use futures::{future::FutureExt, StreamExt};
-use odilia_common::settings::ApplicationConfig;
+use odilia_common::{
+	command::{
+		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
+	},
+	settings::ApplicationConfig,
+};
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
 use ssip::Request as SSIPRequest;
@@ -85,17 +90,26 @@ async fn sigterm_signal_watcher(
 
 use atspi::events::document::LoadCompleteEvent;
 
+#[tracing::instrument]
+async fn speak(
+	Speak(text): Speak,
+	Speech(ssip): Speech,
+) -> Result<(), odilia_common::errors::OdiliaError> {
+	println!("Speak text!");
+	ssip.send(SSIPRequest::SetPriority(Priority::Text)).await?;
+	ssip.send(SSIPRequest::Speak).await?;
+	ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()])))
+		.await
+		.unwrap();
+	Ok(())
+}
+
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
 	Speech(ssip): Speech,
 ) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
-	ssip.send(SSIPRequest::SetPriority(Priority::Text)).await.unwrap();
-	ssip.send(SSIPRequest::Speak).await.unwrap();
-	ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()])))
-		.await
-		.unwrap();
 	Ok(vec![])
 }
 
@@ -155,6 +169,7 @@ async fn main() -> eyre::Result<()> {
 
 	// load handlers
 	let handlers = Handlers::new(state.clone()).atspi_listener(doc_loaded);
+	let chandlers = Handlers::new(state.clone()).command_listener(speak);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
