@@ -33,3 +33,17 @@ where
 		self(req, state.into())
 	}
 }
+impl<F, Fut, S, E, T1, T2> Handler<(Request, T1, T2), S, E> for F
+where
+	F: FnOnce(E, T1, T2) -> Fut + Clone + Send,
+	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
+	S: Clone,
+	T1: From<S>,
+	T2: From<S>,
+{
+	type Response = Response;
+	type Future = Fut;
+	fn call(self, req: E, state: S) -> Self::Future {
+		self(req, state.clone().into(), state.into())
+	}
+}
