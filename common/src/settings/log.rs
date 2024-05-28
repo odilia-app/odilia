@@ -1,3 +1,4 @@
+use dirs::home_dir;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -16,10 +17,13 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
-		Self {
-			level: "info".to_owned(),
-			logger: LoggingKind::File("/var/log/odilia.log".into()),
-		}
+		let mut log_path = match home_dir() {
+			Some(dir) => dir,
+			None => ".".into(),
+		};
+		log_path.push("odilia.log");
+
+		Self { level: "info".to_owned(), logger: LoggingKind::File(log_path) }
 	}
 }
 
