@@ -36,13 +36,13 @@ impl<T: CommandType> CommandTypeDynamic for T {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Speak(String);
 impl CommandType for Speak {
 	const CTYPE: &'static str = "speak";
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum Command {
 	Speak(Speak),
@@ -188,6 +188,31 @@ where
 {
 	pub fn new(state: S) -> Self {
 		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: HashMap::new() }
+	}
+	pub async fn command_handler<R>(mut self, mut commands: R)
+	where
+		R: Stream<Item = Result<Command, Error>> + Unpin,
+	{
+		std::pin::pin!(&mut commands);
+		while let Some(Ok(cmd)) = commands.next().await {
+			let dn = cmd.ctype();
+			// NOTE: Why not use join_all(...) ?
+			// Because this drives the futures concurrently, and we want ordered handlers.
+			// Otherwise, we cannot guarentee that the caching functions get run first.
+			// we could move caching to a separate, ordered system, then parallelize the other functions,
+			// if we determine this is a performance problem.
+			let mut results = vec![];
+			match self.command_handlers.get_mut(&dn) {
+				Some(hands) => {
+					for hand in hands {
+						results.push(hand.call(cmd.clone()).await);
+					}
+				}
+				None => {
+					tracing::trace!("There are no associated handler functions for the command '{}'", cmd.ctype());
+				}
+			}
+		}
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
