@@ -98,9 +98,7 @@ async fn speak(
 	println!("Speak text!");
 	ssip.send(SSIPRequest::SetPriority(Priority::Text)).await?;
 	ssip.send(SSIPRequest::Speak).await?;
-	ssip.send(SSIPRequest::SendLines(Vec::from(["Doc loaded!".to_string()])))
-		.await
-		.unwrap();
+	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
 	Ok(())
 }
 
@@ -110,7 +108,7 @@ async fn doc_loaded(
 	Speech(ssip): Speech,
 ) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
-	Ok(vec![])
+	Ok(vec![Speak("Doc loaded!".to_string()).into()])
 }
 
 #[tokio::main(flavor = "current_thread")]
