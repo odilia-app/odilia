@@ -9,6 +9,7 @@
 
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
+pub mod command;
 pub mod elements;
 pub mod errors;
 pub mod events;
