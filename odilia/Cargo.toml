@@ -62,8 +62,6 @@ tower = { version = "0.4.13", features = ["util", "filter", "steer"] }
 ssip = "0.1.0"
 futures-lite = "2.3.0"
 pin-project = "1.1.5"
-enum_dispatch = "0.3.13"
-strum = { version = "0.26.2", features = ["derive"] }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
