@@ -21,6 +21,8 @@ use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
+use tokio::sync::mpsc::{Receiver, Sender};
+
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
@@ -170,12 +172,8 @@ where
 			command_handlers: BTreeMap::new(),
 		}
 	}
-	pub async fn command_handler<R>(mut self, mut commands: R)
-	where
-		R: Stream<Item = Result<Command, Error>> + Unpin,
-	{
-		std::pin::pin!(&mut commands);
-		while let Some(Ok(cmd)) = commands.next().await {
+	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
+		while let Some(cmd) = commands.recv().await {
 			let dn = cmd.ctype();
 			// NOTE: Why not use join_all(...) ?
 			// Because this drives the futures concurrently, and we want ordered handlers.
@@ -195,7 +193,7 @@ where
 			}
 		}
 	}
-	pub async fn atspi_handler<R>(mut self, mut events: R)
+	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: Sender<Command>)
 	where
 		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
 	{
@@ -216,6 +214,23 @@ where
 				}
 				None => {
 					tracing::trace!("There are no associated handler functions for {}:{}", ev.interface(), ev.member());
+				}
+			}
+			for res in results {
+				match res {
+					Ok(oks) => {
+						for ok in oks {
+							match cmds.send(ok).await {
+								Ok(()) => {}
+								Err(e) => {
+									tracing::error!("Could not send command {:?} over channel! This usually means either the channel is full, which is bad!", e);
+								}
+							}
+						}
+					}
+					Err(e) => {
+						tracing::error!("Handler function failed: {e:?}");
+					}
 				}
 			}
 		}

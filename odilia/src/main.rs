@@ -139,6 +139,7 @@ async fn main() -> eyre::Result<()> {
 	// this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
 	// If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
 	let (atspi_event_tx, atspi_event_rx) = mpsc::channel::<atspi::Event>(128);
+	let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(128);
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
@@ -187,7 +188,8 @@ async fn main() -> eyre::Result<()> {
 			.map(|r| r.wrap_err("Could not process Odilia event"));
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
-	let atspi_handlers_task = handlers.atspi_handler(state.atspi.event_stream());
+	let atspi_handlers_task = handlers.atspi_handler(state.atspi.event_stream(), cmd_tx);
+	let cmd_handlers_task = chandlers.command_handler(cmd_rx);
 
 	//tracker.spawn(atspi_event_receiver);
 	//tracker.spawn(atspi_event_processor);
@@ -196,6 +198,7 @@ async fn main() -> eyre::Result<()> {
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
+	tracker.spawn(cmd_handlers_task);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
 		.await
