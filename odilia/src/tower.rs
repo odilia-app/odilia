@@ -12,7 +12,7 @@ use futures::future::MaybeDone;
 use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
 use futures_lite::FutureExt;
-use std::collections::HashMap;
+use std::collections::{HashMap, BTreeMap};
 use std::task::Context;
 use std::task::Poll;
 
@@ -23,15 +23,17 @@ use tower::Service;
 
 use enum_dispatch::enum_dispatch;
 
+use strum::{EnumDiscriminants, Display};
+
 trait CommandType {
-	const CTYPE: &'static str;
+	const CTYPE: CommandDiscriminants;
 }
 #[enum_dispatch]
 trait CommandTypeDynamic {
-	fn ctype(&self) -> &'static str;
+	fn ctype(&self) -> CommandDiscriminants;
 }
 impl<T: CommandType> CommandTypeDynamic for T {
-	fn ctype(&self) -> &'static str {
+	fn ctype(&self) -> CommandDiscriminants {
 		T::CTYPE
 	}
 }
@@ -39,10 +41,11 @@ impl<T: CommandType> CommandTypeDynamic for T {
 #[derive(Debug,Clone)]
 pub struct Speak(String);
 impl CommandType for Speak {
-	const CTYPE: &'static str = "speak";
+	const CTYPE: CommandDiscriminants = CommandDiscriminants::Speak;
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug,Clone,EnumDiscriminants)]
+#[strum_discriminants(derive(Ord,PartialOrd,Display))]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum Command {
 	Speak(Speak),
@@ -179,7 +182,7 @@ pub struct Handlers<S> {
 	atspi_handlers:
 		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
 	command_handlers:
-		HashMap<&'static str, Vec<BoxService<Command, (), Error>>>,
+		BTreeMap<CommandDiscriminants, Vec<BoxService<Command, (), Error>>>,
 }
 
 impl<S> Handlers<S>
@@ -187,7 +190,7 @@ where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: HashMap::new() }
+		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: BTreeMap::new() }
 	}
 	pub async fn command_handler<R>(mut self, mut commands: R)
 	where
