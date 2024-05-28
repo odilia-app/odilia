@@ -1,5 +1,7 @@
-use dirs::home_dir;
-use std::path::PathBuf;
+use std::{
+    env,
+    path::PathBuf,
+};
 
 use serde::{Deserialize, Serialize};
 ///structure used for all the configurable options related to logging
@@ -17,12 +19,15 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
-		let mut log_path = match home_dir() {
-			Some(dir) => dir,
-			None => ".".into(),
+		let mut log_path = PathBuf::new();
+        match env::var("XDG_DATA_HOME") {
+			Ok(dir) => log_path.push(dir),
+			Err(_e) => {
+                log_path.push(env::var("HOME").unwrap());
+                log_path.push(".local/share");
+            },  // TODO: error message?
 		};
-		log_path.push("odilia.log");
-
+		log_path.push("/odilia/odilia.log");
 		Self { level: "info".to_owned(), logger: LoggingKind::File(log_path) }
 	}
 }
