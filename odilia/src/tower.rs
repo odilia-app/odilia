@@ -21,9 +21,31 @@ use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
 
+use enum_dispatch::enum_dispatch;
+
+trait CommandType {
+	const CTYPE: &'static str;
+}
+#[enum_dispatch]
+trait CommandTypeDynamic {
+	fn ctype(&self) -> &'static str;
+}
+impl<T: CommandType> CommandTypeDynamic for T {
+	fn ctype(&self) -> &'static str {
+		T::CTYPE
+	}
+}
+
 #[derive(Debug)]
+pub struct Speak(String);
+impl CommandType for Speak {
+	const CTYPE: &'static str = "speak";
+}
+
+#[derive(Debug)]
+#[enum_dispatch(CommandTypeDynamic)]
 pub enum Command {
-	Speak(String),
+	Speak(Speak),
 }
 
 type Response = Vec<Command>;
@@ -156,6 +178,8 @@ pub struct Handlers<S> {
 	state: S,
 	atspi_handlers:
 		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
+	command_handlers:
+		HashMap<&'static str, Vec<BoxService<Command, (), Error>>>,
 }
 
 impl<S> Handlers<S>
@@ -163,7 +187,7 @@ where
 	S: Clone + Send + Sync + 'static,
 {
 	pub fn new(state: S) -> Self {
-		Handlers { state, atspi_handlers: HashMap::new() }
+		Handlers { state, atspi_handlers: HashMap::new(), command_handlers: HashMap::new() }
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
@@ -210,6 +234,23 @@ where
 		}
 		results
 	}
+	pub fn command_listener<H, T, C>(mut self, handler: H) -> Self 
+	where
+		H: Handler<T, S, C, Response = ()> + Send + Sync + 'static,
+		C: CommandType + TryFrom<Command> + Send + Sync + 'static,
+		<C as TryFrom<Command>>::Error: Send + Sync + Into<Error>,
+		OdiliaError: From<<C as TryFrom<Command>>::Error>,
+		T: 'static,
+	{
+		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
+		let state = self.state.clone();
+		let ws = handler.with_state(state);
+		let tfserv = tflayer.layer(ws);
+		let dn = C::CTYPE;
+		let bs = BoxService::new(tfserv);
+		self.command_handlers.entry(dn).or_default().push(bs);
+		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
+	}
 	pub fn atspi_listener<H, T, E>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, S, E, Response = Vec<Command>> + Send + Sync + 'static,
@@ -228,7 +269,7 @@ where
 		);
 		let bs = BoxService::new(tfserv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
-		Self { state: self.state, atspi_handlers: self.atspi_handlers }
+		Self { state: self.state, atspi_handlers: self.atspi_handlers, command_handlers: self.command_handlers }
 	}
 }
 
@@ -361,8 +402,6 @@ impl<H, T, S, E> Service<E> for HandlerService<H, T, S, E>
 where
 	H: Handler<T, S, E>,
 	S: Clone,
-	E: TryFrom<Request>,
-	<E as TryFrom<Request>>::Error: std::fmt::Debug,
 {
 	type Response = <H as Handler<T, S, E>>::Response;
 	type Future = <H as Handler<T, S, E>>::Future;
@@ -377,3 +416,4 @@ where
 		handler.call(req, state)
 	}
 }
+
