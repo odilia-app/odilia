@@ -432,7 +432,7 @@ where
 	T2: From<S>,
 	R: IntoCommands,
 {
-	type Response = Response;
+	type Response = R;
 	type Future = Fut;
 	fn call(self, req: E, state: S) -> Self::Future {
 		self(req, state.clone().into(), state.clone().into())
