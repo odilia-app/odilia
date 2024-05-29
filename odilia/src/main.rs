@@ -105,7 +105,6 @@ async fn speak(
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
-	Speech(ssip): Speech,
 ) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
 	Ok(vec![Speak("Doc loaded!".to_string()).into()])
