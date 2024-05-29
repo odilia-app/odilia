@@ -113,9 +113,9 @@ async fn speak(
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
-) -> Result<(Priority, String), odilia_common::errors::OdiliaError> {
+) -> Result<(Priority, &'static str), odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
-	Ok((Priority::Text, "Doc loaded!".to_string()))
+	Ok((Priority::Text, "Doc loaded!"))
 }
 
 #[tokio::main(flavor = "current_thread")]

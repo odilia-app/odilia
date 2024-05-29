@@ -12,6 +12,11 @@ impl From<Priority> for OdiliaCommand {
 		SpeechPriority(p).into()
 	}
 }
+impl From<&str> for OdiliaCommand {
+	fn from(s: &str) -> OdiliaCommand {
+		Speak(s.to_string()).into()
+	}
+}
 impl From<String> for OdiliaCommand {
 	fn from(s: String) -> OdiliaCommand {
 		Speak(s).into()
@@ -41,7 +46,8 @@ where
 impl<T1, T2> IntoCommands for Result<T1, T2>
 where
 	T1: Into<OdiliaCommand>,
-	T2: Into<OdiliaCommand>, {
+	T2: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		match self {
 			Ok(ok) => vec![ok.into()],
