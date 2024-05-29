@@ -16,9 +16,11 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
+		let directories=xdg::BaseDirectories::with_prefix("odilia").expect("can't create required directories according to the xdg directory specification");
+		let log_path = directories.place_state_file("odilia.log").expect("can't place log file");
 		Self {
 			level: "info".to_owned(),
-			logger: LoggingKind::File("/var/log/odilia.log".into()),
+			logger: LoggingKind::File(log_path),
 		}
 	}
 }
