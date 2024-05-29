@@ -23,7 +23,6 @@ impl Default for LogSettings {
             .place_data_file("odilia.log")
             .expect("unable to place log file");
 
-        // TODO: what if config file does not exist?
 		Self { level: "info".to_owned(), logger: LoggingKind::File(log_path) }
 	}
 }
