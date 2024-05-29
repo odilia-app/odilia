@@ -20,11 +20,12 @@ use tower::util::BoxCloneService;
 use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
+use tower::ServiceExt;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
 use odilia_common::command::{
-	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
+	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
 };
 
@@ -276,17 +277,18 @@ where
 			command_handlers: self.command_handlers,
 		}
 	}
-	pub fn atspi_listener<H, T, E>(mut self, handler: H) -> Self
+	pub fn atspi_listener<H, T, E, R>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, S, E, Response = Vec<Command>> + Send + Sync + 'static,
+		H: Handler<T, S, E, Response = R> + Send + Sync + 'static,
 		E: atspi::BusProperties + TryFrom<Event> + Send + Sync + 'static,
 		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
 		OdiliaError: From<<E as TryFrom<Event>>::Error>,
 		T: 'static,
+		R: IntoCommands + Send + Sync,
 	{
 		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
-		let ws = handler.with_state(state);
+		let ws = handler.with_state(state).map_response(|r| r.into_commands());
 		let tfserv = tflayer.layer(ws);
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_MEMBER,
@@ -373,6 +375,7 @@ where
 	}
 }
 
+/*
 impl<F, Fut, S, E> Handler<(Request,), S, E> for F
 where
 	F: FnOnce(E) -> Fut + Clone + Send,
@@ -385,15 +388,30 @@ where
 		self(req)
 	}
 }
-impl<F, Fut, S, T1, E> Handler<(Request, T1), S, E> for F
+*/
+impl<F, Fut, S, E, R> Handler<(Request,), S, E> for F
+where
+	F: FnOnce(E) -> Fut + Clone + Send,
+	Fut: Future<Output = Result<R, Error>> + Send + 'static,
+	S: Clone,
+	R: IntoCommands,
+{
+	type Response = R;
+	type Future = Fut;
+	fn call(self, req: E, _state: S) -> Self::Future {
+		self(req)
+	}
+}
+impl<F, Fut, S, T1, E, R> Handler<(Request, T1), S, E> for F
 where
 	F: FnOnce(E, T1) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
+	Fut: Future<Output = Result<R, Error>> + Send + 'static,
 	S: Clone,
 	T1: From<S>,
+	R: IntoCommands,
 {
 	type Future = Fut;
-	type Response = Response;
+	type Response = R;
 	fn call(self, req: E, state: S) -> Self::Future {
 		self(req, (state.clone()).into())
 	}
@@ -405,13 +423,14 @@ where
 // S: is some state type that implements Clone
 // Fut: is a future whoes output is Result<Response, Error>, and which is sendable across threads
 // statically
-impl<F, Fut, S, T1, T2, E> Handler<(Request, T1, T2), S, E> for F
+impl<F, Fut, S, T1, T2, E, R> Handler<(Request, T1, T2), S, E> for F
 where
 	F: FnOnce(E, T1, T2) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
+	Fut: Future<Output = Result<R, Error>> + Send + 'static,
 	S: Clone,
 	T1: From<S>,
 	T2: From<S>,
+	R: IntoCommands,
 {
 	type Response = Response;
 	type Future = Fut;

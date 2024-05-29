@@ -9,7 +9,6 @@
 #![allow(clippy::multiple_crate_versions)]
 
 mod cli;
-mod commands;
 mod events;
 mod logging;
 mod state;
@@ -30,14 +29,15 @@ use figment::{
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{
-		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
+		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
+		Speak, SpeechPriority,
 	},
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
+use ssip::Priority;
 use ssip::Request as SSIPRequest;
-use ssip_client_async::Priority;
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
@@ -91,12 +91,20 @@ async fn sigterm_signal_watcher(
 use atspi::events::document::LoadCompleteEvent;
 
 #[tracing::instrument]
+async fn change_priority(
+	SpeechPriority(priority): SpeechPriority,
+	Speech(ssip): Speech,
+) -> Result<(), odilia_common::errors::OdiliaError> {
+	ssip.send(SSIPRequest::SetPriority(priority)).await?;
+	Ok(())
+}
+
+#[tracing::instrument]
 async fn speak(
 	Speak(text): Speak,
 	Speech(ssip): Speech,
 ) -> Result<(), odilia_common::errors::OdiliaError> {
 	println!("Speak text!");
-	ssip.send(SSIPRequest::SetPriority(Priority::Text)).await?;
 	ssip.send(SSIPRequest::Speak).await?;
 	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
 	Ok(())
@@ -105,9 +113,9 @@ async fn speak(
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
-) -> Result<Vec<Command>, odilia_common::errors::OdiliaError> {
+) -> Result<(Priority, String), odilia_common::errors::OdiliaError> {
 	println!("Doc loaded!");
-	Ok(vec![Speak("Doc loaded!".to_string()).into()])
+	Ok((Priority::Text, "Doc loaded!".to_string()))
 }
 
 #[tokio::main(flavor = "current_thread")]
