@@ -1,9 +1,6 @@
-use std::{
-    env,
-    path::PathBuf,
-};
-
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
 ///structure used for all the configurable options related to logging
 #[derive(Debug, Serialize, Deserialize)]
 #[allow(clippy::module_name_repetitions)]
@@ -19,15 +16,14 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
-		let mut log_path = PathBuf::new();
-        match env::var("XDG_DATA_HOME") {
-			Ok(dir) => log_path.push(dir),
-			Err(_e) => {
-                log_path.push(env::var("HOME").unwrap());
-                log_path.push(".local/share");
-            },  // TODO: error message?
-		};
-		log_path.push("/odilia/odilia.log");
+        let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
+			"unable to find the odilia config directory according to the xdg dirs specification",
+		);
+        let log_path = xdg_dirs
+            .place_data_file("odilia.log")
+            .expect("unable to place log file");
+
+        // TODO: what if config file does not exist?
 		Self { level: "info".to_owned(), logger: LoggingKind::File(log_path) }
 	}
 }

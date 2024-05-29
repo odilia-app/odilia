@@ -1632,6 +1632,7 @@ dependencies = [
  "serde_plain",
  "smartstring",
  "thiserror",
+ "xdg",
  "zbus",
 ]
 

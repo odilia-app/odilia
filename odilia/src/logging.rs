@@ -27,14 +27,14 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this and a forced dereference at the end would do
 	let output_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
-			let file = std::fs::File::options()
+            let file = std::fs::File::options()
 				.create_new(true)
 				.write(true)
 				.open(path)
 				.with_context(|| {
 					format!("creating log file '{}'", path.display())
 				})?;
-			let fmt =
+            let fmt =
 				tracing_subscriber::fmt::layer().with_ansi(false).with_writer(file);
 			fmt.boxed()
 		}
