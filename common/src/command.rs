@@ -38,6 +38,17 @@ where
 		vec![self.0.into()]
 	}
 }
+impl<T1, T2> IntoCommands for Result<T1, T2>
+where
+	T1: Into<OdiliaCommand>,
+	T2: Into<OdiliaCommand>, {
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		match self {
+			Ok(ok) => vec![ok.into()],
+			Err(err) => vec![err.into()],
+		}
+	}
+}
 impl<T1, T2> IntoCommands for (T1, T2)
 where
 	T1: Into<OdiliaCommand>,
