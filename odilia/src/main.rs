@@ -175,7 +175,9 @@ async fn main() -> eyre::Result<()> {
 
 	// load handlers
 	let handlers = Handlers::new(state.clone()).atspi_listener(doc_loaded);
-	let chandlers = Handlers::new(state.clone()).command_listener(speak);
+	let chandlers = Handlers::new(state.clone())
+		.command_listener(speak)
+		.command_listener(change_priority);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
