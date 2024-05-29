@@ -114,7 +114,7 @@ impl ScreenReaderState {
 			cache,
 		})
 	}
-	#[tracing::instrument(level="debug", skip(self) ret, err)]
+	#[tracing::instrument(level = "debug", skip(self), err)]
 	pub async fn get_or_create_atspi_cache_item_to_cache(
 		&self,
 		atspi_cache_item: atspi_common::CacheItem,
@@ -130,7 +130,7 @@ impl ScreenReaderState {
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
-	#[tracing::instrument(level="debug", skip(self) ret, err)]
+	#[tracing::instrument(level = "debug", skip(self), err)]
 	pub async fn get_or_create_atspi_legacy_cache_item_to_cache(
 		&self,
 		atspi_cache_item: atspi_common::LegacyCacheItem,
@@ -146,7 +146,7 @@ impl ScreenReaderState {
 		}
 		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
 	}
-	#[tracing::instrument(skip_all, level = "debug", ret, err)]
+	#[tracing::instrument(skip_all, level = "debug", err)]
 	pub async fn get_or_create_event_object_to_cache<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
@@ -307,7 +307,7 @@ impl ScreenReaderState {
 			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
 			.await
 	}
-	#[tracing::instrument(skip_all, ret, err)]
+	#[tracing::instrument(skip_all, err)]
 	pub async fn new_accessible<'a, T: GenericEvent<'a>>(
 		&self,
 		event: &T,
@@ -321,7 +321,7 @@ impl ScreenReaderState {
 			.build()
 			.await?)
 	}
-	#[tracing::instrument(skip_all, ret, err)]
+	#[tracing::instrument(skip_all, err)]
 	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {
 		let cache_rule = MatchRule::builder()
 			.msg_type(MessageType::Signal)
