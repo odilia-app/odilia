@@ -19,15 +19,15 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 		_ => EnvFilter::from(&config.log.level),
 	};
 	let tree = HierarchicalLayer::new(4)
-	.with_bracketed_fields(true)
-	.with_targets(true)
-	.with_deferred_spans(true)
-	.with_span_retrace(true)
-	.with_indent_lines(true)
-	.with_ansi(false)
-	.with_wraparound(4);
-//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
-let final_layer = match &config.log.logger {
+		.with_bracketed_fields(true)
+		.with_targets(true)
+		.with_deferred_spans(true)
+		.with_span_retrace(true)
+		.with_indent_lines(true)
+		.with_ansi(false)
+		.with_wraparound(4);
+	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
+	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
 			let file = std::fs::File::create(path).with_context(|| {
 				format!("creating log file '{}'", path.display())
