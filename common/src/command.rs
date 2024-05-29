@@ -1,11 +1,12 @@
-use ssip::Priority;
 use enum_dispatch::enum_dispatch;
+use ssip::Priority;
 
 use strum::{Display, EnumDiscriminants};
 
 pub trait IntoCommands {
 	fn into_commands(self) -> Vec<OdiliaCommand>;
 }
+
 impl From<Priority> for OdiliaCommand {
 	fn from(p: Priority) -> OdiliaCommand {
 		SpeechPriority(p).into()
@@ -16,43 +17,57 @@ impl From<String> for OdiliaCommand {
 		Speak(s).into()
 	}
 }
+impl IntoCommands for () {
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		vec![]
+	}
+}
 impl<T1> IntoCommands for T1
-where T1: Into<OdiliaCommand> {
+where
+	T1: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![self.into()]
 	}
 }
 impl<T1> IntoCommands for (T1,)
-where T1: Into<OdiliaCommand> {
+where
+	T1: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![self.0.into()]
 	}
 }
-impl<T1,T2> IntoCommands for (T1,T2,)
-where T1: Into<OdiliaCommand>,
-			T2: Into<OdiliaCommand> {
+impl<T1, T2> IntoCommands for (T1, T2)
+where
+	T1: Into<OdiliaCommand>,
+	T2: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![self.0.into(), self.1.into()]
 	}
 }
-impl<T1,T2,T3> IntoCommands for (T1,T2,T3,)
-where T1: Into<OdiliaCommand>,
-			T2: Into<OdiliaCommand>,
-			T3: Into<OdiliaCommand> {
+impl<T1, T2, T3> IntoCommands for (T1, T2, T3)
+where
+	T1: Into<OdiliaCommand>,
+	T2: Into<OdiliaCommand>,
+	T3: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![self.0.into(), self.1.into(), self.2.into()]
 	}
 }
-impl<T1,T2,T3,T4> IntoCommands for (T1,T2,T3,T4,)
-where T1: Into<OdiliaCommand>,
-			T2: Into<OdiliaCommand>,
-			T3: Into<OdiliaCommand>,
-			T4: Into<OdiliaCommand> {
+impl<T1, T2, T3, T4> IntoCommands for (T1, T2, T3, T4)
+where
+	T1: Into<OdiliaCommand>,
+	T2: Into<OdiliaCommand>,
+	T3: Into<OdiliaCommand>,
+	T4: Into<OdiliaCommand>,
+{
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![self.0.into(), self.1.into(), self.2.into(), self.3.into()]
 	}
 }
-
 
 pub trait CommandType {
 	const CTYPE: OdiliaCommandDiscriminants;
