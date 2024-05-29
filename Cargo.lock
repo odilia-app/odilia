@@ -1601,7 +1601,6 @@ dependencies = [
 name = "odilia-cache"
 version = "0.3.0"
 dependencies = [
- "async-trait",
  "atspi",
  "atspi-client",
  "atspi-common 0.5.0",
@@ -1633,6 +1632,7 @@ dependencies = [
  "serde_plain",
  "smartstring",
  "thiserror",
+ "xdg",
  "zbus",
 ]
 
