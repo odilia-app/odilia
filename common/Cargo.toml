@@ -21,3 +21,4 @@ thiserror = "1.0.37"
 zbus.workspace = true
 serde_plain.workspace = true
 figment = "0.10.15"
+xdg.workspace=true
