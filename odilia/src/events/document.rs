@@ -1,7 +1,7 @@
 use crate::state::ScreenReaderState;
 use atspi_common::events::{
 	document::{DocumentEvents, LoadCompleteEvent},
-	GenericEvent,
+	EventProperties,
 };
 use odilia_common::errors::OdiliaError;
 

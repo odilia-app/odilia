@@ -15,7 +15,6 @@ categories = ["accessibility"]
 atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
-atspi-client.workspace = true
 odilia-common.workspace = true
 dashmap = "5.4.0"
 serde = "1.0.147"
@@ -24,6 +23,7 @@ tracing.workspace = true
 zbus.workspace = true
 fxhash = "0.2.1"
 smartstring = { version = "1.0.1", features = ["serde"] }
+serde_plain.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.4.0", features = ["async_tokio", "html_reports"] }

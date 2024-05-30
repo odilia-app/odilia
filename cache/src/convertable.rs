@@ -7,30 +7,30 @@ use atspi_proxies::{
 	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
 use std::future::Future;
-use std::ops::Deref;
-use zbus::{CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault};
+use zbus::{proxy::ProxyImpl, CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault};
 
 #[allow(clippy::module_name_repetitions)]
-pub trait Convertable {
+pub trait Convertable<'a> {
 	type Error: std::error::Error;
 
-	/// Creates an [`Self::Accessible`] from the existing accessible item.
+	/// Creates an [`AccessibleProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation of.
 	/// Generally, it fails if the accessible item does not implement to accessible interface.
 	/// This shouldn't be possible, but this function may fail for other reasons.
-	/// For example, to convert a [`zbus::Proxy`] into a [`Self::Accessible`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
+	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
 	fn to_accessible(
 		&self,
 	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;
-	/// Creates an [`Self::Action`] from the existing accessible item.
+	/// Creates an [`ActionProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to action interface.
 	fn to_action(&self) -> impl Future<Output = Result<ActionProxy, Self::Error>> + Send;
-	/// Creates an [`Self::Application`] from the existing accessible item.
+
+	/// Creates an [`ApplicationProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
@@ -38,7 +38,8 @@ pub trait Convertable {
 	fn to_application(
 		&self,
 	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
-	/// Creates an [`Collection`] from the existing accessible item.
+
+	/// Creates an [`CollectionProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
@@ -46,7 +47,8 @@ pub trait Convertable {
 	fn to_collection(
 		&self,
 	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
-	/// Creates an [`Component`] from the existing accessible item.
+
+	/// Creates an [`ComponentProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
@@ -72,10 +74,12 @@ async fn convert_to_new_type<
 	'a,
 	'b,
 	T: From<Proxy<'b>> + ProxyDefault,
-	U: Deref<Target = Proxy<'a>> + ProxyDefault,
+	U: ProxyImpl<'a> + ProxyDefault,
 >(
 	from: &U,
 ) -> zbus::Result<T> {
+	let from = from.inner();
+
 	// first thing is first, we need to creat an accessible to query the interfaces.
 	let accessible = AccessibleProxy::builder(from.connection())
 		.destination(from.destination())?
@@ -84,16 +88,19 @@ async fn convert_to_new_type<
 		.build()
 		.await?;
 	// if the interface we're trying to convert to is not available as an interface; this can be problematic because the interface we're passing in could potentially be different from what we're converting to.
-	let new_interface_name = Interface::try_from(<T as ProxyDefault>::INTERFACE)
-		.map_err(|_| Error::InterfaceNotFound)?;
+	let new_interface_name: Interface = serde_plain::from_str(
+		<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?,
+	)
+	.map_err(|_| Error::InterfaceNotFound)?;
 	if !accessible.get_interfaces().await?.contains(new_interface_name) {
 		return Err(Error::InterfaceNotFound);
 	}
 	// otherwise, make a new Proxy with the related type.
 	let path = from.path().to_owned();
 	let dest = from.destination().to_owned();
-	ProxyBuilder::<'b, T>::new_bare(from.connection())
-		.interface(<T as ProxyDefault>::INTERFACE)?
+
+	ProxyBuilder::<T>::new(from.connection())
+		.interface(<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?)?
 		.destination(dest)?
 		.cache_properties(CacheProperties::No)
 		.path(path)?
@@ -101,7 +108,7 @@ async fn convert_to_new_type<
 		.await
 }
 
-impl<'a, T: Deref<Target = Proxy<'a>> + ProxyDefault + Sync> Convertable for T {
+impl<'a, T: ProxyImpl<'a> + ProxyDefault + Sync> Convertable<'a> for T {
 	type Error = zbus::Error;
 	/* no guard due to assumption it is always possible */
 	async fn to_accessible(&self) -> zbus::Result<AccessibleProxy> {

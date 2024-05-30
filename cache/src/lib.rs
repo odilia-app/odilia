@@ -22,7 +22,7 @@ use std::{
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, GenericEvent, Granularity, InterfaceSet,
+	object_ref::ObjectRef, ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -110,7 +110,7 @@ impl AccessiblePrimitive {
 	/// # Errors
 	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
 	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub fn from_event<'a, T: GenericEvent<'a>>(
+	pub fn from_event<T: EventProperties>(
 		event: &T,
 	) -> Result<Self, AccessiblePrimitiveConversionError> {
 		let sender = event.sender();
@@ -125,6 +125,7 @@ impl From<ObjectRef> for AccessiblePrimitive {
 		tuple_converter.into()
 	}
 }
+
 impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	fn from(so: (OwnedUniqueName, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
@@ -149,6 +150,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
@@ -159,6 +161,7 @@ impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
 
 	#[tracing::instrument(level = "trace", ret, err)]
 	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
 		Ok(AccessiblePrimitive { id, sender })
@@ -218,7 +221,7 @@ impl CacheItem {
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub async fn from_atspi_event<'a, T: GenericEvent<'a>>(
+	pub async fn from_atspi_event<T: EventProperties>(
 		event: &T,
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
@@ -304,7 +307,7 @@ impl CacheItem {
 				.collect(),
 		})
 	}
-	// Same as [`Accessible::get_children`], just offered as a non-async version.
+	// Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
 	/// Get a `Vec` of children with the same type as `Self`.
 	/// # Errors
 	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
@@ -379,14 +382,14 @@ fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
 }
 
 impl CacheItem {
-	/// See [`atspi_proxies::accessible::Accessible::get_application`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_application`]
 	/// # Errors
 	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn get_application(&self) -> Result<Self, OdiliaError> {
 		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
 		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
 	}
-	/// See [`atspi_proxies::accessible::Accessible::parent`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::parent`]
 	/// # Errors
 	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn parent(&self) -> Result<Self, OdiliaError> {
@@ -396,31 +399,31 @@ impl CacheItem {
 			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
 		parent_item.ok_or(CacheError::NoItem.into())
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_attributes`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
 		Ok(as_accessible(self).await?.get_attributes().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::name`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::name`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn name(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.name().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::locale`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::locale`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn locale(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.locale().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::description`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::description`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	pub async fn description(&self) -> Result<String, OdiliaError> {
 		Ok(as_accessible(self).await?.description().await?)
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_realtion_set`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_relation_set`]
 	/// # Errors
 	/// - If the item is no longer available over the AT-SPI connection.
 	/// - The items mentioned are not in the cache.
@@ -451,7 +454,7 @@ impl CacheItem {
 			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
 			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
 	}
-	/// See [`atspi_proxies::accessible::Accessible::get_child_at_index`]
+	/// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
 	/// # Errors
 	/// - The items mentioned are not in the cache.
 	pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
@@ -621,22 +624,9 @@ impl CacheItem {
 		// this variation does NOT get a semantic line. It gets a visual line.
 		let dbus_version = as_text(self)
 			.await?
-			.get_string_at_offset(
-				offset.try_into().expect("Can not convert between usize and i32"),
-				granularity,
-			)
+			.get_string_at_offset(offset.try_into()?, granularity)
 			.await?;
-		Ok((
-			dbus_version.0,
-			dbus_version
-				.1
-				.try_into()
-				.expect("Can not convert between usize and i32"),
-			dbus_version
-				.2
-				.try_into()
-				.expect("Can not convert between usize and i32"),
-		))
+		Ok((dbus_version.0, dbus_version.1.try_into()?, dbus_version.2.try_into()?))
 	}
 	pub fn get_text(
 		&self,

@@ -85,7 +85,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 	{
 		let or: ObjectRef = self.get_application().await?;
 		let io: AccessiblePrimitive = or.into();
-		Ok(io.into_accessible(self.connection()).await?)
+		Ok(io.into_accessible(self.as_ref().connection()).await?)
 	}
 	async fn get_parent_ext<'a>(&self) -> Result<AccessibleProxy<'a>, Self::Error>
 	where
@@ -93,7 +93,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 	{
 		let or: ObjectRef = self.parent().await?;
 		let io: AccessiblePrimitive = or.into();
-		Ok(io.into_accessible(self.connection()).await?)
+		Ok(io.into_accessible(self.as_ref().connection()).await?)
 	}
 	async fn get_children_indexes<'a>(&self) -> Result<Vec<i32>, Self::Error> {
 		let mut indexes = Vec::new();
@@ -109,7 +109,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		let children_refs = self.get_children().await?;
 		let mut children = Vec::new();
 		for child_refs in children_refs {
-			let acc = AccessibleProxy::builder(self.connection())
+			let acc = AccessibleProxy::builder(self.as_ref().connection())
 				.destination(child_refs.name)?
 				.cache_properties(CacheProperties::No)
 				.path(child_refs.path)?
@@ -273,8 +273,9 @@ impl AccessibleExt for AccessibleProxy<'_> {
 			let mut related_vec = Vec::new();
 			for related in relation.1 {
 				let related_ap: AccessiblePrimitive = related.into();
-				let ap: AccessibleProxy<'_> =
-					related_ap.into_accessible(self.connection()).await?;
+				let ap: AccessibleProxy<'_> = related_ap
+					.into_accessible(self.as_ref().connection())
+					.await?;
 				related_vec.push(ap);
 			}
 			relations.insert(relation.0, related_vec);

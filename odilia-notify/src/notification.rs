@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -20,11 +20,12 @@ pub struct Notification {
 type MessageBody<'a> =
 	(String, u32, &'a str, String, String, Vec<&'a str>, HashMap<&'a str, Value<'a>>, i32);
 
-impl TryFrom<Arc<Message>> for Notification {
+impl TryFrom<Message> for Notification {
 	type Error = zbus::Error;
 
-	fn try_from(msg: Arc<Message>) -> Result<Self, Self::Error> {
-		let mb: MessageBody = msg.body()?;
+	fn try_from(msg: Message) -> Result<Self, Self::Error> {
+		let body = msg.body();
+		let mb: MessageBody = body.deserialize()?;
 		let (app_name, _, _, title, body, actions, mut options, _) = mb;
 		let actions = actions
 			.iter()
@@ -50,14 +51,10 @@ mod tests {
 	#[test]
 	fn correctly_formatted_message_leads_to_a_correct_notification() -> Result<(), zbus::Error>
 	{
-		// Simulate a method call to the org.freedesktop.notifications interface
-		let message = Message::method(
-			Some(":0.1"), //I can't pass none here, because of type needed errors, so passing dummy values for now
-			Some(":0.3"), //same here
-			"/org/freedesktop/notifications",
-			Some("org.freedesktop.notifications"),
-			"notify",
-			&(
+		let message = Message::method("/org/freedesktop/notifications", "notify")?
+			.sender(":0.1")?
+			.interface("org.freedesktop.notifications")?
+			.build(&(
 				"ExampleApp",
 				0u32,
 				"summary",
@@ -66,11 +63,7 @@ mod tests {
 				Vec::<&str>::new(),
 				HashMap::<&str, Value>::new(),
 				0,
-			),
-		)?;
-
-		//make this into an arc, to use the try_from implementation used in the wild
-		let message = Arc::new(message);
+			))?;
 		// Convert the Message into a Notification
 		let notification = Notification::try_from(message)?;
 

@@ -30,10 +30,9 @@ pub async fn listen_to_dbus_notifications() -> Result<impl Stream<Item = Notific
 		.build();
 	debug!(?notify_rule, "finished generating rule");
 	info!("listening for notifications");
-	let notify_rule = notify_rule.to_string();
-	monitor.become_monitor(&[notify_rule.as_str()], 0).await?;
+	monitor.become_monitor(&[notify_rule], 0).await?;
 
-	let stream = MessageStream::from(monitor.connection()).filter_map(move |message| async {
+	let stream = MessageStream::from(connection).filter_map(move |message| async {
 		let notification = message.ok()?.try_into().ok()?;
 		debug!(?notification, "adding notification to stream");
 		Some(notification)
