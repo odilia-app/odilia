@@ -624,22 +624,9 @@ impl CacheItem {
 		// this variation does NOT get a semantic line. It gets a visual line.
 		let dbus_version = as_text(self)
 			.await?
-			.get_string_at_offset(
-				offset.try_into().expect("Can not convert between usize and i32"),
-				granularity,
-			)
+			.get_string_at_offset(offset.try_into()?, granularity)
 			.await?;
-		Ok((
-			dbus_version.0,
-			dbus_version
-				.1
-				.try_into()
-				.expect("Can not convert between usize and i32"),
-			dbus_version
-				.2
-				.try_into()
-				.expect("Can not convert between usize and i32"),
-		))
+		Ok((dbus_version.0, dbus_version.1.try_into()?, dbus_version.2.try_into()?))
 	}
 	pub fn get_text(
 		&self,
