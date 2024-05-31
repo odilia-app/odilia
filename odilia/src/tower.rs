@@ -28,7 +28,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
-	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands
+	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands,
 };
 
 type Response = Vec<Command>;
@@ -264,7 +264,7 @@ where
 		C: CommandType + Send + Sync + 'static,
 		Command: TryInto<C>,
 		OdiliaError: From<<Command as TryInto<C>>::Error>,
-    R: Into<Result<(), Error>> + 'static,
+		R: Into<Result<(), Error>> + 'static,
 		T: 'static,
 	{
 		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
@@ -291,7 +291,8 @@ where
 	{
 		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
-		let ws = handler.with_state_and_fn(state, <R as TryIntoCommands>::try_into_commands);
+		let ws =
+			handler.with_state_and_fn(state, <R as TryIntoCommands>::try_into_commands);
 		let tfserv = tflayer.layer(ws);
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_MEMBER,
@@ -358,8 +359,14 @@ where
 pub trait Handler<T, S: Clone, E>: Clone {
 	type Response;
 	type Future: Future<Output = Self::Response> + Send + 'static;
-	fn with_state_and_fn<R, Er, F>(self, state: S, f: F) -> HandlerService<Self, T, S, E, R, Er, F> 
-  where F: FnOnce(Self::Response) -> Result<R, Er> {
+	fn with_state_and_fn<R, Er, F>(
+		self,
+		state: S,
+		f: F,
+	) -> HandlerService<Self, T, S, E, R, Er, F>
+	where
+		F: FnOnce(Self::Response) -> Result<R, Er>,
+	{
 		HandlerService::new(self, state, f)
 	}
 	fn call(self, req: E, state: S) -> Self::Future;
@@ -443,40 +450,37 @@ where
 pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
 	state: S,
-  f: F,
+	f: F,
 	_marker: PhantomData<fn(E, T) -> Result<R, Er>>,
 }
 impl<H, T, S, E, R, Er, F> HandlerService<H, T, S, E, R, Er, F> {
-    fn new(handler: H, state: S, f: F) -> Self 
-    where H: Handler<T, S, E>,
-          S: Clone,
-          F: FnOnce(<H as Handler<T, S, E>>::Response) -> Result<R, Er> {
-        HandlerService {
-            handler,
-            state,
-            f,
-            _marker: PhantomData,
-        }
-    }
+	fn new(handler: H, state: S, f: F) -> Self
+	where
+		H: Handler<T, S, E>,
+		S: Clone,
+		F: FnOnce(<H as Handler<T, S, E>>::Response) -> Result<R, Er>,
+	{
+		HandlerService { handler, state, f, _marker: PhantomData }
+	}
 }
 
 // TODO: come back to this in the A.M.
 struct Test<I, O, T> {
-    inner: T,
-    _marker: PhantomData<fn(I) -> O>,
+	inner: T,
+	_marker: PhantomData<fn(I) -> O>,
 }
 impl<I, O, T: FnOnce(I) -> O> Test<I, O, T> {
-    fn new(t: T) -> Self {
-        Test { inner: t, _marker: PhantomData }
-    }
+	fn new(t: T) -> Self {
+		Test { inner: t, _marker: PhantomData }
+	}
 }
 
 impl<H, T, S, E, R, Er, O, F> Service<E> for HandlerService<H, T, S, E, R, Er, F>
 where
 	H: Handler<T, S, E, Response = O>,
 	S: Clone,
-  F: FnOnce(O) -> Result<R, Er>,
-  F: Clone,
+	F: FnOnce(O) -> Result<R, Er>,
+	F: Clone,
 {
 	type Response = R;
 	type Future = Map<<H as Handler<T, S, E>>::Future, F>;

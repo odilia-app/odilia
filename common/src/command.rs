@@ -1,28 +1,28 @@
 use crate::errors::OdiliaError;
-use std::convert::Infallible;
 use enum_dispatch::enum_dispatch;
 use ssip::Priority;
+use std::convert::Infallible;
 
 use strum::{Display, EnumDiscriminants};
 
 pub trait TryIntoCommands {
-    type Error: Into<OdiliaError>;
-  fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError>;
+	type Error: Into<OdiliaError>;
+	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError>;
 }
 impl<T: IntoCommands> TryIntoCommands for T {
-    type Error = Infallible;
-    fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-        Ok(self.into_commands())
-    }
+	type Error = Infallible;
+	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+		Ok(self.into_commands())
+	}
 }
 impl<T: IntoCommands, E: Into<OdiliaError>> TryIntoCommands for Result<T, E> {
-    type Error = E;
-    fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-        match self {
-            Ok(ok) => Ok(ok.into_commands()),
-            Err(err) => Err(err.into()),
-        }
-    }
+	type Error = E;
+	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+		match self {
+			Ok(ok) => Ok(ok.into_commands()),
+			Err(err) => Err(err.into()),
+		}
+	}
 }
 
 pub trait IntoCommands {
