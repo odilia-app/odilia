@@ -385,20 +385,6 @@ where
 	}
 }
 
-/*
-impl<F, Fut, S, E> Handler<(Request,), S, E> for F
-where
-	F: FnOnce(E) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
-	S: Clone,
-{
-	type Response = Response;
-	type Future = Fut;
-	fn call(self, req: E, _state: S) -> Self::Future {
-		self(req)
-	}
-}
-*/
 impl<F, Fut, S, E, R> Handler<(Request,), S, E> for F
 where
 	F: FnOnce(E) -> Fut + Clone + Send,
