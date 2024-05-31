@@ -104,7 +104,6 @@ async fn speak(
 	Speak(text): Speak,
 	Speech(ssip): Speech,
 ) -> Result<(), odilia_common::errors::OdiliaError> {
-	println!("Speak text!");
 	ssip.send(SSIPRequest::Speak).await?;
 	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
 	Ok(())
@@ -114,7 +113,6 @@ async fn speak(
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
 ) -> impl TryIntoCommands {
-	println!("Doc loaded!");
 	(Priority::Text, "Doc loaded!")
 }
 
