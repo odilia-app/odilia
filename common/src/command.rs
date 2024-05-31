@@ -29,84 +29,71 @@ pub trait IntoCommands {
 	fn into_commands(self) -> Vec<OdiliaCommand>;
 }
 
-impl From<Priority> for OdiliaCommand {
-	fn from(p: Priority) -> OdiliaCommand {
-		SpeechPriority(p).into()
-	}
+impl IntoCommands for Priority {
+    fn into_commands(self) -> Vec<OdiliaCommand> {
+        vec![SpeechPriority(self).into()]
+    }
 }
-impl From<&str> for OdiliaCommand {
-	fn from(s: &str) -> OdiliaCommand {
-		Speak(s.to_string()).into()
-	}
+impl IntoCommands for &str {
+    fn into_commands(self) -> Vec<OdiliaCommand> {
+        vec![Speak(self.to_string()).into()]
+    }
 }
-impl From<String> for OdiliaCommand {
-	fn from(s: String) -> OdiliaCommand {
-		Speak(s).into()
-	}
+impl IntoCommands for String {
+    fn into_commands(self) -> Vec<OdiliaCommand> {
+        vec![Speak(self).into()]
+    }
 }
 impl IntoCommands for () {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![]
 	}
 }
-impl<T1> IntoCommands for T1
-where
-	T1: Into<OdiliaCommand>,
-{
-	fn into_commands(self) -> Vec<OdiliaCommand> {
-		vec![self.into()]
-	}
-}
 impl<T1> IntoCommands for (T1,)
 where
-	T1: Into<OdiliaCommand>,
+	T1: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-		vec![self.0.into()]
+    self.0.into_commands()
 	}
 }
-/*
-impl<T1, T2> IntoCommands for Result<T1, T2>
-where
-	T1: Into<OdiliaCommand>,
-	T2: Into<OdiliaCommand>,
-{
-	fn into_commands(self) -> Vec<OdiliaCommand> {
-		match self {
-			Ok(ok) => vec![ok.into()],
-			Err(err) => vec![err.into()],
-		}
-	}
-}
-*/
 impl<T1, T2> IntoCommands for (T1, T2)
 where
-	T1: Into<OdiliaCommand>,
-	T2: Into<OdiliaCommand>,
+	T1: IntoCommands,
+	T2: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-		vec![self.0.into(), self.1.into()]
+    let mut ret = self.0.into_commands();
+    ret.extend(self.1.into_commands());
+    ret
 	}
 }
 impl<T1, T2, T3> IntoCommands for (T1, T2, T3)
 where
-	T1: Into<OdiliaCommand>,
-	T2: Into<OdiliaCommand>,
-	T3: Into<OdiliaCommand>,
+	T1: IntoCommands,
+	T2: IntoCommands,
+	T3: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-		vec![self.0.into(), self.1.into(), self.2.into()]
+    let mut ret = self.0.into_commands();
+    ret.extend(self.1.into_commands());
+    ret.extend(self.2.into_commands());
+    ret
 	}
 }
 impl<T1, T2, T3, T4> IntoCommands for (T1, T2, T3, T4)
 where
-	T1: Into<OdiliaCommand>,
-	T2: Into<OdiliaCommand>,
-	T3: Into<OdiliaCommand>,
-	T4: Into<OdiliaCommand>,
+	T1: IntoCommands,
+	T2: IntoCommands,
+	T3: IntoCommands,
+	T4: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-		vec![self.0.into(), self.1.into(), self.2.into(), self.3.into()]
+    let mut ret = self.0.into_commands();
+    ret.extend(self.1.into_commands());
+    ret.extend(self.2.into_commands());
+    ret.extend(self.3.into_commands());
+    ret
 	}
 }
 
