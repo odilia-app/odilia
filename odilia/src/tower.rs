@@ -8,6 +8,8 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
+use futures::future::FutureExt as FatFutureExt;
+use futures::future::Map;
 use futures::future::MaybeDone;
 use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
@@ -26,7 +28,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
-	OdiliaCommandDiscriminants as CommandDiscriminants, Speak,
+	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands
 };
 
 type Response = Vec<Command>;
@@ -256,17 +258,18 @@ where
 		}
 		results
 	}
-	pub fn command_listener<H, T, C>(mut self, handler: H) -> Self
+	pub fn command_listener<H, T, C, R>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, S, C, Response = ()> + Send + Sync + 'static,
+		H: Handler<T, S, C, Response = R> + Send + Sync + 'static,
 		C: CommandType + Send + Sync + 'static,
 		Command: TryInto<C>,
 		OdiliaError: From<<Command as TryInto<C>>::Error>,
+    R: Into<Result<(), Error>> + 'static,
 		T: 'static,
 	{
 		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
 		let state = self.state.clone();
-		let ws = handler.with_state(state);
+		let ws = handler.with_state_and_fn(state, <R as Into<Result<(), Error>>>::into);
 		let tfserv = tflayer.layer(ws);
 		let dn = C::CTYPE;
 		let bs = BoxService::new(tfserv);
@@ -284,11 +287,11 @@ where
 		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
 		OdiliaError: From<<E as TryFrom<Event>>::Error>,
 		T: 'static,
-		R: IntoCommands + Send + Sync,
+		R: TryIntoCommands + Send + Sync + 'static,
 	{
 		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
-		let ws = handler.with_state(state).map_response(|r| r.into_commands());
+		let ws = handler.with_state_and_fn(state, <R as TryIntoCommands>::try_into_commands);
 		let tfserv = tflayer.layer(ws);
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_MEMBER,
@@ -303,7 +306,6 @@ where
 		}
 	}
 }
-
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
 	inner: S,
 	_marker: PhantomData<fn(O, I, Fut1) -> R>,
@@ -353,22 +355,23 @@ where
 	}
 }
 
-pub trait Handler<T, S, E>: Clone {
+pub trait Handler<T, S: Clone, E>: Clone {
 	type Response;
-	type Future: Future<Output = Result<Self::Response, Error>> + Send + 'static;
-	fn with_state(self, state: S) -> HandlerService<Self, T, S, E> {
-		HandlerService { handler: self, state, _marker: PhantomData }
+	type Future: Future<Output = Self::Response> + Send + 'static;
+	fn with_state_and_fn<R, Er, F>(self, state: S, f: F) -> HandlerService<Self, T, S, E, R, Er, F> 
+  where F: FnOnce(Self::Response) -> Result<R, Er> {
+		HandlerService::new(self, state, f)
 	}
 	fn call(self, req: E, state: S) -> Self::Future;
 }
 
-impl<F, Fut, S, E> Handler<((),), S, E> for F
+impl<F, Fut, S, E, R> Handler<((),), S, E> for F
 where
 	F: FnOnce() -> Fut + Clone + Send,
-	Fut: Future<Output = Result<Response, Error>> + Send + 'static,
+	Fut: Future<Output = R> + Send + 'static,
 	S: Clone,
 {
-	type Response = Response;
+	type Response = R;
 	type Future = Fut;
 	fn call(self, _req: E, _state: S) -> Self::Future {
 		self()
@@ -392,9 +395,8 @@ where
 impl<F, Fut, S, E, R> Handler<(Request,), S, E> for F
 where
 	F: FnOnce(E) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<R, Error>> + Send + 'static,
+	Fut: Future<Output = R> + Send + 'static,
 	S: Clone,
-	R: IntoCommands,
 {
 	type Response = R;
 	type Future = Fut;
@@ -405,10 +407,9 @@ where
 impl<F, Fut, S, T1, E, R> Handler<(Request, T1), S, E> for F
 where
 	F: FnOnce(E, T1) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<R, Error>> + Send + 'static,
+	Fut: Future<Output = R> + Send + 'static,
 	S: Clone,
 	T1: From<S>,
-	R: IntoCommands,
 {
 	type Future = Fut;
 	type Response = R;
@@ -426,11 +427,10 @@ where
 impl<F, Fut, S, T1, T2, E, R> Handler<(Request, T1, T2), S, E> for F
 where
 	F: FnOnce(E, T1, T2) -> Fut + Clone + Send,
-	Fut: Future<Output = Result<R, Error>> + Send + 'static,
+	Fut: Future<Output = R> + Send + 'static,
 	S: Clone,
 	T1: From<S>,
 	T2: From<S>,
-	R: IntoCommands,
 {
 	type Response = R;
 	type Future = Fut;
@@ -440,20 +440,47 @@ where
 }
 
 #[derive(Clone)]
-pub struct HandlerService<H, T, S, E> {
+pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
 	state: S,
-	_marker: PhantomData<fn(E) -> T>,
+  f: F,
+	_marker: PhantomData<fn(E, T) -> Result<R, Er>>,
+}
+impl<H, T, S, E, R, Er, F> HandlerService<H, T, S, E, R, Er, F> {
+    fn new(handler: H, state: S, f: F) -> Self 
+    where H: Handler<T, S, E>,
+          S: Clone,
+          F: FnOnce(<H as Handler<T, S, E>>::Response) -> Result<R, Er> {
+        HandlerService {
+            handler,
+            state,
+            f,
+            _marker: PhantomData,
+        }
+    }
 }
 
-impl<H, T, S, E> Service<E> for HandlerService<H, T, S, E>
+// TODO: come back to this in the A.M.
+struct Test<I, O, T> {
+    inner: T,
+    _marker: PhantomData<fn(I) -> O>,
+}
+impl<I, O, T: FnOnce(I) -> O> Test<I, O, T> {
+    fn new(t: T) -> Self {
+        Test { inner: t, _marker: PhantomData }
+    }
+}
+
+impl<H, T, S, E, R, Er, O, F> Service<E> for HandlerService<H, T, S, E, R, Er, F>
 where
-	H: Handler<T, S, E>,
+	H: Handler<T, S, E, Response = O>,
 	S: Clone,
+  F: FnOnce(O) -> Result<R, Er>,
+  F: Clone,
 {
-	type Response = <H as Handler<T, S, E>>::Response;
-	type Future = <H as Handler<T, S, E>>::Future;
-	type Error = Error;
+	type Response = R;
+	type Future = Map<<H as Handler<T, S, E>>::Future, F>;
+	type Error = Er;
 
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
@@ -461,6 +488,6 @@ where
 	fn call(&mut self, req: E) -> Self::Future {
 		let handler = self.handler.clone();
 		let state = self.state.clone();
-		handler.call(req, state)
+		handler.call(req, state).map(self.f.clone())
 	}
 }
