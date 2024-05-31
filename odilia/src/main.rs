@@ -30,7 +30,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{
 		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
-		Speak, SpeechPriority,
+		Speak, SpeechPriority, TryIntoCommands,
 	},
 	settings::ApplicationConfig,
 };
@@ -113,9 +113,9 @@ async fn speak(
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
-) -> Result<(Priority, &'static str), odilia_common::errors::OdiliaError> {
+) -> impl TryIntoCommands {
 	println!("Doc loaded!");
-	Ok((Priority::Text, "Doc loaded!"))
+	(Priority::Text, "Doc loaded!")
 }
 
 #[tokio::main(flavor = "current_thread")]
