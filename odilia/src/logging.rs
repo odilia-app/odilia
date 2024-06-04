@@ -10,8 +10,8 @@ use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::{prelude::*, EnvFilter};
-use tracing_tree::HierarchicalLayer;
 use tracing_tree::time::Uptime;
+use tracing_tree::HierarchicalLayer;
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
@@ -54,7 +54,7 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 			.with_targets(true)
 			.with_deferred_spans(true)
 			.with_span_retrace(true)
-      .with_timer(Uptime::default())
+			.with_timer(Uptime::default())
 			.with_indent_lines(true));
 	tracing::subscriber::set_global_default(subscriber)
 		.wrap_err("unable to init default logging layer")?;
