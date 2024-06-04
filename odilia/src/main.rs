@@ -7,6 +7,8 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
+#![feature(impl_trait_in_assoc_type)]
+#![feature(try_trait_v2)]
 
 mod cli;
 mod events;
@@ -30,7 +32,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{
 		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
-		Speak, SpeechPriority, TryIntoCommands,
+		Speak, TryIntoCommands,
 	},
 	settings::ApplicationConfig,
 };
@@ -91,19 +93,11 @@ async fn sigterm_signal_watcher(
 use atspi::events::document::LoadCompleteEvent;
 
 #[tracing::instrument]
-async fn change_priority(
-	SpeechPriority(priority): SpeechPriority,
+async fn speak(
+	Speak(text, priority): Speak,
 	Speech(ssip): Speech,
 ) -> Result<(), odilia_common::errors::OdiliaError> {
 	ssip.send(SSIPRequest::SetPriority(priority)).await?;
-	Ok(())
-}
-
-#[tracing::instrument]
-async fn speak(
-	Speak(text): Speak,
-	Speech(ssip): Speech,
-) -> Result<(), odilia_common::errors::OdiliaError> {
 	ssip.send(SSIPRequest::Speak).await?;
 	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
 	Ok(())
@@ -112,6 +106,7 @@ async fn speak(
 #[tracing::instrument(ret)]
 async fn doc_loaded(
 	loaded: LoadCompleteEvent,
+	//Object(item): Object,
 ) -> impl TryIntoCommands {
 	(Priority::Text, "Doc loaded!")
 }
@@ -173,9 +168,7 @@ async fn main() -> eyre::Result<()> {
 
 	// load handlers
 	let handlers = Handlers::new(state.clone()).atspi_listener(doc_loaded);
-	let chandlers = Handlers::new(state.clone())
-		.command_listener(speak)
-		.command_listener(change_priority);
+	let chandlers = Handlers::new(state.clone()).command_listener(speak);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
