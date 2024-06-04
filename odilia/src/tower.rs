@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::ScreenReaderState;
 use atspi::AtspiError;
 use atspi::Event;
 use atspi::EventTypeProperties;
@@ -8,13 +9,18 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
 
+use futures::future::join;
+use futures::future::join3;
+use futures::future::ErrInto;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
 use futures::future::MaybeDone;
+use futures::future::TryFutureExt;
 use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
 use futures_lite::FutureExt;
 use std::collections::{BTreeMap, HashMap};
+use std::convert::Infallible;
 use std::task::Context;
 use std::task::Poll;
 
@@ -30,6 +36,140 @@ use odilia_common::command::{
 	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands,
 };
+
+pub trait FromState<T>: Sized + Send {
+	type Error: Send;
+	type Future: Future<Output = Result<Self, Self::Error>> + Send;
+	fn try_from_state(state: &ScreenReaderState, t: &T) -> Self::Future;
+}
+impl<T, U: FromState<T>> AsyncTryFrom<(&ScreenReaderState, &T)> for U
+where
+	<U as FromState<T>>::Error: Into<OdiliaError>,
+{
+	type Error = OdiliaError;
+	type Future = ErrInto<U::Future, Self::Error>;
+	fn try_from_async(state: (&ScreenReaderState, &T)) -> Self::Future {
+		U::try_from_state(state.0, state.1).err_into()
+	}
+}
+impl<U, T: FromState<U>> FromState<U> for (T,) {
+	type Error = T::Error;
+	type Future = impl Future<Output = Result<Self, Self::Error>>;
+	fn try_from_state(state: &ScreenReaderState, t: &U) -> Self::Future {
+		T::try_from_state(state, t).map_ok(|res| (res,))
+	}
+}
+impl<E1, E2, T1, T2, I> FromState<I> for (T1, T2)
+where
+	T1: FromState<I, Error = E1>,
+	T2: FromState<I, Error = E2>,
+	E1: Into<Error> + Send,
+	E2: Into<Error> + Send,
+{
+	type Error = Error;
+	type Future = impl Future<Output = Result<Self, Self::Error>>;
+	fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
+		join(T1::try_from_state(state, i), T2::try_from_state(state, i)).map(|(r1, r2)| {
+			match (r1, r2) {
+				(Ok(t1), Ok(t2)) => Ok((t1, t2)),
+				(Err(e1), _) => Err(e1.into()),
+				(_, Err(e2)) => Err(e2.into()),
+			}
+		})
+	}
+}
+impl<E1, E2, E3, T1, T2, T3, I> FromState<I> for (T1, T2, T3)
+where
+	T1: FromState<I, Error = E1>,
+	T2: FromState<I, Error = E2>,
+	T3: FromState<I, Error = E3>,
+	E1: Into<Error> + Send,
+	E2: Into<Error> + Send,
+	E3: Into<Error> + Send,
+{
+	type Error = Error;
+	type Future = impl Future<Output = Result<Self, Self::Error>>;
+	fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
+		join3(
+			T1::try_from_state(state, i),
+			T2::try_from_state(state, i),
+			T3::try_from_state(state, i),
+		)
+		.map(|(r1, r2, r3)| match (r1, r2, r3) {
+			(Ok(t1), Ok(t2), Ok(t3)) => Ok((t1, t2, t3)),
+			(Err(e1), _, _) => Err(e1.into()),
+			(_, Err(e2), _) => Err(e2.into()),
+			(_, _, Err(e3)) => Err(e3.into()),
+		})
+	}
+}
+
+pub trait AsyncTryFrom<T>: Sized + Send {
+	type Error: Send;
+	type Future: Future<Output = Result<Self, Self::Error>> + Send;
+
+	fn try_from_async(value: T) -> Self::Future;
+}
+pub trait AsyncTryInto<T>: Sized + Send {
+	type Error: Send;
+	type Future: Future<Output = Result<T, Self::Error>> + Send;
+
+	fn try_into_async(self) -> Self::Future;
+}
+impl<T: Send, U: AsyncTryFrom<T> + Send> AsyncTryInto<U> for T {
+	type Error = U::Error;
+	type Future = U::Future;
+	fn try_into_async(self: T) -> Self::Future {
+		U::try_from_async(self)
+	}
+}
+
+/*
+impl<T: Send> AsyncTryFrom<T> for T {
+    type Error = std::convert::Infallible;
+    type Future = std::future::Ready<Result<Self, Self::Error>>;
+
+    fn try_from_async(value: T) -> Self::Future {
+	std::future::ready(Ok(value))
+    }
+}
+*/
+
+struct AsyncTryIntoService<S, T, E> {
+	inner: S,
+	_marker: PhantomData<(T, E)>,
+}
+
+impl<S, T, E> AsyncTryIntoService<S, T, E> {
+	pub fn new(inner: S) -> Self {
+		AsyncTryIntoService { inner, _marker: PhantomData }
+	}
+}
+impl<S, Request, Response, T, E> Service<Request> for AsyncTryIntoService<S, T, E>
+where
+	S: Service<T, Response = Response> + Send + Clone,
+	S::Error: Into<E>,
+	E: From<S::Error> + From<<Request as AsyncTryInto<T>>::Error> + Send,
+	Request: AsyncTryInto<T>,
+	<S as Service<T>>::Future: Send,
+	T: Send,
+{
+	type Response = Response;
+	type Error = E;
+	type Future = impl Future<Output = Result<Self::Response, Self::Error>> + Send;
+	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		self.inner.poll_ready(cx).map_err(|e| e.into())
+	}
+	fn call(&mut self, req: Request) -> Self::Future {
+		let mut this = self.inner.clone();
+		async move {
+			match req.try_into_async().await {
+				Ok(o) => Ok(this.call(o).await?),
+				Err(e) => Err(e.into()),
+			}
+		}
+	}
+}
 
 type Response = Vec<Command>;
 type Request = Event;
@@ -161,7 +301,7 @@ pub struct Handlers<S> {
 	state: S,
 	atspi_handlers:
 		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
-	command_handlers: BTreeMap<CommandDiscriminants, Vec<BoxService<Command, (), Error>>>,
+	command_handlers: BTreeMap<CommandDiscriminants, BoxService<Command, (), Error>>,
 }
 
 impl<S> Handlers<S>
@@ -183,13 +323,11 @@ where
 			// Otherwise, we cannot guarentee that the caching functions get run first.
 			// we could move caching to a separate, ordered system, then parallelize the other functions,
 			// if we determine this is a performance problem.
-			let mut results = vec![];
 			match self.command_handlers.get_mut(&dn) {
-				Some(hands) => {
-					for hand in hands {
-						results.push(hand.call(cmd.clone()).await);
-					}
-				}
+				Some(hand_fn) => match hand_fn.call(cmd).await {
+					Err(e) => tracing::error!("{e:?}"),
+					_ => {}
+				},
 				None => {
 					tracing::trace!("There are no associated handler functions for the command '{}'", cmd.ctype());
 				}
@@ -226,7 +364,7 @@ where
 							match cmds.send(ok).await {
 								Ok(()) => {}
 								Err(e) => {
-									tracing::error!("Could not send command {:?} over channel! This usually means either the channel is full, which is bad!", e);
+									tracing::error!("Could not send command {:?} over channel! This usually means the channel is full, which is bad!", e);
 								}
 							}
 						}
@@ -273,7 +411,7 @@ where
 		let tfserv = tflayer.layer(ws);
 		let dn = C::CTYPE;
 		let bs = BoxService::new(tfserv);
-		self.command_handlers.entry(dn).or_default().push(bs);
+		self.command_handlers.entry(dn).or_insert(bs);
 		Self {
 			state: self.state,
 			atspi_handlers: self.atspi_handlers,
@@ -399,15 +537,20 @@ where
 }
 impl<F, Fut, S, T1, E, R> Handler<(Request, T1), S, E> for F
 where
-	F: FnOnce(E, T1) -> Fut + Clone + Send,
+	F: FnOnce(E, T1) -> Fut + Clone + Send + 'static,
 	Fut: Future<Output = R> + Send + 'static,
-	S: Clone,
-	T1: From<S>,
+	S: Clone + AsyncTryInto<T1> + 'static,
+	T1: 'static + Send,
+	R: 'static
+		+ std::ops::FromResidual<
+			std::result::Result<Infallible, <S as AsyncTryInto<T1>>::Error>,
+		>,
+	E: 'static + Send,
 {
-	type Future = Fut;
+	type Future = impl Future<Output = R> + Send;
 	type Response = R;
 	fn call(self, req: E, state: S) -> Self::Future {
-		self(req, (state.clone()).into())
+		async move { self(req, state.try_into_async().await?).await }
 	}
 }
 // breakdown of the various type parameters:
@@ -417,18 +560,32 @@ where
 // S: is some state type that implements Clone
 // Fut: is a future whoes output is Result<Response, Error>, and which is sendable across threads
 // statically
-impl<F, Fut, S, T1, T2, E, R> Handler<(Request, T1, T2), S, E> for F
+impl<F, Fut, S, T1, T2, E, R, E1, E2> Handler<(Request, T1, T2), S, E> for F
 where
-	F: FnOnce(E, T1, T2) -> Fut + Clone + Send,
+	F: FnOnce(E, T1, T2) -> Fut + Clone + Send + 'static,
 	Fut: Future<Output = R> + Send + 'static,
-	S: Clone,
-	T1: From<S>,
-	T2: From<S>,
+	S: Clone + AsyncTryInto<T1, Error = E1> + AsyncTryInto<T2, Error = E2> + 'static + Sync,
+	T1: From<S> + 'static + Send,
+	T2: From<S> + 'static + Send,
+	E1: 'static + Send,
+	E2: 'static + Send,
+	R: 'static
+		+ std::ops::FromResidual<std::result::Result<Infallible, E1>>
+		+ std::ops::FromResidual<std::result::Result<Infallible, E2>>,
+	E: 'static + Send,
 {
 	type Response = R;
-	type Future = Fut;
+	type Future = impl Future<Output = R> + Send;
 	fn call(self, req: E, state: S) -> Self::Future {
-		self(req, state.clone().into(), state.clone().into())
+		let st = state.clone();
+		async move {
+			let (t1, t2) = join(
+				<S as AsyncTryInto<T1>>::try_into_async(st.clone()),
+				<S as AsyncTryInto<T2>>::try_into_async(st.clone()),
+			)
+			.await;
+			self(req, t1?, t2?).await
+		}
 	}
 }
 
@@ -447,17 +604,6 @@ impl<H, T, S, E, R, Er, F> HandlerService<H, T, S, E, R, Er, F> {
 		F: FnOnce(<H as Handler<T, S, E>>::Response) -> Result<R, Er>,
 	{
 		HandlerService { handler, state, f, _marker: PhantomData }
-	}
-}
-
-// TODO: come back to this in the A.M.
-struct Test<I, O, T> {
-	inner: T,
-	_marker: PhantomData<fn(I) -> O>,
-}
-impl<I, O, T: FnOnce(I) -> O> Test<I, O, T> {
-	fn new(t: T) -> Self {
-		Test { inner: t, _marker: PhantomData }
 	}
 }
 
