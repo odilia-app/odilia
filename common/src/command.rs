@@ -30,14 +30,14 @@ pub trait IntoCommands {
 }
 
 impl IntoCommands for (Priority, &str) {
-    fn into_commands(self) -> Vec<OdiliaCommand> {
-        vec![Speak(self.1.to_string(), self.0).into()]
-    }
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		vec![Speak(self.1.to_string(), self.0).into()]
+	}
 }
 impl IntoCommands for (Priority, String) {
-    fn into_commands(self) -> Vec<OdiliaCommand> {
-        vec![Speak(self.1, self.0).into()]
-    }
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		vec![Speak(self.1, self.0).into()]
+	}
 }
 impl IntoCommands for () {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
@@ -49,7 +49,7 @@ where
 	T1: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-    self.0.into_commands()
+		self.0.into_commands()
 	}
 }
 impl<T1, T2> IntoCommands for (T1, T2)
@@ -58,9 +58,9 @@ where
 	T2: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-    let mut ret = self.0.into_commands();
-    ret.extend(self.1.into_commands());
-    ret
+		let mut ret = self.0.into_commands();
+		ret.extend(self.1.into_commands());
+		ret
 	}
 }
 impl<T1, T2, T3> IntoCommands for (T1, T2, T3)
@@ -70,10 +70,10 @@ where
 	T3: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-    let mut ret = self.0.into_commands();
-    ret.extend(self.1.into_commands());
-    ret.extend(self.2.into_commands());
-    ret
+		let mut ret = self.0.into_commands();
+		ret.extend(self.1.into_commands());
+		ret.extend(self.2.into_commands());
+		ret
 	}
 }
 impl<T1, T2, T3, T4> IntoCommands for (T1, T2, T3, T4)
@@ -84,11 +84,11 @@ where
 	T4: IntoCommands,
 {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
-    let mut ret = self.0.into_commands();
-    ret.extend(self.1.into_commands());
-    ret.extend(self.2.into_commands());
-    ret.extend(self.3.into_commands());
-    ret
+		let mut ret = self.0.into_commands();
+		ret.extend(self.1.into_commands());
+		ret.extend(self.2.into_commands());
+		ret.extend(self.3.into_commands());
+		ret
 	}
 }
 
