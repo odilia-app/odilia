@@ -29,19 +29,14 @@ pub trait IntoCommands {
 	fn into_commands(self) -> Vec<OdiliaCommand>;
 }
 
-impl IntoCommands for Priority {
+impl IntoCommands for (Priority, &str) {
     fn into_commands(self) -> Vec<OdiliaCommand> {
-        vec![SpeechPriority(self).into()]
+        vec![Speak(self.1.to_string(), self.0).into()]
     }
 }
-impl IntoCommands for &str {
+impl IntoCommands for (Priority, String) {
     fn into_commands(self) -> Vec<OdiliaCommand> {
-        vec![Speak(self.to_string()).into()]
-    }
-}
-impl IntoCommands for String {
-    fn into_commands(self) -> Vec<OdiliaCommand> {
-        vec![Speak(self).into()]
+        vec![Speak(self.1, self.0).into()]
     }
 }
 impl IntoCommands for () {
@@ -111,16 +106,10 @@ impl<T: CommandType> CommandTypeDynamic for T {
 }
 
 #[derive(Debug, Clone)]
-pub struct Speak(pub String);
-
-#[derive(Debug, Clone)]
-pub struct SpeechPriority(pub Priority);
+pub struct Speak(pub String, pub Priority);
 
 impl CommandType for Speak {
 	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::Speak;
-}
-impl CommandType for SpeechPriority {
-	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::SpeechPriority;
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]
@@ -128,5 +117,4 @@ impl CommandType for SpeechPriority {
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
 	Speak(Speak),
-	SpeechPriority(SpeechPriority),
 }
