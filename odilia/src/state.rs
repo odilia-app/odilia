@@ -1,8 +1,12 @@
 use std::sync::atomic::AtomicUsize;
 
+use crate::tower::AsyncTryFrom;
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
+use futures::future::ok;
+use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
+use std::convert::Infallible;
 use tokio::sync::{mpsc::Sender, Mutex};
 use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
@@ -34,6 +38,14 @@ pub struct ScreenReaderState {
 	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
+}
+
+impl AsyncTryFrom<Arc<ScreenReaderState>> for Speech {
+	type Error = Infallible;
+	type Future = Ready<Result<Speech, Infallible>>;
+	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
+		ok(value.into())
+	}
 }
 
 pub struct Speech(pub Sender<SSIPRequest>);
