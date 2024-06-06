@@ -107,18 +107,15 @@ impl AccessiblePrimitive {
 			.await
 	}
 	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
-	/// # Errors
-	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub fn from_event<T: EventProperties>(
-		event: &T,
-	) -> Result<Self, AccessiblePrimitiveConversionError> {
+	#[tracing::instrument(skip_all, level = "trace", ret)]
+	pub fn from_event<T: EventProperties>(event: &T) -> Self {
 		let sender = event.sender();
 		let path = event.path();
 		let id = path.to_string();
-		Ok(Self { id, sender: sender.as_str().into() })
+		Self { id, sender: sender.as_str().into() }
 	}
 }
+
 impl From<ObjectRef> for AccessiblePrimitive {
 	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
 		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
@@ -226,7 +223,7 @@ impl CacheItem {
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		let a11y_prim = AccessiblePrimitive::from_event(event);
 		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
 	}
 	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
