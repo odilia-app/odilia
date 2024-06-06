@@ -178,7 +178,7 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
-		let prim = AccessiblePrimitive::from_event(event)?;
+		let prim = AccessiblePrimitive::from_event(event);
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_event(
 				event,
