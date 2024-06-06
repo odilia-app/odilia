@@ -41,7 +41,7 @@ pub fn remove_accessible(
 	state: &ScreenReaderState,
 	event: &RemoveAccessibleEvent,
 ) -> eyre::Result<()> {
-	let accessible_prim: AccessiblePrimitive = AccessiblePrimitive::from_event(event)?;
+	let accessible_prim: AccessiblePrimitive = AccessiblePrimitive::from_event(event);
 	state.cache.remove(&accessible_prim);
 	Ok(())
 }

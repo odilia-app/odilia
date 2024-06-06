@@ -479,7 +479,7 @@ mod state_changed {
 	) -> eyre::Result<()> {
 		let state_value = event.enabled == 1;
 		// update cache with state of item
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		let a11y_prim = AccessiblePrimitive::from_event(event);
 		if update_state(state, &a11y_prim, event.state, state_value)? {
 			tracing::debug!("Updating of the state was not succesful! The item with id {:?} was not found in the cache.", a11y_prim.id);
 		} else {
