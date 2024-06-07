@@ -22,6 +22,7 @@ use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::Handlers;
+use crate::tower::ItemEvent;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -105,7 +106,7 @@ async fn speak(
 
 #[tracing::instrument(ret)]
 async fn doc_loaded(
-	loaded: LoadCompleteEvent,
+	loaded: ItemEvent<LoadCompleteEvent>,
 	//Object(item): Object,
 ) -> impl TryIntoCommands {
 	(Priority::Text, "Doc loaded!")

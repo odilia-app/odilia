@@ -1,13 +1,17 @@
 #![allow(dead_code)]
 
+use crate::state::CacheProvider;
 use crate::ScreenReaderState;
 use atspi::AtspiError;
 use atspi::Event;
+use atspi::EventProperties;
 use atspi::EventTypeProperties;
 use odilia_common::errors::OdiliaError;
+use std::fmt::Debug;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::pin::Pin;
+use std::sync::Arc;
 
 use futures::future::join;
 use futures::future::join3;
@@ -32,10 +36,76 @@ use tower::ServiceExt;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
+use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands,
 };
+
+#[derive(Debug, Clone)]
+pub struct ItemEvent<E: EventProperties + Debug> {
+	inner: E,
+	item: CacheItem,
+}
+impl<E> ItemEvent<E>
+where
+	E: EventProperties + Debug,
+{
+	async fn from_event(ev: E, cache: Arc<Cache>) -> Result<Self, Error> {
+		let item = cache.from_event(&ev).await?;
+		Ok(ItemEvent { inner: ev, item })
+	}
+}
+
+#[derive(Clone)]
+pub struct CacheLayer<I> {
+	cache: Arc<Cache>,
+	_marker: PhantomData<fn(I)>,
+}
+impl<I> CacheLayer<I> {
+	fn new(cache: Arc<Cache>) -> Self {
+		CacheLayer { cache, _marker: PhantomData }
+	}
+}
+impl<S, I> Layer<S> for CacheLayer<I>
+where
+	S: Service<(I, Arc<Cache>)>,
+{
+	type Service = CacheService<S, I>;
+	fn layer(&self, inner: S) -> CacheService<S, I> {
+		CacheService { inner, cache: Arc::clone(&self.cache), _marker: PhantomData }
+	}
+}
+pub struct CacheService<S, I> {
+	inner: S,
+	cache: Arc<Cache>,
+	_marker: PhantomData<fn(I)>,
+}
+impl<I, S> Service<I> for CacheService<S, I>
+where
+	S: Service<(I, Arc<Cache>)>,
+{
+	type Response = S::Response;
+	type Error = S::Error;
+	type Future = S::Future;
+	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		self.inner.poll_ready(cx)
+	}
+	fn call(&mut self, req: I) -> Self::Future {
+		self.inner.call((req, Arc::clone(&self.cache)))
+	}
+}
+
+impl<E> AsyncTryFrom<(E, Arc<Cache>)> for ItemEvent<E>
+where
+	E: EventProperties + Clone + Send + Sync + Debug,
+{
+	type Error = Error;
+	type Future = impl Future<Output = Result<Self, Self::Error>> + Send;
+	fn try_from_async((ev, cache): (E, Arc<Cache>)) -> Self::Future {
+		ItemEvent::<E>::from_event(ev, cache)
+	}
+}
 
 pub trait FromState<T>: Sized + Send {
 	type Error: Send;
@@ -135,36 +205,56 @@ impl<T: Send> AsyncTryFrom<T> for T {
 }
 */
 
-struct AsyncTryIntoService<S, T, E> {
+pub struct AsyncTryIntoService<O, I: AsyncTryInto<O>, S, R, Fut1> {
 	inner: S,
-	_marker: PhantomData<(T, E)>,
+	_marker: PhantomData<fn(O, I, Fut1) -> R>,
 }
-
-impl<S, T, E> AsyncTryIntoService<S, T, E> {
-	pub fn new(inner: S) -> Self {
+impl<O, E, I: AsyncTryInto<O, Error = E>, S, R, Fut1> AsyncTryIntoService<O, I, S, R, Fut1> {
+	fn new(inner: S) -> Self {
 		AsyncTryIntoService { inner, _marker: PhantomData }
 	}
 }
-impl<S, Request, Response, T, E> Service<Request> for AsyncTryIntoService<S, T, E>
-where
-	S: Service<T, Response = Response> + Send + Clone,
-	S::Error: Into<E>,
-	E: From<S::Error> + From<<Request as AsyncTryInto<T>>::Error> + Send,
-	Request: AsyncTryInto<T>,
-	<S as Service<T>>::Future: Send,
-	T: Send,
-{
-	type Response = Response;
-	type Error = E;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>> + Send;
-	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		self.inner.poll_ready(cx).map_err(|e| e.into())
+#[derive(Clone)]
+pub struct AsyncTryIntoLayer<O, I: AsyncTryInto<O>> {
+	_marker: PhantomData<fn(I) -> O>,
+}
+impl<O, E, I: AsyncTryInto<O, Error = E>> AsyncTryIntoLayer<O, I> {
+	fn new() -> Self {
+		AsyncTryIntoLayer { _marker: PhantomData }
 	}
-	fn call(&mut self, req: Request) -> Self::Future {
-		let mut this = self.inner.clone();
+}
+
+impl<I: AsyncTryInto<O>, O, S, Fut1> Layer<S> for AsyncTryIntoLayer<O, I>
+where
+	S: Service<O, Future = Fut1>,
+{
+	type Service = AsyncTryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
+	fn layer(&self, inner: S) -> Self::Service {
+		AsyncTryIntoService::new(inner)
+	}
+}
+
+impl<O, E, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>
+where
+	I: AsyncTryInto<O>,
+	E: From<<I as AsyncTryInto<O>>::Error>,
+	<I as AsyncTryInto<O>>::Error: Send,
+	S: Service<O, Response = R, Future = Fut1> + Clone + Send,
+	O: Send,
+	Fut1: Future<Output = Result<R, E>> + Send,
+{
+	type Response = R;
+	type Future = impl Future<Output = Result<R, E>> + Send;
+	type Error = E;
+	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		Poll::Ready(Ok(()))
+	}
+	fn call(&mut self, req: I) -> Self::Future {
+		let clone = self.inner.clone();
+		let mut inner = std::mem::replace(&mut self.inner, clone);
 		async move {
 			match req.try_into_async().await {
-				Ok(o) => Ok(this.call(o).await?),
+				Ok(resp) => inner.call(resp).await,
 				Err(e) => Err(e.into()),
 			}
 		}
@@ -293,7 +383,8 @@ where
 	fn call(&mut self, req: I) -> Self::Future {
 		let len = self.inner.len();
 		let ic = self.inner.clone();
-		SerialServiceFuture { inner: ic, req, results: Vec::with_capacity(len) }
+		let inner = std::mem::replace(&mut self.inner, ic);
+		SerialServiceFuture { inner, req, results: Vec::with_capacity(len) }
 	}
 }
 
@@ -306,7 +397,7 @@ pub struct Handlers<S> {
 
 impl<S> Handlers<S>
 where
-	S: Clone + Send + Sync + 'static,
+	S: Clone + Send + Sync + CacheProvider + 'static,
 {
 	pub fn new(state: S) -> Self {
 		Handlers {
@@ -420,23 +511,36 @@ where
 	}
 	pub fn atspi_listener<H, T, E, R>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, S, E, Response = R> + Send + Sync + 'static,
-		E: atspi::BusProperties + TryFrom<Event> + Send + Sync + 'static,
+		H: Handler<T, S, ItemEvent<E>, Response = R> + Send + Sync + 'static,
+		E: atspi::BusProperties
+			+ EventProperties
+			+ TryFrom<Event>
+			+ Debug
+			+ Send
+			+ Sync
+			+ 'static
+			+ Clone,
 		<E as TryFrom<Event>>::Error: Send + Sync + std::fmt::Debug + Into<Error>,
 		OdiliaError: From<<E as TryFrom<Event>>::Error>,
-		T: 'static,
+		T: Clone + 'static,
 		R: TryIntoCommands + Send + Sync + 'static,
 	{
-		let tflayer: TryIntoLayer<E, Request> = TryIntoLayer::new();
+		let ie_layer: AsyncTryIntoLayer<ItemEvent<E>, (E, Arc<Cache>)> =
+			AsyncTryIntoLayer::new();
+		let ch_layer: CacheLayer<E> = CacheLayer::new(Arc::clone(&self.state.cache()));
+		let ti_layer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
 		let ws =
 			handler.with_state_and_fn(state, <R as TryIntoCommands>::try_into_commands);
-		let tfserv = tflayer.layer(ws);
+		let ie_serv: AsyncTryIntoService<ItemEvent<E>, (E, Arc<Cache>), _, _, _> =
+			ie_layer.layer(ws);
+		let ch_serv = ch_layer.layer(ie_serv);
+		let serv = ti_layer.layer(ch_serv);
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_MEMBER,
 			<E as atspi::BusProperties>::DBUS_INTERFACE,
 		);
-		let bs = BoxService::new(tfserv);
+		let bs = BoxService::new(serv);
 		self.atspi_handlers.entry(dn).or_default().push(bs);
 		Self {
 			state: self.state,
@@ -589,12 +693,26 @@ where
 	}
 }
 
-#[derive(Clone)]
 pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
 	state: S,
 	f: F,
 	_marker: PhantomData<fn(E, T) -> Result<R, Er>>,
+}
+impl<H, T, S, E, R, Er, F> Clone for HandlerService<H, T, S, E, R, Er, F>
+where
+	F: Clone,
+	S: Clone,
+	H: Clone,
+{
+	fn clone(&self) -> Self {
+		HandlerService {
+			handler: self.handler.clone(),
+			state: self.state.clone(),
+			f: self.f.clone(),
+			_marker: PhantomData,
+		}
+	}
 }
 impl<H, T, S, E, R, Er, F> HandlerService<H, T, S, E, R, Er, F> {
 	fn new(handler: H, state: S, f: F) -> Self
