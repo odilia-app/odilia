@@ -19,6 +19,8 @@ pub use accessible_ext::AccessibleExt;
 use std::{
 	collections::HashMap,
 	sync::{Arc, RwLock, Weak},
+  ops::Deref,
+  fmt::Debug,
 };
 
 use atspi_common::{
@@ -220,7 +222,7 @@ impl CacheItem {
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_event<T: EventProperties>(
 		event: &T,
-		cache: Weak<Cache>,
+		cache: Arc<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event);
@@ -875,7 +877,7 @@ impl Cache {
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
-		cache: Weak<Self>,
+		cache: Arc<Cache>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
@@ -935,6 +937,10 @@ impl Cache {
 		}
 		Ok(())
 	}
+  pub async fn from_event<T: EventProperties>(&self, ev: &T) -> OdiliaResult<CacheItem> {
+		let a11y_prim = AccessiblePrimitive::from_event(ev);
+		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?, self).await
+    }
 }
 
 /// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
@@ -949,9 +955,9 @@ impl Cache {
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err)]
-pub async fn accessible_to_cache_item(
+pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 	accessible: &AccessibleProxy<'_>,
-	cache: Weak<Cache>,
+	cache: C,
 ) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
@@ -981,6 +987,6 @@ pub async fn accessible_to_cache_item(
 		states,
 		text,
 		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
-		cache,
+		cache: Arc::downgrade(&Arc::new(cache.deref().clone())),
 	})
 }
