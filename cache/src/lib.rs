@@ -18,9 +18,9 @@ pub use accessible_ext::AccessibleExt;
 
 use std::{
 	collections::HashMap,
+	fmt::Debug,
+	ops::Deref,
 	sync::{Arc, RwLock, Weak},
-  ops::Deref,
-  fmt::Debug,
 };
 
 use atspi_common::{
@@ -937,10 +937,11 @@ impl Cache {
 		}
 		Ok(())
 	}
-  pub async fn from_event<T: EventProperties>(&self, ev: &T) -> OdiliaResult<CacheItem> {
+	pub async fn from_event<T: EventProperties>(&self, ev: &T) -> OdiliaResult<CacheItem> {
 		let a11y_prim = AccessiblePrimitive::from_event(ev);
-		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?, self).await
-    }
+		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?, self)
+			.await
+	}
 }
 
 /// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].

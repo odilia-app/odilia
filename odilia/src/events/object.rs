@@ -279,10 +279,8 @@ mod children_changed {
 		let accessible = get_child_primitive(event)
 			.into_accessible(state.atspi.connection())
 			.await?;
-		let _: OdiliaResult<CacheItem> = state
-			.cache
-			.get_or_create(&accessible, Arc::clone(&state.cache))
-			.await;
+		let _: OdiliaResult<CacheItem> =
+			state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}

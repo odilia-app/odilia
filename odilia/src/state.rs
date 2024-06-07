@@ -40,11 +40,27 @@ pub struct ScreenReaderState {
 	pub cache: Arc<Cache>,
 }
 
+pub trait CacheProvider {
+	fn cache(&self) -> Arc<Cache>;
+}
+impl CacheProvider for Arc<ScreenReaderState> {
+	fn cache(&self) -> Arc<Cache> {
+		Arc::clone(&self.cache)
+	}
+}
+
 impl AsyncTryFrom<Arc<ScreenReaderState>> for Speech {
 	type Error = Infallible;
 	type Future = Ready<Result<Speech, Infallible>>;
 	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
 		ok(value.into())
+	}
+}
+impl AsyncTryFrom<Arc<ScreenReaderState>> for Arc<Cache> {
+	type Error = Infallible;
+	type Future = Ready<Result<Arc<Cache>, Infallible>>;
+	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
+		ok(Arc::clone(&value.cache))
 	}
 }
 
@@ -182,7 +198,7 @@ impl ScreenReaderState {
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_event(
 				event,
-				Arc::downgrade(&Arc::clone(&self.cache)),
+				Arc::clone(&self.cache),
 				self.atspi.connection(),
 			)
 			.await?)?;
@@ -331,7 +347,7 @@ impl ScreenReaderState {
 			.build()
 			.await?;
 		self.cache
-			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
+			.get_or_create(&accessible_proxy, Arc::clone(&self.cache))
 			.await
 	}
 	#[tracing::instrument(skip_all, ret, err)]
