@@ -43,17 +43,17 @@ use odilia_common::command::{
 };
 
 #[derive(Debug, Clone)]
-pub struct ItemEvent<E: EventProperties + Debug> {
+pub struct CacheEvent<E: EventProperties + Debug> {
 	inner: E,
 	item: CacheItem,
 }
-impl<E> ItemEvent<E>
+impl<E> CacheEvent<E>
 where
 	E: EventProperties + Debug,
 {
 	async fn from_event(ev: E, cache: Arc<Cache>) -> Result<Self, Error> {
 		let item = cache.from_event(&ev).await?;
-		Ok(ItemEvent { inner: ev, item })
+		Ok(CacheEvent { inner: ev, item })
 	}
 }
 
@@ -96,14 +96,14 @@ where
 	}
 }
 
-impl<E> AsyncTryFrom<(E, Arc<Cache>)> for ItemEvent<E>
+impl<E> AsyncTryFrom<(E, Arc<Cache>)> for CacheEvent<E>
 where
 	E: EventProperties + Clone + Send + Sync + Debug,
 {
 	type Error = Error;
 	type Future = impl Future<Output = Result<Self, Self::Error>> + Send;
 	fn try_from_async((ev, cache): (E, Arc<Cache>)) -> Self::Future {
-		ItemEvent::<E>::from_event(ev, cache)
+		CacheEvent::<E>::from_event(ev, cache)
 	}
 }
 
@@ -511,7 +511,7 @@ where
 	}
 	pub fn atspi_listener<H, T, E, R>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, S, ItemEvent<E>, Response = R> + Send + Sync + 'static,
+		H: Handler<T, S, CacheEvent<E>, Response = R> + Send + Sync + 'static,
 		E: atspi::BusProperties
 			+ EventProperties
 			+ TryFrom<Event>
@@ -525,14 +525,14 @@ where
 		T: Clone + 'static,
 		R: TryIntoCommands + Send + Sync + 'static,
 	{
-		let ie_layer: AsyncTryIntoLayer<ItemEvent<E>, (E, Arc<Cache>)> =
+		let ie_layer: AsyncTryIntoLayer<CacheEvent<E>, (E, Arc<Cache>)> =
 			AsyncTryIntoLayer::new();
 		let ch_layer: CacheLayer<E> = CacheLayer::new(Arc::clone(&self.state.cache()));
 		let ti_layer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
 		let ws =
 			handler.with_state_and_fn(state, <R as TryIntoCommands>::try_into_commands);
-		let ie_serv: AsyncTryIntoService<ItemEvent<E>, (E, Arc<Cache>), _, _, _> =
+		let ie_serv: AsyncTryIntoService<CacheEvent<E>, (E, Arc<Cache>), _, _, _> =
 			ie_layer.layer(ws);
 		let ch_serv = ch_layer.layer(ie_serv);
 		let serv = ti_layer.layer(ch_serv);
