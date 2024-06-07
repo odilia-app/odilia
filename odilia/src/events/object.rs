@@ -281,7 +281,7 @@ mod children_changed {
 			.await?;
 		let _: OdiliaResult<CacheItem> = state
 			.cache
-			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
+			.get_or_create(&accessible, Arc::clone(&state.cache))
 			.await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
