@@ -44,8 +44,8 @@ use odilia_common::command::{
 
 #[derive(Debug, Clone)]
 pub struct CacheEvent<E: EventProperties + Debug> {
-	inner: E,
-	item: CacheItem,
+	pub inner: E,
+	pub item: CacheItem,
 }
 impl<E> CacheEvent<E>
 where
