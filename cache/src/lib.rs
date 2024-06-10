@@ -430,28 +430,17 @@ impl CacheItem {
 		&self,
 	) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
 		let cache = strong_cache(&self.cache)?;
-		as_accessible(self)
-			.await?
-			.get_relation_set()
-			.await?
-			.into_iter()
-			.map(|(relation, object_pairs)| {
-				(
-					relation,
-					object_pairs
-						.into_iter()
-						.map(|object_pair| {
-							cache.get(&object_pair.into()).ok_or(
-								OdiliaError::Cache(
-									CacheError::NoItem,
-								),
-							)
-						})
-						.collect::<Result<Vec<Self>, OdiliaError>>(),
-				)
-			})
-			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
-			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
+		let ipc_rs = as_accessible(self).await?.get_relation_set().await?;
+		let mut relations = Vec::new();
+		for (relation, object_pairs) in ipc_rs {
+			let mut cache_keys = Vec::new();
+			for object_pair in object_pairs {
+				let cached = cache.get_ipc(&object_pair.into()).await?;
+				cache_keys.push(cached);
+			}
+			relations.push((relation, cache_keys));
+		}
+		Ok(relations)
 	}
 	/// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
 	/// # Errors
@@ -803,6 +792,21 @@ impl Cache {
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
+	}
+
+	/// Get a single item from the cache. This will also get the information from DBus if it does not
+	/// exist in the cache.
+	#[must_use]
+	#[tracing::instrument(level = "trace", ret)]
+	pub async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, CacheError> {
+		match self.get(id) {
+			Some(ci) => Ok(ci),
+			None => {
+				let acc =
+					id.clone().into_accessible(&self.connection).await.unwrap();
+				Ok(accessible_to_cache_item(&acc, self).await.unwrap())
+			}
+		}
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
