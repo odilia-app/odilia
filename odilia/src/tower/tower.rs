@@ -2,6 +2,9 @@
 
 use crate::state::CacheProvider;
 use crate::tower::{
+    sync_try::{
+        TryIntoLayer,
+    },
     async_try::{
         AsyncTryFrom,
         AsyncTryInto,
@@ -25,7 +28,6 @@ use std::sync::Arc;
 use futures::join;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
-use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::Infallible;
@@ -234,54 +236,6 @@ where
 			state: self.state,
 			atspi_handlers: self.atspi_handlers,
 			command_handlers: self.command_handlers,
-		}
-	}
-}
-pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
-	inner: S,
-	_marker: PhantomData<fn(O, I, Fut1) -> R>,
-}
-impl<O, E, I: TryInto<O, Error = E>, S, R, Fut1> TryIntoService<O, I, S, R, Fut1> {
-	fn new(inner: S) -> Self {
-		TryIntoService { inner, _marker: PhantomData }
-	}
-}
-pub struct TryIntoLayer<O, I: TryInto<O>> {
-	_marker: PhantomData<fn(I) -> O>,
-}
-impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
-	fn new() -> Self {
-		TryIntoLayer { _marker: PhantomData }
-	}
-}
-
-impl<I: TryInto<O>, O, S, Fut1> Layer<S> for TryIntoLayer<O, I>
-where
-	S: Service<O, Future = Fut1>,
-{
-	type Service = TryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
-	fn layer(&self, inner: S) -> Self::Service {
-		TryIntoService::new(inner)
-	}
-}
-
-impl<O, E, I: TryInto<O>, S, R, Fut1> Service<I> for TryIntoService<O, I, S, R, Fut1>
-where
-	I: TryInto<O>,
-	E: From<<I as TryInto<O>>::Error>,
-	S: Service<O, Response = R, Future = Fut1>,
-	Fut1: Future<Output = Result<R, E>>,
-{
-	type Response = R;
-	type Future = Either<Fut1, Ready<Result<R, E>>>;
-	type Error = E;
-	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		Poll::Ready(Ok(()))
-	}
-	fn call(&mut self, req: I) -> Self::Future {
-		match req.try_into() {
-			Ok(o) => Either::Left(self.inner.call(o)),
-			Err(e) => Either::Right(err(e.into())),
 		}
 	}
 }
