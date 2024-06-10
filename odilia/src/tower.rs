@@ -15,6 +15,9 @@ use std::sync::Arc;
 
 use futures::future::join;
 use futures::future::join3;
+use futures::future::join4;
+use futures::future::join5;
+use futures::future::try_join_all;
 use futures::future::ErrInto;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
@@ -129,50 +132,34 @@ impl<U, T: FromState<U>> FromState<U> for (T,) {
 		T::try_from_state(state, t).map_ok(|res| (res,))
 	}
 }
-impl<E1, E2, T1, T2, I> FromState<I> for (T1, T2)
-where
-	T1: FromState<I, Error = E1>,
-	T2: FromState<I, Error = E2>,
-	E1: Into<Error> + Send,
-	E2: Into<Error> + Send,
-{
-	type Error = Error;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
-		join(T1::try_from_state(state, i), T2::try_from_state(state, i)).map(|(r1, r2)| {
-			match (r1, r2) {
-				(Ok(t1), Ok(t2)) => Ok((t1, t2)),
-				(Err(e1), _) => Err(e1.into()),
-				(_, Err(e2)) => Err(e2.into()),
-			}
-		})
-	}
+macro_rules! impl_from_state {
+($join_fn:ident, $(($type:ident,$err:ident),)+) => {
+    #[allow(non_snake_case)]
+    impl<I, $($type, $err,)+> FromState<I> for ($($type,)+)
+    where
+        $($type: FromState<I, Error = $err>,)+
+        $(Error: From<$err>,)+
+        $($err: Send,)+
+        {
+            type Error = Error;
+            type Future = impl Future<Output = Result<Self, Self::Error>>;
+            fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
+                $join_fn(
+                    $(<$type>::try_from_state(state, i),)+
+                )
+                .map(|($($type,)+)| {
+                    Ok((
+                        $($type?,)+
+                    ))
+                })
+            }
+        }
+    }
 }
-impl<E1, E2, E3, T1, T2, T3, I> FromState<I> for (T1, T2, T3)
-where
-	T1: FromState<I, Error = E1>,
-	T2: FromState<I, Error = E2>,
-	T3: FromState<I, Error = E3>,
-	E1: Into<Error> + Send,
-	E2: Into<Error> + Send,
-	E3: Into<Error> + Send,
-{
-	type Error = Error;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
-		join3(
-			T1::try_from_state(state, i),
-			T2::try_from_state(state, i),
-			T3::try_from_state(state, i),
-		)
-		.map(|(r1, r2, r3)| match (r1, r2, r3) {
-			(Ok(t1), Ok(t2), Ok(t3)) => Ok((t1, t2, t3)),
-			(Err(e1), _, _) => Err(e1.into()),
-			(_, Err(e2), _) => Err(e2.into()),
-			(_, _, Err(e3)) => Err(e3.into()),
-		})
-	}
-}
+impl_from_state!(join, (T1, E1), (T2, E2),);
+impl_from_state!(join3, (T1, E1), (T2, E2), (T3, E3),);
+impl_from_state!(join4, (T1, E1), (T2, E2), (T3, E3), (T4, E4),);
+impl_from_state!(join5, (T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
 
 pub trait AsyncTryFrom<T>: Sized + Send {
 	type Error: Send;
@@ -193,17 +180,6 @@ impl<T: Send, U: AsyncTryFrom<T> + Send> AsyncTryInto<U> for T {
 		U::try_from_async(self)
 	}
 }
-
-/*
-impl<T: Send> AsyncTryFrom<T> for T {
-    type Error = std::convert::Infallible;
-    type Future = std::future::Ready<Result<Self, Self::Error>>;
-
-    fn try_from_async(value: T) -> Self::Future {
-	std::future::ready(Ok(value))
-    }
-}
-*/
 
 pub struct AsyncTryIntoService<O, I: AsyncTryInto<O>, S, R, Fut1> {
 	inner: S,
@@ -657,41 +633,38 @@ where
 		async move { self(req, state.try_into_async().await?).await }
 	}
 }
-// breakdown of the various type parameters:
-//
-// F: is a function that takes E, T1, T2 (all of which are generic)
-// T1, T2: are type which can be created infallibly from a reference to S, which is generic
-// S: is some state type that implements Clone
-// Fut: is a future whoes output is Result<Response, Error>, and which is sendable across threads
-// statically
-impl<F, Fut, S, T1, T2, E, R, E1, E2> Handler<(Request, T1, T2), S, E> for F
-where
-	F: FnOnce(E, T1, T2) -> Fut + Clone + Send + 'static,
-	Fut: Future<Output = R> + Send + 'static,
-	S: Clone + AsyncTryInto<T1, Error = E1> + AsyncTryInto<T2, Error = E2> + 'static + Sync,
-	T1: From<S> + 'static + Send,
-	T2: From<S> + 'static + Send,
-	E1: 'static + Send,
-	E2: 'static + Send,
-	R: 'static
-		+ std::ops::FromResidual<std::result::Result<Infallible, E1>>
-		+ std::ops::FromResidual<std::result::Result<Infallible, E2>>,
-	E: 'static + Send,
-{
-	type Response = R;
-	type Future = impl Future<Output = R> + Send;
-	fn call(self, req: E, state: S) -> Self::Future {
-		let st = state.clone();
-		async move {
-			let (t1, t2) = join(
-				<S as AsyncTryInto<T1>>::try_into_async(st.clone()),
-				<S as AsyncTryInto<T2>>::try_into_async(st.clone()),
-			)
-			.await;
-			self(req, t1?, t2?).await
-		}
-	}
+
+macro_rules! impl_handler {
+    ($join_fn:ident, $(($type:ident,$err:ident),)+) => {
+        #[allow(non_snake_case)]
+        impl<F, Fut, S, E, R, $($type,$err,)+> Handler<(Request, $($type,)+), S, E> for F
+        where
+            F: FnOnce(E, $($type,)+) -> Fut + Clone + Send + 'static,
+            Fut: Future<Output = R> + Send + 'static,
+            S: Clone + $(AsyncTryInto<$type, Error = $err>+)+ 'static + Sync,
+            $($type: From<S> + Send + 'static,)+
+            $($err: Send + 'static,)+
+            R: 'static + $(std::ops::FromResidual<Result<Infallible, $err>>+)+,
+            E: 'static + Send {
+      type Response = R;
+      type Future = impl Future<Output = R> + Send;
+      fn call(self, req: E, state: S) -> Self::Future {
+        let st = state.clone();
+        async move {
+          let ($($type,)+) = $join_fn(
+            $(<S as AsyncTryInto<$type>>::try_into_async(st.clone()),)+
+          )
+          .await;
+          self(req, $($type?),+).await
+        }
+      }
+    }
 }
+}
+impl_handler!(join, (T1, E1), (T2, E2),);
+impl_handler!(join3, (T1, E1), (T2, E2), (T3, E3),);
+impl_handler!(join4, (T1, E1), (T2, E2), (T3, E3), (T4, E4),);
+impl_handler!(join5, (T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
 
 pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
