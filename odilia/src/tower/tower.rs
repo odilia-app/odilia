@@ -1,7 +1,17 @@
 #![allow(dead_code)]
 
 use crate::state::CacheProvider;
-use crate::ScreenReaderState;
+use crate::tower::{
+    async_try::{
+        AsyncTryFrom,
+        AsyncTryInto,
+        AsyncTryIntoLayer,
+        AsyncTryIntoService,
+    },
+    cache::{
+        CacheLayer,
+    },
+};
 use atspi::AtspiError;
 use atspi::Event;
 use atspi::EventProperties;
@@ -10,35 +20,28 @@ use odilia_common::errors::OdiliaError;
 use std::fmt::Debug;
 use std::future::Future;
 use std::marker::PhantomData;
-use std::pin::Pin;
 use std::sync::Arc;
 
 use futures::join;
-use futures::future::ErrInto;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
-use futures::future::MaybeDone;
-use futures::future::TryFutureExt;
 use futures::future::{err, Either, Ready};
 use futures::{Stream, StreamExt};
-use futures_lite::FutureExt;
 use std::collections::{BTreeMap, HashMap};
 use std::convert::Infallible;
 use std::task::Context;
 use std::task::Poll;
 
-use tower::util::BoxCloneService;
 use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
-use tower::ServiceExt;
 
 use tokio::sync::mpsc::{Receiver, Sender};
 
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{Cache, CacheItem};
 use odilia_common::command::{
-	CommandType, CommandTypeDynamic, IntoCommands, OdiliaCommand as Command,
-	OdiliaCommandDiscriminants as CommandDiscriminants, Speak, TryIntoCommands,
+	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
+	OdiliaCommandDiscriminants as CommandDiscriminants, TryIntoCommands,
 };
 
 #[derive(Debug, Clone)]
@@ -56,44 +59,6 @@ where
 	}
 }
 
-#[derive(Clone)]
-pub struct CacheLayer<I> {
-	cache: Arc<Cache>,
-	_marker: PhantomData<I>,
-}
-impl<I> CacheLayer<I> {
-	fn new(cache: Arc<Cache>) -> Self {
-		CacheLayer { cache, _marker: PhantomData }
-	}
-}
-impl<S, I> Layer<S> for CacheLayer<I>
-where
-	S: Service<(I, Arc<Cache>)>,
-{
-	type Service = CacheService<S, I>;
-	fn layer(&self, inner: S) -> CacheService<S, I> {
-		CacheService { inner, cache: Arc::clone(&self.cache), _marker: PhantomData }
-	}
-}
-pub struct CacheService<S, I> {
-	inner: S,
-	cache: Arc<Cache>,
-	_marker: PhantomData<fn(I)>,
-}
-impl<I, S> Service<I> for CacheService<S, I>
-where
-	S: Service<(I, Arc<Cache>)>,
-{
-	type Response = S::Response;
-	type Error = S::Error;
-	type Future = S::Future;
-	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		self.inner.poll_ready(cx)
-	}
-	fn call(&mut self, req: I) -> Self::Future {
-		self.inner.call((req, Arc::clone(&self.cache)))
-	}
-}
 
 impl<E> AsyncTryFrom<(E, Arc<Cache>)> for CacheEvent<E>
 where
@@ -106,257 +71,10 @@ where
 	}
 }
 
-pub trait FromState<T>: Sized + Send {
-	type Error: Send;
-	type Future: Future<Output = Result<Self, Self::Error>> + Send;
-	fn try_from_state(state: &ScreenReaderState, t: &T) -> Self::Future;
-}
-impl<T, U: FromState<T>> AsyncTryFrom<(&ScreenReaderState, &T)> for U
-where
-	<U as FromState<T>>::Error: Into<OdiliaError>,
-{
-	type Error = OdiliaError;
-	type Future = ErrInto<U::Future, Self::Error>;
-	fn try_from_async(state: (&ScreenReaderState, &T)) -> Self::Future {
-		U::try_from_state(state.0, state.1).err_into()
-	}
-}
-macro_rules! impl_from_state {
-($(($type:ident,$err:ident),)+) => {
-    #[allow(non_snake_case)]
-    impl<I, $($type, $err,)+> FromState<I> for ($($type,)+)
-    where
-        $($type: FromState<I, Error = $err>,)+
-        $(Error: From<$err>,)+
-        $($err: Send,)+
-        {
-            type Error = Error;
-            type Future = impl Future<Output = Result<Self, Self::Error>>;
-            fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
-                $(let $type = <$type>::try_from_state(state, i);)+
-                async {
-                    join!(
-                        $($type,)+
-                    )
-                }
-                .map(|($($type,)+)| {
-                    Ok((
-                        $($type?,)+
-                    ))
-                })
-            }
-        }
-    }
-}
-impl_from_state!((T1, E1),);
-impl_from_state!((T1, E1), (T2, E2),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
-
-pub trait AsyncTryFrom<T>: Sized + Send {
-	type Error: Send;
-	type Future: Future<Output = Result<Self, Self::Error>> + Send;
-
-	fn try_from_async(value: T) -> Self::Future;
-}
-pub trait AsyncTryInto<T>: Sized + Send {
-	type Error: Send;
-	type Future: Future<Output = Result<T, Self::Error>> + Send;
-
-	fn try_into_async(self) -> Self::Future;
-}
-impl<T: Send, U: AsyncTryFrom<T> + Send> AsyncTryInto<U> for T {
-	type Error = U::Error;
-	type Future = U::Future;
-	fn try_into_async(self: T) -> Self::Future {
-		U::try_from_async(self)
-	}
-}
-
-pub struct AsyncTryIntoService<O, I: AsyncTryInto<O>, S, R, Fut1> {
-	inner: S,
-	_marker: PhantomData<fn(O, I, Fut1) -> R>,
-}
-impl<O, E, I: AsyncTryInto<O, Error = E>, S, R, Fut1> AsyncTryIntoService<O, I, S, R, Fut1> {
-	fn new(inner: S) -> Self {
-		AsyncTryIntoService { inner, _marker: PhantomData }
-	}
-}
-#[derive(Clone)]
-pub struct AsyncTryIntoLayer<O, I: AsyncTryInto<O>> {
-	_marker: PhantomData<fn(I) -> O>,
-}
-impl<O, E, I: AsyncTryInto<O, Error = E>> AsyncTryIntoLayer<O, I> {
-	fn new() -> Self {
-		AsyncTryIntoLayer { _marker: PhantomData }
-	}
-}
-
-impl<I: AsyncTryInto<O>, O, S, Fut1> Layer<S> for AsyncTryIntoLayer<O, I>
-where
-	S: Service<O, Future = Fut1>,
-{
-	type Service = AsyncTryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
-	fn layer(&self, inner: S) -> Self::Service {
-		AsyncTryIntoService::new(inner)
-	}
-}
-
-impl<O, E, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>
-where
-	I: AsyncTryInto<O>,
-	E: From<<I as AsyncTryInto<O>>::Error>,
-	<I as AsyncTryInto<O>>::Error: Send,
-	S: Service<O, Response = R, Future = Fut1> + Clone + Send,
-	O: Send,
-	Fut1: Future<Output = Result<R, E>> + Send,
-{
-	type Response = R;
-	type Future = impl Future<Output = Result<R, E>> + Send;
-	type Error = E;
-	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		Poll::Ready(Ok(()))
-	}
-	fn call(&mut self, req: I) -> Self::Future {
-		let clone = self.inner.clone();
-		let mut inner = std::mem::replace(&mut self.inner, clone);
-		async move {
-			match req.try_into_async().await {
-				Ok(resp) => inner.call(resp).await,
-				Err(e) => Err(e.into()),
-			}
-		}
-	}
-}
 
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
-
-/// `SerialFuture` is a way to link a variable number of dependent futures.
-/// You can race!() two `SerialFuture`s, which will cause the two, non-dependent chains of futures to poll concurrently, while completing the individual serial futures, well, serially.
-///
-/// Why not just use `.await`? like so:
-///
-/// ```rust,norun
-/// return (fut1.await, fut2.await, ...);
-/// ```
-///
-/// Because you may have a variable number of functions that need to run in series.
-/// Think of handlers for an event, if you want the results to be deterministic, you will need to run the event listeners in series, even if multiple events could come in and each trigger its own set of listeners to execute syhncronously, the set of all even listeners can technically be run concorrently.
-pub struct SerialFutures<F>
-where
-	F: Future,
-{
-	// TODO: look into MaybeDone
-	inner: Pin<Box<[MaybeDone<F>]>>,
-}
-fn serial_futures<I>(iter: I) -> SerialFutures<I::Item>
-where
-	I: IntoIterator,
-	I::Item: futures::TryFuture,
-{
-	SerialFutures {
-		inner: iter.into_iter().map(MaybeDone::Future).collect::<Box<[_]>>().into(),
-	}
-}
-impl<F> Unpin for SerialFutures<F> where F: Future {}
-
-impl<F> Future for SerialFutures<F>
-where
-	F: futures::TryFuture + Unpin,
-{
-	type Output = Result<Vec<F::Output>, F::Error>;
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		for mfut in self.inner.as_mut().get_mut() {
-			match mfut {
-				MaybeDone::Future(fut) => match fut.poll(cx) {
-					Poll::Pending => return Poll::Pending,
-					_ => {
-						continue;
-					}
-				},
-				_ => {
-					continue;
-				}
-			}
-		}
-		let result = self
-			.inner
-			.as_mut()
-			.get_mut()
-			.iter_mut()
-			.map(|f| Pin::new(f))
-			.map(|e| e.take_output().unwrap())
-			.collect();
-		Poll::Ready(Ok(result))
-	}
-}
-
-pub struct SerialHandlers<I, O, E> {
-	inner: Vec<BoxCloneService<I, O, E>>,
-}
-
-#[pin_project::pin_project]
-pub struct SerialServiceFuture<I, O, E> {
-	req: I,
-	inner: Vec<BoxCloneService<I, O, E>>,
-	results: Vec<Result<O, E>>,
-}
-
-impl<I, O, E> Future for SerialServiceFuture<I, O, E>
-where
-	I: Clone,
-	O: Clone,
-	E: Clone,
-	// Assuming YourInnerType implements a call function.
-{
-	type Output = Result<Vec<Result<O, E>>, E>;
-
-	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-		let this = self.as_mut().project();
-		let rc = this.req.clone();
-		loop {
-			if let Some(s) = this.inner.into_iter().next() {
-				match s.call(rc.clone()).poll(cx) {
-					Poll::Pending => return Poll::Pending,
-					Poll::Ready(result) => {
-						this.results.push(result);
-					}
-				}
-			} else {
-				break;
-			}
-		}
-		return Poll::Ready(Ok(this.results.to_vec()));
-	}
-}
-
-impl<I, O, E> Service<I> for SerialHandlers<I, O, E>
-where
-	I: Clone + Send + Sync,
-	O: Send + Clone,
-	E: Send + Clone,
-{
-	type Response = Vec<Result<O, E>>;
-	type Error = E;
-	type Future = SerialServiceFuture<I, O, E>;
-	fn poll_ready(&mut self, ctx: &mut Context<'_>) -> Poll<Result<(), E>> {
-		for service in &mut self.inner {
-			let _ = service.poll_ready(ctx)?;
-		}
-		Poll::Ready(Ok(()))
-	}
-
-	fn call(&mut self, req: I) -> Self::Future {
-		let len = self.inner.len();
-		let ic = self.inner.clone();
-		let inner = std::mem::replace(&mut self.inner, ic);
-		SerialServiceFuture { inner, req, results: Vec::with_capacity(len) }
-	}
-}
 
 pub struct Handlers<S> {
 	state: S,

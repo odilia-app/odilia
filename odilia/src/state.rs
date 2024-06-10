@@ -1,6 +1,6 @@
 use std::sync::atomic::AtomicUsize;
 
-use crate::tower::AsyncTryFrom;
+use crate::tower::async_try::AsyncTryFrom;
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::future::ok;
