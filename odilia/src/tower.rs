@@ -60,7 +60,7 @@ where
 #[derive(Clone)]
 pub struct CacheLayer<I> {
 	cache: Arc<Cache>,
-	_marker: PhantomData<fn(I)>,
+	_marker: PhantomData<I>,
 }
 impl<I> CacheLayer<I> {
 	fn new(cache: Arc<Cache>) -> Self {
@@ -391,7 +391,7 @@ where
 pub struct Handlers<S> {
 	state: S,
 	atspi_handlers:
-		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Response, Error>>>,
+		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Vec<Command>, Error>>>,
 	command_handlers: BTreeMap<CommandDiscriminants, BoxService<Command, (), Error>>,
 }
 
