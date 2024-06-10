@@ -67,11 +67,14 @@ type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
+type AtspiHandler = BoxService<Event, Vec<Command>, Error>;
+type CommandHandler = BoxService<Command, (), Error>;
+
 pub struct Handlers<S> {
 	state: S,
-	atspi_handlers:
-		HashMap<(&'static str, &'static str), Vec<BoxService<Event, Vec<Command>, Error>>>,
-	command_handlers: BTreeMap<CommandDiscriminants, BoxService<Command, (), Error>>,
+	atspi:
+		HashMap<(&'static str, &'static str), Vec<AtspiHandler>>,
+	command: BTreeMap<CommandDiscriminants, CommandHandler>,
 }
 
 impl<S> Handlers<S>
@@ -81,8 +84,8 @@ where
 	pub fn new(state: S) -> Self {
 		Handlers {
 			state,
-			atspi_handlers: HashMap::new(),
-			command_handlers: BTreeMap::new(),
+			atspi: HashMap::new(),
+			command: BTreeMap::new(),
 		}
 	}
 	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
@@ -93,15 +96,13 @@ where
 			// Otherwise, we cannot guarentee that the caching functions get run first.
 			// we could move caching to a separate, ordered system, then parallelize the other functions,
 			// if we determine this is a performance problem.
-			match self.command_handlers.get_mut(&dn) {
-				Some(hand_fn) => match hand_fn.call(cmd).await {
-					Err(e) => tracing::error!("{e:?}"),
-					_ => {}
-				},
-				None => {
+      if let Some(hand_fn) = self.command.get_mut(&dn) {
+        if let Err(e) = hand_fn.call(cmd).await {
+            tracing::error!("{e:?}");
+        }
+      } else {
 					tracing::trace!("There are no associated handler functions for the command '{}'", cmd.ctype());
-				}
-			}
+      }
 		}
 	}
 	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: Sender<Command>)
@@ -117,7 +118,7 @@ where
 			// we could move caching to a separate, ordered system, then parallelize the other functions,
 			// if we determine this is a performance problem.
 			let mut results = vec![];
-			match self.atspi_handlers.get_mut(&dn) {
+			match self.atspi.get_mut(&dn) {
 				Some(hands) => {
 					for hand in hands {
 						results.push(hand.call(ev.clone()).await);
@@ -151,8 +152,8 @@ where
 		E: atspi::BusProperties + Into<Event> + Send + Sync,
 	{
 		let dn = (
-			<E as atspi::BusProperties>::DBUS_MEMBER.into(),
-			<E as atspi::BusProperties>::DBUS_INTERFACE.into(),
+			<E as atspi::BusProperties>::DBUS_MEMBER,
+			<E as atspi::BusProperties>::DBUS_INTERFACE,
 		);
 		let input = ev.into();
 		// NOTE: Why not use join_all(...) ?
@@ -161,7 +162,7 @@ where
 		// we could move caching to a separate, ordered system, then parallelize the other functions,
 		// if we determine this is a performance problem.
 		let mut results = vec![];
-		for hand in self.atspi_handlers.entry(dn).or_default() {
+		for hand in self.atspi.entry(dn).or_default() {
 			results.push(hand.call(input.clone()).await);
 		}
 		results
@@ -181,11 +182,11 @@ where
 		let tfserv = tflayer.layer(ws);
 		let dn = C::CTYPE;
 		let bs = BoxService::new(tfserv);
-		self.command_handlers.entry(dn).or_insert(bs);
+		self.command.entry(dn).or_insert(bs);
 		Self {
 			state: self.state,
-			atspi_handlers: self.atspi_handlers,
-			command_handlers: self.command_handlers,
+			atspi: self.atspi,
+			command: self.command,
 		}
 	}
 	pub fn atspi_listener<H, T, E, R>(mut self, handler: H) -> Self
@@ -220,11 +221,11 @@ where
 			<E as atspi::BusProperties>::DBUS_INTERFACE,
 		);
 		let bs = BoxService::new(serv);
-		self.atspi_handlers.entry(dn).or_default().push(bs);
+		self.atspi.entry(dn).or_default().push(bs);
 		Self {
 			state: self.state,
-			atspi_handlers: self.atspi_handlers,
-			command_handlers: self.command_handlers,
+			atspi: self.atspi,
+			command: self.command,
 		}
 	}
 }
@@ -305,6 +306,7 @@ impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
 impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
 impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
 
+#[allow(clippy::type_complexity)]
 pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
 	state: S,

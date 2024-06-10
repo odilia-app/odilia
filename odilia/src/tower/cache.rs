@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use odilia_cache::Cache;
 use std::{
 	marker::PhantomData,

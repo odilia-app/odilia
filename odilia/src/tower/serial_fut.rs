@@ -37,23 +37,28 @@ where
 			match mfut {
 				MaybeDone::Future(fut) => match fut.poll(cx) {
 					Poll::Pending => return Poll::Pending,
-					_ => {
+					Poll::Ready(_) => {
 						continue;
 					}
 				},
-				_ => {
+				MaybeDone::Done(_) => {
 					continue;
 				}
+        MaybeDone::Gone => {
+            panic!("The value produced in this serial future has disappeared before it was taken by the result. This should never happen!");
+        }
 			}
 		}
-		let result = self
+		let result: Vec<_> = self
 			.inner
 			.as_mut()
 			.get_mut()
 			.iter_mut()
-			.map(|f| Pin::new(f))
-			.map(|e| e.take_output().unwrap())
+			.map(Pin::new)
+      // all will now be in their done state due to above checks
+			.filter_map(|e| e.take_output())
 			.collect();
+    debug_assert_eq!(self.inner.len(), result.len(), "The results are a differentl;y sized array to the [Box<MaybeDone>]!");
 		Poll::Ready(Ok(result))
 	}
 }
@@ -81,19 +86,15 @@ where
 	fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
 		let this = self.as_mut().project();
 		let rc = this.req.clone();
-		loop {
-			if let Some(s) = this.inner.into_iter().next() {
-				match s.call(rc.clone()).poll(cx) {
+    for s in &mut *this.inner {
+        match s.call(rc.clone()).poll(cx) {
 					Poll::Pending => return Poll::Pending,
 					Poll::Ready(result) => {
 						this.results.push(result);
 					}
-				}
-			} else {
-				break;
-			}
-		}
-		return Poll::Ready(Ok(this.results.to_vec()));
+        }
+    }
+		Poll::Ready(Ok(this.results.clone()))
 	}
 }
 
