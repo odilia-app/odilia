@@ -798,15 +798,12 @@ impl Cache {
 	/// exist in the cache.
 	#[must_use]
 	#[tracing::instrument(level = "trace", ret)]
-	pub async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, CacheError> {
-		match self.get(id) {
-			Some(ci) => Ok(ci),
-			None => {
-				let acc =
-					id.clone().into_accessible(&self.connection).await.unwrap();
-				Ok(accessible_to_cache_item(&acc, self).await.unwrap())
-			}
+	pub async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
+		if let Some(ci) = self.get(id) {
+			return Ok(ci);
 		}
+		let acc = id.clone().into_accessible(&self.connection).await?;
+		accessible_to_cache_item(&acc, self).await
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)

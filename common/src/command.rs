@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use crate::errors::OdiliaError;
 use enum_dispatch::enum_dispatch;
 use ssip::Priority;
@@ -7,6 +9,13 @@ use strum::{Display, EnumDiscriminants};
 
 pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;
+	/// Fallibly returns a [`Vec`] of [`Command`]s to run.
+	///
+	/// # Errors
+	///
+	/// When implemented, the function is allowed to fail with any type that can be converted into
+	/// [`OdiliaError`], but conversion should between these types should be done from the
+	/// implementers' side, liekly using `?`.
 	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError>;
 }
 impl<T: IntoCommands> TryIntoCommands for T {
