@@ -13,11 +13,7 @@ use std::marker::PhantomData;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use futures::future::join;
-use futures::future::join3;
-use futures::future::join4;
-use futures::future::join5;
-use futures::future::try_join_all;
+use futures::join;
 use futures::future::ErrInto;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
@@ -125,15 +121,8 @@ where
 		U::try_from_state(state.0, state.1).err_into()
 	}
 }
-impl<U, T: FromState<U>> FromState<U> for (T,) {
-	type Error = T::Error;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: &ScreenReaderState, t: &U) -> Self::Future {
-		T::try_from_state(state, t).map_ok(|res| (res,))
-	}
-}
 macro_rules! impl_from_state {
-($join_fn:ident, $(($type:ident,$err:ident),)+) => {
+($(($type:ident,$err:ident),)+) => {
     #[allow(non_snake_case)]
     impl<I, $($type, $err,)+> FromState<I> for ($($type,)+)
     where
@@ -144,9 +133,12 @@ macro_rules! impl_from_state {
             type Error = Error;
             type Future = impl Future<Output = Result<Self, Self::Error>>;
             fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
-                $join_fn(
-                    $(<$type>::try_from_state(state, i),)+
-                )
+                $(let $type = <$type>::try_from_state(state, i);)+
+                async {
+                    join!(
+                        $($type,)+
+                    )
+                }
                 .map(|($($type,)+)| {
                     Ok((
                         $($type?,)+
@@ -156,10 +148,12 @@ macro_rules! impl_from_state {
         }
     }
 }
-impl_from_state!(join, (T1, E1), (T2, E2),);
-impl_from_state!(join3, (T1, E1), (T2, E2), (T3, E3),);
-impl_from_state!(join4, (T1, E1), (T2, E2), (T3, E3), (T4, E4),);
-impl_from_state!(join5, (T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
+impl_from_state!((T1, E1),);
+impl_from_state!((T1, E1), (T2, E2),);
+impl_from_state!((T1, E1), (T2, E2), (T3, E3),);
+impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
+impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
+impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
 
 pub trait AsyncTryFrom<T>: Sized + Send {
 	type Error: Send;
@@ -615,27 +609,9 @@ where
 		self(req)
 	}
 }
-impl<F, Fut, S, T1, E, R> Handler<(Request, T1), S, E> for F
-where
-	F: FnOnce(E, T1) -> Fut + Clone + Send + 'static,
-	Fut: Future<Output = R> + Send + 'static,
-	S: Clone + AsyncTryInto<T1> + 'static,
-	T1: 'static + Send,
-	R: 'static
-		+ std::ops::FromResidual<
-			std::result::Result<Infallible, <S as AsyncTryInto<T1>>::Error>,
-		>,
-	E: 'static + Send,
-{
-	type Future = impl Future<Output = R> + Send;
-	type Response = R;
-	fn call(self, req: E, state: S) -> Self::Future {
-		async move { self(req, state.try_into_async().await?).await }
-	}
-}
 
 macro_rules! impl_handler {
-    ($join_fn:ident, $(($type:ident,$err:ident),)+) => {
+    ($(($type:ident,$err:ident),)+) => {
         #[allow(non_snake_case)]
         impl<F, Fut, S, E, R, $($type,$err,)+> Handler<(Request, $($type,)+), S, E> for F
         where
@@ -650,21 +626,23 @@ macro_rules! impl_handler {
       type Future = impl Future<Output = R> + Send;
       fn call(self, req: E, state: S) -> Self::Future {
         let st = state.clone();
+        $(let $type = <S as AsyncTryInto<$type>>::try_into_async(st.clone());)+
         async move {
-          let ($($type,)+) = $join_fn(
-            $(<S as AsyncTryInto<$type>>::try_into_async(st.clone()),)+
-          )
-          .await;
-          self(req, $($type?),+).await
+          let ($($err,)+) = join!(
+            $($type,)+
+          );
+          self(req, $($err?),+).await
         }
       }
     }
 }
 }
-impl_handler!(join, (T1, E1), (T2, E2),);
-impl_handler!(join3, (T1, E1), (T2, E2), (T3, E3),);
-impl_handler!(join4, (T1, E1), (T2, E2), (T3, E3), (T4, E4),);
-impl_handler!(join5, (T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
+impl_handler!((T1, E1),);
+impl_handler!((T1, E1), (T2, E2),);
+impl_handler!((T1, E1), (T2, E2), (T3, E3),);
+impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
+impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
+impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
 
 pub struct HandlerService<H, T, S, E, R, Er, F> {
 	handler: H,
