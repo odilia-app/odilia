@@ -21,8 +21,8 @@ use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 use crate::cli::Args;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::Handlers;
 use crate::tower::CacheEvent;
+use crate::tower::Handlers;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
