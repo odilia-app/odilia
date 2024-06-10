@@ -1,10 +1,10 @@
+use futures::future::{err, Either, Ready};
 use std::{
-    task::{Poll, Context},
-    future::Future,
-    marker::PhantomData,
+	future::Future,
+	marker::PhantomData,
+	task::{Context, Poll},
 };
-use futures::future::{Ready, Either, err};
-use tower::{Service, Layer};
+use tower::{Layer, Service};
 
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
 	inner: S,
@@ -54,4 +54,3 @@ where
 		}
 	}
 }
-

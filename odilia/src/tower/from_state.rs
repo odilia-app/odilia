@@ -1,20 +1,8 @@
-use crate::{
-    ScreenReaderState,
-    tower::async_try::AsyncTryFrom,
-};
-use futures::{
-    join,
-    TryFutureExt,
-    FutureExt,
-    future::ErrInto,
-};
+use crate::{tower::async_try::AsyncTryFrom, ScreenReaderState};
+use futures::{future::ErrInto, join, FutureExt, TryFutureExt};
 
-use odilia_common::{
-    errors::OdiliaError,
-};
-use std::{
-    future::Future,
-};
+use odilia_common::errors::OdiliaError;
+use std::future::Future;
 
 pub trait FromState<T>: Sized + Send {
 	type Error: Send;
@@ -67,4 +55,3 @@ impl_from_state!((T1, E1), (T2, E2), (T3, E3),);
 impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
 impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
 impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
-

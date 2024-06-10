@@ -1,14 +1,11 @@
-use std::{
-    pin::Pin,
-    task::{Poll, Context},
-    future::Future,
-};
-use futures_lite::FutureExt;
 use futures::future::MaybeDone;
-use tower::{
-    Service,
-    util::BoxCloneService,
+use futures_lite::FutureExt;
+use std::{
+	future::Future,
+	pin::Pin,
+	task::{Context, Poll},
 };
+use tower::{util::BoxCloneService, Service};
 
 /// `SerialFuture` is a way to link a variable number of dependent futures.
 /// You can race!() two `SerialFuture`s, which will cause the two, non-dependent chains of futures to poll concurrently, while completing the individual serial futures, well, serially.
@@ -123,4 +120,3 @@ where
 		SerialServiceFuture { inner, req, results: Vec::with_capacity(len) }
 	}
 }
-

@@ -31,10 +31,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{
-		OdiliaCommand as Command,
-		Speak, TryIntoCommands,
-	},
+	command::{OdiliaCommand as Command, Speak, TryIntoCommands},
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;

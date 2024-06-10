@@ -1,9 +1,9 @@
 use std::{
-    task::{Poll, Context},
-    future::Future,
-    marker::PhantomData,
+	future::Future,
+	marker::PhantomData,
+	task::{Context, Poll},
 };
-use tower::{Service, Layer};
+use tower::{Layer, Service};
 
 pub trait AsyncTryFrom<T>: Sized + Send {
 	type Error: Send;
@@ -80,4 +80,3 @@ where
 		}
 	}
 }
-

@@ -2,18 +2,9 @@
 
 use crate::state::CacheProvider;
 use crate::tower::{
-    sync_try::{
-        TryIntoLayer,
-    },
-    async_try::{
-        AsyncTryFrom,
-        AsyncTryInto,
-        AsyncTryIntoLayer,
-        AsyncTryIntoService,
-    },
-    cache::{
-        CacheLayer,
-    },
+	async_try::{AsyncTryFrom, AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
+	cache::CacheLayer,
+	sync_try::TryIntoLayer,
 };
 use atspi::AtspiError;
 use atspi::Event;
@@ -25,9 +16,9 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-use futures::join;
 use futures::future::FutureExt as FatFutureExt;
 use futures::future::Map;
+use futures::join;
 use futures::{Stream, StreamExt};
 use std::collections::{BTreeMap, HashMap};
 use std::convert::Infallible;
@@ -61,7 +52,6 @@ where
 	}
 }
 
-
 impl<E> AsyncTryFrom<(E, Arc<Cache>)> for CacheEvent<E>
 where
 	E: EventProperties + Clone + Send + Sync + Debug,
@@ -72,7 +62,6 @@ where
 		CacheEvent::<E>::from_event(ev, cache)
 	}
 }
-
 
 type Response = Vec<Command>;
 type Request = Event;

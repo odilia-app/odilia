@@ -1,10 +1,10 @@
-use std::{
-    marker::PhantomData,
-    sync::Arc,
-    task::{Poll, Context},
-};
 use odilia_cache::Cache;
-use tower::{Service, Layer};
+use std::{
+	marker::PhantomData,
+	sync::Arc,
+	task::{Context, Poll},
+};
+use tower::{Layer, Service};
 
 #[derive(Clone)]
 pub struct CacheLayer<I> {
@@ -44,4 +44,3 @@ where
 		self.inner.call((req, Arc::clone(&self.cache)))
 	}
 }
-
