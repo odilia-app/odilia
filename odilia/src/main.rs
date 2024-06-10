@@ -32,7 +32,7 @@ use figment::{
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{
-		OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
+		OdiliaCommand as Command,
 		Speak, TryIntoCommands,
 	},
 	settings::ApplicationConfig,
