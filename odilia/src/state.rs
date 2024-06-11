@@ -4,6 +4,7 @@ use crate::tower::async_try::AsyncTryFrom;
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::future::ok;
+use futures::future::Future;
 use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use std::convert::Infallible;
@@ -49,22 +50,40 @@ impl CacheProvider for Arc<ScreenReaderState> {
 	}
 }
 
-impl AsyncTryFrom<Arc<ScreenReaderState>> for Speech {
+#[derive(Debug, Clone)]
+pub struct LastFocused(pub AccessiblePrimitive);
+#[derive(Debug, Clone)]
+pub struct LastCaretPos(pub usize);
+pub struct Speech(pub Sender<SSIPRequest>);
+
+impl AsyncTryFrom<Arc<ScreenReaderState>> for LastCaretPos {
 	type Error = Infallible;
-	type Future = Ready<Result<Speech, Infallible>>;
+	type Future = Ready<Result<LastCaretPos, Infallible>>;
 	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
-		ok(value.into())
-	}
-}
-impl AsyncTryFrom<Arc<ScreenReaderState>> for Arc<Cache> {
-	type Error = Infallible;
-	type Future = Ready<Result<Arc<Cache>, Infallible>>;
-	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
-		ok(Arc::clone(&value.cache))
+		ok(LastCaretPos(
+			value.previous_caret_position
+				.load(core::sync::atomic::Ordering::Relaxed),
+		))
 	}
 }
 
-pub struct Speech(pub Sender<SSIPRequest>);
+impl AsyncTryFrom<Arc<ScreenReaderState>> for LastFocused {
+	type Error = Infallible;
+	type Future = impl Future<Output = Result<LastFocused, Infallible>> + Send;
+	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
+		async move {
+			let ml = value.accessible_history.lock().await;
+			let last = ml.iter().nth(0).unwrap().clone();
+			Ok(LastFocused(last))
+		}
+	}
+}
+
+impl From<&ScreenReaderState> for Cache {
+	fn from(value: &ScreenReaderState) -> Cache {
+		value.cache.clone()
+	}
+}
 
 impl From<Arc<ScreenReaderState>> for Speech {
 	fn from(state: Arc<ScreenReaderState>) -> Speech {

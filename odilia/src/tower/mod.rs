@@ -1,10 +1,12 @@
 pub mod async_try;
 pub mod cache;
 pub mod from_state;
-pub mod serial_fut;
-pub mod sync_try;
 pub mod handler;
+pub mod serial_fut;
+pub mod state_svc;
+pub mod sync_try;
 pub use handler::Handler;
+pub use state_svc::StateService;
 
 pub mod handlers;
 pub use handlers::*;

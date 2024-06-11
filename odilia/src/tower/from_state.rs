@@ -3,10 +3,11 @@ use futures::{future::ErrInto, join, FutureExt, TryFutureExt};
 
 use odilia_common::errors::OdiliaError;
 use std::future::Future;
+use std::sync::Arc;
 
-pub trait FromState<T>: Sized + Send {
-	type Error: Send;
-	type Future: Future<Output = Result<Self, Self::Error>> + Send;
+pub trait FromState<T>: Sized {
+	type Error;
+	type Future: Future<Output = Result<Self, Self::Error>>;
 	fn try_from_state(state: &ScreenReaderState, t: &T) -> Self::Future;
 }
 
@@ -28,7 +29,6 @@ macro_rules! impl_from_state {
     where
         $($type: FromState<I, Error = $err>,)+
         $(OdiliaError: From<$err>,)+
-        $($err: Send,)+
         {
             type Error = OdiliaError;
             type Future = impl Future<Output = Result<Self, Self::Error>>;

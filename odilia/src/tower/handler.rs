@@ -1,150 +1,113 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::tower::{
-    async_try::AsyncTryInto,
-};
+use crate::tower::async_try::AsyncTryInto;
 use atspi::Event;
+use futures::{future::Map, join, FutureExt};
 use std::{
+	convert::Infallible,
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
-  convert::Infallible,
-};
-use futures::{
-    FutureExt,
-    join,
-    future::Map,
 };
 use tower::Service;
 
 type Request = Event;
 
-pub trait Handler<T, S: Clone, E>: Clone {
+pub trait Handler<T, E> {
 	type Response;
-	type Future: Future<Output = Self::Response> + Send + 'static;
-	fn with_state_and_fn<R, Er, F>(
-		self,
-		state: S,
-		f: F,
-	) -> HandlerService<Self, T, S, E, R, Er, F>
+	type Future: Future<Output = Self::Response>;
+	fn into_service<R>(self) -> HandlerService<Self, T, E, R>
 	where
-		F: FnOnce(Self::Response) -> Result<R, Er>,
+		Self: Sized,
 	{
-		HandlerService::new(self, state, f)
+		HandlerService::new(self)
 	}
-	fn call(self, req: E, state: S) -> Self::Future;
+	fn call(self, req: E, params: T) -> Self::Future;
 }
 
-impl<F, Fut, S, E, R> Handler<((),), S, E> for F
+impl<F, Fut, E, R> Handler<((),), E> for F
 where
-	F: FnOnce() -> Fut + Clone + Send,
-	Fut: Future<Output = R> + Send + 'static,
-	S: Clone,
+	F: FnOnce() -> Fut,
+	Fut: Future<Output = R>,
 {
 	type Response = R;
 	type Future = Fut;
-	fn call(self, _req: E, _state: S) -> Self::Future {
+	fn call(self, _req: E, _param: ((),)) -> Self::Future {
 		self()
 	}
 }
 
-impl<F, Fut, S, E, R> Handler<(Request,), S, E> for F
+impl<F, Fut, E, R> Handler<(Request,), E> for F
 where
-	F: FnOnce(E) -> Fut + Clone + Send,
-	Fut: Future<Output = R> + Send + 'static,
-	S: Clone,
+	F: FnOnce(E) -> Fut,
+	Fut: Future<Output = R>,
 {
 	type Response = R;
 	type Future = Fut;
-	fn call(self, req: E, _state: S) -> Self::Future {
+	fn call(self, req: E, _params: (Request,)) -> Self::Future {
 		self(req)
 	}
 }
 
 macro_rules! impl_handler {
-    ($(($type:ident,$err:ident),)+) => {
+    ($($type:ident,)+) => {
         #[allow(non_snake_case)]
-        impl<F, Fut, S, E, R, $($type,$err,)+> Handler<(Request, $($type,)+), S, E> for F
+        impl<F, Fut, E, R, $($type,)+> Handler<($($type,)+), E> for F
         where
-            F: FnOnce(E, $($type,)+) -> Fut + Clone + Send + 'static,
-            Fut: Future<Output = R> + Send + 'static,
-            S: Clone + $(AsyncTryInto<$type, Error = $err>+)+ 'static + Sync,
-            $($type: From<S> + Send + 'static,)+
-            $($err: Send + 'static,)+
-            R: 'static + $(std::ops::FromResidual<Result<Infallible, $err>>+)+,
-            E: 'static + Send {
+            F: FnOnce(E, $($type,)+) -> Fut + Send,
+            Fut: Future<Output = R> + Send,
+            $($type: Send,)+
+            E: Send {
       type Response = R;
-      type Future = impl Future<Output = R> + Send;
-      fn call(self, req: E, state: S) -> Self::Future {
-        let st = state.clone();
-        $(let $type = <S as AsyncTryInto<$type>>::try_into_async(st.clone());)+
-        async move {
-          let ($($err,)+) = join!(
-            $($type,)+
-          );
-          self(req, $($err?),+).await
-        }
+      type Future = impl Future<Output = R>;
+      fn call(self, req: E, params: ($($type,)+)) -> Self::Future {
+          let ($($type,)+) = params;
+          self(req, $($type,)+)
       }
     }
 }
 }
-impl_handler!((T1, E1),);
-impl_handler!((T1, E1), (T2, E2),);
-impl_handler!((T1, E1), (T2, E2), (T3, E3),);
-impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
-impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
-impl_handler!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
+impl_handler!(T1, T2,);
+impl_handler!(T1, T2, T3,);
+impl_handler!(T1, T2, T3, T4,);
+impl_handler!(T1, T2, T3, T4, T5,);
+impl_handler!(T1, T2, T3, T4, T5, T6,);
+impl_handler!(T1, T2, T3, T4, T5, T6, T7,);
 
 #[allow(clippy::type_complexity)]
-pub struct HandlerService<H, T, S, E, R, Er, F> {
+pub struct HandlerService<H, T, E, R> {
 	handler: H,
-	state: S,
-	f: F,
-	_marker: PhantomData<fn(E, T) -> Result<R, Er>>,
+	_marker: PhantomData<fn(E, T) -> R>,
 }
-impl<H, T, S, E, R, Er, F> Clone for HandlerService<H, T, S, E, R, Er, F>
+impl<H, T, E, R> Clone for HandlerService<H, T, E, R>
 where
-	F: Clone,
-	S: Clone,
 	H: Clone,
 {
 	fn clone(&self) -> Self {
-		HandlerService {
-			handler: self.handler.clone(),
-			state: self.state.clone(),
-			f: self.f.clone(),
-			_marker: PhantomData,
-		}
+		HandlerService { handler: self.handler.clone(), _marker: PhantomData }
 	}
 }
-impl<H, T, S, E, R, Er, F> HandlerService<H, T, S, E, R, Er, F> {
-	fn new(handler: H, state: S, f: F) -> Self
+impl<H, T, E, R> HandlerService<H, T, E, R> {
+	fn new(handler: H) -> Self
 	where
-		H: Handler<T, S, E>,
-		S: Clone,
-		F: FnOnce(<H as Handler<T, S, E>>::Response) -> Result<R, Er>,
+		H: Handler<T, E>,
 	{
-		HandlerService { handler, state, f, _marker: PhantomData }
+		HandlerService { handler, _marker: PhantomData }
 	}
 }
 
-impl<H, T, S, E, R, Er, O, F> Service<E> for HandlerService<H, T, S, E, R, Er, F>
+impl<H, T, E, R> Service<(E, T)> for HandlerService<H, T, E, R>
 where
-	H: Handler<T, S, E, Response = O>,
-	S: Clone,
-	F: FnOnce(O) -> Result<R, Er>,
-	F: Clone,
+	H: Handler<T, E> + Clone,
 {
-	type Response = R;
-	type Future = Map<<H as Handler<T, S, E>>::Future, F>;
-	type Error = Er;
+	type Response = H::Response;
+	type Future = impl Future<Output = Result<H::Response, Infallible>>;
+	type Error = Infallible;
 
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
 	}
-	fn call(&mut self, req: E) -> Self::Future {
-		let handler = self.handler.clone();
-		let state = self.state.clone();
-		handler.call(req, state).map(self.f.clone())
+	fn call(&mut self, params: (E, T)) -> Self::Future {
+		self.handler.clone().call(params.0, params.1).map(|o| Ok(o))
 	}
 }

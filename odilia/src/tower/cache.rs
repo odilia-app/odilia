@@ -8,10 +8,14 @@ use std::{
 };
 use tower::{Layer, Service};
 
-#[derive(Clone)]
 pub struct CacheLayer<I> {
 	cache: Arc<Cache>,
 	_marker: PhantomData<I>,
+}
+impl<I> Clone for CacheLayer<I> {
+	fn clone(&self) -> Self {
+		CacheLayer { cache: Arc::clone(&self.cache), _marker: PhantomData }
+	}
 }
 impl<I> CacheLayer<I> {
 	pub fn new(cache: Arc<Cache>) -> Self {
