@@ -10,8 +10,6 @@ use std::{
 };
 use tower::Service;
 
-type Request = Event;
-
 pub trait Handler<T> {
 	type Response;
 	type Future: Future<Output = Self::Response>;
