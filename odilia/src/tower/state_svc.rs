@@ -1,4 +1,3 @@
-use crate::ScreenReaderState;
 use std::{
 	sync::Arc,
 	task::{Context, Poll},

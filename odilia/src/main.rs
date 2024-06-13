@@ -25,7 +25,6 @@ use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::CacheEvent;
-use crate::tower::Handler;
 use crate::tower::Handlers;
 use clap::Parser;
 use eyre::WrapErr;
@@ -35,7 +34,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{OdiliaCommand, Speak, TryIntoCommands},
+	command::{OdiliaCommand, Speak},
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;

@@ -1,8 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::tower::async_try::AsyncTryInto;
 use atspi::Event;
-use futures::{future::Map, join, FutureExt};
+use futures::FutureExt;
 use std::{
 	convert::Infallible,
 	future::Future,

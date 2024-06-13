@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 
-use crate::state::{CacheProvider, ScreenReaderState};
+use crate::state::ScreenReaderState;
 use crate::tower::{
-	async_try::{AsyncTryFrom, AsyncTryIntoLayer, AsyncTryIntoService},
-	cache::CacheLayer,
+	async_try::AsyncTryIntoLayer,
 	from_state::TryFromState,
-	state_svc::{StateLayer, StateService},
+	state_svc::StateLayer,
 	sync_try::TryIntoLayer,
 	Handler,
 };
@@ -16,7 +15,6 @@ use atspi::EventProperties;
 use atspi::EventTypeProperties;
 use odilia_common::errors::OdiliaError;
 use std::fmt::Debug;
-use std::future::Future;
 use std::sync::Arc;
 
 use futures::{Stream, StreamExt};

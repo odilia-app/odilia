@@ -6,7 +6,6 @@ pub mod serial_fut;
 pub mod state_svc;
 pub mod sync_try;
 pub use handler::Handler;
-pub use state_svc::StateService;
 
 pub mod handlers;
 pub use handlers::*;

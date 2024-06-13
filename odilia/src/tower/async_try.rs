@@ -1,10 +1,7 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::tower::from_state::TryFromState;
-use futures::{
-	future::{err, ok, Ready},
-	TryFutureExt,
-};
+use futures::TryFutureExt;
 use odilia_common::errors::OdiliaError;
 use std::{
 	future::Future,

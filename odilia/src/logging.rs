@@ -7,9 +7,7 @@ use std::env;
 
 use eyre::Context;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
-use tokio::time::Duration;
 use tracing_error::ErrorLayer;
-use tracing_log::LogTracer;
 use tracing_subscriber::{prelude::*, EnvFilter};
 use tracing_tree::time::Uptime;
 use tracing_tree::HierarchicalLayer;

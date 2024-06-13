@@ -1,7 +1,7 @@
 use std::{fmt::Debug, sync::atomic::AtomicUsize};
 
 use crate::{
-	tower::{async_try::AsyncTryFrom, from_state::TryFromState},
+	tower::from_state::TryFromState,
 	CacheEvent,
 };
 use circular_queue::CircularQueue;
@@ -11,9 +11,8 @@ use futures::future::ok;
 use futures::future::Future;
 use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use std::convert::Infallible;
 use std::sync::Mutex;
-use tokio::sync::{mpsc::Sender, Mutex as AsyncMutex};
+use tokio::sync::mpsc::Sender;
 use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
@@ -26,7 +25,7 @@ use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::Convertable;
 use odilia_cache::{AccessibleExt, AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	command::{CommandType, OdiliaCommand, Speak},
+	command::CommandType,
 	errors::{CacheError, OdiliaError},
 	modes::ScreenReaderMode,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},

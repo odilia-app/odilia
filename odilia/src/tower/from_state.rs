@@ -1,19 +1,10 @@
-use crate::{
-	tower::async_try::{AsyncTryFrom, AsyncTryInto},
-	ScreenReaderState,
-};
-use atspi::{EventProperties, EventTypeProperties};
-use futures::{
-	future::{ok, ErrInto, Map},
-	join, FutureExt, TryFutureExt,
-};
+use atspi::EventProperties;
+use futures::FutureExt;
 use futures_concurrency::future::Join;
 use futures_concurrency::prelude::*;
 
 use odilia_common::{command::CommandType, errors::OdiliaError};
-use std::convert::Infallible;
 use std::future::Future;
-use std::sync::Arc;
 
 pub trait FromState<S, T>: Sized {
 	async fn from_state(state: S, data: T) -> Self;
