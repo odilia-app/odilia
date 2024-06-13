@@ -121,8 +121,7 @@ async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
-) -> () {
-	()
+) {
 }
 
 #[tokio::main(flavor = "current_thread")]
