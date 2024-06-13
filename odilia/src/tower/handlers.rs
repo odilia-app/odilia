@@ -45,19 +45,6 @@ where
 	}
 }
 
-/*
-impl<E> AsyncTryFrom<(E, Arc<Cache>)> for CacheEvent<E>
-where
-	E: EventProperties + Debug,
-{
-	type Error = Error;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_async((ev, cache): (E, Arc<Cache>)) -> Self::Future {
-		CacheEvent::<E>::from_event(ev, cache)
-	}
-}
-*/
-
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
