@@ -1,9 +1,6 @@
 use std::{fmt::Debug, sync::atomic::AtomicUsize};
 
-use crate::{
-	tower::from_state::TryFromState,
-	CacheEvent,
-};
+use crate::{tower::from_state::TryFromState, CacheEvent};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::future::err;

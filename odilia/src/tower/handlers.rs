@@ -2,11 +2,8 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	async_try::AsyncTryIntoLayer,
-	from_state::TryFromState,
-	state_svc::StateLayer,
-	sync_try::TryIntoLayer,
-	Handler,
+	async_try::AsyncTryIntoLayer, from_state::TryFromState, state_svc::StateLayer,
+	sync_try::TryIntoLayer, Handler,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
