@@ -43,15 +43,6 @@ pub(crate) struct ScreenReaderState {
 	pub cache: Arc<Cache>,
 }
 
-pub trait CacheProvider {
-	fn cache(&self) -> Arc<Cache>;
-}
-impl CacheProvider for Arc<ScreenReaderState> {
-	fn cache(&self) -> Arc<Cache> {
-		Arc::clone(&self.cache)
-	}
-}
-
 #[derive(Debug, Clone)]
 pub struct LastFocused(pub AccessiblePrimitive);
 #[derive(Debug, Clone)]
