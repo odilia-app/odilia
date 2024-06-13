@@ -6,10 +6,6 @@ use futures_concurrency::prelude::*;
 use odilia_common::{command::CommandType, errors::OdiliaError};
 use std::future::Future;
 
-pub trait FromState<S, T>: Sized {
-	async fn from_state(state: S, data: T) -> Self;
-}
-
 pub trait TryFromState<S, T>: Sized {
 	type Error;
 	type Future: Future<Output = Result<Self, Self::Error>>;
@@ -63,28 +59,4 @@ where
 			.join()
 			.map(|(u1, u2, u3)| Ok((u1?, u2?, u3?)))
 	}
-}
-
-pub trait EventTryFromState<S, E>: TryFromState<S, E>
-where
-	E: EventProperties,
-{
-}
-impl<T, S, E> EventTryFromState<S, E> for T
-where
-	T: TryFromState<S, E>,
-	E: EventProperties,
-{
-}
-
-pub trait CommandTryFromState<S, C>: TryFromState<S, C>
-where
-	C: CommandType,
-{
-}
-impl<T, S, C> CommandTryFromState<S, C> for T
-where
-	T: TryFromState<S, C>,
-	C: CommandType,
-{
 }
