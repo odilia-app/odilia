@@ -1,57 +1,99 @@
-use crate::{tower::async_try::AsyncTryFrom, ScreenReaderState};
-use futures::{future::ErrInto, join, FutureExt, TryFutureExt};
+use crate::{
+	tower::async_try::{AsyncTryFrom, AsyncTryInto},
+	ScreenReaderState,
+};
+use atspi::{EventProperties, EventTypeProperties};
+use futures::{
+	future::{ok, ErrInto, Map},
+	join, FutureExt, TryFutureExt,
+};
+use futures_concurrency::future::Join;
+use futures_concurrency::prelude::*;
 
-use odilia_common::errors::OdiliaError;
+use odilia_common::{command::CommandType, errors::OdiliaError};
+use std::convert::Infallible;
 use std::future::Future;
 use std::sync::Arc;
 
-pub trait FromState<T>: Sized {
-	type Error;
-	type Future: Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: &ScreenReaderState, t: &T) -> Self::Future;
+pub trait FromState<S, T>: Sized {
+	async fn from_state(state: S, data: T) -> Self;
 }
 
-impl<T, U: FromState<T>> AsyncTryFrom<(&ScreenReaderState, &T)> for U
+pub trait TryFromState<S, T>: Sized {
+	type Error;
+	type Future: Future<Output = Result<Self, Self::Error>>;
+	fn try_from_state(state: S, data: T) -> Self::Future;
+}
+
+impl<S, T, U1> TryFromState<S, T> for (U1,)
 where
-	<U as FromState<T>>::Error: Into<OdiliaError>,
+	U1: TryFromState<S, T>,
+	OdiliaError: From<U1::Error>,
 {
 	type Error = OdiliaError;
-	type Future = ErrInto<U::Future, Self::Error>;
-	fn try_from_async(state: (&ScreenReaderState, &T)) -> Self::Future {
-		U::try_from_state(state.0, state.1).err_into()
+	type Future = impl Future<Output = Result<(U1,), OdiliaError>>;
+	fn try_from_state(state: S, data: T) -> Self::Future {
+		(U1::try_from_state(state, data),).join().map(|(u1,)| Ok((u1?,)))
+	}
+}
+impl<S, T, U1, U2> TryFromState<S, T> for (U1, U2)
+where
+	U1: TryFromState<S, T>,
+	U2: TryFromState<S, T>,
+	OdiliaError: From<U1::Error> + From<U2::Error>,
+	S: Clone,
+	T: Clone,
+{
+	type Error = OdiliaError;
+	type Future = impl Future<Output = Result<(U1, U2), OdiliaError>>;
+	fn try_from_state(state: S, data: T) -> Self::Future {
+		(U1::try_from_state(state.clone(), data.clone()), U2::try_from_state(state, data))
+			.join()
+			.map(|(u1, u2)| Ok((u1?, u2?)))
+	}
+}
+impl<S, T, U1, U2, U3> TryFromState<S, T> for (U1, U2, U3)
+where
+	U1: TryFromState<S, T>,
+	U2: TryFromState<S, T>,
+	U3: TryFromState<S, T>,
+	OdiliaError: From<U1::Error> + From<U2::Error> + From<U3::Error>,
+	S: Clone,
+	T: Clone,
+{
+	type Error = OdiliaError;
+	type Future = impl Future<Output = Result<(U1, U2, U3), OdiliaError>>;
+	fn try_from_state(state: S, data: T) -> Self::Future {
+		(
+			U1::try_from_state(state.clone(), data.clone()),
+			U2::try_from_state(state.clone(), data.clone()),
+			U3::try_from_state(state, data),
+		)
+			.join()
+			.map(|(u1, u2, u3)| Ok((u1?, u2?, u3?)))
 	}
 }
 
-macro_rules! impl_from_state {
-($(($type:ident,$err:ident),)+) => {
-    #[allow(non_snake_case)]
-    impl<I, $($type, $err,)+> FromState<I> for ($($type,)+)
-    where
-        $($type: FromState<I, Error = $err>,)+
-        $(OdiliaError: From<$err>,)+
-        {
-            type Error = OdiliaError;
-            type Future = impl Future<Output = Result<Self, Self::Error>>;
-            fn try_from_state(state: &ScreenReaderState, i: &I) -> Self::Future {
-                $(let $type = <$type>::try_from_state(state, i);)+
-                async {
-                    join!(
-                        $($type,)+
-                    )
-                }
-                .map(|($($type,)+)| {
-                    Ok((
-                        $($type?,)+
-                    ))
-                })
-            }
-        }
-    }
+pub trait EventTryFromState<S, E>: TryFromState<S, E>
+where
+	E: EventProperties,
+{
+}
+impl<T, S, E> EventTryFromState<S, E> for T
+where
+	T: TryFromState<S, E>,
+	E: EventProperties,
+{
 }
 
-impl_from_state!((T1, E1),);
-impl_from_state!((T1, E1), (T2, E2),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5),);
-impl_from_state!((T1, E1), (T2, E2), (T3, E3), (T4, E4), (T5, E5), (T6, E6),);
+pub trait CommandTryFromState<S, C>: TryFromState<S, C>
+where
+	C: CommandType,
+{
+}
+impl<T, S, C> CommandTryFromState<S, C> for T
+where
+	T: TryFromState<S, C>,
+	C: CommandType,
+{
+}
