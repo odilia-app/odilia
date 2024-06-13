@@ -1,5 +1,4 @@
 pub mod async_try;
-pub mod cache;
 pub mod from_state;
 pub mod handler;
 pub mod serial_fut;
