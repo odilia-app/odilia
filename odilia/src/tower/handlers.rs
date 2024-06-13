@@ -213,7 +213,6 @@ impl Handlers {
 		let state_layer: StateLayer<ScreenReaderState> =
 			StateLayer::new(Arc::clone(&self.state));
 		let ti_layer: TryIntoLayer<E, Request> = TryIntoLayer::new();
-		let state = self.state.clone();
 		let ws = handler
 			.into_service::<R>()
 			.map_result(|r| r.unwrap().try_into_commands());

@@ -58,7 +58,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Command<C>, Self::Error>>;
-	fn try_from_state(state: Arc<ScreenReaderState>, cmd: C) -> Self::Future {
+	fn try_from_state(_state: Arc<ScreenReaderState>, cmd: C) -> Self::Future {
 		ok(Command(cmd))
 	}
 }
