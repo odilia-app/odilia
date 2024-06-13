@@ -19,6 +19,7 @@ mod tower;
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
+use crate::state::Command;
 use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
@@ -34,7 +35,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{OdiliaCommand as Command, Speak, TryIntoCommands},
+	command::{OdiliaCommand, Speak, TryIntoCommands},
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;
@@ -96,7 +97,7 @@ use atspi::events::object::TextCaretMovedEvent;
 
 #[tracing::instrument]
 async fn speak(
-	Speak(text, priority): Speak,
+	Command(Speak(text, priority)): Command<Speak>,
 	Speech(ssip): Speech,
 ) -> Result<(), odilia_common::errors::OdiliaError> {
 	ssip.send(SSIPRequest::SetPriority(priority)).await?;
@@ -112,12 +113,8 @@ async fn speak(
 //	(Priority::Text, "Doc loaded!")
 //}
 #[tracing::instrument(ret)]
-async fn doc_loaded(
-	loaded: CacheEvent<LoadCompleteEvent>,
-	Speech(s): Speech,
-) -> Result<(), odilia_common::errors::OdiliaError> {
-	s.send(SSIPRequest::SetPriority(Priority::Text)).await?;
-	Ok(())
+async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> (Priority, &'static str) {
+	(Priority::Text, "Doc loaded")
 }
 
 #[tracing::instrument(ret)]
@@ -157,7 +154,7 @@ async fn main() -> eyre::Result<()> {
 	// this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
 	// If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
 	let (atspi_event_tx, atspi_event_rx) = mpsc::channel::<atspi::Event>(128);
-	let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(128);
+	let (cmd_tx, cmd_rx) = mpsc::channel::<OdiliaCommand>(128);
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
