@@ -27,7 +27,7 @@ use tower::Layer;
 use tower::Service;
 use tower::ServiceExt;
 
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 use odilia_cache::{Cache, CacheItem};
 use odilia_common::command::{
@@ -80,7 +80,7 @@ impl Handlers {
 	pub fn new(state: Arc<ScreenReaderState>) -> Self {
 		Handlers { state, atspi: HashMap::new(), command: BTreeMap::new() }
 	}
-	pub async fn command_handler(mut self, mut commands: UnboundedReceiver<Command>) {
+	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
 		while let Some(cmd) = commands.recv().await {
 			let dn = cmd.ctype();
 			// NOTE: Why not use join_all(...) ?
@@ -98,7 +98,7 @@ impl Handlers {
 		}
 	}
 	#[tracing::instrument(skip_all)]
-	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: UnboundedSender<Command>)
+	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: Sender<Command>)
 	where
 		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
 	{
