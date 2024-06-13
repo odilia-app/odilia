@@ -125,7 +125,7 @@ impl Handlers {
 				match res {
 					Ok(oks) => {
 						for ok in oks {
-							match cmds.send(ok) {
+							match cmds.send(ok).await {
 								Ok(()) => {}
 								Err(e) => {
 									tracing::error!("Could not send command {:?} over channel! This usually means the channel is full, which is bad!", e);
