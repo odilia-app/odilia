@@ -1,11 +1,28 @@
 #![allow(clippy::module_name_repetitions)]
 
+use crate::tower::from_state::TryFromState;
+use futures::{
+	future::{err, ok, Ready},
+	TryFutureExt,
+};
+use odilia_common::errors::OdiliaError;
 use std::{
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
 };
 use tower::{Layer, Service};
+
+impl<T, S, U> AsyncTryFrom<(S, T)> for U
+where
+	U: TryFromState<S, T>,
+{
+	type Error = U::Error;
+	type Future = U::Future;
+	fn try_from_async(value: (S, T)) -> Self::Future {
+		U::try_from_state(value.0, value.1)
+	}
+}
 
 pub trait AsyncTryFrom<T>: Sized {
 	type Error;
@@ -18,13 +35,6 @@ pub trait AsyncTryInto<T>: Sized {
 	type Future: Future<Output = Result<T, Self::Error>>;
 
 	fn try_into_async(self) -> Self::Future;
-}
-impl<T, U: TryFrom<T>> AsyncTryFrom<T> for U {
-    type Error = U::Error;
-    type Future = Ready<Result<U, U::Error>>;
-    fn try_from_async(self) -> Self::Future {
-        ok(self.try_into())
-    }
 }
 impl<T, U: AsyncTryFrom<T>> AsyncTryInto<U> for T {
 	type Error = U::Error;
@@ -67,16 +77,17 @@ where
 	}
 }
 
-impl<O, E, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>
+impl<O, E, E2, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>
 where
-	I: AsyncTryInto<O>,
-	E: From<<I as AsyncTryInto<O>>::Error>,
+	I: AsyncTryInto<O, Error = E2>,
+	E: Into<OdiliaError>,
+	E2: Into<OdiliaError>,
 	S: Service<O, Response = R, Future = Fut1> + Clone,
 	Fut1: Future<Output = Result<R, E>>,
 {
 	type Response = R;
-	type Future = impl Future<Output = Result<R, E>>;
-	type Error = E;
+	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Error = OdiliaError;
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
 	}
@@ -85,7 +96,7 @@ where
 		let mut inner = std::mem::replace(&mut self.inner, clone);
 		async move {
 			match req.try_into_async().await {
-				Ok(resp) => inner.call(resp).await,
+				Ok(resp) => inner.call(resp).err_into().await,
 				Err(e) => Err(e.into()),
 			}
 		}
