@@ -7,6 +7,7 @@ use std::env;
 
 use eyre::Context;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
+use tokio::time::Duration;
 use tracing_error::ErrorLayer;
 use tracing_log::LogTracer;
 use tracing_subscriber::{prelude::*, EnvFilter};
@@ -56,8 +57,16 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 			.with_span_retrace(true)
 			.with_timer(Uptime::default())
 			.with_indent_lines(true));
+	//console_subscriber::ConsoleLayer::builder()
+	//	// set how long the console will retain data from completed tasks
+	//	.retention(Duration::from_secs(60))
+	//	// set the address the server is bound to
+	//	.server_addr(([127, 0, 0, 1], 5555))
+	//	// ... other configurations ...
+	//	.init();
 	tracing::subscriber::set_global_default(subscriber)
 		.wrap_err("unable to init default logging layer")?;
-	LogTracer::init().wrap_err("unable to init tracing log layer")?;
+	//LogTracer appears to cause a deadlock after some time... cannot quite figure out why
+	//LogTracer::init().wrap_err("unable to init tracing log layer")?;
 	Ok(())
 }
