@@ -27,7 +27,7 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 		.with_indent_lines(true)
 		.with_ansi(false)
 		.with_wraparound(4)
-    .with_timer(Uptime::default());
+		.with_timer(Uptime::default());
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
 	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
