@@ -1,13 +1,16 @@
 #![allow(dead_code)]
 
-use crate::state::CacheProvider;
+use crate::state::{CacheProvider, ScreenReaderState};
 use crate::tower::{
 	async_try::{AsyncTryFrom, AsyncTryIntoLayer, AsyncTryIntoService},
 	cache::CacheLayer,
+	from_state::TryFromState,
+	state_svc::{StateLayer, StateService},
 	sync_try::TryIntoLayer,
 	Handler,
 };
 use atspi::AtspiError;
+use atspi::BusProperties;
 use atspi::Event;
 use atspi::EventProperties;
 use atspi::EventTypeProperties;
@@ -22,8 +25,9 @@ use std::collections::{BTreeMap, HashMap};
 use tower::util::BoxService;
 use tower::Layer;
 use tower::Service;
+use tower::ServiceExt;
 
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 
 use odilia_cache::{Cache, CacheItem};
 use odilia_common::command::{
@@ -40,12 +44,13 @@ impl<E> CacheEvent<E>
 where
 	E: EventProperties + Debug,
 {
-	async fn from_event(ev: E, cache: Arc<Cache>) -> Result<Self, Error> {
+	pub async fn from_event(ev: E, cache: Arc<Cache>) -> Result<Self, Error> {
 		let item = cache.from_event(&ev).await?;
 		Ok(CacheEvent { inner: ev, item })
 	}
 }
 
+/*
 impl<E> AsyncTryFrom<(E, Arc<Cache>)> for CacheEvent<E>
 where
 	E: EventProperties + Debug,
@@ -56,6 +61,7 @@ where
 		CacheEvent::<E>::from_event(ev, cache)
 	}
 }
+*/
 
 type Response = Vec<Command>;
 type Request = Event;
@@ -64,20 +70,17 @@ type Error = OdiliaError;
 type AtspiHandler = BoxService<Event, Vec<Command>, Error>;
 type CommandHandler = BoxService<Command, (), Error>;
 
-pub struct Handlers<S> {
-	state: S,
+pub struct Handlers {
+	state: Arc<ScreenReaderState>,
 	atspi: HashMap<(&'static str, &'static str), Vec<AtspiHandler>>,
 	command: BTreeMap<CommandDiscriminants, CommandHandler>,
 }
 
-impl<S> Handlers<S>
-where
-	S: Clone + Send + Sync + CacheProvider + 'static,
-{
-	pub fn new(state: S) -> Self {
+impl Handlers {
+	pub fn new(state: Arc<ScreenReaderState>) -> Self {
 		Handlers { state, atspi: HashMap::new(), command: BTreeMap::new() }
 	}
-	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
+	pub async fn command_handler(mut self, mut commands: UnboundedReceiver<Command>) {
 		while let Some(cmd) = commands.recv().await {
 			let dn = cmd.ctype();
 			// NOTE: Why not use join_all(...) ?
@@ -94,7 +97,8 @@ where
 			}
 		}
 	}
-	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: Sender<Command>)
+	#[tracing::instrument(skip_all)]
+	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: UnboundedSender<Command>)
 	where
 		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
 	{
@@ -121,7 +125,7 @@ where
 				match res {
 					Ok(oks) => {
 						for ok in oks {
-							match cmds.send(ok).await {
+							match cmds.send(ok) {
 								Ok(()) => {}
 								Err(e) => {
 									tracing::error!("Could not send command {:?} over channel! This usually means the channel is full, which is bad!", e);
@@ -158,48 +162,68 @@ where
 	}
 	pub fn command_listener<H, T, C, R>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, C, Response = R> + Send + Clone + 'static,
-		<H as Handler<T, C>>::Future: Send,
+		H: Handler<T, Response = R> + Send + Clone + 'static,
+		<H as Handler<T>>::Future: Send,
 		C: CommandType + Send + 'static,
 		Command: TryInto<C>,
-		OdiliaError: From<<Command as TryInto<C>>::Error>,
-		R: Into<Result<(), Error>> + 'static,
-		T: 'static,
+		OdiliaError: From<<Command as TryInto<C>>::Error>
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>,
+		R: Into<Result<(), Error>> + Send + 'static,
+		T: TryFromState<Arc<ScreenReaderState>, C> + Send + 'static,
+		<T as TryFromState<Arc<ScreenReaderState>, C>>::Future: Send,
+		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
 	{
 		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
-		let state = self.state.clone();
-		let ws = handler.into_service();
-		let tfserv = tflayer.layer(ws);
+		let tf2layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, C)> =
+			AsyncTryIntoLayer::new();
+		let state = Arc::clone(&self.state);
+		let state_layer: StateLayer<ScreenReaderState> = StateLayer::new(state);
+		// Service<T> -> Result<R, Infallible> -> unwrap -> R
+		// this is safe because we wrap the service in a Reuslt<R, Infallible> so that we can preserve
+		// any return type we want, including ones with no errors
+		// R -> Result<(), Error>
+		let ws1 = handler.into_service::<R>().map_result(|r| r.unwrap().into());
+		// Service(<Arc<S>, C>) -> T
+		let ws2 = tf2layer.layer(ws1);
+		// Service<C> -> (Arc<S>, C)
+		let ws3 = state_layer.layer(ws2);
+		// Service<Command> -> C
+		let tfserv = tflayer.layer(ws3);
 		let dn = C::CTYPE;
 		let bs = BoxService::new(tfserv);
 		self.command.entry(dn).or_insert(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
-	pub fn atspi_listener<H, T, E, R>(mut self, handler: H) -> Self
+	pub fn atspi_listener<H, T, R, E>(mut self, handler: H) -> Self
 	where
-		H: Handler<T, CacheEvent<E>, Response = R> + Send + Clone + 'static,
-		<H as Handler<T, CacheEvent<E>>>::Future: Send,
-		E: EventProperties
-			+ TryFrom<Event>
+		H: Handler<T, Response = R> + Send + Clone + 'static,
+		<H as Handler<T>>::Future: Send,
+		E: EventTypeProperties
 			+ Debug
-			+ atspi::BusProperties
+			+ BusProperties
+			+ TryFrom<Event>
+			+ EventProperties
+			+ Clone
 			+ Send
-			+ Sync
 			+ 'static,
-		Event: TryInto<E>,
-		OdiliaError: From<<Event as TryInto<E>>::Error>,
+		OdiliaError: From<<Event as TryInto<E>>::Error>
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
 		R: TryIntoCommands + 'static,
-		T: 'static,
+		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
+		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
+		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
 	{
-		let ie_layer: AsyncTryIntoLayer<CacheEvent<E>, (E, Arc<Cache>)> =
+		let ie_layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, E)> =
 			AsyncTryIntoLayer::new();
-		let ch_layer: CacheLayer<E> = CacheLayer::new(Arc::clone(&self.state.cache()));
+		let state_layer: StateLayer<ScreenReaderState> =
+			StateLayer::new(Arc::clone(&self.state));
 		let ti_layer: TryIntoLayer<E, Request> = TryIntoLayer::new();
 		let state = self.state.clone();
-		let ws = handler.into_service();
-		let ie_serv: AsyncTryIntoService<CacheEvent<E>, (E, Arc<Cache>), _, _, _> =
-			ie_layer.layer(ws);
-		let ch_serv = ch_layer.layer(ie_serv);
+		let ws = handler
+			.into_service::<R>()
+			.map_result(|r| r.unwrap().try_into_commands());
+		let ie_serv = ie_layer.layer(ws);
+		let ch_serv = state_layer.layer(ie_serv);
 		let serv = ti_layer.layer(ch_serv);
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_MEMBER,
