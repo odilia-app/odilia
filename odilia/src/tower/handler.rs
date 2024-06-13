@@ -1,6 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
 
-use atspi::Event;
 use futures::FutureExt;
 use std::{
 	convert::Infallible,

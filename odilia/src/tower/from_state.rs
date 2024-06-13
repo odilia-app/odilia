@@ -1,9 +1,7 @@
-use atspi::EventProperties;
 use futures::FutureExt;
 use futures_concurrency::future::Join;
-use futures_concurrency::prelude::*;
 
-use odilia_common::{command::CommandType, errors::OdiliaError};
+use odilia_common::errors::OdiliaError;
 use std::future::Future;
 
 pub trait TryFromState<S, T>: Sized {
