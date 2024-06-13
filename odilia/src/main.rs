@@ -8,7 +8,6 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 #![feature(impl_trait_in_assoc_type)]
-#![feature(try_trait_v2)]
 
 mod cli;
 mod events;
