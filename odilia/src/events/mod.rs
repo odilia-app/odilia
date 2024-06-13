@@ -58,34 +58,35 @@ pub async fn sr_event(
 ) -> eyre::Result<()> {
 	loop {
 		tokio::select! {
-		    sr_event = sr_events.recv() => {
-			tracing::debug!("SR Event received");
-			match sr_event {
-			    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
-				 if let Err(e) = structural_navigation(&state, dir, role).await {
-				    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
-				} else {
-					tracing::debug!("Structural navigation successful!");
-				}
-			    },
-			    Some(ScreenReaderEvent::StopSpeech) => {
-			      tracing::debug!("Stopping speech!");
-			      state.stop_speech().await;
-			    },
-			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
-						tracing::debug!("Changing mode to {:?}", new_sr_mode);
-						let mut sr_mode = state.mode.lock().unwrap();
-						*sr_mode = new_sr_mode;
-			    }
-			    _ => { continue; }
-			};
-			continue;
-		    }
-		    () = shutdown.cancelled() => {
-			tracing::debug!("sr_event cancelled");
-			break;
-		    }
+			sr_event = sr_events.recv() => {
+			    tracing::debug!("SR Event received");
+			    match sr_event {
+				Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
+				     if let Err(e) = structural_navigation(&state, dir, role).await {
+					tracing::debug!(error = %e, "There was an error with the structural navigation call.");
+				    } else {
+					    tracing::debug!("Structural navigation successful!");
+				    }
+				},
+				Some(ScreenReaderEvent::StopSpeech) => {
+				  tracing::debug!("Stopping speech!");
+				  state.stop_speech().await;
+				},
+				Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
+						    tracing::debug!("Changing mode to {:?}", new_sr_mode);
+						    if let Ok(mut sr_mode) = state.mode.lock() {
+		    *sr_mode = new_sr_mode;
 		}
+				}
+				_ => { continue; }
+			    };
+			    continue;
+			}
+			() = shutdown.cancelled() => {
+			    tracing::debug!("sr_event cancelled");
+			    break;
+			}
+		    }
 	}
 	Ok(())
 }

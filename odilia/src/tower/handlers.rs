@@ -168,8 +168,8 @@ impl Handlers {
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Future: Send,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
 	{
-		let tflayer: TryIntoLayer<C, Command> = TryIntoLayer::new();
-		let tf2layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, C)> =
+		let try_cmd_layer: TryIntoLayer<C, Command> = TryIntoLayer::new();
+		let params_layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, C)> =
 			AsyncTryIntoLayer::new();
 		let state = Arc::clone(&self.state);
 		let state_layer: StateLayer<ScreenReaderState> = StateLayer::new(state);
@@ -177,15 +177,15 @@ impl Handlers {
 		// this is safe because we wrap the service in a Reuslt<R, Infallible> so that we can preserve
 		// any return type we want, including ones with no errors
 		// R -> Result<(), Error>
-		let ws1 = handler.into_service::<R>().map_result(|r| r.unwrap().into());
+		let hand_service = handler.into_service::<R>().map_result(|r| r.unwrap().into());
 		// Service(<Arc<S>, C>) -> T
-		let ws2 = tf2layer.layer(ws1);
+		let params_service = params_layer.layer(hand_service);
 		// Service<C> -> (Arc<S>, C)
-		let ws3 = state_layer.layer(ws2);
+		let state_service = state_layer.layer(params_service);
 		// Service<Command> -> C
-		let tfserv = tflayer.layer(ws3);
+		let try_cmd_service = try_cmd_layer.layer(state_service);
 		let dn = C::CTYPE;
-		let bs = BoxService::new(tfserv);
+		let bs = BoxService::new(try_cmd_service);
 		self.command.entry(dn).or_insert(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}

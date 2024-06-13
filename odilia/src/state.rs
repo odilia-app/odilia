@@ -100,17 +100,13 @@ impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastFocused {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
-		let ml = match state.accessible_history.lock() {
-            Ok(ml) => ml,
-            Err(_) => return err(OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string())),
-          };
-		let last = match ml.iter().nth(0).cloned() {
-			Some(last) => last,
-			None => {
-				return err(OdiliaError::Generic(
-					"There are no previously focused items.".to_string(),
-				))
-			}
+		let Ok(ml) = state.accessible_history.lock() else {
+			return err(OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string()));
+		};
+		let Some(last) = ml.iter().nth(0).cloned() else {
+			return err(OdiliaError::Generic(
+				"There are no previously focused items.".to_string(),
+			));
 		};
 		ok(LastFocused(last))
 	}
@@ -358,7 +354,7 @@ impl ScreenReaderState {
 		}
 	}
 
-	pub fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
+	pub fn history_item(&self, index: usize) -> Option<AccessiblePrimitive> {
 		let history = self.accessible_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}

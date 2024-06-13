@@ -1,3 +1,5 @@
+#![allow(clippy::module_name_repetitions)]
+
 use futures::FutureExt;
 use futures_concurrency::future::Join;
 

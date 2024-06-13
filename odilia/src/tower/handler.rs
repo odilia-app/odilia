@@ -80,6 +80,6 @@ where
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, params: T) -> Self::Future {
-		self.handler.clone().call(params).map(|o| Ok(o))
+		self.handler.clone().call(params).map(Ok)
 	}
 }
