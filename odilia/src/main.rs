@@ -220,7 +220,7 @@ async fn main() -> eyre::Result<()> {
 
 fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, eyre::Report> {
 	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
-	// If XDG_CONFIG_HOME based configuration wasn't found, create one with default values for the user to alter, for the next run of odilia
+	// If XDG_CONFIG_HOME based configuration wasn't found, create one by combining default values with the system provided ones, if available, for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above
 	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
 	//cli override, if applicable
@@ -235,15 +235,16 @@ fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig,
 		.place_config_file("config.toml")
 		.expect("unable to place configuration file. Maybe your system is readonly?");
 
+	let figment = figment
+		//next, the configuration system wide, in /etc/odilia/config.toml
+		.admerge(Toml::file("/etc/odilia/config.toml"))
+		//finally, the xdg configuration
+		.admerge(Toml::file(&config_path));
+	//realise the configuration and freeze it into place
+	let config: ApplicationConfig = figment.extract()?;
 	if !config_path.exists() {
-		let toml = toml::to_string(&ApplicationConfig::default())?;
+		let toml = toml::to_string(&config)?;
 		fs::write(&config_path, toml).expect("Unable to create default config file.");
 	}
-	//next, the xdg configuration
-	let figment = figment
-		.admerge(Toml::file(&config_path))
-		//last, the configuration system wide, in /etc/odilia/config.toml
-		.admerge(Toml::file("/etc/odilia/config.toml"));
-	//realise the configuration and freeze it into place
-	Ok(figment.extract()?)
+	Ok(config)
 }

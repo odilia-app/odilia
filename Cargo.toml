@@ -52,3 +52,4 @@ tracing-tree = "^0.2.2"
 zbus = { version = "4.2", features = ["tokio"] }
 serde_plain = "1.0.1"
 
+xdg = "2.5.2"
