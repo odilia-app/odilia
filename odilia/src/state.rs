@@ -1,14 +1,19 @@
-use std::sync::atomic::AtomicUsize;
+use std::{fmt::Debug, sync::atomic::AtomicUsize};
 
-use crate::tower::async_try::AsyncTryFrom;
+use crate::{
+	tower::{async_try::AsyncTryFrom, from_state::TryFromState},
+	CacheEvent,
+};
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
+use futures::future::err;
 use futures::future::ok;
 use futures::future::Future;
 use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use std::convert::Infallible;
-use tokio::sync::{mpsc::Sender, Mutex};
+use std::sync::Mutex;
+use tokio::sync::{mpsc::Sender, Mutex as AsyncMutex};
 use tracing::{debug, Instrument};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
@@ -21,7 +26,8 @@ use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::Convertable;
 use odilia_cache::{AccessibleExt, AccessiblePrimitive, Cache, CacheItem};
 use odilia_common::{
-	errors::CacheError,
+	command::{CommandType, OdiliaCommand, Speak},
+	errors::{CacheError, OdiliaError},
 	modes::ScreenReaderMode,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
@@ -30,7 +36,7 @@ use odilia_common::{
 use std::sync::Arc;
 
 #[allow(clippy::module_name_repetitions)]
-pub struct ScreenReaderState {
+pub(crate) struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
@@ -55,39 +61,71 @@ pub struct LastFocused(pub AccessiblePrimitive);
 #[derive(Debug, Clone)]
 pub struct LastCaretPos(pub usize);
 pub struct Speech(pub Sender<SSIPRequest>);
+pub struct Command<T>(pub T)
+where
+	T: CommandType;
 
-impl AsyncTryFrom<Arc<ScreenReaderState>> for LastCaretPos {
-	type Error = Infallible;
-	type Future = Ready<Result<LastCaretPos, Infallible>>;
-	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
+where
+	C: CommandType + Clone,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Command<C>, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, cmd: C) -> Self::Future {
+		ok(Command(cmd))
+	}
+}
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Speech
+where
+	C: CommandType,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Speech, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(Speech(state.ssip.clone()))
+	}
+}
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for CacheEvent<E>
+where
+	E: EventProperties + Debug + Clone,
+{
+	type Error = OdiliaError;
+	type Future = impl Future<Output = Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
+		CacheEvent::from_event(event, Arc::clone(&state.cache))
+	}
+}
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastCaretPos {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
 		ok(LastCaretPos(
-			value.previous_caret_position
+			state.previous_caret_position
 				.load(core::sync::atomic::Ordering::Relaxed),
 		))
 	}
 }
 
-impl AsyncTryFrom<Arc<ScreenReaderState>> for LastFocused {
-	type Error = Infallible;
-	type Future = impl Future<Output = Result<LastFocused, Infallible>> + Send;
-	fn try_from_async(value: Arc<ScreenReaderState>) -> Self::Future {
-		async move {
-			let ml = value.accessible_history.lock().await;
-			let last = ml.iter().nth(0).unwrap().clone();
-			Ok(LastFocused(last))
-		}
-	}
-}
-
-impl From<&ScreenReaderState> for Cache {
-	fn from(value: &ScreenReaderState) -> Cache {
-		value.cache.clone()
-	}
-}
-
-impl From<Arc<ScreenReaderState>> for Speech {
-	fn from(state: Arc<ScreenReaderState>) -> Speech {
-		Speech(state.ssip.clone())
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastFocused {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
+		let ml = match state.accessible_history.lock() {
+            Ok(ml) => ml,
+            Err(_) => return err(OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string())),
+          };
+		let last = match ml.iter().nth(0).cloned() {
+			Some(last) => last,
+			None => {
+				return err(OdiliaError::Generic(
+					"There are no previously focused items.".to_string(),
+				))
+			}
+		};
+		ok(LastFocused(last))
 	}
 }
 
@@ -322,25 +360,27 @@ impl ScreenReaderState {
 	}
 
 	#[allow(dead_code)]
-	pub async fn event_history_item(&self, index: usize) -> Option<Event> {
-		let history = self.event_history.lock().await;
+	pub fn event_history_item(&self, index: usize) -> Option<Event> {
+		let history = self.event_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}
 
-	pub async fn event_history_update(&self, event: Event) {
-		let mut history = self.event_history.lock().await;
-		history.push(event);
+	pub fn event_history_update(&self, event: Event) {
+		if let Ok(mut history) = self.event_history.lock() {
+			history.push(event);
+		}
 	}
 
-	pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
-		let history = self.accessible_history.lock().await;
+	pub fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
+		let history = self.accessible_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
-		let mut history = self.accessible_history.lock().await;
-		history.push(new_a11y);
+	pub fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
+		if let Ok(mut history) = self.accessible_history.lock() {
+			history.push(new_a11y);
+		}
 	}
 	pub async fn build_cache<'a, T>(&self, dest: T) -> OdiliaResult<CacheProxy<'a>>
 	where
