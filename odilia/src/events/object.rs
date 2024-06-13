@@ -375,7 +375,7 @@ mod text_caret_moved {
 			return Ok(false);
 		}
 		// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
-		let last_accessible = match state.history_item(0).await {
+		let last_accessible = match state.history_item(0) {
 			Some(acc) => state.get_or_create_cache_item(acc).await?,
 			None => return Ok(true),
 		};
@@ -404,7 +404,7 @@ mod text_caret_moved {
 		let new_item = state.get_or_create_event_object_to_cache(event).await?;
 
 		let new_prim = new_item.object.clone();
-		let text = match state.history_item(0).await {
+		let text = match state.history_item(0) {
 			Some(old_prim) => {
 				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
 				let old_item =
@@ -425,7 +425,7 @@ mod text_caret_moved {
 			}
 		};
 		state.say(Priority::Text, text).await;
-		state.update_accessible(new_prim).await;
+		state.update_accessible(new_prim);
 		Ok(())
 	}
 
@@ -501,7 +501,7 @@ mod state_changed {
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.get_or_create_event_object_to_cache(event).await?;
-		if let Some(curr) = state.history_item(0).await {
+		if let Some(curr) = state.history_item(0) {
 			if curr == accessible.object {
 				return Ok(());
 			}
@@ -512,7 +512,7 @@ mod state_changed {
 			accessible.description(),
 			accessible.get_relation_set(),
 		)?;
-		state.update_accessible(accessible.object.clone()).await;
+		state.update_accessible(accessible.object.clone());
 		tracing::debug!(
 			"Focus event received on: {:?} with role {}",
 			accessible.object.id,
@@ -526,7 +526,7 @@ mod state_changed {
 		)
 		.await;
 
-		state.update_accessible(accessible.object).await;
+		state.update_accessible(accessible.object);
 		Ok(())
 	}
 }
