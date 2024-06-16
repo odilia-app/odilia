@@ -17,7 +17,7 @@ use std::sync::Arc;
 use futures::{Stream, StreamExt};
 use std::collections::{BTreeMap, HashMap};
 
-use tower::util::BoxService;
+use tower::util::BoxCloneService;
 use tower::Layer;
 use tower::Service;
 use tower::ServiceExt;
@@ -49,8 +49,8 @@ type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
-type AtspiHandler = BoxService<Event, Vec<Command>, Error>;
-type CommandHandler = BoxService<Command, (), Error>;
+type AtspiHandler = BoxCloneService<Event, Vec<Command>, Error>;
+type CommandHandler = BoxCloneService<Command, (), Error>;
 
 pub struct Handlers {
 	state: Arc<ScreenReaderState>,
@@ -172,7 +172,7 @@ impl Handlers {
 		// Service<Command> -> C
 		let try_cmd_service = try_cmd_layer.layer(state_service);
 		let dn = C::CTYPE;
-		let bs = BoxService::new(try_cmd_service);
+		let bs = BoxCloneService::new(try_cmd_service);
 		self.command.entry(dn).or_insert(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
@@ -210,7 +210,7 @@ impl Handlers {
 			<E as atspi::BusProperties>::DBUS_MEMBER,
 			<E as atspi::BusProperties>::DBUS_INTERFACE,
 		);
-		let bs = BoxService::new(serv);
+		let bs = BoxCloneService::new(serv);
 		self.atspi.entry(dn).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
