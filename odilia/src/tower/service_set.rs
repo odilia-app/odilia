@@ -43,7 +43,7 @@ where
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
 		let clone = self.services.clone();
-    let services = std::mem::replace(&mut self.services, clone);
+		let services = std::mem::replace(&mut self.services, clone);
 		async move {
 			let mut results = vec![];
 			for mut svc in services {
