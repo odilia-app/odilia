@@ -943,7 +943,7 @@ impl Cache {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-#[tracing::instrument(level = "trace", ret, err)]
+#[tracing::instrument(level = "trace", ret, err, skip(cache))]
 pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 	accessible: &AccessibleProxy<'_>,
 	cache: C,
