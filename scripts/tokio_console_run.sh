@@ -1,2 +1,2 @@
 #!/bin/sh
-RUSTFLAGS="--cfg tokio_unstable" RUST_LOG="trace" cargo run
+RUSTFLAGS="--cfg tokio_unstable" RUST_LOG="trace" cargo run --features tokio-console

@@ -41,11 +41,16 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 			.with_syslog_identifier("odilia".to_owned())
 			.boxed(),
 	};
-  let console_env = EnvFilter::from("tokio=trace,runtime=trace");
-  let console_layer = console_subscriber::spawn();
-	tracing_subscriber::Registry::default()
-    .with(console_env)
-    .with(console_layer)
+	#[cfg(feature = "tokio-console")]
+	let trace_sub = {
+		let console_layer = console_subscriber::spawn();
+		tracing_subscriber::Registry::default()
+			.with(EnvFilter::from("tokio=trace,runtime=trace"))
+			.with(console_layer)
+	};
+	#[cfg(not(feature = "tokio-console"))]
+	let trace_sub = { tracing_subscriber::Registry::default() };
+	trace_sub
 		.with(env_filter)
 		.with(ErrorLayer::default())
 		.with(final_layer)
