@@ -4,6 +4,7 @@ use futures::FutureExt;
 use futures_concurrency::future::Join;
 
 use odilia_common::errors::OdiliaError;
+use std::fmt::Debug;
 use std::future::Future;
 
 pub trait TryFromState<S, T>: Sized {
@@ -16,9 +17,11 @@ impl<S, T, U1> TryFromState<S, T> for (U1,)
 where
 	U1: TryFromState<S, T>,
 	OdiliaError: From<U1::Error>,
+	T: Debug,
 {
 	type Error = OdiliaError;
 	type Future = impl Future<Output = Result<(U1,), OdiliaError>>;
+	#[tracing::instrument(skip(state))]
 	fn try_from_state(state: S, data: T) -> Self::Future {
 		(U1::try_from_state(state, data),).join().map(|(u1,)| Ok((u1?,)))
 	}
@@ -29,10 +32,11 @@ where
 	U2: TryFromState<S, T>,
 	OdiliaError: From<U1::Error> + From<U2::Error>,
 	S: Clone,
-	T: Clone,
+	T: Clone + Debug,
 {
 	type Error = OdiliaError;
 	type Future = impl Future<Output = Result<(U1, U2), OdiliaError>>;
+	#[tracing::instrument(skip(state))]
 	fn try_from_state(state: S, data: T) -> Self::Future {
 		(U1::try_from_state(state.clone(), data.clone()), U2::try_from_state(state, data))
 			.join()
@@ -46,10 +50,11 @@ where
 	U3: TryFromState<S, T>,
 	OdiliaError: From<U1::Error> + From<U2::Error> + From<U3::Error>,
 	S: Clone,
-	T: Clone,
+	T: Clone + Debug,
 {
 	type Error = OdiliaError;
 	type Future = impl Future<Output = Result<(U1, U2, U3), OdiliaError>>;
+	#[tracing::instrument(skip(state))]
 	fn try_from_state(state: S, data: T) -> Self::Future {
 		(
 			U1::try_from_state(state.clone(), data.clone()),

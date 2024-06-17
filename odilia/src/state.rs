@@ -10,7 +10,7 @@ use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use std::sync::Mutex;
 use tokio::sync::mpsc::Sender;
-use tracing::{debug, Instrument};
+use tracing::{debug, Instrument, Level};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi_common::{
@@ -54,7 +54,7 @@ where
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
 where
-	C: CommandType + Clone,
+	C: CommandType + Clone + Debug,
 {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Command<C>, Self::Error>>;
@@ -65,7 +65,7 @@ where
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Speech
 where
-	C: CommandType,
+	C: CommandType + Debug,
 {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Speech, Self::Error>>;
@@ -80,6 +80,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = impl Future<Output = Result<Self, Self::Error>>;
+	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		async move {
 			let a11y = AccessiblePrimitive::from_event(&event);
@@ -91,7 +92,10 @@ where
 	}
 }
 
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastCaretPos {
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastCaretPos
+where
+	E: Debug,
+{
 	type Error = OdiliaError;
 	type Future = Ready<Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
@@ -102,17 +106,26 @@ impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastCaretPos {
 	}
 }
 
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastFocused {
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastFocused
+where
+	E: Debug,
+{
 	type Error = OdiliaError;
 	type Future = Ready<Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
+		let span = tracing::span!(Level::INFO, "try_from_state");
+		let _enter = span.enter();
 		let Ok(ml) = state.accessible_history.lock() else {
-			return err(OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string()));
+			let e = OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string());
+			tracing::error!("{e:?}");
+			return err(e);
 		};
 		let Some(last) = ml.iter().nth(0).cloned() else {
-			return err(OdiliaError::Generic(
+			let e = OdiliaError::Generic(
 				"There are no previously focused items.".to_string(),
-			));
+			);
+			tracing::error!("{e:?}");
+			return err(e);
 		};
 		ok(LastFocused(last))
 	}
@@ -301,7 +314,7 @@ impl ScreenReaderState {
 		// TODO: add logic for punctuation
 		Ok(text_selection)
 	}
-	#[tracing::instrument(skip_all)]
+	#[tracing::instrument(skip_all, err)]
 	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
