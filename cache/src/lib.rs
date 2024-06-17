@@ -730,7 +730,7 @@ impl std::fmt::Debug for Cache {
 impl Cache {
 	/// create a new, fresh cache
 	#[must_use]
-	#[tracing::instrument(level = "debug", ret)]
+	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
 			by_id: Arc::new(DashMap::with_capacity_and_hasher(
