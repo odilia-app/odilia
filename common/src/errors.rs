@@ -23,6 +23,7 @@ pub enum OdiliaError {
 	PoisoningError,
 	Generic(String),
 	Static(&'static str),
+	ServiceNotFound(String),
 }
 
 impl From<&'static str> for OdiliaError {
