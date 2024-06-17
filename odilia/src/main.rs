@@ -142,7 +142,6 @@ async fn main() -> eyre::Result<()> {
 		tracing::error!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
 	let (sr_event_tx, sr_event_rx) = mpsc::channel(128);
-	let (cmd_tx, cmd_rx) = mpsc::channel::<OdiliaCommand>(128);
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
@@ -210,7 +209,7 @@ async fn main() -> eyre::Result<()> {
 			}
 		}
 	};
-	let atspi_handlers_task = handlers.atspi_handler(ev_rx, cmd_tx);
+	let atspi_handlers_task = handlers.atspi_handler(ev_rx);
 
 	//tracker.spawn(atspi_event_receiver);
 	//tracker.spawn(atspi_event_processor);

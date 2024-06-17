@@ -22,9 +22,9 @@ use tower::Layer;
 use tower::Service;
 use tower::ServiceExt;
 
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Receiver;
 
-use odilia_cache::{Cache, CacheItem};
+use odilia_cache::CacheItem;
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, TryIntoCommands,
@@ -84,7 +84,7 @@ impl Handlers {
 		}
 	}
 	#[tracing::instrument(skip_all)]
-	pub async fn atspi_handler<R>(mut self, mut events: R, cmds: Sender<Command>)
+	pub async fn atspi_handler<R>(mut self, mut events: R)
 	where
 		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
 	{
