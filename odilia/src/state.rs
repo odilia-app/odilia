@@ -81,7 +81,13 @@ where
 	type Error = OdiliaError;
 	type Future = impl Future<Output = Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
-		CacheEvent::from_event(event, Arc::clone(&state.cache))
+		async move {
+			let a11y = AccessiblePrimitive::from_event(&event);
+			let proxy = a11y.into_accessible(state.connection()).await?;
+			let cache_item =
+				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
+			Ok(CacheEvent { inner: event, item: cache_item })
+		}
 	}
 }
 
