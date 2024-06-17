@@ -35,6 +35,7 @@ atspi = { version = "0.22.0", default-features = false, features = ["tokio"] }
 atspi-proxies = { version = "0.6.0", default-features = false, features = ["tokio"] }
 atspi-common = { version = "0.6.0", default-features = false, features = ["tokio"] }
 atspi-connection = { version = "0.6.0", default-features = false, features = ["tokio"] }
+futures-concurrency = { version = "7.6.1" }
 odilia-common = { version = "0.3.0", path = "./common", features = ["tokio"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"

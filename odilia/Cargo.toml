@@ -44,7 +44,7 @@ odilia-tts = { path = "../tts", version = "0.1.4" }
 serde_json.workspace = true
 serde_plain.workspace = true
 ssip-client-async = { version = "0.13.0", features = ["tokio"] }
-tokio.workspace = true
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-error.workspace = true
 tracing-log.workspace = true
 tracing-subscriber.workspace = true
@@ -63,7 +63,7 @@ ssip = "0.1.0"
 futures-lite = "2.3.0"
 pin-project = "1.1.5"
 static_assertions = "1.1.0"
-futures-concurrency = "7.6.1"
+futures-concurrency.workspace = true
 console-subscriber = { version = "0.3.0", optional = true }
 
 [dev-dependencies]
