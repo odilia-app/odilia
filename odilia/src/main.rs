@@ -33,7 +33,8 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{OdiliaCommand, Speak, TryIntoCommands},
+	command::{Speak, TryIntoCommands},
+	errors::OdiliaError,
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;
@@ -92,8 +93,9 @@ async fn sigterm_signal_watcher(
 
 use atspi::events::document::LoadCompleteEvent;
 use atspi::events::object::TextCaretMovedEvent;
+use atspi::Granularity;
 
-#[tracing::instrument]
+#[tracing::instrument(ret, err)]
 async fn speak(
 	Command(Speak(text, priority)): Command<Speak>,
 	Speech(ssip): Speech,
@@ -109,12 +111,24 @@ async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoComman
 	(Priority::Text, "Doc loaded")
 }
 
-#[tracing::instrument(ret)]
+#[tracing::instrument(ret, err)]
 async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
-) {
+) -> impl TryIntoCommands {
+	if last_focus == caret_moved.item.object {
+		Ok((Priority::Text, "moved caret".to_string()))
+	} else {
+		let (text, _, _) = caret_moved
+			.item
+			.get_string_at_offset(
+				caret_moved.inner.position as usize,
+				Granularity::Line,
+			)
+			.await?;
+		Ok::<_, OdiliaError>((Priority::Text, text))
+	}
 }
 
 #[tokio::main]
@@ -173,7 +187,8 @@ async fn main() -> eyre::Result<()> {
 	// load handlers
 	let handlers = Handlers::new(state.clone())
 		.command_listener(speak)
-		.atspi_listener(doc_loaded);
+		.atspi_listener(doc_loaded)
+		.atspi_listener(caret_moved);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
