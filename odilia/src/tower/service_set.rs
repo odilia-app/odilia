@@ -1,12 +1,5 @@
-use futures::future::err;
-use odilia_common::command::CommandTypeDynamic;
-use odilia_common::command::{OdiliaCommand, OdiliaCommandDiscriminants};
-use odilia_common::errors::OdiliaError;
-use std::collections::BTreeMap;
 use std::future::Future;
 use std::task::{Context, Poll};
-use tower::service_fn;
-use tower::util::BoxCloneService;
 use tower::Service;
 
 /// A series of services which are executed in the order they are placed in the [`ServiceSet::new`]
@@ -43,13 +36,14 @@ where
 	type Error = S::Error;
 	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		for mut svc in &mut self.services {
+		for svc in &mut self.services {
 			let _ = svc.poll_ready(cx)?;
 		}
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
-		let services = self.services.clone();
+		let clone = self.services.clone();
+    let services = std::mem::replace(&mut self.services, clone);
 		async move {
 			let mut results = vec![];
 			for mut svc in services {
