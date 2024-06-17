@@ -45,6 +45,23 @@ where
 	}
 }
 
+#[derive(Clone)]
+pub struct GenericHandlers<Req, Res, Find, E> {
+    handlers: BTreeMap<Find, ServiceSet<BoxCloneService<Req, Res, E>>>,
+}
+impl<Req, Res, Find, E> GenericHandlers<Req, Res, Find, E> {
+    pub fn new() -> Self {
+        GenericHandlers {
+            handlers: BTreeMap::new(),
+        }
+    }
+    pub fn add_listener(mut self, svc: BoxCloneService<Req, Res, E>, find: Find) -> Self 
+    where Find: Ord {
+        self.handlers.entry(find).or_default().push(svc);
+        self
+    }
+}
+
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
@@ -55,7 +72,7 @@ type CommandHandler = BoxCloneService<Command, (), Error>;
 pub struct Handlers {
 	state: Arc<ScreenReaderState>,
 	atspi: HashMap<(&'static str, &'static str), ServiceSet<AtspiHandler>>,
-	command: BTreeMap<CommandDiscriminants, CommandHandler>,
+	command: BTreeMap<CommandDiscriminants, ServiceSet<CommandHandler>>,
 }
 
 impl Handlers {
@@ -154,7 +171,7 @@ impl Handlers {
 		let try_cmd_service = try_cmd_layer.layer(state_service);
 		let dn = C::CTYPE;
 		let bs = BoxCloneService::new(try_cmd_service);
-		self.command.entry(dn).or_insert(bs);
+		self.command.entry(dn).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
 	pub fn atspi_listener<H, T, R, E>(mut self, handler: H) -> Self
