@@ -22,6 +22,17 @@ where
 	_marker: PhantomData<Req>,
 }
 
+impl<K, S, Req> Clone for ChoiceService<K, S, Req>
+where
+	K: Clone,
+	S: Clone + Service<Req>,
+	Req: Chooser<K>,
+{
+	fn clone(&self) -> Self {
+		ChoiceService { services: self.services.clone(), _marker: PhantomData }
+	}
+}
+
 impl<K, S, Req> ChoiceService<K, S, Req>
 where
 	S: Service<Req>,
