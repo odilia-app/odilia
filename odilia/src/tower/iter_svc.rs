@@ -28,7 +28,7 @@ where
 	Iter: IntoIterator<Item = I>,
 	S2: Service<I>,
 {
-	fn new(inner: S1, outer: S2) -> Self {
+	pub fn new(inner: S1, outer: S2) -> Self {
 		IterService { inner, outer, _marker: PhantomData }
 	}
 }
