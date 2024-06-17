@@ -33,7 +33,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{OdiliaCommand, Speak},
+	command::{OdiliaCommand, Speak, TryIntoCommands},
 	settings::ApplicationConfig,
 };
 use odilia_input::sr_event_receiver;
@@ -104,14 +104,8 @@ async fn speak(
 	Ok(())
 }
 
-//#[tracing::instrument(ret)]
-//async fn doc_loaded(
-//	loaded: CacheEvent<LoadCompleteEvent>,
-//) -> impl TryIntoCommands {
-//	(Priority::Text, "Doc loaded!")
-//}
 #[tracing::instrument(ret)]
-async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> (Priority, &'static str) {
+async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
 	(Priority::Text, "Doc loaded")
 }
 
@@ -123,7 +117,7 @@ async fn caret_moved(
 ) {
 }
 
-#[tokio::main(flavor = "current_thread")]
+#[tokio::main]
 async fn main() -> eyre::Result<()> {
 	let args = Args::parse();
 
@@ -153,6 +147,8 @@ async fn main() -> eyre::Result<()> {
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
+	let (mut ev_tx, ev_rx) =
+		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
@@ -177,9 +173,8 @@ async fn main() -> eyre::Result<()> {
 
 	// load handlers
 	let handlers = Handlers::new(state.clone())
-		.atspi_listener(doc_loaded)
-		.atspi_listener(caret_moved);
-	let chandlers = Handlers::new(state.clone()).command_listener(speak);
+		.command_listener(speak)
+		.atspi_listener(doc_loaded);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
@@ -199,8 +194,16 @@ async fn main() -> eyre::Result<()> {
 			.map(|r| r.wrap_err("Could not process Odilia event"));
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
-	let atspi_handlers_task = handlers.atspi_handler(state.atspi.event_stream(), cmd_tx);
-	let cmd_handlers_task = chandlers.command_handler(cmd_rx);
+	let mut stream = state.atspi.event_stream();
+	let event_send_task = async move {
+		std::pin::pin!(&mut stream);
+		while let Some(ev) = stream.next().await {
+			if let Err(e) = ev_tx.try_send(ev) {
+				tracing::error!("Error sending event across channel! {e:?}");
+			}
+		}
+	};
+	let atspi_handlers_task = handlers.atspi_handler(ev_rx, cmd_tx);
 
 	//tracker.spawn(atspi_event_receiver);
 	//tracker.spawn(atspi_event_processor);
@@ -209,7 +212,7 @@ async fn main() -> eyre::Result<()> {
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
-	tracker.spawn(cmd_handlers_task);
+	tracker.spawn(event_send_task);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
 		.await
