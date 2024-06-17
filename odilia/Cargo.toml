@@ -64,6 +64,7 @@ futures-lite = "2.3.0"
 pin-project = "1.1.5"
 static_assertions = "1.1.0"
 futures-concurrency = "7.6.1"
+console-subscriber = "0.3.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
