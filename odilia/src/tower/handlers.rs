@@ -2,8 +2,8 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	async_try::AsyncTryIntoLayer, from_state::TryFromState, state_svc::StateLayer,
-	sync_try::TryIntoLayer, Handler,
+	async_try::AsyncTryIntoLayer, from_state::TryFromState, service_set::ServiceSet,
+	state_svc::StateLayer, sync_try::TryIntoLayer, Handler,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
@@ -54,7 +54,7 @@ type CommandHandler = BoxCloneService<Command, (), Error>;
 
 pub struct Handlers {
 	state: Arc<ScreenReaderState>,
-	atspi: HashMap<(&'static str, &'static str), Vec<AtspiHandler>>,
+	atspi: HashMap<(&'static str, &'static str), ServiceSet<AtspiHandler>>,
 	command: BTreeMap<CommandDiscriminants, CommandHandler>,
 }
 
@@ -94,10 +94,11 @@ impl Handlers {
 			// if we determine this is a performance problem.
 			let mut results = vec![];
 			match self.atspi.get_mut(&dn) {
-				Some(hands) => {
-					for hand in hands {
-						results.push(hand.call(ev.clone()).await);
-					}
+				Some(hand) => {
+					results = hand
+						.call(ev)
+						.await
+						.expect("ServiceSet failed to uphold its contract");
 				}
 				None => {
 					tracing::trace!("There are no associated handler functions for {}:{}", ev.interface(), ev.member());
@@ -121,26 +122,6 @@ impl Handlers {
 				}
 			}
 		}
-	}
-	async fn call_event_listeners<E>(&mut self, ev: E) -> Vec<Result<Response, Error>>
-	where
-		E: atspi::BusProperties + Into<Event> + Send + Sync,
-	{
-		let dn = (
-			<E as atspi::BusProperties>::DBUS_MEMBER,
-			<E as atspi::BusProperties>::DBUS_INTERFACE,
-		);
-		let input = ev.into();
-		// NOTE: Why not use join_all(...) ?
-		// Because this drives the futures concurrently, and we want ordered handlers.
-		// Otherwise, we cannot guarentee that the caching functions get run first.
-		// we could move caching to a separate, ordered system, then parallelize the other functions,
-		// if we determine this is a performance problem.
-		let mut results = vec![];
-		for hand in self.atspi.entry(dn).or_default() {
-			results.push(hand.call(input.clone()).await);
-		}
-		results
 	}
 	pub fn command_listener<H, T, C, R>(mut self, handler: H) -> Self
 	where
