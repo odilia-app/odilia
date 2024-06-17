@@ -74,14 +74,13 @@ where
 	}
 }
 
-impl<O, I: AsyncTryInto<O>, S, R, Fut1> Clone for AsyncTryIntoService<O, I, S, R, Fut1> 
-where S: Clone {
-    fn clone(&self) -> Self {
-        AsyncTryIntoService {
-            inner: self.inner.clone(),
-            _marker: PhantomData,
-        }
-    }
+impl<O, I: AsyncTryInto<O>, S, R, Fut1> Clone for AsyncTryIntoService<O, I, S, R, Fut1>
+where
+	S: Clone,
+{
+	fn clone(&self) -> Self {
+		AsyncTryIntoService { inner: self.inner.clone(), _marker: PhantomData }
+	}
 }
 
 impl<O, E, E2, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>

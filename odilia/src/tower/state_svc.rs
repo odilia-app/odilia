@@ -18,13 +18,12 @@ pub struct StateService<Srv, Sta> {
 	state: Arc<Sta>,
 }
 impl<Srv, Sta> Clone for StateService<Srv, Sta>
-where Srv: Clone {
-    fn clone(&self) -> Self {
-        StateService {
-            inner: self.inner.clone(),
-            state: Arc::clone(&self.state),
-        }
-    }
+where
+	Srv: Clone,
+{
+	fn clone(&self) -> Self {
+		StateService { inner: self.inner.clone(), state: Arc::clone(&self.state) }
+	}
 }
 
 impl<I, Srv, Sta> Service<I> for StateService<Srv, Sta>
