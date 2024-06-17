@@ -1,4 +1,5 @@
 pub mod async_try;
+pub mod choice;
 pub mod from_state;
 pub mod handler;
 pub mod iter_svc;
