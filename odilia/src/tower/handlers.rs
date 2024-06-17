@@ -3,8 +3,8 @@
 use crate::state::ScreenReaderState;
 use crate::tower::{
 	async_try::AsyncTryIntoLayer, choice::ChoiceService, choice::Chooser,
-	from_state::TryFromState, service_set::ServiceSet, state_svc::StateLayer,
-	sync_try::TryIntoLayer, Handler,
+	from_state::TryFromState, iter_svc::IterService, service_set::ServiceSet,
+	state_svc::StateLayer, sync_try::TryIntoLayer, Handler,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
@@ -35,21 +35,12 @@ pub struct CacheEvent<E: EventProperties + Debug> {
 	pub inner: E,
 	pub item: CacheItem,
 }
-impl<E> CacheEvent<E>
-where
-	E: EventProperties + Debug,
-{
-	pub async fn from_event(ev: E, cache: Arc<Cache>) -> Result<Self, Error> {
-		let item = cache.from_event(&ev).await?;
-		Ok(CacheEvent { inner: ev, item })
-	}
-}
 
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
 
-type AtspiHandler = BoxCloneService<Event, Vec<Command>, Error>;
+type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
 
 impl Chooser<(&'static str, &'static str)> for Event {
@@ -106,35 +97,8 @@ impl Handlers {
 				tracing::error!("Error in processing {maybe_ev:?}");
 				continue;
 			};
-			let (interface, member) = (ev.member(), ev.interface());
-			// NOTE: Why not use join_all(...) ?
-			// Because this drives the futures concurrently, and we want ordered handlers.
-			// Otherwise, we cannot guarentee that the caching functions get run first.
-			// we could move caching to a separate, ordered system, then parallelize the other functions,
-			// if we determine this is a performance problem.
-			let results =
-				if let Ok(res) = self.atspi.call(ev).await {
-					res
-				} else {
-					tracing::error!("There are no associated handler functions for {}:{}", interface, member);
-					continue;
-				};
-			for res in results {
-				match res {
-					Ok(oks) => {
-						for ok in oks {
-							match cmds.send(ok).await {
-								Ok(()) => {}
-								Err(e) => {
-									tracing::error!("Could not send command {:?} over channel! This usually means the channel is full, which is bad!", e);
-								}
-							}
-						}
-					}
-					Err(e) => {
-						tracing::error!("Handler function failed: {e:?}");
-					}
-				}
+			if let Err(e) = self.atspi.call(ev).await {
+				tracing::error!("{e:?}");
 			}
 		}
 	}
@@ -205,10 +169,15 @@ impl Handlers {
 		let ch_serv = state_layer.layer(ie_serv);
 		let serv = ti_layer.layer(ch_serv);
 		let dn = (
-			<E as atspi::BusProperties>::DBUS_MEMBER,
 			<E as atspi::BusProperties>::DBUS_INTERFACE,
+			<E as atspi::BusProperties>::DBUS_MEMBER,
 		);
-		let bs = BoxCloneService::new(serv);
+		let iter_svc = IterService::new(serv.clone(), self.command.clone()).map_result(
+			|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
+				res?.into_iter().flatten().collect::<Result<(), OdiliaError>>()
+			},
+		);
+		let bs = BoxCloneService::new(iter_svc);
 		self.atspi.entry(dn).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
