@@ -710,10 +710,18 @@ impl CacheItem {
 /// This contains (mostly) all accessibles in the entire accessibility tree, and
 /// they are referenced by their IDs. If you are having issues with incorrect or
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Cache {
 	pub by_id: ThreadSafeCache,
 	pub connection: zbus::Connection,
+}
+
+impl std::fmt::Debug for Cache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(
+            &format!("Cache {{ by_id: ...{} items..., .. }}", self.by_id.len() )
+        )
+    }
 }
 
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
@@ -943,7 +951,7 @@ impl Cache {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-#[tracing::instrument(level = "trace", ret, err, skip(cache))]
+#[tracing::instrument(level = "trace", ret, err)]
 pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 	accessible: &AccessibleProxy<'_>,
 	cache: C,
