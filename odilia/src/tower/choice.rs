@@ -2,7 +2,7 @@ use futures::future::err;
 use futures::future::Either;
 use futures::TryFutureExt;
 use odilia_common::errors::OdiliaError;
-use std::collections::BTreeMap;
+use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
 use std::future::Future;
 use std::marker::PhantomData;
@@ -30,11 +30,17 @@ where
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
 	}
-	pub fn add(&mut self, k: K, s: S)
+	pub fn insert(&mut self, k: K, s: S)
 	where
 		K: Ord,
 	{
 		self.services.insert(k, s);
+	}
+	pub fn entry(&mut self, k: K) -> Entry<K, S>
+	where
+		K: Ord,
+	{
+		self.services.entry(k)
 	}
 }
 
