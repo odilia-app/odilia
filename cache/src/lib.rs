@@ -717,11 +717,9 @@ pub struct Cache {
 }
 
 impl std::fmt::Debug for Cache {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(
-            &format!("Cache {{ by_id: ...{} items..., .. }}", self.by_id.len() )
-        )
-    }
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&format!("Cache {{ by_id: ...{} items..., .. }}", self.by_id.len()))
+	}
 }
 
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
