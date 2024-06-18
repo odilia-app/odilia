@@ -2,7 +2,7 @@ use crate::ScreenReaderState;
 use atspi::events::{
 	AddAccessibleEvent, CacheEvents, LegacyAddAccessibleEvent, RemoveAccessibleEvent,
 };
-use odilia_cache::AccessiblePrimitive;
+use odilia_common::cache::AccessiblePrimitive;
 
 #[tracing::instrument(level = "debug", skip(state), ret, err)]
 pub async fn dispatch(state: &ScreenReaderState, event: &CacheEvents) -> eyre::Result<()> {

@@ -247,8 +247,8 @@ mod text_changed {
 mod children_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::ChildrenChangedEvent;
-	use odilia_cache::{AccessiblePrimitive, CacheItem};
-	use odilia_common::result::OdiliaResult;
+	use odilia_cache::CacheItem;
+	use odilia_common::{cache::AccessiblePrimitive, result::OdiliaResult};
 	use std::sync::Arc;
 
 	#[tracing::instrument(level = "debug", skip(state), err)]
@@ -441,7 +441,7 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::{events::object::StateChangedEvent, State};
-	use odilia_cache::AccessiblePrimitive;
+	use odilia_common::cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
