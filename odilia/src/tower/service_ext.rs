@@ -1,12 +1,11 @@
 use crate::tower::{
 	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
-	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
 	unwrap_svc::UnwrapService,
 };
-use std::{convert::Infallible, future::Future, sync::Arc};
-use tower::{util::MapResult, Layer, Service, ServiceExt as TowerServiceExt};
+use std::{convert::Infallible, sync::Arc};
+use tower::{Layer, Service};
 
 pub trait ServiceExt<Request>: Service<Request> {
 	fn request_try_from<I, R, Fut1>(self) -> TryIntoService<Request, I, Self, R, Fut1>

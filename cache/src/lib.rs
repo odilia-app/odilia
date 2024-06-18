@@ -24,7 +24,7 @@ use std::{
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
+	ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
 	RelationType, Role, StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -32,15 +32,11 @@ use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
 	cache::AccessiblePrimitive,
-	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
+	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use zbus::{
-	names::OwnedUniqueName,
-	zvariant::{ObjectPath, OwnedObjectPath},
-	CacheProperties, ProxyBuilder,
-};
+use zbus::CacheProperties;
 
 trait AllText {
 	async fn get_all_text(&self) -> Result<String, OdiliaError>;

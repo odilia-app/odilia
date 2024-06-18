@@ -2,9 +2,8 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	async_try::AsyncTryIntoLayer, choice::ChoiceService, choice::Chooser,
-	from_state::TryFromState, iter_svc::IterService, service_set::ServiceSet,
-	state_svc::StateLayer, sync_try::TryIntoLayer, Handler, ServiceExt as OdiliaServiceExt,
+	choice::ChoiceService, choice::Chooser,
+	from_state::TryFromState, iter_svc::IterService, service_set::ServiceSet, Handler, ServiceExt as OdiliaServiceExt,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
@@ -18,7 +17,6 @@ use std::sync::Arc;
 use futures::{Stream, StreamExt};
 
 use tower::util::BoxCloneService;
-use tower::Layer;
 use tower::Service;
 use tower::ServiceExt;
 
