@@ -116,7 +116,7 @@ impl Handlers {
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
 	{
 		let try_cmd_service = handler
-			.into_service::<R>()
+			.into_service()
 			.unwrap_map(|r| r.into())
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
@@ -146,7 +146,7 @@ impl Handlers {
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
 	{
 		let serv = handler
-			.into_service::<R>()
+			.into_service()
 			.unwrap_map(|res| res.try_into_commands())
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))

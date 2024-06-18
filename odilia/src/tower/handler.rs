@@ -12,7 +12,7 @@ use tower::Service;
 pub trait Handler<T> {
 	type Response;
 	type Future: Future<Output = Self::Response>;
-	fn into_service<R>(self) -> HandlerService<Self, T, R>
+	fn into_service(self) -> HandlerService<Self, T>
 	where
 		Self: Sized,
 	{
@@ -47,11 +47,11 @@ impl_handler!(T1, T2, T3, T4, T5, T6,);
 impl_handler!(T1, T2, T3, T4, T5, T6, T7,);
 
 #[allow(clippy::type_complexity)]
-pub struct HandlerService<H, T, R> {
+pub struct HandlerService<H, T> {
 	handler: H,
-	_marker: PhantomData<fn(T) -> R>,
+	_marker: PhantomData<fn(T)>,
 }
-impl<H, T, R> Clone for HandlerService<H, T, R>
+impl<H, T> Clone for HandlerService<H, T>
 where
 	H: Clone,
 {
@@ -59,7 +59,7 @@ where
 		HandlerService { handler: self.handler.clone(), _marker: PhantomData }
 	}
 }
-impl<H, T, R> HandlerService<H, T, R> {
+impl<H, T> HandlerService<H, T> {
 	fn new(handler: H) -> Self
 	where
 		H: Handler<T>,
@@ -68,7 +68,7 @@ impl<H, T, R> HandlerService<H, T, R> {
 	}
 }
 
-impl<H, T, R> Service<T> for HandlerService<H, T, R>
+impl<H, T> Service<T> for HandlerService<H, T>
 where
 	H: Handler<T> + Clone,
 {
