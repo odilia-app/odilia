@@ -14,10 +14,12 @@ edition = "2021"
 [features]
 default = []
 tokio = ["dep:tokio"]
+tracing = ["dep:tracing"]
 
 [dependencies]
 atspi.workspace = true
 atspi-common.workspace = true
+atspi-proxies.workspace = true
 bitflags = "1.3.2"
 serde = "1.0.147"
 smartstring = "1.0.1"
@@ -28,5 +30,6 @@ figment = "0.10.15"
 enum_dispatch = "0.3.13"
 strum = { version = "0.26.2", features = ["derive"] }
 tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 ssip = "0.1.0"
 xdg.workspace = true
