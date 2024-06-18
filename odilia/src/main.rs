@@ -18,7 +18,9 @@ mod tower;
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
+use crate::state::AccessibleHistory;
 use crate::state::Command;
+use crate::state::CurrentCaretPos;
 use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
@@ -33,7 +35,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{Speak, TryIntoCommands},
+	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	settings::ApplicationConfig,
 };
@@ -92,6 +94,7 @@ async fn sigterm_signal_watcher(
 }
 
 use atspi::events::document::LoadCompleteEvent;
+use atspi::events::object::StateChangedEvent;
 use atspi::events::object::TextCaretMovedEvent;
 use atspi::Granularity;
 
@@ -111,14 +114,56 @@ async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoComman
 	(Priority::Text, "Doc loaded")
 }
 
+#[tracing::instrument(ret)]
+async fn focus_changed(state_changed: CacheEvent<StateChangedEvent>) -> impl TryIntoCommands {
+	if state_changed.inner.state != atspi::State::Focused {
+		return Err(OdiliaError::Generic(format!(
+			"Invalid state {:?} for handler focus_changed",
+			state_changed.inner.state
+		)));
+	}
+	Ok(Focus(state_changed.item.object))
+}
+
+#[tracing::instrument(ret, err)]
+async fn new_focused_item(
+	Command(Focus(new_focus)): Command<Focus>,
+	AccessibleHistory(old_focus): AccessibleHistory,
+) -> Result<(), OdiliaError> {
+	let _ = old_focus.lock()?.push(new_focus);
+	Ok(())
+}
+
+#[tracing::instrument(ret, err)]
+async fn new_caret_pos(
+	Command(CaretPos(new_pos)): Command<CaretPos>,
+	CurrentCaretPos(pos): CurrentCaretPos,
+) -> Result<(), OdiliaError> {
+	pos.store(new_pos, core::sync::atomic::Ordering::Relaxed);
+	Ok(())
+}
+
 #[tracing::instrument(ret, err)]
 async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
-) -> impl TryIntoCommands {
+) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	let mut commands: Vec<OdiliaCommand> =
+		vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
+
+	use std::cmp::{max, min};
 	if last_focus == caret_moved.item.object {
-		Ok((Priority::Text, "moved caret".to_string()))
+		let start = min(caret_moved.inner.position.try_into()?, last_pos);
+		let end = max(caret_moved.inner.position.try_into()?, last_pos);
+		if let Some(text) = caret_moved.item.text.get(start..end) {
+			commands.extend((Priority::Text, text.to_string()).into_commands());
+		} else {
+			return Err(OdiliaError::Generic(format!(
+				"Slide {}..{} could not be created from {}",
+				start, end, caret_moved.item.text
+			)));
+		}
 	} else {
 		let (text, _, _) = caret_moved
 			.item
@@ -127,8 +172,9 @@ async fn caret_moved(
 				Granularity::Line,
 			)
 			.await?;
-		Ok::<_, OdiliaError>((Priority::Text, text))
+		commands.extend((Priority::Text, text).into_commands());
 	}
+	Ok(commands)
 }
 
 #[tokio::main]
@@ -187,8 +233,11 @@ async fn main() -> eyre::Result<()> {
 	// load handlers
 	let handlers = Handlers::new(state.clone())
 		.command_listener(speak)
+		.command_listener(new_focused_item)
+		.command_listener(new_caret_pos)
 		.atspi_listener(doc_loaded)
-		.atspi_listener(caret_moved);
+		.atspi_listener(caret_moved)
+		.atspi_listener(focus_changed);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
