@@ -1,5 +1,6 @@
 #![allow(clippy::module_name_repetitions)]
 
+use crate::cache::AccessiblePrimitive;
 use crate::errors::OdiliaError;
 use enum_dispatch::enum_dispatch;
 use ssip::Priority;
@@ -17,6 +18,12 @@ pub trait TryIntoCommands {
 	/// [`OdiliaError`], but conversion should between these types should be done from the
 	/// implementers' side, liekly using `?`.
 	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError>;
+}
+impl TryIntoCommands for Result<Vec<OdiliaCommand>, OdiliaError> {
+	type Error = OdiliaError;
+	fn try_into_commands(self) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+		self
+	}
 }
 impl<T: IntoCommands> TryIntoCommands for T {
 	type Error = Infallible;
@@ -38,6 +45,16 @@ pub trait IntoCommands {
 	fn into_commands(self) -> Vec<OdiliaCommand>;
 }
 
+impl IntoCommands for CaretPos {
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		vec![self.into()]
+	}
+}
+impl IntoCommands for Focus {
+	fn into_commands(self) -> Vec<OdiliaCommand> {
+		vec![self.into()]
+	}
+}
 impl IntoCommands for (Priority, &str) {
 	fn into_commands(self) -> Vec<OdiliaCommand> {
 		vec![Speak(self.1.to_string(), self.0).into()]
@@ -115,10 +132,22 @@ impl<T: CommandType> CommandTypeDynamic for T {
 }
 
 #[derive(Debug, Clone)]
+pub struct CaretPos(pub usize);
+
+#[derive(Debug, Clone)]
 pub struct Speak(pub String, pub Priority);
+
+#[derive(Debug, Clone)]
+pub struct Focus(pub AccessiblePrimitive);
 
 impl CommandType for Speak {
 	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::Speak;
+}
+impl CommandType for Focus {
+	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::Focus;
+}
+impl CommandType for CaretPos {
+	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::CaretPos;
 }
 
 #[derive(Debug, Clone, EnumDiscriminants)]
@@ -126,4 +155,6 @@ impl CommandType for Speak {
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
 	Speak(Speak),
+	Focus(Focus),
+	CaretPos(CaretPos),
 }
