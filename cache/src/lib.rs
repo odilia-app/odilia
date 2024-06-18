@@ -31,6 +31,7 @@ use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
+	cache::AccessiblePrimitive,
 	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
 	result::OdiliaResult,
 };
@@ -54,118 +55,6 @@ impl AllText for TextProxy<'_> {
 type CacheKey = AccessiblePrimitive;
 type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
 type ThreadSafeCache = Arc<InnerCache>;
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
-/// A struct which represents the bare minimum of an accessible for purposes of caching.
-/// This makes some *possibly eronious* assumptions about what the sender is.
-pub struct AccessiblePrimitive {
-	/// The accessible ID, which is an arbitrary string specified by the application.
-	/// It is guaranteed to be unique per application.
-	/// Examples:
-	/// * /org/a11y/atspi/accessible/1234
-	/// * /org/a11y/atspi/accessible/null
-	/// * /org/a11y/atspi/accessible/root
-	/// * /org/Gnome/GTK/abab22-bbbb33-2bba2
-	pub id: String,
-	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	/// Examples:
-	/// * :1.1 (the first window has opened)
-	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
-	/// * :1.262 (many applications have been started on this bus)
-	pub sender: smartstring::alias::String,
-}
-impl AccessiblePrimitive {
-	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
-	/// # Errors
-	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub async fn into_accessible<'a>(
-		self,
-		conn: &zbus::Connection,
-	) -> zbus::Result<AccessibleProxy<'a>> {
-		let id = self.id;
-		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn)
-			.path(path)?
-			.destination(sender.as_str().to_owned())?
-			.cache_properties(CacheProperties::No)
-			.build()
-			.await
-	}
-	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
-	/// # Errors
-	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
-		let id = self.id;
-		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn)
-			.path(path)?
-			.destination(sender.as_str().to_owned())?
-			.cache_properties(CacheProperties::No)
-			.build()
-			.await
-	}
-	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
-	#[tracing::instrument(skip_all, level = "trace", ret)]
-	pub fn from_event<T: EventProperties>(event: &T) -> Self {
-		let sender = event.sender();
-		let path = event.path();
-		let id = path.to_string();
-		Self { id, sender: sender.as_str().into() }
-	}
-}
-
-impl From<ObjectRef> for AccessiblePrimitive {
-	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.into()
-	}
-}
-
-impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-	fn from(so: (OwnedUniqueName, OwnedObjectPath)) -> AccessiblePrimitive {
-		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() }
-	}
-}
-impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
-	#[tracing::instrument(level = "trace", ret)]
-	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
-		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-	#[tracing::instrument(level = "trace", ret)]
-	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
-		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[tracing::instrument(level = "trace", ret, err)]
-	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible = accessible.inner();
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[tracing::instrument(level = "trace", ret, err)]
-	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible = accessible.inner();
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
