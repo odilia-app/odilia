@@ -20,8 +20,9 @@ use atspi_common::{
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::Convertable;
-use odilia_cache::{AccessibleExt, AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{AccessibleExt, Cache, CacheItem};
 use odilia_common::{
+	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::{CacheError, OdiliaError},
 	modes::ScreenReaderMode,
@@ -36,18 +37,38 @@ pub(crate) struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
-	pub previous_caret_position: AtomicUsize,
+	pub previous_caret_position: Arc<AtomicUsize>,
 	pub mode: Mutex<ScreenReaderMode>,
-	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
+	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
+}
+#[derive(Debug, Clone)]
+pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(AccessibleHistory(Arc::clone(&state.accessible_history)))
+	}
+}
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(CurrentCaretPos(Arc::clone(&state.previous_caret_position)))
+	}
 }
 
 #[derive(Debug, Clone)]
 pub struct LastFocused(pub AccessiblePrimitive);
+#[derive(Debug)]
+pub struct CurrentCaretPos(pub Arc<AtomicUsize>);
 #[derive(Debug, Clone)]
 pub struct LastCaretPos(pub usize);
 pub struct Speech(pub Sender<SSIPRequest>);
+#[derive(Debug)]
 pub struct Command<T>(pub T)
 where
 	T: CommandType;
@@ -159,8 +180,8 @@ impl ScreenReaderState {
 
 		tracing::debug!("Reading configuration");
 
-		let previous_caret_position = AtomicUsize::new(0);
-		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
+		let previous_caret_position = Arc::new(AtomicUsize::new(0));
+		let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Arc::new(Cache::new(atspi.connection().clone()));
 		ssip.send(SSIPRequest::SetPitch(
