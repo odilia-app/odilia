@@ -4,7 +4,7 @@ use crate::state::ScreenReaderState;
 use crate::tower::{
 	async_try::AsyncTryIntoLayer, choice::ChoiceService, choice::Chooser,
 	from_state::TryFromState, iter_svc::IterService, service_set::ServiceSet,
-	state_svc::StateLayer, sync_try::TryIntoLayer, Handler,
+	state_svc::StateLayer, sync_try::TryIntoLayer, Handler, ServiceExt as OdiliaServiceExt,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
@@ -115,24 +115,12 @@ impl Handlers {
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Future: Send,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
 	{
-		let try_cmd_layer: TryIntoLayer<C, Command> = TryIntoLayer::new();
-		let params_layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, C)> =
-			AsyncTryIntoLayer::new();
-		let state = Arc::clone(&self.state);
-		let state_layer: StateLayer<ScreenReaderState> = StateLayer::new(state);
-		// Service<T> -> Result<R, Infallible> -> unwrap -> R
-		// this is safe because we wrap the service in a Reuslt<R, Infallible> so that we can preserve
-		// any return type we want, including ones with no errors
-		// R -> Result<(), Error>
-		let hand_service = handler
+		let try_cmd_service = handler
 			.into_service::<R>()
-			.map_result(|r| r.expect("This should never fail").into());
-		// Service(<Arc<S>, C>) -> T
-		let params_service = params_layer.layer(hand_service);
-		// Service<C> -> (Arc<S>, C)
-		let state_service = state_layer.layer(params_service);
-		// Service<Command> -> C
-		let try_cmd_service = try_cmd_layer.layer(state_service);
+			.unwrap_map(|r| r.into())
+			.request_async_try_from()
+			.with_state(Arc::clone(&self.state))
+			.request_try_from();
 		let dn = C::CTYPE;
 		let bs = BoxCloneService::new(try_cmd_service);
 		self.command.entry(dn).or_default().push(bs);
@@ -157,17 +145,12 @@ impl Handlers {
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
 	{
-		let ie_layer: AsyncTryIntoLayer<T, (Arc<ScreenReaderState>, E)> =
-			AsyncTryIntoLayer::new();
-		let state_layer: StateLayer<ScreenReaderState> =
-			StateLayer::new(Arc::clone(&self.state));
-		let ti_layer: TryIntoLayer<E, Request> = TryIntoLayer::new();
-		let ws = handler
+		let serv = handler
 			.into_service::<R>()
-			.map_result(|r| r.expect("This should never fail").try_into_commands());
-		let ie_serv = ie_layer.layer(ws);
-		let ch_serv = state_layer.layer(ie_serv);
-		let serv = ti_layer.layer(ch_serv);
+			.unwrap_map(|res| res.try_into_commands())
+			.request_async_try_from()
+			.with_state(Arc::clone(&self.state))
+			.request_try_from();
 		let dn = (
 			<E as atspi::BusProperties>::DBUS_INTERFACE,
 			<E as atspi::BusProperties>::DBUS_MEMBER,
