@@ -122,7 +122,10 @@ async fn focus_changed(state_changed: CacheEvent<StateChangedEvent>) -> impl Try
 			state_changed.inner.state
 		)));
 	}
-	Ok(Focus(state_changed.item.object))
+	Ok(vec![
+		Focus(state_changed.item.object).into(),
+		Speak(state_changed.item.text, Priority::Text).into(),
+	])
 }
 
 #[tracing::instrument(ret, err)]
