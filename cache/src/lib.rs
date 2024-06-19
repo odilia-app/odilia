@@ -24,8 +24,8 @@ use std::{
 };
 
 use atspi_common::{
-	ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
-	RelationType, Role, StateSet,
+	ClipType, CoordType, EventProperties, Granularity, InterfaceSet, RelationType, Role,
+	StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
