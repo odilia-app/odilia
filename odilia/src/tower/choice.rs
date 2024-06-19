@@ -12,6 +12,9 @@ use tower::Service;
 pub trait Chooser<K> {
 	fn identifier(&self) -> K;
 }
+pub trait ChooserStatic<K> {
+	fn identifier() -> K;
+}
 
 pub struct ChoiceService<K, S, Req>
 where
