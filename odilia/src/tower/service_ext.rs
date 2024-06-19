@@ -1,5 +1,6 @@
 use crate::tower::{
 	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
+	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
 	unwrap_svc::UnwrapService,
@@ -37,6 +38,14 @@ pub trait ServiceExt<Request>: Service<Request> {
 		F: FnOnce(<Self as Service<Request>>::Response) -> Result<R, E>,
 	{
 		UnwrapService::new(self, f)
+	}
+	fn iter_into<S, Iter, I, E>(self, s: S) -> IterService<Self, Request, Iter, I, S, E>
+	where
+		Self: Service<Request, Response = Iter> + Sized,
+		Iter: IntoIterator<Item = I>,
+		S: Service<I>,
+	{
+		IterService::new(self, s)
 	}
 }
 
