@@ -2,8 +2,11 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	choice::ChoiceService, choice::Chooser,
-	from_state::TryFromState, iter_svc::IterService, service_set::ServiceSet, Handler, ServiceExt as OdiliaServiceExt,
+	choice::ChoiceService,
+	choice::{Chooser, ChooserStatic},
+	from_state::TryFromState,
+	service_set::ServiceSet,
+	Handler, ServiceExt as OdiliaServiceExt,
 };
 use atspi::AtspiError;
 use atspi::BusProperties;
@@ -40,6 +43,23 @@ type Error = OdiliaError;
 
 type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
+
+impl<E> ChooserStatic<(&'static str, &'static str)> for E
+where
+	E: BusProperties,
+{
+	fn identifier() -> (&'static str, &'static str) {
+		(E::DBUS_INTERFACE, E::DBUS_MEMBER)
+	}
+}
+impl<C> ChooserStatic<CommandDiscriminants> for C
+where
+	C: CommandType,
+{
+	fn identifier() -> CommandDiscriminants {
+		C::CTYPE
+	}
+}
 
 impl Chooser<(&'static str, &'static str)> for Event {
 	fn identifier(&self) -> (&'static str, &'static str) {
@@ -104,7 +124,7 @@ impl Handlers {
 	where
 		H: Handler<T, Response = R> + Send + Clone + 'static,
 		<H as Handler<T>>::Future: Send,
-		C: CommandType + Send + 'static,
+		C: CommandType + ChooserStatic<CommandDiscriminants> + Send + 'static,
 		Command: TryInto<C>,
 		OdiliaError: From<<Command as TryInto<C>>::Error>
 			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>,
@@ -119,9 +139,8 @@ impl Handlers {
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from();
-		let dn = C::CTYPE;
 		let bs = BoxCloneService::new(try_cmd_service);
-		self.command.entry(dn).or_default().push(bs);
+		self.command.entry(C::identifier()).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
 	pub fn atspi_listener<H, T, R, E>(mut self, handler: H) -> Self
@@ -133,6 +152,7 @@ impl Handlers {
 			+ BusProperties
 			+ TryFrom<Event>
 			+ EventProperties
+			+ ChooserStatic<(&'static str, &'static str)>
 			+ Clone
 			+ Send
 			+ 'static,
@@ -148,18 +168,17 @@ impl Handlers {
 			.unwrap_map(|res| res.try_into_commands())
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
-			.request_try_from();
-		let dn = (
-			<E as atspi::BusProperties>::DBUS_INTERFACE,
-			<E as atspi::BusProperties>::DBUS_MEMBER,
-		);
-		let iter_svc = IterService::new(serv.clone(), self.command.clone()).map_result(
-			|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
-				res?.into_iter().flatten().collect::<Result<(), OdiliaError>>()
-			},
-		);
-		let bs = BoxCloneService::new(iter_svc);
-		self.atspi.entry(dn).or_default().push(bs);
+			.request_try_from()
+			.iter_into(self.command.clone())
+			.map_result(
+				|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
+					res?.into_iter()
+						.flatten()
+						.collect::<Result<(), OdiliaError>>()
+				},
+			);
+		let bs = BoxCloneService::new(serv);
+		self.atspi.entry(E::identifier()).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }
 	}
 }
