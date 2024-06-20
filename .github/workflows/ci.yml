@@ -151,7 +151,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+          toolchain: nightly
+          components: llvm-tools
       - name: cargo install llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: cargo generate lockfile
