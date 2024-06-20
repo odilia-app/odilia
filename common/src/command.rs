@@ -10,7 +10,7 @@ use strum::{Display, EnumDiscriminants};
 
 pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;
-	/// Fallibly returns a [`Vec`] of [`Command`]s to run.
+	/// Fallibly returns a [`Vec`] of [`OdiliaCommand`]s to run.
 	///
 	/// # Errors
 	///
