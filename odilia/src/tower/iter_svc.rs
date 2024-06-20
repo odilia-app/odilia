@@ -4,6 +4,7 @@ use std::task::Context;
 use std::task::Poll;
 use tower::Service;
 
+#[allow(clippy::type_complexity)]
 pub struct IterService<S1, Req, Iter, I, S2, E> {
 	inner: S1,
 	outer: S2,
@@ -55,7 +56,7 @@ where
 		async move {
 			let iter = inner.call(input).await?;
 			let mut results = vec![];
-			for item in iter.into_iter() {
+			for item in iter {
 				let result = outer.call(item).await?;
 				results.push(result);
 			}

@@ -5,6 +5,7 @@ use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower::Service;
 
+#[allow(clippy::type_complexity)]
 pub struct UnwrapService<S, Req, Res, R, E, F> {
 	inner: S,
 	f: F,

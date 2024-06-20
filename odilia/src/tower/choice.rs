@@ -16,6 +16,7 @@ pub trait ChooserStatic<K> {
 	fn identifier() -> K;
 }
 
+#[allow(clippy::module_name_repetitions)]
 pub struct ChoiceService<K, S, Req>
 where
 	S: Service<Req>,

@@ -97,6 +97,7 @@ use atspi::events::document::LoadCompleteEvent;
 use atspi::events::object::StateChangedEvent;
 use atspi::events::object::TextCaretMovedEvent;
 use atspi::Granularity;
+use std::cmp::{max, min};
 
 #[tracing::instrument(ret, err)]
 async fn speak(
@@ -155,7 +156,6 @@ async fn caret_moved(
 	let mut commands: Vec<OdiliaCommand> =
 		vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
 
-	use std::cmp::{max, min};
 	if last_focus == caret_moved.item.object {
 		let start = min(caret_moved.inner.position.try_into()?, last_pos);
 		let end = max(caret_moved.inner.position.try_into()?, last_pos);
@@ -171,7 +171,7 @@ async fn caret_moved(
 		let (text, _, _) = caret_moved
 			.item
 			.get_string_at_offset(
-				caret_moved.inner.position as usize,
+				caret_moved.inner.position.try_into()?,
 				Granularity::Line,
 			)
 			.await?;

@@ -85,9 +85,7 @@ impl Handlers {
 	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
 		loop {
 			let maybe_cmd = commands.recv().await;
-			let cmd = if let Some(cmd) = maybe_cmd {
-				cmd
-			} else {
+			let Some(cmd) = maybe_cmd else {
 				tracing::error!("Error cmd: {maybe_cmd:?}");
 				continue;
 			};
@@ -109,9 +107,7 @@ impl Handlers {
 		std::pin::pin!(&mut events);
 		loop {
 			let maybe_ev = events.next().await;
-			let ev = if let Some(Ok(ev)) = maybe_ev {
-				ev
-			} else {
+			let Some(Ok(ev)) = maybe_ev else {
 				tracing::error!("Error in processing {maybe_ev:?}");
 				continue;
 			};
@@ -135,7 +131,7 @@ impl Handlers {
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(|r| r.into())
+			.unwrap_map(Into::into)
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
@@ -165,7 +161,7 @@ impl Handlers {
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(|res| res.try_into_commands())
+			.unwrap_map(TryIntoCommands::try_into_commands)
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
