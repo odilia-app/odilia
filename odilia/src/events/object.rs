@@ -529,7 +529,8 @@ mod tests {
 	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
 	use atspi_connection::AccessibilityConnection;
 	use lazy_static::lazy_static;
-	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+  use odilia_common::cache::AccessiblePrimitive;
+	use odilia_cache::{Cache, CacheItem};
 	use std::sync::Arc;
 	use tokio_test::block_on;
 
