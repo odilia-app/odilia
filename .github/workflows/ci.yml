@@ -71,6 +71,7 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
+          components: clippy
 
       - name: Run tests
         run: cargo clippy --tests --workspace --no-deps -- -D warnings
