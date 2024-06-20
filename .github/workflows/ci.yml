@@ -35,7 +35,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
@@ -70,7 +70,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -89,7 +89,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: rustfmt
 
       - name: Run formatter
@@ -121,7 +121,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Generate Documentation
         uses: actions-rs/cargo@v1
