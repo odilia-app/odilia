@@ -117,7 +117,7 @@ jobs:
           toolchain: nightly
 
       - name: Generate Documentation
-        run: cargo doc --worksapce --document-private-items
+        run: cargo doc --workspace --document-private-items
 
       - name: Deploy Documentation
         uses: peaceiris/actions-gh-pages@v3
