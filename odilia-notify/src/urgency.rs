@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use zbus::zvariant::{OwnedValue, Type, Value};
 
 /// A priority/urgency level.
-/// https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#urgency-levels
+/// [See specification here](https://specifications.freedesktop.org/notification-spec/notification-spec-latest.html#urgency-levels)
 #[derive(
 	Clone,
 	Copy,
