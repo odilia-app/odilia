@@ -1,59 +1,103 @@
+use atspi_common::{
+	events::object::StateChangedEvent, AtspiError, EventProperties, State as AtspiState,
+};
 use derived_deref::{Deref, DerefMut};
-use atspi_common::State as AtspiState;
-use refinement::{Predicate, Refinement};
+use refinement::Predicate;
 use std::marker::PhantomData;
+use zbus::{names::UniqueName, zvariant::ObjectPath};
 
-#[derive(Default, Clone, Deref, DerefMut)]
+#[derive(Debug, Default, Clone, Deref, DerefMut)]
 pub struct StateChanged<S, E> {
-    #[target]
-    ev: atspi_common::events::object::StateChangedEvent,
-    _marker: PhantomData<(S, E)>,
+	#[target]
+	ev: StateChangedEvent,
+	_marker: PhantomData<(S, E)>,
+}
+impl<S, E> EventProperties for StateChanged<S, E> {
+	fn sender(&self) -> UniqueName<'_> {
+		self.ev.sender()
+	}
+	fn path(&self) -> ObjectPath<'_> {
+		self.ev.path()
+	}
+}
+impl<S, E> atspi::BusProperties for StateChanged<S, E>
+where
+	StateChanged<S, E>: TryFrom<StateChangedEvent>,
+{
+	const DBUS_MEMBER: &'static str = StateChangedEvent::DBUS_MEMBER;
+	const DBUS_INTERFACE: &'static str = StateChangedEvent::DBUS_INTERFACE;
+	const MATCH_RULE_STRING: &'static str = StateChangedEvent::MATCH_RULE_STRING;
+	const REGISTRY_EVENT_STRING: &'static str = StateChangedEvent::REGISTRY_EVENT_STRING;
+	type Body = <StateChangedEvent as atspi::BusProperties>::Body;
+	fn from_message_parts(or: atspi::ObjectRef, bdy: Self::Body) -> Result<Self, AtspiError> {
+		let ev = StateChangedEvent::from_message_parts(or, bdy)?;
+		Self::try_from(ev).map_err(|_| AtspiError::InterfaceMatch(String::new()))
+	}
+	fn body(&self) -> Self::Body {
+		self.ev.body()
+	}
 }
 
-impl<S, E> TryFrom<atspi_common::events::object::StateChangedEvent> for StateChanged<S, E>
-where S: Predicate<AtspiState>,
-      E: Predicate<i32>, {
-    type Error = crate::OdiliaError;
-    fn try_from(ev: atspi_common::events::object::StateChangedEvent) -> Result<Self, Self::Error> {
-        if <Self as Predicate<atspi_common::events::object::StateChangedEvent>>::test(&ev) {
-            Ok(Self {
-                ev,
-                _marker: PhantomData,
-            })
-        } else {
-            Err(crate::OdiliaError::PredicateFailure(format!("The type {ev:?} is not compatible with the predicate requirements state = {:?} and enabled = {:?}", std::any::type_name::<S>(), std::any::type_name::<E>())))
-        }
-    }
+impl<S, E> TryFrom<atspi::Event> for StateChanged<S, E>
+where
+	S: Predicate<AtspiState>,
+	E: Predicate<i32>,
+{
+	type Error = crate::OdiliaError;
+	fn try_from(ev: atspi::Event) -> Result<Self, Self::Error> {
+		let state_changed_ev: StateChangedEvent = ev.try_into()?;
+		StateChanged::<S, E>::try_from(state_changed_ev)
+	}
 }
 
-impl<S, E> Predicate<atspi_common::events::object::StateChangedEvent> for StateChanged<S, E>
-where S: Predicate<AtspiState>,
-      E: Predicate<i32>, {
-          fn test(ev: &atspi_common::events::object::StateChangedEvent) -> bool {
-               <S as Predicate<AtspiState>>::test(&ev.state) &&
-               <E as Predicate<i32>>::test(&ev.enabled)
-          }
+impl<S, E> TryFrom<StateChangedEvent> for StateChanged<S, E>
+where
+	S: Predicate<AtspiState>,
+	E: Predicate<i32>,
+{
+	type Error = crate::OdiliaError;
+	fn try_from(ev: StateChangedEvent) -> Result<Self, Self::Error> {
+		if <Self as Predicate<StateChangedEvent>>::test(&ev) {
+			Ok(Self { ev, _marker: PhantomData })
+		} else {
+			Err(crate::OdiliaError::PredicateFailure(format!("The type {ev:?} is not compatible with the predicate requirements state = {:?} and enabled = {:?}", std::any::type_name::<S>(), std::any::type_name::<E>())))
+		}
+	}
+}
+
+impl<S, E> Predicate<StateChangedEvent> for StateChanged<S, E>
+where
+	S: Predicate<AtspiState>,
+	E: Predicate<i32>,
+{
+	fn test(ev: &StateChangedEvent) -> bool {
+		<S as Predicate<AtspiState>>::test(&ev.state)
+			&& <E as Predicate<i32>>::test(&ev.enabled)
+	}
 }
 
 #[allow(unused)]
+#[derive(Debug, Clone, Copy)]
 pub struct StateEnabled;
 #[allow(unused)]
+#[derive(Debug, Clone, Copy)]
 pub struct StateDisabled;
 
 impl Predicate<i32> for StateEnabled {
-    fn test(b: &i32) -> bool {
-        b > &0
-    }
+	fn test(b: &i32) -> bool {
+		b > &0
+	}
 }
 impl Predicate<i32> for StateDisabled {
-    fn test(b: &i32) -> bool {
-        b <= &0
-    }
+	fn test(b: &i32) -> bool {
+		b <= &0
+	}
 }
 
 macro_rules! impl_refinement_type {
 	($enum:ty, $variant:expr, $name:ident) => {
 		#[allow(unused)]
+		#[derive(Debug, Clone, Copy)]
 		pub struct $name;
 		impl Predicate<$enum> for $name {
 			fn test(outer: &$enum) -> bool {
