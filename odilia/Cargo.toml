@@ -65,6 +65,8 @@ pin-project = "1.1.5"
 static_assertions = "1.1.0"
 futures-concurrency.workspace = true
 console-subscriber = { version = "0.3.0", optional = true }
+refinement = "0.5.0"
+derived-deref = "2.1.0"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
