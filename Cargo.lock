@@ -886,6 +886,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derived-deref"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "805ef2023ccd65425743a91ecd11fc020979a0b01921db3104fb606d18a7b43e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.66",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1831,6 +1842,7 @@ dependencies = [
  "circular-queue",
  "clap 4.5.7",
  "console-subscriber",
+ "derived-deref",
  "eyre",
  "figment",
  "futures",
@@ -1843,6 +1855,7 @@ dependencies = [
  "odilia-notify",
  "odilia-tts",
  "pin-project",
+ "refinement",
  "serde_json",
  "serde_plain",
  "ssip",
@@ -2323,6 +2336,12 @@ dependencies = [
  "libredox",
  "thiserror",
 ]
+
+[[package]]
+name = "refinement"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "41c1f648652916ca373423bde65c39208b194d83b0d25936b619b21b11958506"
 
 [[package]]
 name = "regex"
