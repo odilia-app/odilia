@@ -31,6 +31,8 @@ where
 	type Body = <StateChangedEvent as atspi::BusProperties>::Body;
 	fn from_message_parts(or: atspi::ObjectRef, bdy: Self::Body) -> Result<Self, AtspiError> {
 		let ev = StateChangedEvent::from_message_parts(or, bdy)?;
+		// TODO: we do not have an appropriate event type here; this should really be an OdiliaError.
+		// We may want to consider adding a type Error in the BusProperties impl.
 		Self::try_from(ev).map_err(|_| AtspiError::InterfaceMatch(String::new()))
 	}
 	fn body(&self) -> Self::Body {
