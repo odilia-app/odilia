@@ -26,7 +26,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 
 mod text_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::events::object::TextChangedEvent;
+	use atspi_common::{Operation, events::object::TextChangedEvent};
 	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
@@ -160,15 +160,9 @@ mod text_changed {
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
 	) -> eyre::Result<()> {
-		match event.operation.as_str() {
-			"insert/system" => insert_or_delete(state, event, true).await?,
-			"insert" => insert_or_delete(state, event, true).await?,
-			"delete/system" => insert_or_delete(state, event, false).await?,
-			"delete" => insert_or_delete(state, event, false).await?,
-			_ => tracing::trace!(
-				"TextChangedEvent has invalid kind: {}",
-				event.operation
-			),
+		match event.operation {
+			Operation::Insert => insert_or_delete(state, event, true).await?,
+			Operation::Delete => insert_or_delete(state, event, false).await?,
 		};
 		Ok(())
 	}
@@ -246,7 +240,7 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::events::object::ChildrenChangedEvent;
+	use atspi_common::{Operation, events::object::ChildrenChangedEvent};
 	use odilia_cache::CacheItem;
 	use odilia_common::{cache::AccessiblePrimitive, result::OdiliaResult};
 	use std::sync::Arc;
@@ -257,10 +251,9 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
-		match event.operation.as_str() {
-			"remove" | "remove/system" => remove(state, event)?,
-			"add" | "add/system" => add(state, event).await?,
-			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+		match event.operation {
+      Operation::Insert => add(state, event).await?,
+			Operation::Delete => remove(state, event)?,
 		}
 		Ok(())
 	}
