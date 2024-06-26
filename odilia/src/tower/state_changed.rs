@@ -1,0 +1,185 @@
+use derived_deref::{Deref, DerefMut};
+use atspi_common::State as AtspiState;
+use refinement::{Predicate, Refinement};
+use std::marker::PhantomData;
+
+#[derive(Default, Clone, Deref, DerefMut)]
+pub struct StateChanged<S, E> {
+    #[target]
+    ev: atspi_common::events::object::StateChangedEvent,
+    _marker: PhantomData<(S, E)>,
+}
+
+impl<S, E> TryFrom<atspi_common::events::object::StateChangedEvent> for StateChanged<S, E>
+where S: Predicate<AtspiState>,
+      E: Predicate<i32>, {
+    type Error = crate::OdiliaError;
+    fn try_from(ev: atspi_common::events::object::StateChangedEvent) -> Result<Self, Self::Error> {
+        if <Self as Predicate<atspi_common::events::object::StateChangedEvent>>::test(&ev) {
+            Ok(Self {
+                ev,
+                _marker: PhantomData,
+            })
+        } else {
+            Err(crate::OdiliaError::PredicateFailure(format!("The type {ev:?} is not compatible with the predicate requirements state = {:?} and enabled = {:?}", std::any::type_name::<S>(), std::any::type_name::<E>())))
+        }
+    }
+}
+
+impl<S, E> Predicate<atspi_common::events::object::StateChangedEvent> for StateChanged<S, E>
+where S: Predicate<AtspiState>,
+      E: Predicate<i32>, {
+          fn test(ev: &atspi_common::events::object::StateChangedEvent) -> bool {
+               <S as Predicate<AtspiState>>::test(&ev.state) &&
+               <E as Predicate<i32>>::test(&ev.enabled)
+          }
+}
+
+#[allow(unused)]
+pub struct StateEnabled;
+#[allow(unused)]
+pub struct StateDisabled;
+
+impl Predicate<i32> for StateEnabled {
+    fn test(b: &i32) -> bool {
+        b > &0
+    }
+}
+impl Predicate<i32> for StateDisabled {
+    fn test(b: &i32) -> bool {
+        b <= &0
+    }
+}
+
+macro_rules! impl_refinement_type {
+	($enum:ty, $variant:expr, $name:ident) => {
+		#[allow(unused)]
+		pub struct $name;
+		impl Predicate<$enum> for $name {
+			fn test(outer: &$enum) -> bool {
+				&$variant == outer
+			}
+		}
+	};
+}
+#[allow(unused)]
+pub struct AnyState;
+
+impl Predicate<AtspiState> for AnyState {
+	fn test(outer: &AtspiState) -> bool {
+		match *outer {
+			AtspiState::Invalid => <Invalid as Predicate<AtspiState>>::test(outer),
+			AtspiState::Active => <Active as Predicate<AtspiState>>::test(outer),
+			AtspiState::Armed => <Armed as Predicate<AtspiState>>::test(outer),
+			AtspiState::Busy => <Busy as Predicate<AtspiState>>::test(outer),
+			AtspiState::Checked => <Checked as Predicate<AtspiState>>::test(outer),
+			AtspiState::Collapsed => <Collapsed as Predicate<AtspiState>>::test(outer),
+			AtspiState::Defunct => <Defunct as Predicate<AtspiState>>::test(outer),
+			AtspiState::Editable => <Editable as Predicate<AtspiState>>::test(outer),
+			AtspiState::Enabled => <Enabled as Predicate<AtspiState>>::test(outer),
+			AtspiState::Expandable => {
+				<Expandable as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Expanded => <Expanded as Predicate<AtspiState>>::test(outer),
+			AtspiState::Focusable => <Focusable as Predicate<AtspiState>>::test(outer),
+			AtspiState::Focused => <Focused as Predicate<AtspiState>>::test(outer),
+			AtspiState::HasTooltip => {
+				<HasTooltip as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Horizontal => {
+				<Horizontal as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Iconified => <Iconified as Predicate<AtspiState>>::test(outer),
+			AtspiState::Modal => <Modal as Predicate<AtspiState>>::test(outer),
+			AtspiState::MultiLine => <MultiLine as Predicate<AtspiState>>::test(outer),
+			AtspiState::Multiselectable => {
+				<Multiselectable as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Opaque => <Opaque as Predicate<AtspiState>>::test(outer),
+			AtspiState::Pressed => <Pressed as Predicate<AtspiState>>::test(outer),
+			AtspiState::Resizable => <Resizable as Predicate<AtspiState>>::test(outer),
+			AtspiState::Selectable => {
+				<Selectable as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Selected => <Selected as Predicate<AtspiState>>::test(outer),
+			AtspiState::Sensitive => <Sensitive as Predicate<AtspiState>>::test(outer),
+			AtspiState::Showing => <Showing as Predicate<AtspiState>>::test(outer),
+			AtspiState::SingleLine => {
+				<SingleLine as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Stale => <Stale as Predicate<AtspiState>>::test(outer),
+			AtspiState::Transient => <Transient as Predicate<AtspiState>>::test(outer),
+			AtspiState::Vertical => <Vertical as Predicate<AtspiState>>::test(outer),
+			AtspiState::Visible => <Visible as Predicate<AtspiState>>::test(outer),
+			AtspiState::ManagesDescendants => {
+				<ManagesDescendants as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Indeterminate => {
+				<Indeterminate as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::Required => <Required as Predicate<AtspiState>>::test(outer),
+			AtspiState::Truncated => <Truncated as Predicate<AtspiState>>::test(outer),
+			AtspiState::Animated => <Animated as Predicate<AtspiState>>::test(outer),
+			AtspiState::InvalidEntry => {
+				<InvalidEntry as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::SupportsAutocompletion => {
+				<SupportsAutocompletion as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::SelectableText => {
+				<SelectableText as Predicate<AtspiState>>::test(outer)
+			}
+			AtspiState::IsDefault => <IsDefault as Predicate<AtspiState>>::test(outer),
+			AtspiState::Visited => <Visited as Predicate<AtspiState>>::test(outer),
+			AtspiState::Checkable => <Checkable as Predicate<AtspiState>>::test(outer),
+			AtspiState::HasPopup => <HasPopup as Predicate<AtspiState>>::test(outer),
+			AtspiState::ReadOnly => <ReadOnly as Predicate<AtspiState>>::test(outer),
+			_ => todo!(),
+		}
+	}
+}
+
+impl_refinement_type!(AtspiState, AtspiState::Invalid, Invalid);
+impl_refinement_type!(AtspiState, AtspiState::Active, Active);
+impl_refinement_type!(AtspiState, AtspiState::Armed, Armed);
+impl_refinement_type!(AtspiState, AtspiState::Busy, Busy);
+impl_refinement_type!(AtspiState, AtspiState::Checked, Checked);
+impl_refinement_type!(AtspiState, AtspiState::Collapsed, Collapsed);
+impl_refinement_type!(AtspiState, AtspiState::Defunct, Defunct);
+impl_refinement_type!(AtspiState, AtspiState::Editable, Editable);
+impl_refinement_type!(AtspiState, AtspiState::Enabled, Enabled);
+impl_refinement_type!(AtspiState, AtspiState::Expandable, Expandable);
+impl_refinement_type!(AtspiState, AtspiState::Expanded, Expanded);
+impl_refinement_type!(AtspiState, AtspiState::Focusable, Focusable);
+impl_refinement_type!(AtspiState, AtspiState::Focused, Focused);
+impl_refinement_type!(AtspiState, AtspiState::HasTooltip, HasTooltip);
+impl_refinement_type!(AtspiState, AtspiState::Horizontal, Horizontal);
+impl_refinement_type!(AtspiState, AtspiState::Iconified, Iconified);
+impl_refinement_type!(AtspiState, AtspiState::Modal, Modal);
+impl_refinement_type!(AtspiState, AtspiState::MultiLine, MultiLine);
+impl_refinement_type!(AtspiState, AtspiState::Multiselectable, Multiselectable);
+impl_refinement_type!(AtspiState, AtspiState::Opaque, Opaque);
+impl_refinement_type!(AtspiState, AtspiState::Pressed, Pressed);
+impl_refinement_type!(AtspiState, AtspiState::Resizable, Resizable);
+impl_refinement_type!(AtspiState, AtspiState::Selectable, Selectable);
+impl_refinement_type!(AtspiState, AtspiState::Selected, Selected);
+impl_refinement_type!(AtspiState, AtspiState::Sensitive, Sensitive);
+impl_refinement_type!(AtspiState, AtspiState::Showing, Showing);
+impl_refinement_type!(AtspiState, AtspiState::SingleLine, SingleLine);
+impl_refinement_type!(AtspiState, AtspiState::Stale, Stale);
+impl_refinement_type!(AtspiState, AtspiState::Transient, Transient);
+impl_refinement_type!(AtspiState, AtspiState::Vertical, Vertical);
+impl_refinement_type!(AtspiState, AtspiState::Visible, Visible);
+impl_refinement_type!(AtspiState, AtspiState::ManagesDescendants, ManagesDescendants);
+impl_refinement_type!(AtspiState, AtspiState::Indeterminate, Indeterminate);
+impl_refinement_type!(AtspiState, AtspiState::Required, Required);
+impl_refinement_type!(AtspiState, AtspiState::Truncated, Truncated);
+impl_refinement_type!(AtspiState, AtspiState::Animated, Animated);
+impl_refinement_type!(AtspiState, AtspiState::InvalidEntry, InvalidEntry);
+impl_refinement_type!(AtspiState, AtspiState::SupportsAutocompletion, SupportsAutocompletion);
+impl_refinement_type!(AtspiState, AtspiState::SelectableText, SelectableText);
+impl_refinement_type!(AtspiState, AtspiState::IsDefault, IsDefault);
+impl_refinement_type!(AtspiState, AtspiState::Visited, Visited);
+impl_refinement_type!(AtspiState, AtspiState::Checkable, Checkable);
+impl_refinement_type!(AtspiState, AtspiState::HasPopup, HasPopup);
+impl_refinement_type!(AtspiState, AtspiState::ReadOnly, ReadOnly);
