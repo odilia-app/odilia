@@ -24,7 +24,7 @@ pub enum OdiliaError {
 	Generic(String),
 	Static(&'static str),
 	ServiceNotFound(String),
-  PredicateFailure(String),
+	PredicateFailure(String),
 }
 
 impl From<&'static str> for OdiliaError {
