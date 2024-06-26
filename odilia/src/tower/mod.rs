@@ -5,6 +5,7 @@ pub mod handler;
 pub mod iter_svc;
 pub mod service_ext;
 pub mod service_set;
+pub mod state_changed;
 pub mod state_svc;
 pub mod sync_try;
 pub mod unwrap_svc;
