@@ -94,7 +94,6 @@ async fn sigterm_signal_watcher(
 }
 
 use atspi::events::document::LoadCompleteEvent;
-use atspi::events::object::StateChangedEvent;
 use atspi::events::object::TextCaretMovedEvent;
 use atspi::Granularity;
 use std::cmp::{max, min};
@@ -115,14 +114,22 @@ async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoComman
 	(Priority::Text, "Doc loaded")
 }
 
+use crate::tower::state_changed::{Focused, StateChanged, StateDisabled, StateEnabled};
+
 #[tracing::instrument(ret)]
-async fn focus_changed(state_changed: CacheEvent<StateChangedEvent>) -> impl TryIntoCommands {
-	if state_changed.inner.state != atspi::State::Focused {
-		return Err(OdiliaError::Generic(format!(
-			"Invalid state {:?} for handler focus_changed",
-			state_changed.inner.state
-		)));
-	}
+async fn focused(
+	state_changed: CacheEvent<StateChanged<Focused, StateEnabled>>,
+) -> impl TryIntoCommands {
+	Ok(vec![
+		Focus(state_changed.item.object).into(),
+		Speak(state_changed.item.text, Priority::Text).into(),
+	])
+}
+
+#[tracing::instrument(ret)]
+async fn unfocused(
+	state_changed: CacheEvent<StateChanged<Focused, StateDisabled>>,
+) -> impl TryIntoCommands {
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(state_changed.item.text, Priority::Text).into(),
@@ -240,7 +247,8 @@ async fn main() -> eyre::Result<()> {
 		.command_listener(new_caret_pos)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
-		.atspi_listener(focus_changed);
+		.atspi_listener(focused)
+		.atspi_listener(unfocused);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
