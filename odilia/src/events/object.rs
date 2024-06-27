@@ -26,7 +26,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 
 mod text_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::{Operation, events::object::TextChangedEvent};
+	use atspi_common::{events::object::TextChangedEvent, Operation};
 	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
@@ -240,7 +240,7 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::{Operation, events::object::ChildrenChangedEvent};
+	use atspi_common::{events::object::ChildrenChangedEvent, Operation};
 	use odilia_cache::CacheItem;
 	use odilia_common::{cache::AccessiblePrimitive, result::OdiliaResult};
 	use std::sync::Arc;
@@ -252,7 +252,7 @@ mod children_changed {
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
 		match event.operation {
-      Operation::Insert => add(state, event).await?,
+			Operation::Insert => add(state, event).await?,
 			Operation::Delete => remove(state, event)?,
 		}
 		Ok(())
