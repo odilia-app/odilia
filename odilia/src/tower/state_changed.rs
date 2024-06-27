@@ -6,8 +6,8 @@ use refinement::Predicate;
 use std::marker::PhantomData;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
-pub type StateEnabled<S> = StateChanged<S, EnabledState>;
-pub type StateDisabled<S> = StateChanged<S, DisabledState>;
+pub type StateEnabled<S> = StateChanged<S, True>;
+pub type StateDisabled<S> = StateChanged<S, False>;
 
 #[derive(Debug, Default, Clone, Deref, DerefMut)]
 pub struct StateChanged<S, E> {
@@ -83,17 +83,17 @@ where
 
 #[allow(unused)]
 #[derive(Debug, Clone, Copy)]
-pub struct EnabledState;
+pub struct True;
 #[allow(unused)]
 #[derive(Debug, Clone, Copy)]
-pub struct DisabledState;
+pub struct False;
 
-impl Predicate<bool> for EnabledState {
+impl Predicate<bool> for True {
 	fn test(b: &bool) -> bool {
 		*b
 	}
 }
-impl Predicate<bool> for DisabledState {
+impl Predicate<bool> for False {
 	fn test(b: &bool) -> bool {
 		!*b
 	}
