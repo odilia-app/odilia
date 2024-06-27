@@ -46,7 +46,7 @@ where
 impl<S, E> TryFrom<atspi::Event> for StateChanged<S, E>
 where
 	S: Predicate<AtspiState>,
-	E: Predicate<i32>,
+	E: Predicate<bool>,
 {
 	type Error = crate::OdiliaError;
 	fn try_from(ev: atspi::Event) -> Result<Self, Self::Error> {
@@ -58,7 +58,7 @@ where
 impl<S, E> TryFrom<StateChangedEvent> for StateChanged<S, E>
 where
 	S: Predicate<AtspiState>,
-	E: Predicate<i32>,
+	E: Predicate<bool>,
 {
 	type Error = crate::OdiliaError;
 	fn try_from(ev: StateChangedEvent) -> Result<Self, Self::Error> {
@@ -73,11 +73,11 @@ where
 impl<S, E> Predicate<StateChangedEvent> for StateChanged<S, E>
 where
 	S: Predicate<AtspiState>,
-	E: Predicate<i32>,
+	E: Predicate<bool>,
 {
 	fn test(ev: &StateChangedEvent) -> bool {
 		<S as Predicate<AtspiState>>::test(&ev.state)
-			&& <E as Predicate<i32>>::test(&ev.enabled)
+			&& <E as Predicate<bool>>::test(&ev.enabled)
 	}
 }
 
@@ -88,14 +88,14 @@ pub struct EnabledState;
 #[derive(Debug, Clone, Copy)]
 pub struct DisabledState;
 
-impl Predicate<i32> for EnabledState {
-	fn test(b: &i32) -> bool {
-		b > &0
+impl Predicate<bool> for EnabledState {
+	fn test(b: &bool) -> bool {
+		*b
 	}
 }
-impl Predicate<i32> for DisabledState {
-	fn test(b: &i32) -> bool {
-		b <= &0
+impl Predicate<bool> for DisabledState {
+	fn test(b: &bool) -> bool {
+		!*b
 	}
 }
 
