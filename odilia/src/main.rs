@@ -114,10 +114,10 @@ async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoComman
 	(Priority::Text, "Doc loaded")
 }
 
-use crate::tower::state_changed::{Focused, StateDisabled, StateEnabled};
+use crate::tower::state_changed::{Focused, Unfocused};
 
 #[tracing::instrument(ret)]
-async fn focused(state_changed: CacheEvent<StateEnabled<Focused>>) -> impl TryIntoCommands {
+async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(state_changed.item.text, Priority::Text).into(),
@@ -125,7 +125,7 @@ async fn focused(state_changed: CacheEvent<StateEnabled<Focused>>) -> impl TryIn
 }
 
 #[tracing::instrument(ret)]
-async fn unfocused(state_changed: CacheEvent<StateDisabled<Focused>>) -> impl TryIntoCommands {
+async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(state_changed.item.text, Priority::Text).into(),
