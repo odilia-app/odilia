@@ -460,7 +460,7 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let state_value = event.enabled == 1;
+		let state_value = event.enabled;
 		// update cache with state of item
 		let a11y_prim = AccessiblePrimitive::from_event(event);
 		if update_state(state, &a11y_prim, event.state, state_value)? {
@@ -469,7 +469,7 @@ mod state_changed {
 			tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state);
 		}
 		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (event.state, event.enabled == 1) {
+		match (event.state, event.enabled) {
 			(State::Focused, true) => focused(state, event).await?,
 			(state, enabled) => tracing::trace!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
