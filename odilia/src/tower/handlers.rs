@@ -25,14 +25,16 @@ use tower::ServiceExt;
 
 use tokio::sync::mpsc::Receiver;
 
+use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
 use odilia_common::command::{
 	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
 	OdiliaCommandDiscriminants as CommandDiscriminants, TryIntoCommands,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Deref, DerefMut)]
 pub struct CacheEvent<E: EventProperties + Debug> {
+	#[target]
 	pub inner: E,
 	pub item: CacheItem,
 }
