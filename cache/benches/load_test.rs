@@ -6,9 +6,12 @@ use std::{
 
 use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{Cache, CacheItem};
 
-use odilia_common::errors::{CacheError, OdiliaError};
+use odilia_common::{
+	cache::AccessiblePrimitive,
+	errors::{CacheError, OdiliaError},
+};
 use tokio::select;
 use tokio_test::block_on;
 
