@@ -2,8 +2,7 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	choice::ChoiceService,
-	choice::{Chooser, ChooserStatic},
+	choice::{ChoiceService, ChooserStatic},
 	from_state::TryFromState,
 	service_set::ServiceSet,
 	Handler, ServiceExt as OdiliaServiceExt,
@@ -25,19 +24,10 @@ use tower::ServiceExt;
 
 use tokio::sync::mpsc::Receiver;
 
-use derived_deref::{Deref, DerefMut};
-use odilia_cache::CacheItem;
 use odilia_common::command::{
-	CommandType, CommandTypeDynamic, OdiliaCommand as Command,
-	OdiliaCommandDiscriminants as CommandDiscriminants, TryIntoCommands,
+	CommandType, OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
+	TryIntoCommands,
 };
-
-#[derive(Debug, Clone, Deref, DerefMut)]
-pub struct CacheEvent<E: EventProperties + Debug> {
-	#[target]
-	pub inner: E,
-	pub item: CacheItem,
-}
 
 type Response = Vec<Command>;
 type Request = Event;
@@ -45,34 +35,6 @@ type Error = OdiliaError;
 
 type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
-
-impl<E> ChooserStatic<(&'static str, &'static str)> for E
-where
-	E: BusProperties,
-{
-	fn identifier() -> (&'static str, &'static str) {
-		(E::DBUS_INTERFACE, E::DBUS_MEMBER)
-	}
-}
-impl<C> ChooserStatic<CommandDiscriminants> for C
-where
-	C: CommandType,
-{
-	fn identifier() -> CommandDiscriminants {
-		C::CTYPE
-	}
-}
-
-impl Chooser<(&'static str, &'static str)> for Event {
-	fn identifier(&self) -> (&'static str, &'static str) {
-		(self.interface(), self.member())
-	}
-}
-impl Chooser<CommandDiscriminants> for Command {
-	fn identifier(&self) -> CommandDiscriminants {
-		self.ctype()
-	}
-}
 
 pub struct Handlers {
 	state: Arc<ScreenReaderState>,

@@ -1,7 +1,14 @@
+use atspi_common::{BusProperties, Event, EventTypeProperties};
 use futures::future::err;
 use futures::future::Either;
 use futures::TryFutureExt;
-use odilia_common::errors::OdiliaError;
+use odilia_common::{
+	command::{
+		CommandType, CommandTypeDynamic, OdiliaCommand as Command,
+		OdiliaCommandDiscriminants as CommandDiscriminants,
+	},
+	errors::OdiliaError,
+};
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
 use std::future::Future;
@@ -87,5 +94,33 @@ where
             )));
 		};
 		Either::Right(svc.call(req).err_into())
+	}
+}
+
+impl<E> ChooserStatic<(&'static str, &'static str)> for E
+where
+	E: BusProperties,
+{
+	fn identifier() -> (&'static str, &'static str) {
+		(E::DBUS_INTERFACE, E::DBUS_MEMBER)
+	}
+}
+impl<C> ChooserStatic<CommandDiscriminants> for C
+where
+	C: CommandType,
+{
+	fn identifier() -> CommandDiscriminants {
+		C::CTYPE
+	}
+}
+
+impl Chooser<(&'static str, &'static str)> for Event {
+	fn identifier(&self) -> (&'static str, &'static str) {
+		(self.interface(), self.member())
+	}
+}
+impl Chooser<CommandDiscriminants> for Command {
+	fn identifier(&self) -> CommandDiscriminants {
+		self.ctype()
 	}
 }

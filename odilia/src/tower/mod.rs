@@ -1,4 +1,6 @@
 pub mod async_try;
+pub mod cache_event;
+pub use cache_event::CacheEvent;
 pub mod choice;
 pub mod from_state;
 pub mod handler;
