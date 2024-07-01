@@ -18,26 +18,25 @@ pub use accessible_ext::AccessibleExt;
 
 use std::{
 	collections::HashMap,
+	fmt::Debug,
+	ops::Deref,
 	sync::{Arc, RwLock, Weak},
 };
 
 use atspi_common::{
-	object_ref::ObjectRef, ClipType, CoordType, EventProperties, Granularity, InterfaceSet,
-	RelationType, Role, StateSet,
+	ClipType, CoordType, EventProperties, Granularity, InterfaceSet, RelationType, Role,
+	StateSet,
 };
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use odilia_common::{
-	errors::{AccessiblePrimitiveConversionError, CacheError, OdiliaError},
+	cache::AccessiblePrimitive,
+	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use zbus::{
-	names::OwnedUniqueName,
-	zvariant::{ObjectPath, OwnedObjectPath},
-	CacheProperties, ProxyBuilder,
-};
+use zbus::CacheProperties;
 
 trait AllText {
 	async fn get_all_text(&self) -> Result<String, OdiliaError>;
@@ -52,121 +51,6 @@ impl AllText for TextProxy<'_> {
 type CacheKey = AccessiblePrimitive;
 type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
 type ThreadSafeCache = Arc<InnerCache>;
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
-/// A struct which represents the bare minimum of an accessible for purposes of caching.
-/// This makes some *possibly eronious* assumptions about what the sender is.
-pub struct AccessiblePrimitive {
-	/// The accessible ID, which is an arbitrary string specified by the application.
-	/// It is guaranteed to be unique per application.
-	/// Examples:
-	/// * /org/a11y/atspi/accessible/1234
-	/// * /org/a11y/atspi/accessible/null
-	/// * /org/a11y/atspi/accessible/root
-	/// * /org/Gnome/GTK/abab22-bbbb33-2bba2
-	pub id: String,
-	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	/// Examples:
-	/// * :1.1 (the first window has opened)
-	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
-	/// * :1.262 (many applications have been started on this bus)
-	pub sender: smartstring::alias::String,
-}
-impl AccessiblePrimitive {
-	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
-	/// # Errors
-	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub async fn into_accessible<'a>(
-		self,
-		conn: &zbus::Connection,
-	) -> zbus::Result<AccessibleProxy<'a>> {
-		let id = self.id;
-		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn)
-			.path(path)?
-			.destination(sender.as_str().to_owned())?
-			.cache_properties(CacheProperties::No)
-			.build()
-			.await
-	}
-	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
-	/// # Errors
-	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
-		let id = self.id;
-		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn)
-			.path(path)?
-			.destination(sender.as_str().to_owned())?
-			.cache_properties(CacheProperties::No)
-			.build()
-			.await
-	}
-	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
-	/// # Errors
-	/// The errors are self-explanitory variants of the [`odilia_common::errors::AccessiblePrimitiveConversionError`].
-	#[tracing::instrument(skip_all, level = "trace", ret, err)]
-	pub fn from_event<T: EventProperties>(
-		event: &T,
-	) -> Result<Self, AccessiblePrimitiveConversionError> {
-		let sender = event.sender();
-		let path = event.path();
-		let id = path.to_string();
-		Ok(Self { id, sender: sender.as_str().into() })
-	}
-}
-impl From<ObjectRef> for AccessiblePrimitive {
-	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.into()
-	}
-}
-
-impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
-	fn from(so: (OwnedUniqueName, OwnedObjectPath)) -> AccessiblePrimitive {
-		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.as_str().into() }
-	}
-}
-impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
-	#[tracing::instrument(level = "trace", ret)]
-	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
-		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-	#[tracing::instrument(level = "trace", ret)]
-	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
-		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
-	}
-}
-impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[tracing::instrument(level = "trace", ret, err)]
-	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible = accessible.inner();
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[tracing::instrument(level = "trace", ret, err)]
-	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible = accessible.inner();
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
-	}
-}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
@@ -223,10 +107,10 @@ impl CacheItem {
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_event<T: EventProperties>(
 		event: &T,
-		cache: Weak<Cache>,
+		cache: Arc<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		let a11y_prim = AccessiblePrimitive::from_event(event);
 		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
 	}
 	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
@@ -431,28 +315,17 @@ impl CacheItem {
 		&self,
 	) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
 		let cache = strong_cache(&self.cache)?;
-		as_accessible(self)
-			.await?
-			.get_relation_set()
-			.await?
-			.into_iter()
-			.map(|(relation, object_pairs)| {
-				(
-					relation,
-					object_pairs
-						.into_iter()
-						.map(|object_pair| {
-							cache.get(&object_pair.into()).ok_or(
-								OdiliaError::Cache(
-									CacheError::NoItem,
-								),
-							)
-						})
-						.collect::<Result<Vec<Self>, OdiliaError>>(),
-				)
-			})
-			.map(|(relation, result_selfs)| Ok((relation, result_selfs?)))
-			.collect::<Result<Vec<(RelationType, Vec<Self>)>, OdiliaError>>()
+		let ipc_rs = as_accessible(self).await?.get_relation_set().await?;
+		let mut relations = Vec::new();
+		for (relation, object_pairs) in ipc_rs {
+			let mut cache_keys = Vec::new();
+			for object_pair in object_pairs {
+				let cached = cache.get_ipc(&object_pair.into()).await?;
+				cache_keys.push(cached);
+			}
+			relations.push((relation, cache_keys));
+		}
+		Ok(relations)
 	}
 	/// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
 	/// # Errors
@@ -722,10 +595,16 @@ impl CacheItem {
 /// This contains (mostly) all accessibles in the entire accessibility tree, and
 /// they are referenced by their IDs. If you are having issues with incorrect or
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Cache {
 	pub by_id: ThreadSafeCache,
 	pub connection: zbus::Connection,
+}
+
+impl std::fmt::Debug for Cache {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(&format!("Cache {{ by_id: ...{} items..., .. }}", self.by_id.len()))
+	}
 }
 
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
@@ -734,7 +613,7 @@ pub struct Cache {
 impl Cache {
 	/// create a new, fresh cache
 	#[must_use]
-	#[tracing::instrument(level = "debug", ret)]
+	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
 			by_id: Arc::new(DashMap::with_capacity_and_hasher(
@@ -791,6 +670,18 @@ impl Cache {
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
+	}
+
+	/// Get a single item from the cache. This will also get the information from DBus if it does not
+	/// exist in the cache.
+	#[must_use]
+	#[tracing::instrument(level = "trace", ret)]
+	pub async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
+		if let Some(ci) = self.get(id) {
+			return Ok(ci);
+		}
+		let acc = id.clone().into_accessible(&self.connection).await?;
+		accessible_to_cache_item(&acc, self).await
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -865,7 +756,7 @@ impl Cache {
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
-		cache: Weak<Self>,
+		cache: Arc<Cache>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
@@ -925,6 +816,11 @@ impl Cache {
 		}
 		Ok(())
 	}
+	pub async fn from_event<T: EventProperties>(&self, ev: &T) -> OdiliaResult<CacheItem> {
+		let a11y_prim = AccessiblePrimitive::from_event(ev);
+		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?, self)
+			.await
+	}
 }
 
 /// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
@@ -939,9 +835,9 @@ impl Cache {
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err)]
-pub async fn accessible_to_cache_item(
+pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 	accessible: &AccessibleProxy<'_>,
-	cache: Weak<Cache>,
+	cache: C,
 ) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
@@ -971,6 +867,6 @@ pub async fn accessible_to_cache_item(
 		states,
 		text,
 		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
-		cache,
+		cache: Arc::downgrade(&Arc::new(cache.deref().clone())),
 	})
 }

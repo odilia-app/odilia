@@ -16,7 +16,7 @@ atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
 odilia-common.workspace = true
-dashmap = "5.4.0"
+dashmap = { version = "6.0.1", features = ["inline"] }
 serde = "1.0.147"
 tokio.workspace = true
 tracing.workspace = true

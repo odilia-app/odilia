@@ -11,8 +11,9 @@ categories = ["accessibility", "api-bindings"]
 edition = "2021"
 
 [dependencies]
-ssip-client-async.workspace = true
+ssip-client-async = { version = "0.13.0", features = ["tokio"] }
 tokio.workspace = true
 tokio-util.workspace=true
 tracing.workspace = true
 eyre.workspace = true
+ssip = "0.1.0"

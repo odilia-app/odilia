@@ -26,7 +26,7 @@ pub async fn structural_navigation(
 	role: Role,
 ) -> OdiliaResult<bool> {
 	tracing::debug!("Structural nav call begins!");
-	let curr = match state.history_item(0).await {
+	let curr = match state.history_item(0) {
 		Some(acc) => acc.into_accessible(state.atspi.connection()).await?,
 		None => return Ok(false),
 	};
@@ -36,7 +36,7 @@ pub async fn structural_navigation(
 		let curr_prim = curr.try_into()?;
 		let _: bool = comp.grab_focus().await?;
 		comp.scroll_to(ScrollType::TopLeft).await?;
-		state.update_accessible(curr_prim).await;
+		state.update_accessible(curr_prim);
 		let _: bool = texti.set_caret_offset(0).await?;
 		let role = next.get_role().await?;
 		let len = texti.character_count().await?;
@@ -58,34 +58,35 @@ pub async fn sr_event(
 ) -> eyre::Result<()> {
 	loop {
 		tokio::select! {
-		    sr_event = sr_events.recv() => {
-			tracing::debug!("SR Event received");
-			match sr_event {
-			    Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
-				 if let Err(e) = structural_navigation(&state, dir, role).await {
-				    tracing::debug!(error = %e, "There was an error with the structural navigation call.");
-				} else {
-					tracing::debug!("Structural navigation successful!");
-				}
-			    },
-			    Some(ScreenReaderEvent::StopSpeech) => {
-			      tracing::debug!("Stopping speech!");
-			      state.stop_speech().await;
-			    },
-			    Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
-						tracing::debug!("Changing mode to {:?}", new_sr_mode);
-						let mut sr_mode = state.mode.lock().await;
-						*sr_mode = new_sr_mode;
-			    }
-			    _ => { continue; }
-			};
-			continue;
-		    }
-		    () = shutdown.cancelled() => {
-			tracing::debug!("sr_event cancelled");
-			break;
-		    }
+			sr_event = sr_events.recv() => {
+			    tracing::debug!("SR Event received");
+			    match sr_event {
+				Some(ScreenReaderEvent::StructuralNavigation(dir, role)) => {
+				     if let Err(e) = structural_navigation(&state, dir, role).await {
+					tracing::debug!(error = %e, "There was an error with the structural navigation call.");
+				    } else {
+					    tracing::debug!("Structural navigation successful!");
+				    }
+				},
+				Some(ScreenReaderEvent::StopSpeech) => {
+				  tracing::debug!("Stopping speech!");
+				  state.stop_speech().await;
+				},
+				Some(ScreenReaderEvent::ChangeMode(new_sr_mode)) => {
+						    tracing::debug!("Changing mode to {:?}", new_sr_mode);
+						    if let Ok(mut sr_mode) = state.mode.lock() {
+		    *sr_mode = new_sr_mode;
 		}
+				}
+				_ => { continue; }
+			    };
+			    continue;
+			}
+			() = shutdown.cancelled() => {
+			    tracing::debug!("sr_event cancelled");
+			    break;
+			}
+		    }
 	}
 	Ok(())
 }
@@ -175,7 +176,7 @@ async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
 			);
 		}
 	}
-	state.event_history_update(event).await;
+	state.event_history_update(event);
 	Ok(())
 }
 

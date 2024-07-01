@@ -33,9 +33,9 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: nightly
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
@@ -68,16 +68,13 @@ jobs:
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: nightly
+          components: clippy
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          # "-- -D warnings" will make the job fail if their are clippy warnings
-          args: --workspace --no-deps -- -D warnings -W clippy::print_stdout
+        run: cargo clippy --tests --workspace --no-deps -- -D warnings
 
   rustfmt:
     runs-on: ubuntu-latest
@@ -86,17 +83,14 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: nightly
           components: rustfmt
 
       - name: Run formatter
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --check
+        run: cargo fmt --all --check
 
   rustdoc:
     runs-on: ubuntu-latest
@@ -119,14 +113,12 @@ jobs:
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: nightly
 
       - name: Generate Documentation
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
+        run: cargo doc --workspace --document-private-items
 
       - name: Deploy Documentation
         uses: peaceiris/actions-gh-pages@v3
@@ -159,7 +151,10 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: llvm-tools
       - name: cargo install llvm-cov
         uses: taiki-e/install-action@cargo-llvm-cov
       - name: cargo generate lockfile
@@ -199,7 +194,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: stable
+          toolchain: nightly
       - name: Install Cargo MSRV Verifier
         run: cargo install cargo-msrv --force
       - name: Check MSRV Compliance
