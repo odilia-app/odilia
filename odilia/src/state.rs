@@ -1,11 +1,10 @@
 use std::{fmt::Debug, sync::atomic::AtomicUsize};
 
-use crate::{tower::from_state::TryFromState, CacheEvent};
+use crate::tower::from_state::TryFromState;
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
 use futures::future::err;
 use futures::future::ok;
-use futures::future::Future;
 use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
 use std::sync::Mutex;
@@ -92,24 +91,6 @@ where
 	type Future = Ready<Result<Speech, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
 		ok(Speech(state.ssip.clone()))
-	}
-}
-
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for CacheEvent<E>
-where
-	E: EventProperties + Debug + Clone,
-{
-	type Error = OdiliaError;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	#[tracing::instrument(skip(state), ret)]
-	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
-		async move {
-			let a11y = AccessiblePrimitive::from_event(&event);
-			let proxy = a11y.into_accessible(state.connection()).await?;
-			let cache_item =
-				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
-			Ok(CacheEvent { inner: event, item: cache_item })
-		}
 	}
 }
 
