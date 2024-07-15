@@ -25,7 +25,7 @@ use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::CacheEvent;
+use crate::tower::{CacheEvent, cache_event::ActiveAppEvent};
 use crate::tower::Handlers;
 use clap::Parser;
 use eyre::WrapErr;
@@ -110,7 +110,7 @@ async fn speak(
 }
 
 #[tracing::instrument(ret)]
-async fn doc_loaded(loaded: CacheEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
+async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
 	(Priority::Text, "Doc loaded")
 }
 
