@@ -370,8 +370,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "atspi"
 version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be534b16650e35237bb1ed189ba2aab86ce65e88cc84c66f4935ba38575cecbf"
+source = "git+https://github.com/odilia-app/atspi/?branch=main#bfa3bc4e09bde61ae4bc41b52ec18b39a7840211"
 dependencies = [
  "atspi-common",
  "atspi-connection",
@@ -381,8 +380,7 @@ dependencies = [
 [[package]]
 name = "atspi-common"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1909ed2dc01d0a17505d89311d192518507e8a056a48148e3598fef5e7bb6ba7"
+source = "git+https://github.com/odilia-app/atspi/?branch=main#bfa3bc4e09bde61ae4bc41b52ec18b39a7840211"
 dependencies = [
  "enumflags2",
  "serde",
@@ -397,8 +395,7 @@ dependencies = [
 [[package]]
 name = "atspi-connection"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "430c5960624a4baaa511c9c0fcc2218e3b58f5dbcc47e6190cafee344b873333"
+source = "git+https://github.com/odilia-app/atspi/?branch=main#bfa3bc4e09bde61ae4bc41b52ec18b39a7840211"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -409,8 +406,7 @@ dependencies = [
 [[package]]
 name = "atspi-proxies"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5e6c5de3e524cf967569722446bcd458d5032348554d9a17d7d72b041ab7496"
+source = "git+https://github.com/odilia-app/atspi/?branch=main#bfa3bc4e09bde61ae4bc41b52ec18b39a7840211"
 dependencies = [
  "atspi-common",
  "serde",
@@ -865,11 +861,12 @@ dependencies = [
 
 [[package]]
 name = "dashmap"
-version = "5.5.3"
+version = "6.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "978747c1d849a7d2ee5e8adc0159961c48fb7e5db2f06af6723b80123bb53856"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
 dependencies = [
  "cfg-if",
+ "crossbeam-utils",
  "hashbrown 0.14.5",
  "lock_api",
  "once_cell",
