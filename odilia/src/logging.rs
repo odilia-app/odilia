@@ -9,6 +9,7 @@ use eyre::Context;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_tree::time::Uptime;
 use tracing_tree::HierarchicalLayer;
 
 /// Initialise the logging stack
@@ -25,7 +26,8 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 		.with_span_retrace(true)
 		.with_indent_lines(true)
 		.with_ansi(false)
-		.with_wraparound(4);
+		.with_wraparound(4)
+		.with_timer(Uptime::default());
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
 	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
@@ -39,7 +41,16 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 			.with_syslog_identifier("odilia".to_owned())
 			.boxed(),
 	};
-	tracing_subscriber::Registry::default()
+	#[cfg(feature = "tokio-console")]
+	let trace_sub = {
+		let console_layer = console_subscriber::spawn();
+		tracing_subscriber::Registry::default()
+			.with(EnvFilter::from("tokio=trace,runtime=trace"))
+			.with(console_layer)
+	};
+	#[cfg(not(feature = "tokio-console"))]
+	let trace_sub = { tracing_subscriber::Registry::default() };
+	trace_sub
 		.with(env_filter)
 		.with(ErrorLayer::default())
 		.with(final_layer)

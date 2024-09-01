@@ -5,11 +5,13 @@ use std::{
 };
 
 use atspi_connection::AccessibilityConnection;
-use atspi_proxies::accessible::Accessible;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{Cache, CacheItem};
 
-use odilia_common::errors::{CacheError, OdiliaError};
+use odilia_common::{
+	cache::AccessiblePrimitive,
+	errors::{CacheError, OdiliaError},
+};
 use tokio::select;
 use tokio_test::block_on;
 
@@ -59,7 +61,7 @@ async fn traverse_up(children: Vec<CacheItem>) {
 	for child in children {
 		let mut item = child.clone();
 		loop {
-			item = match item.parent().await {
+			item = match item.parent() {
 				Ok(item) => item,
 				Err(OdiliaError::Cache(CacheError::NoItem)) => {
 					// Missing item from cache; there's always exactly one.
@@ -121,7 +123,7 @@ async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items:
 
 fn cache_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
-	let a11y = block_on(AccessibilityConnection::open()).unwrap();
+	let a11y = block_on(AccessibilityConnection::new()).unwrap();
 	let zbus_connection = a11y.connection();
 
 	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");

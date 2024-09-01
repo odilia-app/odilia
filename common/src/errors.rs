@@ -1,3 +1,4 @@
+use crate::command::OdiliaCommand;
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
@@ -14,13 +15,49 @@ pub enum OdiliaError {
 	Zbus(zbus::Error),
 	ZbusFdo(zbus::fdo::Error),
 	Zvariant(zbus::zvariant::Error),
+	SendError(SendError),
 	Cache(CacheError),
 	InfallibleConversion(std::convert::Infallible),
 	ConversionError(std::num::TryFromIntError),
 	Config(ConfigError),
 	PoisoningError,
 	Generic(String),
+	Static(&'static str),
+	ServiceNotFound(String),
+	PredicateFailure(String),
 }
+
+impl From<&'static str> for OdiliaError {
+	fn from(s: &'static str) -> OdiliaError {
+		Self::Static(s)
+	}
+}
+
+#[derive(Debug)]
+pub enum SendError {
+	Atspi(atspi::Event),
+	Command(OdiliaCommand),
+	Ssip(ssip::Request),
+}
+
+macro_rules! send_err_impl {
+	($tokio_err:ty, $variant:path) => {
+		#[cfg(feature = "tokio")]
+		impl From<$tokio_err> for OdiliaError {
+			fn from(t_err: $tokio_err) -> OdiliaError {
+				OdiliaError::SendError($variant(t_err.0))
+			}
+		}
+	};
+}
+
+send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi);
+send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi);
+send_err_impl!(tokio::sync::broadcast::error::SendError<OdiliaCommand>, SendError::Command);
+send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command);
+send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
+send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip);
+
 #[derive(Debug)]
 pub enum ConfigError {
 	Figment(figment::Error),

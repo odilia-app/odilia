@@ -7,16 +7,26 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
+#![feature(impl_trait_in_assoc_type)]
 
 mod cli;
 mod events;
 mod logging;
 mod state;
+mod tower;
 
 use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
+use crate::state::AccessibleHistory;
+use crate::state::Command;
+use crate::state::CurrentCaretPos;
+use crate::state::LastCaretPos;
+use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
+use crate::state::Speech;
+use crate::tower::{CacheEvent, cache_event::ActiveAppEvent};
+use crate::tower::Handlers;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -24,10 +34,15 @@ use figment::{
 	Figment,
 };
 use futures::{future::FutureExt, StreamExt};
-use odilia_common::settings::ApplicationConfig;
+use odilia_common::{
+	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
+	errors::OdiliaError,
+	settings::ApplicationConfig,
+};
 use odilia_input::sr_event_receiver;
 use odilia_notify::listen_to_dbus_notifications;
-use ssip_client_async::Priority;
+use ssip::Priority;
+use ssip::Request as SSIPRequest;
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
@@ -78,8 +93,97 @@ async fn sigterm_signal_watcher(
 	Ok(())
 }
 
-#[tracing::instrument]
-#[tokio::main(flavor = "current_thread")]
+use atspi::events::document::LoadCompleteEvent;
+use atspi::events::object::TextCaretMovedEvent;
+use atspi::Granularity;
+use std::cmp::{max, min};
+
+#[tracing::instrument(ret, err)]
+async fn speak(
+	Command(Speak(text, priority)): Command<Speak>,
+	Speech(ssip): Speech,
+) -> Result<(), odilia_common::errors::OdiliaError> {
+	ssip.send(SSIPRequest::SetPriority(priority)).await?;
+	ssip.send(SSIPRequest::Speak).await?;
+	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
+	Ok(())
+}
+
+#[tracing::instrument(ret)]
+async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
+	(Priority::Text, "Doc loaded")
+}
+
+use crate::tower::state_changed::{Focused, Unfocused};
+
+#[tracing::instrument(ret)]
+async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
+	Ok(vec![
+		Focus(state_changed.item.object).into(),
+		Speak(state_changed.item.text, Priority::Text).into(),
+	])
+}
+
+#[tracing::instrument(ret)]
+async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
+	Ok(vec![
+		Focus(state_changed.item.object).into(),
+		Speak(state_changed.item.text, Priority::Text).into(),
+	])
+}
+
+#[tracing::instrument(ret, err)]
+async fn new_focused_item(
+	Command(Focus(new_focus)): Command<Focus>,
+	AccessibleHistory(old_focus): AccessibleHistory,
+) -> Result<(), OdiliaError> {
+	let _ = old_focus.lock()?.push(new_focus);
+	Ok(())
+}
+
+#[tracing::instrument(ret, err)]
+async fn new_caret_pos(
+	Command(CaretPos(new_pos)): Command<CaretPos>,
+	CurrentCaretPos(pos): CurrentCaretPos,
+) -> Result<(), OdiliaError> {
+	pos.store(new_pos, core::sync::atomic::Ordering::Relaxed);
+	Ok(())
+}
+
+#[tracing::instrument(ret, err)]
+async fn caret_moved(
+	caret_moved: CacheEvent<TextCaretMovedEvent>,
+	LastCaretPos(last_pos): LastCaretPos,
+	LastFocused(last_focus): LastFocused,
+) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+	let mut commands: Vec<OdiliaCommand> =
+		vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
+
+	if last_focus == caret_moved.item.object {
+		let start = min(caret_moved.inner.position.try_into()?, last_pos);
+		let end = max(caret_moved.inner.position.try_into()?, last_pos);
+		if let Some(text) = caret_moved.item.text.get(start..end) {
+			commands.extend((Priority::Text, text.to_string()).into_commands());
+		} else {
+			return Err(OdiliaError::Generic(format!(
+				"Slide {}..{} could not be created from {}",
+				start, end, caret_moved.item.text
+			)));
+		}
+	} else {
+		let (text, _, _) = caret_moved
+			.item
+			.get_string_at_offset(
+				caret_moved.inner.position.try_into()?,
+				Granularity::Line,
+			)
+			.await?;
+		commands.extend((Priority::Text, text).into_commands());
+	}
+	Ok(commands)
+}
+
+#[tokio::main]
 async fn main() -> eyre::Result<()> {
 	let args = Args::parse();
 
@@ -104,13 +208,12 @@ async fn main() -> eyre::Result<()> {
 		tracing::error!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
 	let (sr_event_tx, sr_event_rx) = mpsc::channel(128);
-	// this channel must NEVER fill up; it will cause the thread receiving events to deadlock due to a zbus design choice.
-	// If you need to make it bigger, then make it bigger, but do NOT let it ever fill up.
-	let (atspi_event_tx, atspi_event_rx) = mpsc::channel(128);
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
+	let (mut ev_tx, ev_rx) =
+		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
@@ -133,15 +236,27 @@ async fn main() -> eyre::Result<()> {
 		state.add_cache_match_rule(),
 	)?;
 
+	// load handlers
+	let handlers = Handlers::new(state.clone())
+		.command_listener(speak)
+		.command_listener(new_focused_item)
+		.command_listener(new_caret_pos)
+		.atspi_listener(doc_loaded)
+		.atspi_listener(caret_moved)
+		.atspi_listener(focused)
+		.atspi_listener(unfocused);
+
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
-	let atspi_event_receiver =
-		events::receive(Arc::clone(&state), atspi_event_tx, token.clone())
-			.map(|()| Ok::<_, eyre::Report>(()));
-	let atspi_event_processor =
-		events::process(Arc::clone(&state), atspi_event_rx, token.clone())
-			.map(|()| Ok::<_, eyre::Report>(()));
+	/*
+	      let atspi_event_receiver =
+		      events::receive(Arc::clone(&state), atspi_event_tx, token.clone())
+			      .map(|()| Ok::<_, eyre::Report>(()));
+	      let atspi_event_processor =
+		      events::process(Arc::clone(&state), atspi_event_rx, token.clone())
+			      .map(|()| Ok::<_, eyre::Report>(()));
+	*/
 	let odilia_event_receiver = sr_event_receiver(sr_event_tx, token.clone())
 		.map(|r| r.wrap_err("Could not process Odilia events"));
 	let odilia_event_processor =
@@ -149,13 +264,32 @@ async fn main() -> eyre::Result<()> {
 			.map(|r| r.wrap_err("Could not process Odilia event"));
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
+	let mut stream = state.atspi.event_stream();
+	// There is a reason we are not reading from the event stream directly.
+	// This `MessageStream` can only store 64 events in its buffer.
+	// And, even if it could store more (it can via options), `zbus` specifically states that:
+	// > You must ensure a MessageStream is continuously polled or you will experience hangs.
+	// So, we continually poll it here, then receive it on the other end.
+	// Additioanlly, since sending is not async, but simply errors when there is an issue, this will
+	// help us avoid hangs.
+	let event_send_task = async move {
+		std::pin::pin!(&mut stream);
+		while let Some(ev) = stream.next().await {
+			if let Err(e) = ev_tx.try_send(ev) {
+				tracing::error!("Error sending event across channel! {e:?}");
+			}
+		}
+	};
+	let atspi_handlers_task = handlers.atspi_handler(ev_rx);
 
-	tracker.spawn(atspi_event_receiver);
-	tracker.spawn(atspi_event_processor);
+	//tracker.spawn(atspi_event_receiver);
+	//tracker.spawn(atspi_event_processor);
 	tracker.spawn(odilia_event_receiver);
 	tracker.spawn(odilia_event_processor);
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
+	tracker.spawn(atspi_handlers_task);
+	tracker.spawn(event_send_task);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
 		.await

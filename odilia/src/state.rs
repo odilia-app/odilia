@@ -1,10 +1,15 @@
-use std::sync::atomic::AtomicUsize;
+use std::{fmt::Debug, sync::atomic::AtomicUsize};
 
+use crate::tower::from_state::TryFromState;
 use circular_queue::CircularQueue;
 use eyre::WrapErr;
+use futures::future::err;
+use futures::future::ok;
+use futures::future::Ready;
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use tokio::sync::{mpsc::Sender, Mutex};
-use tracing::{debug, Instrument};
+use std::sync::Mutex;
+use tokio::sync::mpsc::Sender;
+use tracing::{debug, Instrument, Level};
 use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
 
 use atspi_common::{
@@ -14,9 +19,11 @@ use atspi_common::{
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::Convertable;
-use odilia_cache::{AccessibleExt, AccessiblePrimitive, Cache, CacheItem};
+use odilia_cache::{AccessibleExt, Cache, CacheItem};
 use odilia_common::{
-	errors::CacheError,
+	cache::AccessiblePrimitive,
+	command::CommandType,
+	errors::{CacheError, OdiliaError},
 	modes::ScreenReaderMode,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
@@ -25,15 +32,112 @@ use odilia_common::{
 use std::sync::Arc;
 
 #[allow(clippy::module_name_repetitions)]
-pub struct ScreenReaderState {
+pub(crate) struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
-	pub previous_caret_position: AtomicUsize,
+	pub previous_caret_position: Arc<AtomicUsize>,
 	pub mode: Mutex<ScreenReaderMode>,
-	pub accessible_history: Mutex<CircularQueue<AccessiblePrimitive>>,
+	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
+}
+#[derive(Debug, Clone)]
+pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(AccessibleHistory(Arc::clone(&state.accessible_history)))
+	}
+}
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(CurrentCaretPos(Arc::clone(&state.previous_caret_position)))
+	}
+}
+
+#[derive(Debug, Clone)]
+pub struct LastFocused(pub AccessiblePrimitive);
+#[derive(Debug)]
+pub struct CurrentCaretPos(pub Arc<AtomicUsize>);
+#[derive(Debug, Clone)]
+pub struct LastCaretPos(pub usize);
+pub struct Speech(pub Sender<SSIPRequest>);
+#[derive(Debug)]
+pub struct Command<T>(pub T)
+where
+	T: CommandType;
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
+where
+	C: CommandType + Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Command<C>, Self::Error>>;
+	fn try_from_state(_state: Arc<ScreenReaderState>, cmd: C) -> Self::Future {
+		ok(Command(cmd))
+	}
+}
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Speech
+where
+	C: CommandType + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Speech, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(Speech(state.ssip.clone()))
+	}
+}
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastCaretPos
+where
+	E: Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
+		ok(LastCaretPos(
+			state.previous_caret_position
+				.load(core::sync::atomic::Ordering::Relaxed),
+		))
+	}
+}
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for LastFocused
+where
+	E: Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _event: E) -> Self::Future {
+		let span = tracing::span!(Level::INFO, "try_from_state");
+		let _enter = span.enter();
+		let Ok(ml) = state.accessible_history.lock() else {
+			let e = OdiliaError::Generic("Could not get a lock on the history mutex. This is usually due to memory corruption or degradation and is a fatal error.".to_string());
+			tracing::error!("{e:?}");
+			return err(e);
+		};
+		let Some(last) = ml.iter().nth(0).cloned() else {
+			let e = OdiliaError::Generic(
+				"There are no previously focused items.".to_string(),
+			);
+			tracing::error!("{e:?}");
+			return err(e);
+		};
+		ok(LastFocused(last))
+	}
+}
+
+enum ConfigType {
+	CliOverride,
+	XDGConfigHome,
+	Etc,
+	CreateDefault,
 }
 
 impl ScreenReaderState {
@@ -57,8 +161,8 @@ impl ScreenReaderState {
 
 		tracing::debug!("Reading configuration");
 
-		let previous_caret_position = AtomicUsize::new(0);
-		let accessible_history = Mutex::new(CircularQueue::with_capacity(16));
+		let previous_caret_position = Arc::new(AtomicUsize::new(0));
+		let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
 		let cache = Arc::new(Cache::new(atspi.connection().clone()));
 		ssip.send(SSIPRequest::SetPitch(
@@ -151,11 +255,11 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
-		let prim = AccessiblePrimitive::from_event(event)?;
+		let prim = AccessiblePrimitive::from_event(event);
 		if self.cache.get(&prim).is_none() {
 			self.cache.add(CacheItem::from_atspi_event(
 				event,
-				Arc::downgrade(&Arc::clone(&self.cache)),
+				Arc::clone(&self.cache),
 				self.atspi.connection(),
 			)
 			.await?)?;
@@ -212,7 +316,7 @@ impl ScreenReaderState {
 		// TODO: add logic for punctuation
 		Ok(text_selection)
 	}
-	#[tracing::instrument(skip_all)]
+	#[tracing::instrument(skip_all, err)]
 	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
@@ -260,25 +364,27 @@ impl ScreenReaderState {
 	}
 
 	#[allow(dead_code)]
-	pub async fn event_history_item(&self, index: usize) -> Option<Event> {
-		let history = self.event_history.lock().await;
+	pub fn event_history_item(&self, index: usize) -> Option<Event> {
+		let history = self.event_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}
 
-	pub async fn event_history_update(&self, event: Event) {
-		let mut history = self.event_history.lock().await;
-		history.push(event);
+	pub fn event_history_update(&self, event: Event) {
+		if let Ok(mut history) = self.event_history.lock() {
+			history.push(event);
+		}
 	}
 
-	pub async fn history_item<'a>(&self, index: usize) -> Option<AccessiblePrimitive> {
-		let history = self.accessible_history.lock().await;
+	pub fn history_item(&self, index: usize) -> Option<AccessiblePrimitive> {
+		let history = self.accessible_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}
 
 	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub async fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
-		let mut history = self.accessible_history.lock().await;
-		history.push(new_a11y);
+	pub fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
+		if let Ok(mut history) = self.accessible_history.lock() {
+			history.push(new_a11y);
+		}
 	}
 	pub async fn build_cache<'a, T>(&self, dest: T) -> OdiliaResult<CacheProxy<'a>>
 	where
@@ -304,7 +410,7 @@ impl ScreenReaderState {
 			.build()
 			.await?;
 		self.cache
-			.get_or_create(&accessible_proxy, Arc::downgrade(&self.cache))
+			.get_or_create(&accessible_proxy, Arc::clone(&self.cache))
 			.await
 	}
 	#[tracing::instrument(skip_all, ret, err)]

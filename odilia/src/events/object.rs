@@ -26,7 +26,7 @@ pub async fn dispatch(state: &ScreenReaderState, event: &ObjectEvents) -> eyre::
 
 mod text_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::events::object::TextChangedEvent;
+	use atspi_common::{events::object::TextChangedEvent, Operation};
 	use odilia_cache::CacheItem;
 	use odilia_common::{
 		errors::OdiliaError,
@@ -160,15 +160,9 @@ mod text_changed {
 		state: &ScreenReaderState,
 		event: &TextChangedEvent,
 	) -> eyre::Result<()> {
-		match event.operation.as_str() {
-			"insert/system" => insert_or_delete(state, event, true).await?,
-			"insert" => insert_or_delete(state, event, true).await?,
-			"delete/system" => insert_or_delete(state, event, false).await?,
-			"delete" => insert_or_delete(state, event, false).await?,
-			_ => tracing::trace!(
-				"TextChangedEvent has invalid kind: {}",
-				event.operation
-			),
+		match event.operation {
+			Operation::Insert => insert_or_delete(state, event, true).await?,
+			Operation::Delete => insert_or_delete(state, event, false).await?,
 		};
 		Ok(())
 	}
@@ -246,9 +240,9 @@ mod text_changed {
 
 mod children_changed {
 	use crate::state::ScreenReaderState;
-	use atspi_common::events::object::ChildrenChangedEvent;
-	use odilia_cache::{AccessiblePrimitive, CacheItem};
-	use odilia_common::result::OdiliaResult;
+	use atspi_common::{events::object::ChildrenChangedEvent, Operation};
+	use odilia_cache::CacheItem;
+	use odilia_common::{cache::AccessiblePrimitive, result::OdiliaResult};
 	use std::sync::Arc;
 
 	#[tracing::instrument(level = "debug", skip(state), err)]
@@ -257,10 +251,9 @@ mod children_changed {
 		event: &ChildrenChangedEvent,
 	) -> eyre::Result<()> {
 		// Dispatch based on kind
-		match event.operation.as_str() {
-			"remove" | "remove/system" => remove(state, event)?,
-			"add" | "add/system" => add(state, event).await?,
-			kind => tracing::debug!(kind, "Ignoring event with unknown kind"),
+		match event.operation {
+			Operation::Insert => add(state, event).await?,
+			Operation::Delete => remove(state, event)?,
 		}
 		Ok(())
 	}
@@ -272,10 +265,8 @@ mod children_changed {
 		let accessible = get_child_primitive(event)
 			.into_accessible(state.atspi.connection())
 			.await?;
-		let _: OdiliaResult<CacheItem> = state
-			.cache
-			.get_or_create(&accessible, Arc::downgrade(&Arc::clone(&state.cache)))
-			.await;
+		let _: OdiliaResult<CacheItem> =
+			state.cache.get_or_create(&accessible, Arc::clone(&state.cache)).await;
 		tracing::debug!("Add a single item to cache.");
 		Ok(())
 	}
@@ -369,7 +360,7 @@ mod text_caret_moved {
 			return Ok(false);
 		}
 		// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
-		let last_accessible = match state.history_item(0).await {
+		let last_accessible = match state.history_item(0) {
 			Some(acc) => state.get_or_create_cache_item(acc).await?,
 			None => return Ok(true),
 		};
@@ -398,7 +389,7 @@ mod text_caret_moved {
 		let new_item = state.get_or_create_event_object_to_cache(event).await?;
 
 		let new_prim = new_item.object.clone();
-		let text = match state.history_item(0).await {
+		let text = match state.history_item(0) {
 			Some(old_prim) => {
 				let old_pos = state.previous_caret_position.load(Ordering::Relaxed);
 				let old_item =
@@ -419,7 +410,7 @@ mod text_caret_moved {
 			}
 		};
 		state.say(Priority::Text, text).await;
-		state.update_accessible(new_prim).await;
+		state.update_accessible(new_prim);
 		Ok(())
 	}
 
@@ -443,7 +434,7 @@ mod text_caret_moved {
 mod state_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::{events::object::StateChangedEvent, State};
-	use odilia_cache::AccessiblePrimitive;
+	use odilia_common::cache::AccessiblePrimitive;
 
 	/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
 	/// This writes to the value in-place, and does not clone any values.
@@ -469,16 +460,16 @@ mod state_changed {
 		state: &ScreenReaderState,
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
-		let state_value = event.enabled == 1;
+		let state_value = event.enabled;
 		// update cache with state of item
-		let a11y_prim = AccessiblePrimitive::from_event(event)?;
+		let a11y_prim = AccessiblePrimitive::from_event(event);
 		if update_state(state, &a11y_prim, event.state, state_value)? {
 			tracing::trace!("Updating of the state was not successful! The item with id {:?} was not found in the cache.", a11y_prim.id);
 		} else {
 			tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state);
 		}
 		// enabled can only be 1 or 0, but is not a boolean over dbus
-		match (event.state, event.enabled == 1) {
+		match (event.state, event.enabled) {
 			(State::Focused, true) => focused(state, event).await?,
 			(state, enabled) => tracing::trace!(
 				"Ignoring state_changed event with unknown kind: {:?}/{}",
@@ -495,7 +486,7 @@ mod state_changed {
 		event: &StateChangedEvent,
 	) -> eyre::Result<()> {
 		let accessible = state.get_or_create_event_object_to_cache(event).await?;
-		if let Some(curr) = state.history_item(0).await {
+		if let Some(curr) = state.history_item(0) {
 			if curr == accessible.object {
 				return Ok(());
 			}
@@ -506,7 +497,7 @@ mod state_changed {
 			accessible.description(),
 			accessible.get_relation_set(),
 		)?;
-		state.update_accessible(accessible.object.clone()).await;
+		state.update_accessible(accessible.object.clone());
 		tracing::debug!(
 			"Focus event received on: {:?} with role {}",
 			accessible.object.id,
@@ -520,7 +511,7 @@ mod state_changed {
 		)
 		.await;
 
-		state.update_accessible(accessible.object).await;
+		state.update_accessible(accessible.object);
 		Ok(())
 	}
 }
@@ -531,7 +522,8 @@ mod tests {
 	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
 	use atspi_connection::AccessibilityConnection;
 	use lazy_static::lazy_static;
-	use odilia_cache::{AccessiblePrimitive, Cache, CacheItem};
+	use odilia_cache::{Cache, CacheItem};
+	use odilia_common::cache::AccessiblePrimitive;
 	use std::sync::Arc;
 	use tokio_test::block_on;
 
