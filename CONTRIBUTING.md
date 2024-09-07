@@ -29,7 +29,7 @@ Here is what you need to know if you want to add a new feature:
     - Then, add it to the list of `.atspi_listener(fn_name)` calls in `main`.
     - The list of possible `Command`s can be found in the type `OdiliaCommand` enum in `common/src/commands.rs`.
 - [ ] If a new `Command` is required, create a newtype, implement the `IntoCommands` trait, add it as a variant to the enum, then finally implement the `CommandType` trait.
-    - To add funcionality to this command, create an `async fn` that takes `Command(NewCommandType)` and `NewStateType` (if necessary).
+    - To add funcionality to this command, create an `async fn` that takes `Command(NewCommandType)` and `NewStateType` (if necessary). Finally, add it to the list of `.command_listener(fn_name)` calls in `main`.
 
 ## Performance Benchmarking
 
