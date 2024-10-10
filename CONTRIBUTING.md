@@ -18,7 +18,7 @@ Here is what you need to know if you want to add a new feature:
 - [ ] Find the AT-SPI event that corresponds to the desired feature
     - Take a look at the docs for `common/events/` and try to find the right event.
     - For example, to create a feature that reads out changed text in an aria-live region, you would want the event `TextChangedEvent`.
-- [ ] Decide if there are any pre-requisites to the feature being triggerwd (think: focused window only, open tab only, etc.)
+- [ ] Decide if there are any prerequisites to the feature being triggered (think: focused window only, open tab only, etc.)
 - [ ] See if the prerequisite is already defined
     - Check out the `odilia/src/tower/cache_event.rs` file for types that implement the `Predicate` trait (defined in the `refinement` create).
 - [ ] Decide what, if any, state is required for your feature (caret position, last focused item, etc.)
