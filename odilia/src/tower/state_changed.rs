@@ -115,7 +115,8 @@ macro_rules! impl_refinement_type {
 pub struct AnyState;
 
 impl Predicate<AtspiState> for AnyState {
-	fn test(outer: &AtspiState) -> bool {
+	#[allow(clippy::too_many_lines)]
+fn test	(outer: &AtspiState) -> bool {
 		match *outer {
 			AtspiState::Invalid => <StateInvalid as Predicate<AtspiState>>::test(outer),
 			AtspiState::Active => <StateActive as Predicate<AtspiState>>::test(outer),
