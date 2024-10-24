@@ -10,17 +10,6 @@ mod text_changed {
 	use ssip_client_async::Priority;
 	use std::collections::HashMap;
 
-	pub fn insert_at_range(
-		original: &str,
-		to_splice: &str,
-		start: usize,
-		end: usize,
-	) -> String {
-		let mut new_text = original.chars().collect::<Vec<char>>();
-		new_text.splice(start..end, to_splice.chars());
-		new_text.into_iter().collect()
-	}
-
 	/// Get the live state of a set of attributes.
 	/// Although the function only currently tests one attribute, in the future it may be important to inspect many attributes, compare them, or do additional logic.
 	#[tracing::instrument(level = "trace", ret)]
@@ -47,21 +36,6 @@ mod text_changed {
 		match attributes.get("atomic") {
 			None => Err(OdiliaError::NoAttributeError("atomic".to_string())),
 			Some(atomic) => Ok(serde_plain::from_str(atomic)?),
-		}
-	}
-
-	pub fn get_string_within_bounds(
-		start_pos: usize,
-		update_length: usize,
-	) -> impl Fn((usize, char)) -> Option<char> {
-		move |(index, chr)| {
-			let is_after_start = index >= start_pos;
-			let is_before_end = index <= start_pos + update_length;
-			if is_after_start && is_before_end {
-				Some(chr)
-			} else {
-				None
-			}
 		}
 	}
 
@@ -507,21 +481,6 @@ mod text_changed {
 					A11Y_PARAGRAPH_STRING,
 				),
 			];
-		}
-
-		macro_rules! check_answer_values {
-			($idx:literal) => {
-				assert_eq!(
-					tokio_test::block_on(new_position(
-						ANSWER_VALUES[$idx].0.clone(),
-						ANSWER_VALUES[$idx].1.clone(),
-						ANSWER_VALUES[$idx].2.try_into().unwrap(),
-						ANSWER_VALUES[$idx].3.try_into().unwrap(),
-					))
-					.unwrap(),
-					ANSWER_VALUES[$idx].4.to_string(),
-				);
-			};
 		}
 	}
 }
