@@ -25,8 +25,8 @@ use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
-use crate::tower::{CacheEvent, cache_event::ActiveAppEvent};
 use crate::tower::Handlers;
+use crate::tower::{cache_event::ActiveAppEvent, CacheEvent};
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{

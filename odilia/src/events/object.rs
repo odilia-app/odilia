@@ -1,8 +1,7 @@
-
 mod text_changed {
 	use crate::state::ScreenReaderState;
 	use atspi_common::events::object::TextChangedEvent;
-	
+
 	use odilia_common::{
 		errors::OdiliaError,
 		result::OdiliaResult,
