@@ -119,67 +119,6 @@ pub async fn receive(
 	}
 }
 
-#[tracing::instrument(level = "debug", skip_all)]
-pub async fn process(
-	state: Arc<ScreenReaderState>,
-	mut rx: Receiver<Event>,
-	shutdown: CancellationToken,
-) {
-	loop {
-		tokio::select! {
-			event = rx.recv() => {
-			    match event {
-				Some(good_event) => {
-		let state_arc = Arc::clone(&state);
-		tokio::task::spawn(
-		  dispatch_wrapper(state_arc, good_event)
-		);
-				},
-				None => {
-				    tracing::debug!("Event was none.");
-				}
-			    };
-			    continue;
-			}
-			() = shutdown.cancelled() => {
-			    tracing::debug!("process function is done");
-			    break;
-			}
-		    }
-	}
-}
-
-#[tracing::instrument(level = "debug", skip(state))]
-async fn dispatch_wrapper(state: Arc<ScreenReaderState>, good_event: Event) {
-	if let Err(e) = dispatch(&state, good_event).await {
-		tracing::error!(error = %e, "Could not handle event");
-	} else {
-		tracing::debug!("Event handled without error");
-	}
-}
-
-#[tracing::instrument(level = "debug", skip(state), ret, err)]
-async fn dispatch(state: &ScreenReaderState, event: Event) -> eyre::Result<()> {
-	// Dispatch based on interface
-	match &event {
-		Event::Object(object_event) => {
-			object::dispatch(state, object_event).await?;
-		}
-		Event::Document(document_event) => {
-			document::dispatch(state, document_event).await?;
-		}
-		Event::Cache(cache_event) => cache::dispatch(state, cache_event).await?,
-		other_event => {
-			tracing::debug!(
-				"Ignoring event with unknown interface: {:#?}",
-				other_event
-			);
-		}
-	}
-	state.event_history_update(event);
-	Ok(())
-}
-
 #[cfg(test)]
 pub mod dispatch_tests {
 	use crate::ScreenReaderState;
