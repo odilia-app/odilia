@@ -133,13 +133,6 @@ where
 	}
 }
 
-enum ConfigType {
-	CliOverride,
-	XDGConfigHome,
-	Etc,
-	CreateDefault,
-}
-
 impl ScreenReaderState {
 	#[tracing::instrument(skip_all)]
 	pub async fn new(

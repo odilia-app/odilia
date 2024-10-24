@@ -19,9 +19,6 @@ impl<S> Default for ServiceSet<S> {
 	}
 }
 impl<S> ServiceSet<S> {
-	pub fn new<I: IntoIterator<Item = S>>(services: I) -> Self {
-		ServiceSet { services: services.into_iter().collect() }
-	}
 	pub fn push(&mut self, svc: S) {
 		self.services.push(svc);
 	}

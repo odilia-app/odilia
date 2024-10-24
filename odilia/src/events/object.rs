@@ -1,13 +1,11 @@
 mod text_changed {
-	
-	
 
 	use odilia_common::{
 		errors::OdiliaError,
 		result::OdiliaResult,
 		types::{AriaAtomic, AriaLive},
 	};
-	
+
 	use std::collections::HashMap;
 
 	/// Get the live state of a set of attributes.
@@ -27,339 +25,161 @@ mod text_changed {
 			Some(atomic) => Ok(serde_plain::from_str(atomic)?),
 		}
 	}
+}
 
-	}
+mod children_changed {}
 
-	mod children_changed {
-		use crate::state::ScreenReaderState;
-		use atspi_common::{events::object::ChildrenChangedEvent, Operation};
-		use odilia_cache::CacheItem;
-		use odilia_common::{cache::AccessiblePrimitive, result::OdiliaResult};
-		use std::sync::Arc;
+mod text_caret_moved {
 
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn dispatch(
-			state: &ScreenReaderState,
-			event: &ChildrenChangedEvent,
-		) -> eyre::Result<()> {
-			// Dispatch based on kind
-			match event.operation {
-				Operation::Insert => add(state, event).await?,
-				Operation::Delete => remove(state, event)?,
-			}
-			Ok(())
-		}
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn add(
-			state: &ScreenReaderState,
-			event: &ChildrenChangedEvent,
-		) -> eyre::Result<()> {
-			let accessible = get_child_primitive(event)
-				.into_accessible(state.atspi.connection())
-				.await?;
-			let _: OdiliaResult<CacheItem> = state
-				.cache
-				.get_or_create(&accessible, Arc::clone(&state.cache))
-				.await;
-			tracing::debug!("Add a single item to cache.");
-			Ok(())
-		}
-		fn get_child_primitive(event: &ChildrenChangedEvent) -> AccessiblePrimitive {
-			event.child.clone().into()
-		}
-		#[tracing::instrument(level = "debug", skip(state), ret, err)]
-		pub fn remove(
-			state: &ScreenReaderState,
-			event: &ChildrenChangedEvent,
-		) -> eyre::Result<()> {
-			let prim = get_child_primitive(event);
-			state.cache.remove(&prim);
-			tracing::debug!("Remove a single item from cache.");
-			Ok(())
-		}
-	}
+	use atspi_common::Granularity;
+	use odilia_cache::CacheItem;
 
-	mod text_caret_moved {
-		use crate::state::ScreenReaderState;
-		use atspi_common::events::object::TextCaretMovedEvent;
-		use atspi_common::Granularity;
-		use odilia_cache::CacheItem;
-		use odilia_common::errors::{CacheError, OdiliaError};
-		use ssip_client_async::Priority;
-		use std::{
-			cmp::{max, min},
-			sync::atomic::Ordering,
-		};
-		use tracing::debug;
+	use odilia_common::errors::OdiliaError;
+	use std::cmp::{max, min};
+	use tracing::debug;
 
-		#[tracing::instrument(level = "debug", ret, err)]
-		pub async fn new_position(
-			new_item: CacheItem,
-			old_item: CacheItem,
-			new_position: usize,
-			old_position: usize,
-		) -> Result<String, OdiliaError> {
-			let new_id = new_item.object.clone();
-			let old_id = old_item.object.clone();
+	#[tracing::instrument(level = "debug", ret, err)]
+	pub async fn new_position(
+		new_item: CacheItem,
+		old_item: CacheItem,
+		new_position: usize,
+		old_position: usize,
+	) -> Result<String, OdiliaError> {
+		let new_id = new_item.object.clone();
+		let old_id = old_item.object.clone();
 
-			// if the user has moved into a new item, then also read a whole line.
-			debug!("{new_id:?},{old_id:?}");
-			debug!("{old_position},{new_position}");
-			if new_id != old_id {
-				return Ok(new_item
-					.get_string_at_offset(new_position, Granularity::Line)
-					.await?
-					.0);
-			}
-			let first_position = min(new_position, old_position);
-			let last_position = max(new_position, old_position);
-			// if there is one character between the old and new position
-			if new_position.abs_diff(old_position) == 1 {
-				return Ok(new_item
-					.get_string_at_offset(first_position, Granularity::Char)
-					.await?
-					.0);
-			}
-			let first_word = new_item
-				.get_string_at_offset(first_position, Granularity::Word)
-				.await?;
-			let last_word = old_item
-				.get_string_at_offset(last_position, Granularity::Word)
-				.await?;
-			// if words are the same
-			if first_word == last_word ||
-			// if the end position of the first word immediately preceeds the start of the second word
-			first_word.2.abs_diff(last_word.1) == 1
-			{
-				return new_item.get_text(first_position, last_position);
-			}
-			// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
-			if first_position == 0 && last_position == new_item.text.len() {
-				return Ok(new_item.text.clone());
-			}
-			Ok(new_item
+		// if the user has moved into a new item, then also read a whole line.
+		debug!("{new_id:?},{old_id:?}");
+		debug!("{old_position},{new_position}");
+		if new_id != old_id {
+			return Ok(new_item
 				.get_string_at_offset(new_position, Granularity::Line)
 				.await?
-				.0)
+				.0);
 		}
-
-		/// this must be checked *before* writing an accessible to the hsitory.
-		/// if this is checked after writing, it may give inaccurate results.
-		/// that said, this is a *guess* and not a guarentee.
-		/// TODO: make this a testable function, anything which queries "state" is not testable
-		async fn is_tab_navigation(
-			state: &ScreenReaderState,
-			event: &TextCaretMovedEvent,
-		) -> eyre::Result<bool> {
-			let current_caret_pos = event.position;
-			// if the caret position is not at 0, we know that it is not a tab navigation, this is because tab will automatically set the cursor position at 0.
-			if current_caret_pos != 0 {
-				return Ok(false);
-			}
-			// Hopefully this shouldn't happen, but technically the caret may change before any other event happens. Since we already know that the caret position is 0, it may be a caret moved event
-			let last_accessible = match state.history_item(0) {
-				Some(acc) => state.get_or_create_cache_item(acc).await?,
-				None => return Ok(true),
-			};
-			// likewise when getting the second-most recently focused accessible; we need the second-most recent accessible because it is possible that a tab navigation happened, which focused something before (or after) the caret moved events gets called, meaning the second-most recent accessible may be the only different accessible.
-			// if the accessible is focused before the event happens, the last_accessible variable will be the same as current_accessible.
-			// if the accessible is focused after the event happens, then the last_accessible will be different
-			let previous_caret_pos =
-				state.previous_caret_position.load(Ordering::Relaxed);
-			let current_accessible =
-				state.get_or_create_event_object_to_cache(event).await?;
-			// if we know that the previous caret position was not 0, and the current and previous accessibles are the same, we know that this is NOT a tab navigation.
-			if previous_caret_pos != 0
-				&& current_accessible.object == last_accessible.object
-			{
-				return Ok(false);
-			}
-			// otherwise, it probably was a tab navigation
-			Ok(true)
+		let first_position = min(new_position, old_position);
+		let last_position = max(new_position, old_position);
+		// if there is one character between the old and new position
+		if new_position.abs_diff(old_position) == 1 {
+			return Ok(new_item
+				.get_string_at_offset(first_position, Granularity::Char)
+				.await?
+				.0);
 		}
-
-		// TODO: left/right vs. up/down, and use generated speech
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn text_cursor_moved(
-			state: &ScreenReaderState,
-			event: &TextCaretMovedEvent,
-		) -> eyre::Result<()> {
-			if is_tab_navigation(state, event).await? {
-				return Ok(());
-			}
-			let new_item = state.get_or_create_event_object_to_cache(event).await?;
-
-			let new_prim = new_item.object.clone();
-			let text = match state.history_item(0) {
-				Some(old_prim) => {
-					let old_pos = state
-						.previous_caret_position
-						.load(Ordering::Relaxed);
-					let old_item = state
-						.cache
-						.get(&old_prim)
-						.ok_or(CacheError::NoItem)?;
-					let new_pos = event.position;
-					new_position(
-						new_item,
-						old_item,
-						new_pos.try_into().expect(
-							"Can not convert between i32 and usize",
-						),
-						old_pos,
-					)
-					.await?
-				}
-				None => {
-					// if no previous item exists, as in the screen reader has just loaded, then read out the whole item.
-					new_item.get_string_at_offset(0, Granularity::Paragraph)
-						.await?
-						.0
-				}
-			};
-			state.say(Priority::Text, text).await;
-			state.update_accessible(new_prim);
-			Ok(())
+		let first_word = new_item
+			.get_string_at_offset(first_position, Granularity::Word)
+			.await?;
+		let last_word = old_item
+			.get_string_at_offset(last_position, Granularity::Word)
+			.await?;
+		// if words are the same
+		if first_word == last_word ||
+			// if the end position of the first word immediately preceeds the start of the second word
+			first_word.2.abs_diff(last_word.1) == 1
+		{
+			return new_item.get_text(first_position, last_position);
 		}
-
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn dispatch(
-			state: &ScreenReaderState,
-			event: &TextCaretMovedEvent,
-		) -> eyre::Result<()> {
-			text_cursor_moved(state, event).await?;
-
-			state.previous_caret_position.store(
-				event.position
-					.try_into()
-					.expect("Converting from an i32 to a usize must not fail"),
-				Ordering::Relaxed,
-			);
-			Ok(())
+		// if the user has somehow from the beginning to the end. Usually happens with Home, the End.
+		if first_position == 0 && last_position == new_item.text.len() {
+			return Ok(new_item.text.clone());
 		}
-	} // end of text_caret_moved
-
-	mod state_changed {
-		
-		
-		
-
+		Ok(new_item
+			.get_string_at_offset(new_position, Granularity::Line)
+			.await?
+			.0)
 	}
+} // end of text_caret_moved
 
-	#[cfg(test)]
-	mod tests {
+mod state_changed {}
 
-		use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
-		use atspi_connection::AccessibilityConnection;
-		use lazy_static::lazy_static;
-		use odilia_cache::{Cache, CacheItem};
-		use odilia_common::cache::AccessiblePrimitive;
-		use std::sync::Arc;
-		use tokio_test::block_on;
+#[cfg(test)]
+mod tests {
 
-		static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
-		lazy_static! {
-			static ref ZBUS_CONN: AccessibilityConnection =
-				#[allow(clippy::unwrap_used)]
-				block_on(AccessibilityConnection::new()).unwrap();
-			static ref CACHE_ARC: Arc<Cache> =
-				Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
-			static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
-				object: AccessiblePrimitive {
-					id: "/org/a11y/atspi/accessible/1".to_string(),
-					sender: ":1.2".into(),
-				},
-				app: AccessiblePrimitive {
-					id: "/org/a11y/atspi/accessible/root".to_string(),
-					sender: ":1.2".into()
-				},
-				parent: AccessiblePrimitive {
-					id: "/otg/a11y/atspi/accessible/1".to_string(),
-					sender: ":1.2".into(),
-				}
-				.into(),
-				index: Some(323),
-				children_num: Some(0),
-				interfaces: InterfaceSet::new(
-					Interface::Accessible
-						| Interface::Collection | Interface::Component
-						| Interface::Hyperlink | Interface::Hypertext
-						| Interface::Text
-				),
-				role: Role::Paragraph,
-				states: StateSet::new(
-					State::Enabled
-						| State::Opaque | State::Showing | State::Visible
-				),
-				text: A11Y_PARAGRAPH_STRING.to_string(),
-				children: Vec::new(),
-				cache: Arc::downgrade(&CACHE_ARC),
-			};
-			static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					4,
-					3,
-					" "
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					3,
-					4,
-					" "
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					0,
-					3,
-					"The"
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					3,
-					0,
-					"The"
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					169,
-					182,
-					"Microsystems,"
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					77,
-					83,
-					" Linux"
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					181,
-					189,
-					", before"
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					0,
-					220,
-					A11Y_PARAGRAPH_STRING,
-				),
-				(
-					A11Y_PARAGRAPH_ITEM.clone(),
-					A11Y_PARAGRAPH_ITEM.clone(),
-					220,
-					0,
-					A11Y_PARAGRAPH_STRING,
-				),
-			];
-		}
+	use atspi_common::{Interface, InterfaceSet, Role, State, StateSet};
+	use atspi_connection::AccessibilityConnection;
+	use lazy_static::lazy_static;
+	use odilia_cache::{Cache, CacheItem};
+	use odilia_common::cache::AccessiblePrimitive;
+	use std::sync::Arc;
+	use tokio_test::block_on;
+
+	static A11Y_PARAGRAPH_STRING: &str = "The AT-SPI (Assistive Technology Service Provider Interface) enables users of Linux to use their computer without sighted assistance. It was originally developed at Sun Microsystems, before they were purchased by Oracle.";
+	lazy_static! {
+		static ref ZBUS_CONN: AccessibilityConnection =
+			#[allow(clippy::unwrap_used)]
+			block_on(AccessibilityConnection::new()).unwrap();
+		static ref CACHE_ARC: Arc<Cache> =
+			Arc::new(Cache::new(ZBUS_CONN.connection().clone()));
+		static ref A11Y_PARAGRAPH_ITEM: CacheItem = CacheItem {
+			object: AccessiblePrimitive {
+				id: "/org/a11y/atspi/accessible/1".to_string(),
+				sender: ":1.2".into(),
+			},
+			app: AccessiblePrimitive {
+				id: "/org/a11y/atspi/accessible/root".to_string(),
+				sender: ":1.2".into()
+			},
+			parent: AccessiblePrimitive {
+				id: "/otg/a11y/atspi/accessible/1".to_string(),
+				sender: ":1.2".into(),
+			}
+			.into(),
+			index: Some(323),
+			children_num: Some(0),
+			interfaces: InterfaceSet::new(
+				Interface::Accessible
+					| Interface::Collection | Interface::Component
+					| Interface::Hyperlink | Interface::Hypertext
+					| Interface::Text
+			),
+			role: Role::Paragraph,
+			states: StateSet::new(
+				State::Enabled | State::Opaque | State::Showing | State::Visible
+			),
+			text: A11Y_PARAGRAPH_STRING.to_string(),
+			children: Vec::new(),
+			cache: Arc::downgrade(&CACHE_ARC),
+		};
+		static ref ANSWER_VALUES: [(CacheItem, CacheItem, u32, u32, &'static str); 9] = [
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 4, 3, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 4, " "),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 0, 3, "The"),
+			(A11Y_PARAGRAPH_ITEM.clone(), A11Y_PARAGRAPH_ITEM.clone(), 3, 0, "The"),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				169,
+				182,
+				"Microsystems,"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				77,
+				83,
+				" Linux"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				181,
+				189,
+				", before"
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				0,
+				220,
+				A11Y_PARAGRAPH_STRING,
+			),
+			(
+				A11Y_PARAGRAPH_ITEM.clone(),
+				A11Y_PARAGRAPH_ITEM.clone(),
+				220,
+				0,
+				A11Y_PARAGRAPH_STRING,
+			),
+		];
 	}
-
+}
