@@ -1,13 +1,13 @@
 mod text_changed {
-	use crate::state::ScreenReaderState;
-	use atspi_common::events::object::TextChangedEvent;
+	
+	
 
 	use odilia_common::{
 		errors::OdiliaError,
 		result::OdiliaResult,
 		types::{AriaAtomic, AriaLive},
 	};
-	use ssip_client_async::Priority;
+	
 	use std::collections::HashMap;
 
 	/// Get the live state of a set of attributes.
@@ -20,17 +20,6 @@ mod text_changed {
 		}
 	}
 
-	/// if the aria-live attribute is set to "polite", then set the priority of the message to speak once all other messages are done
-	/// if the aria-live attribute is set to "assertive", then set the priority of the message to speak immediately, stop all other messages, and do not interrupt that piece of speech
-	/// otherwise, do not continue
-	pub fn live_to_priority(live_str: &AriaLive) -> Priority {
-		match live_str {
-			AriaLive::Assertive => Priority::Important,
-			AriaLive::Polite => Priority::Notification,
-			_ => Priority::Message,
-		}
-	}
-
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn get_atomic_state(attributes: &HashMap<String, String>) -> OdiliaResult<AriaAtomic> {
 		match attributes.get("atomic") {
@@ -39,40 +28,8 @@ mod text_changed {
 		}
 	}
 
-	pub fn get_string_without_bounds(
-		start_pos: usize,
-		update_length: usize,
-	) -> impl Fn((usize, char)) -> Option<char> {
-		move |(index, chr)| {
-			let is_before_start = index < start_pos;
-			let is_after_end = index > start_pos + update_length;
-			if is_before_start || is_after_end {
-				Some(chr)
-			} else {
-				None
-			}
-		}
 	}
 
-	#[tracing::instrument(level = "debug", skip(state))]
-	pub async fn speak_insertion(
-		state: &ScreenReaderState,
-		event: &TextChangedEvent,
-		attributes: &HashMap<String, String>,
-		cache_text: &str,
-	) -> OdiliaResult<()> {
-		// note, you should update the text before this happens, since this could potentially end the function
-		let live = get_live_state(attributes)?;
-		let atomic = get_atomic_state(attributes)?;
-		// if the atomic state is true, then read out the entite piece of text
-		// if atomic state is false, then only read out the portion which has been added
-		// otherwise, do not continue through this function
-		let text_to_say =
-			if atomic { cache_text.to_string() } else { (&event.text).into() };
-		let priority = live_to_priority(&live);
-		state.say(priority, text_to_say).await;
-		Ok(())
-	}
 	mod children_changed {
 		use crate::state::ScreenReaderState;
 		use atspi_common::{events::object::ChildrenChangedEvent, Operation};
@@ -283,88 +240,10 @@ mod text_changed {
 	} // end of text_caret_moved
 
 	mod state_changed {
-		use crate::state::ScreenReaderState;
-		use atspi_common::{events::object::StateChangedEvent, State};
-		use odilia_common::cache::AccessiblePrimitive;
+		
+		
+		
 
-		/// Update the state of an item in the cache using a `StateChanged` event and the `ScreenReaderState` as context.
-		/// This writes to the value in-place, and does not clone any values.
-		pub fn update_state(
-			state: &ScreenReaderState,
-			a11y: &AccessiblePrimitive,
-			state_changed: State,
-			active: bool,
-		) -> eyre::Result<bool> {
-			if active {
-				Ok(state.cache.modify_item(a11y, |cache_item| {
-					cache_item.states.remove(state_changed);
-				})?)
-			} else {
-				Ok(state.cache.modify_item(a11y, |cache_item| {
-					cache_item.states.insert(state_changed);
-				})?)
-			}
-		}
-
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn dispatch(
-			state: &ScreenReaderState,
-			event: &StateChangedEvent,
-		) -> eyre::Result<()> {
-			let state_value = event.enabled;
-			// update cache with state of item
-			let a11y_prim = AccessiblePrimitive::from_event(event);
-			if update_state(state, &a11y_prim, event.state, state_value)? {
-				tracing::trace!("Updating of the state was not successful! The item with id {:?} was not found in the cache.", a11y_prim.id);
-			} else {
-				tracing::trace!("Updated the state of accessible with ID {:?}, and state {:?} to {state_value}.", a11y_prim.id, event.state);
-			}
-			// enabled can only be 1 or 0, but is not a boolean over dbus
-			match (event.state, event.enabled) {
-				(State::Focused, true) => focused(state, event).await?,
-				(state, enabled) => tracing::trace!(
-					"Ignoring state_changed event with unknown kind: {:?}/{}",
-					state,
-					enabled
-				),
-			}
-			Ok(())
-		}
-
-		#[tracing::instrument(level = "debug", skip(state), err)]
-		pub async fn focused(
-			state: &ScreenReaderState,
-			event: &StateChangedEvent,
-		) -> eyre::Result<()> {
-			let accessible = state.get_or_create_event_object_to_cache(event).await?;
-			if let Some(curr) = state.history_item(0) {
-				if curr == accessible.object {
-					return Ok(());
-				}
-			}
-
-			let (name, description, relation) = tokio::try_join!(
-				accessible.name(),
-				accessible.description(),
-				accessible.get_relation_set(),
-			)?;
-			state.update_accessible(accessible.object.clone());
-			tracing::debug!(
-				"Focus event received on: {:?} with role {}",
-				accessible.object.id,
-				accessible.role,
-			);
-			tracing::debug!("Relations: {:?}", relation);
-
-			state.say(
-				ssip_client_async::Priority::Text,
-				format!("{name}, {0}. {description}", accessible.role),
-			)
-			.await;
-
-			state.update_accessible(accessible.object);
-			Ok(())
-		}
 	}
 
 	#[cfg(test)]
@@ -483,4 +362,4 @@ mod text_changed {
 			];
 		}
 	}
-}
+
