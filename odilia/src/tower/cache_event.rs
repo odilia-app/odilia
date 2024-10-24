@@ -8,16 +8,16 @@ use std::fmt::Debug;
 use std::{future::Future, marker::PhantomData, sync::Arc};
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
-pub type CacheEvent<E> = CacheEventPredicate<E, Always>;
-pub type ActiveAppEvent<E> = CacheEventPredicate<E, ActiveApplication>;
+pub type CacheEvent<E> = EventPredicate<E, Always>;
+pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;
 
 #[derive(Debug, Clone, Deref, DerefMut)]
-pub struct CacheEventInner<E: EventProperties + Debug> {
+pub struct InnerEvent<E: EventProperties + Debug> {
 	#[target]
 	pub inner: E,
 	pub item: CacheItem,
 }
-impl<E> CacheEventInner<E>
+impl<E> InnerEvent<E>
 where
 	E: EventProperties + Debug,
 {
@@ -27,24 +27,18 @@ where
 }
 
 #[derive(Debug, Clone, Deref, DerefMut)]
-pub struct CacheEventPredicate<
-	E: EventProperties + Debug,
-	P: Predicate<(E, Arc<ScreenReaderState>)>,
-> {
+pub struct EventPredicate<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> {
 	#[target]
 	pub inner: E,
 	pub item: CacheItem,
 	_marker: PhantomData<P>,
 }
-impl<E, P> CacheEventPredicate<E, P>
+impl<E, P> EventPredicate<E, P>
 where
 	E: EventProperties + Debug + Clone,
 	P: Predicate<(E, Arc<ScreenReaderState>)>,
 {
-	pub fn from_cache_event(
-		ce: CacheEventInner<E>,
-		state: Arc<ScreenReaderState>,
-	) -> Option<Self> {
+	pub fn from_cache_event(ce: InnerEvent<E>, state: Arc<ScreenReaderState>) -> Option<Self> {
 		if P::test(&(ce.inner.clone(), state)) {
 			return Some(Self { inner: ce.inner, item: ce.item, _marker: PhantomData });
 		}
@@ -74,7 +68,7 @@ where
 	}
 }
 
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for CacheEventInner<E>
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for InnerEvent<E>
 where
 	E: EventProperties + Debug + Clone,
 {
@@ -87,12 +81,12 @@ where
 			let proxy = a11y.into_accessible(state.connection()).await?;
 			let cache_item =
 				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
-			Ok(CacheEventInner::new(event, cache_item))
+			Ok(InnerEvent::new(event, cache_item))
 		}
 	}
 }
 
-impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for CacheEventPredicate<E, P>
+impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for EventPredicate<E, P>
 where
 	E: EventProperties + Debug + Clone,
 	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
@@ -106,8 +100,8 @@ where
 			let proxy = a11y.into_accessible(state.connection()).await?;
 			let cache_item =
 				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
-			let cache_event = CacheEventInner::new(event.clone(), cache_item);
-			CacheEventPredicate::from_cache_event(cache_event, state).ok_or(
+			let cache_event = InnerEvent::new(event.clone(), cache_item);
+			EventPredicate::from_cache_event(cache_event, state).ok_or(
 				OdiliaError::PredicateFailure(format!(
 					"Predicate cache event {} failed for event {:?}",
 					std::any::type_name::<P>(),
@@ -118,7 +112,7 @@ where
 	}
 }
 
-impl<E, P> EventProperties for CacheEventPredicate<E, P>
+impl<E, P> EventProperties for EventPredicate<E, P>
 where
 	E: EventProperties + Debug,
 	P: Predicate<(E, Arc<ScreenReaderState>)>,
