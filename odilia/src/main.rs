@@ -39,7 +39,7 @@ use odilia_common::{
 	errors::OdiliaError,
 	settings::ApplicationConfig,
 };
-use odilia_input::sr_event_receiver;
+
 use odilia_notify::listen_to_dbus_notifications;
 use ssip::Priority;
 use ssip::Request as SSIPRequest;
@@ -207,7 +207,6 @@ async fn main() -> eyre::Result<()> {
 	{
 		tracing::error!("Could not set AT-SPI2 IsEnabled property because: {}", e);
 	}
-	let (sr_event_tx, sr_event_rx) = mpsc::channel(128);
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
@@ -249,23 +248,10 @@ async fn main() -> eyre::Result<()> {
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
-	/*
-	      let atspi_event_receiver =
-		      events::receive(Arc::clone(&state), atspi_event_tx, token.clone())
-			      .map(|()| Ok::<_, eyre::Report>(()));
-	      let atspi_event_processor =
-		      events::process(Arc::clone(&state), atspi_event_rx, token.clone())
-			      .map(|()| Ok::<_, eyre::Report>(()));
-	*/
-	let odilia_event_receiver = sr_event_receiver(sr_event_tx, token.clone())
-		.map(|r| r.wrap_err("Could not process Odilia events"));
-	let odilia_event_processor =
-		events::sr_event(Arc::clone(&state), sr_event_rx, token.clone())
-			.map(|r| r.wrap_err("Could not process Odilia event"));
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
 	let mut stream = state.atspi.event_stream();
-	// There is a reason we are not reading from the event stream directly.
+// There is a reason we are not reading from the event stream directly.
 	// This `MessageStream` can only store 64 events in its buffer.
 	// And, even if it could store more (it can via options), `zbus` specifically states that:
 	// > You must ensure a MessageStream is continuously polled or you will experience hangs.
@@ -284,8 +270,8 @@ async fn main() -> eyre::Result<()> {
 
 	//tracker.spawn(atspi_event_receiver);
 	//tracker.spawn(atspi_event_processor);
-	tracker.spawn(odilia_event_receiver);
-	tracker.spawn(odilia_event_processor);
+	// tracker.spawn(odilia_event_receiver);
+	// tracker.spawn(odilia_event_processor);
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
