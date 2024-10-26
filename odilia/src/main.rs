@@ -251,7 +251,7 @@ async fn main() -> eyre::Result<()> {
 	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
 		.map(|r| r.wrap_err("Could not process signal shutdown."));
 	let mut stream = state.atspi.event_stream();
-// There is a reason we are not reading from the event stream directly.
+	// There is a reason we are not reading from the event stream directly.
 	// This `MessageStream` can only store 64 events in its buffer.
 	// And, even if it could store more (it can via options), `zbus` specifically states that:
 	// > You must ensure a MessageStream is continuously polled or you will experience hangs.
