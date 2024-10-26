@@ -1,6 +1,5 @@
 mod cache;
 mod document;
-mod object;
 
 use std::sync::Arc;
 
