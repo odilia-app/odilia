@@ -27,6 +27,7 @@ use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::Handlers;
 use crate::tower::{cache_event::ActiveAppEvent, CacheEvent};
+use atspi::RelationType;
 use clap::Parser;
 use eyre::WrapErr;
 use figment::{
@@ -118,9 +119,48 @@ use crate::tower::state_changed::{Focused, Unfocused};
 
 #[tracing::instrument(ret)]
 async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
+	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
+	let mut utterance_buffer = String::new();
+	//does this have a text or a name?
+	// in order for the borrow checker to not scream that we move ownership of item.text, therefore making item partially moved, we only take a reference here, because in truth the only thing that we need to know is if the string is empty, because the extending of the buffer will imply a clone anyway
+	let text = &state_changed.item.text;
+	if text.is_empty() {
+		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
+		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
+		let mut label = state_changed
+			.item
+			.name()
+			.await
+			.or(state_changed.item.description().await)?;
+		// if both of those errored out, we'd know, because we'd be out of here
+		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
+		if label.is_empty() {
+			label = state_changed
+				.item
+				.get_relation_set()
+				.await?
+				.into_iter()
+				// we only need entries which contain the wanted relationship, only labeled by for now
+				.filter(|elem| elem.0 == RelationType::LabelledBy)
+				// we have to remove the first item of the entries, because it's constant now that we filtered by it
+				//furthermore, after doing this, we'd have something like Vec<Vec<Item>>, which is not what we need, we need something like Vec<Item>, so we do both the flattening of the structure and the mapping in one function call
+				.flat_map(|this| this.1)
+				// from a collection of items, to a collection of strings, in this case the text of those labels, because yes, technically there can be more than one
+				.map(|this| this.text)
+				// gather all that into a string, separated by newlines or spaces I think
+				.collect();
+		}
+		utterance_buffer += &label;
+	} else {
+		//then just append to the buffer and be done with it
+		utterance_buffer += text;
+	}
+	let role = state_changed.item.role;
+	//there has to be a space between the accessible name of an object and its role, so insert it now
+	utterance_buffer += &format!(" {}", role.name().to_owned());
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
-		Speak(state_changed.item.text, Priority::Text).into(),
+		Speak(utterance_buffer, Priority::Text).into(),
 	])
 }
 
@@ -209,7 +249,7 @@ async fn main() -> eyre::Result<()> {
 	}
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
-	// Like the channel above, it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
+	//  it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	let (mut ev_tx, ev_rx) =
 		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
@@ -254,7 +294,7 @@ async fn main() -> eyre::Result<()> {
 	// There is a reason we are not reading from the event stream directly.
 	// This `MessageStream` can only store 64 events in its buffer.
 	// And, even if it could store more (it can via options), `zbus` specifically states that:
-	// > You must ensure a MessageStream is continuously polled or you will experience hangs.
+	// You must ensure a MessageStream is continuously polled or you will experience hangs.
 	// So, we continually poll it here, then receive it on the other end.
 	// Additioanlly, since sending is not async, but simply errors when there is an issue, this will
 	// help us avoid hangs.
@@ -268,10 +308,6 @@ async fn main() -> eyre::Result<()> {
 	};
 	let atspi_handlers_task = handlers.atspi_handler(ev_rx);
 
-	//tracker.spawn(atspi_event_receiver);
-	//tracker.spawn(atspi_event_processor);
-	// tracker.spawn(odilia_event_receiver);
-	// tracker.spawn(odilia_event_processor);
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
