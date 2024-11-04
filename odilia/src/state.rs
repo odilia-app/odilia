@@ -24,7 +24,6 @@ use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::{CacheError, OdiliaError},
-	modes::ScreenReaderMode,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
 	Result as OdiliaResult,
@@ -37,7 +36,6 @@ pub(crate) struct ScreenReaderState {
 	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
 	pub previous_caret_position: Arc<AtomicUsize>,
-	pub mode: Mutex<ScreenReaderMode>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
@@ -133,13 +131,6 @@ where
 	}
 }
 
-enum ConfigType {
-	CliOverride,
-	XDGConfigHome,
-	Etc,
-	CreateDefault,
-}
-
 impl ScreenReaderState {
 	#[tracing::instrument(skip_all)]
 	pub async fn new(
@@ -156,8 +147,6 @@ impl ScreenReaderState {
 			))
 			.await
 			.wrap_err("Failed to create org.freedesktop.DBus proxy")?;
-
-		let mode = Mutex::new(ScreenReaderMode { name: "CommandMode".to_string() });
 
 		tracing::debug!("Reading configuration");
 
@@ -212,7 +201,6 @@ impl ScreenReaderState {
 			dbus,
 			ssip,
 			previous_caret_position,
-			mode,
 			accessible_history,
 			event_history,
 			cache,

@@ -52,12 +52,6 @@ where
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
 	}
-	pub fn insert(&mut self, k: K, s: S)
-	where
-		K: Ord,
-	{
-		self.services.insert(k, s);
-	}
 	pub fn entry(&mut self, k: K) -> Entry<K, S>
 	where
 		K: Ord,
