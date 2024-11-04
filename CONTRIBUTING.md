@@ -24,7 +24,8 @@ Here is what you need to know if you want to add a new feature:
 - [ ] Decide what, if any, state is required for your feature (caret position, last focused item, etc.)
     - For example: to know if the current window is focused, the current window must be stored in the state of the screen reader.
 - [ ] Check to see if we already have your state info as a type; you can check this at `odilia/src/state.rs`.
-    - If not, make a [newtype](https://doc.rust-lang.org/book/ch19-04-advanced-types.html#using-the-newtype-pattern-for-type-safety-and-abstraction), add it to the `State` struct, then implement the `FromAsyncState` trait for the type (so it can be extracted by the `FromAsyncState` implementation).
+		- If not, make a [newtype](https://doc.rust-lang.org/book/ch19-04-advanced-types.html#using-the-newtype-pattern-for-type-safety-and-abstraction), add it to the `State` struct, then implement the `TryFromState` trait for the type (so it can be extracted by the `TryFromState` implementation).
+		- An example of how to implement `TryFromState` can be found in `odilia/src/state.rs`
 - [ ] Implement a new async function that takes `PreRequisiteType<EventType>`, and `StateType` (if necessary). That function can return a list of `Command`s that Odilia will act on.
     - Then, add it to the list of `.atspi_listener(fn_name)` calls in `main`.
     - The list of possible `Command`s can be found in the type `OdiliaCommand` enum in `common/src/commands.rs`.
