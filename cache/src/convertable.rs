@@ -7,7 +7,10 @@ use atspi_proxies::{
 	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
 use std::future::Future;
-use zbus::{proxy::ProxyImpl, CacheProperties, Error, Proxy, ProxyBuilder, ProxyDefault};
+use zbus::{
+	names::InterfaceName, proxy::Builder as ProxyBuilder, proxy::CacheProperties,
+	proxy::Defaults as ProxyDefault, proxy::ProxyImpl, Error, Proxy,
+};
 
 #[allow(clippy::module_name_repetitions)]
 pub trait Convertable<'a> {
@@ -88,10 +91,11 @@ async fn convert_to_new_type<
 		.build()
 		.await?;
 	// if the interface we're trying to convert to is not available as an interface; this can be problematic because the interface we're passing in could potentially be different from what we're converting to.
-	let new_interface_name: Interface = serde_plain::from_str(
-		<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?,
-	)
-	.map_err(|_| Error::InterfaceNotFound)?;
+	let new_interface_name_ref: &InterfaceName = <T as ProxyDefault>::INTERFACE
+		.as_ref()
+		.ok_or(Error::InterfaceNotFound)?;
+	let new_interface_name: Interface = serde_plain::from_str(new_interface_name_ref)
+		.map_err(|_| Error::InterfaceNotFound)?;
 	if !accessible.get_interfaces().await?.contains(new_interface_name) {
 		return Err(Error::InterfaceNotFound);
 	}
@@ -100,7 +104,11 @@ async fn convert_to_new_type<
 	let dest = from.destination().to_owned();
 
 	ProxyBuilder::<T>::new(from.connection())
-		.interface(<T as ProxyDefault>::INTERFACE.ok_or(Error::InterfaceNotFound)?)?
+		.interface(
+			<T as ProxyDefault>::INTERFACE
+				.as_ref()
+				.ok_or(Error::InterfaceNotFound)?,
+		)?
 		.destination(dest)?
 		.cache_properties(CacheProperties::No)
 		.path(path)?

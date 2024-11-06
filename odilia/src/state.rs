@@ -10,7 +10,10 @@ use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIP
 use std::sync::Mutex;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, Instrument, Level};
-use zbus::{fdo::DBusProxy, names::BusName, zvariant::ObjectPath, MatchRule, MessageType};
+use zbus::{
+	fdo::DBusProxy, message::Type as MessageType, names::BusName, proxy::CacheProperties,
+	zvariant::ObjectPath, MatchRule,
+};
 
 use atspi_common::{
 	events::{EventProperties, HasMatchRule, HasRegistryEventString},
@@ -409,7 +412,7 @@ impl ScreenReaderState {
 		let sender = event.sender().clone();
 		let path = event.path().to_owned();
 		Ok(AccessibleProxy::builder(self.connection())
-			.cache_properties(zbus::CacheProperties::No)
+			.cache_properties(CacheProperties::No)
 			.destination(sender)?
 			.path(path)?
 			.build()

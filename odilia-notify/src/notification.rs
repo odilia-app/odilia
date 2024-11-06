@@ -51,7 +51,7 @@ mod tests {
 	#[test]
 	fn correctly_formatted_message_leads_to_a_correct_notification() -> Result<(), zbus::Error>
 	{
-		let message = Message::method("/org/freedesktop/notifications", "notify")?
+		let message = Message::method_call("/org/freedesktop/notifications", "notify")?
 			.sender(":0.1")?
 			.interface("org.freedesktop.notifications")?
 			.build(&(
