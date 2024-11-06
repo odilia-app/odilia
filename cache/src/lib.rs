@@ -36,7 +36,7 @@ use odilia_common::{
 	result::OdiliaResult,
 };
 use serde::{Deserialize, Serialize};
-use zbus::CacheProperties;
+use zbus::proxy::CacheProperties;
 
 trait AllText {
 	async fn get_all_text(&self) -> Result<String, OdiliaError>;

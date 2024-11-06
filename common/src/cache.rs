@@ -2,7 +2,10 @@ use crate::{errors::AccessiblePrimitiveConversionError, ObjectPath};
 use atspi::{EventProperties, ObjectRef};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use serde::{Deserialize, Serialize};
-use zbus::{names::OwnedUniqueName, zvariant::OwnedObjectPath, CacheProperties, ProxyBuilder};
+use zbus::{
+	names::OwnedUniqueName, proxy::Builder as ProxyBuilder, proxy::CacheProperties,
+	zvariant::OwnedObjectPath,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.

@@ -1,7 +1,9 @@
 use futures::{Stream, StreamExt};
 use tracing::{debug, info, instrument};
 
-use zbus::{fdo::MonitoringProxy, Connection, MatchRule, MessageStream, MessageType};
+use zbus::{
+	fdo::MonitoringProxy, message::Type as MessageType, Connection, MatchRule, MessageStream,
+};
 mod action;
 mod notification;
 mod urgency;
