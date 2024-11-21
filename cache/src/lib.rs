@@ -15,6 +15,7 @@ mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
 pub use accessible_ext::AccessibleExt;
+mod role_set;
 
 use std::{
 	collections::HashMap,
