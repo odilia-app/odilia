@@ -1,13 +1,14 @@
 use atspi::Role;
 use core::fmt;
 use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
+use serde::{Deserialize, Serialize};
 
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RoleSet(u128, u8);
 
 impl RoleSet {
-	const EMPTY: RoleSet = RoleSet(0, 0);
-	const ALL: RoleSet = RoleSet(u128::MAX, u8::MAX);
+	pub const EMPTY: RoleSet = RoleSet(0, 0);
+	pub const ALL: RoleSet = RoleSet(u128::MAX, u8::MAX);
 
 	const fn from_role(role: Role) -> Self {
 		let (low, high) = role_bits(role);
