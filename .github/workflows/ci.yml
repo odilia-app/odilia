@@ -173,36 +173,3 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_fail: true
-  #find-msrv:
-  #  runs-on: ubuntu-latest
-  #  outputs:
-  #    version: ${{ steps.step2.outputs.version }}
-  #  steps:
-  #    - uses: actions/checkout@v4
-  #    - id: step2
-  #      run: echo "version=`cat odilia/Cargo.toml | sed -n 's/rust-version = "\(.*\)"/\1/p'`" >> "$GITHUB_OUTPUT"
-  #msrv-compliance:
-	#	needs: [find-msrv]
-  #  runs-on: ubuntu-latest
-  #  steps:
-  #    - name: Git checkout
-  #      uses: actions/checkout@v3
-  #    - name: Cache cargo home
-  #      uses: actions/cache@v3
-  #      env:
-  #        cache-name: cache-cargo-home
-  #      with:
-  #        path: |
-  #          ~/.cargo/bin
-  #          ~/.cargo/registry/index
-  #          ~/.cargo/registry/cache
-  #          ~/.cargo/git/db
-  #        key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-  #        restore-keys: |
-  #          ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-  #    - name: Install Rust
-  #      uses: dtolnay/rust-toolchain@master
-  #      with:
-  #        toolchain: ${{ needs.find-msrv.outputs.version }}
-  #    - name: Check MSRV Compliance
-  #      run: cargo test --workspace --no-run
