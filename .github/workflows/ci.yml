@@ -173,7 +173,16 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           fail_ci_if_fail: true
+  #find-msrv:
+  #  runs-on: ubuntu-latest
+  #  outputs:
+  #    version: ${{ steps.step2.outputs.version }}
+  #  steps:
+  #    - uses: actions/checkout@v4
+  #    - id: step2
+  #      run: echo "version=`cat odilia/Cargo.toml | sed -n 's/rust-version = "\(.*\)"/\1/p'`" >> "$GITHUB_OUTPUT"
   #msrv-compliance:
+	#	needs: [find-msrv]
   #  runs-on: ubuntu-latest
   #  steps:
   #    - name: Git checkout
@@ -194,9 +203,6 @@ jobs:
   #    - name: Install Rust
   #      uses: dtolnay/rust-toolchain@master
   #      with:
-  #        toolchain: nightly
-  #    - name: Install Cargo MSRV Verifier
-  #      run: cargo install cargo-msrv --force
+  #        toolchain: ${{ needs.find-msrv.outputs.version }}
   #    - name: Check MSRV Compliance
-  #      # check msrv compliance *inside* the binary odilia directory instead of the worksapce
-  #      run: cd odilia && cargo msrv verify
+  #      run: cargo test --workspace --no-run
