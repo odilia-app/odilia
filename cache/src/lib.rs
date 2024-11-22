@@ -16,10 +16,12 @@ pub use convertable::Convertable;
 mod accessible_ext;
 pub use accessible_ext::AccessibleExt;
 mod role_set;
+use role_set::RoleSet;
 
 use std::{
 	collections::HashMap,
 	fmt::Debug,
+	future::Future,
 	ops::Deref,
 	sync::{Arc, RwLock, Weak},
 };
@@ -79,6 +81,8 @@ pub struct CacheItem {
 
 	#[serde(skip)]
 	pub cache: Weak<Cache>,
+	/// The set of all roles contained within this node and all children.
+	roleset: RoleSet,
 }
 impl CacheItem {
 	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
@@ -139,6 +143,8 @@ impl CacheItem {
 				.into_iter()
 				.map(|child_object_pair| CacheRef::new(child_object_pair.into()))
 				.collect();
+		let c = Weak::upgrade(&cache).expect("The cache should never be deallocated");
+		let roleset = Cache::make_roleset(&children, &c, connection).await?;
 		Ok(Self {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
@@ -151,6 +157,7 @@ impl CacheItem {
 			text: atspi_cache_item.name,
 			cache,
 			children,
+			roleset,
 		})
 	}
 	/// Convert an [`atspi::LegacyCacheItem`] into a [`crate::CacheItem`].
@@ -174,22 +181,27 @@ impl CacheItem {
 			.await?
 			.get_index_in_parent()
 			.await?;
+		let children_num = Some(atspi_cache_item.children.len());
+		let children = atspi_cache_item
+			.children
+			.into_iter()
+			.map(|or| CacheRef::new(or.into()))
+			.collect();
+		let c = Weak::upgrade(&cache).expect("The cache should never be deallocated");
+		let roleset = Cache::make_roleset(&children, &c, connection).await?;
 		Ok(Self {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
 			parent: CacheRef::new(atspi_cache_item.parent.into()),
 			index: index.try_into().ok(),
-			children_num: Some(atspi_cache_item.children.len()),
+			children_num,
 			interfaces: atspi_cache_item.ifaces,
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 			cache,
-			children: atspi_cache_item
-				.children
-				.into_iter()
-				.map(|or| CacheRef::new(or.into()))
-				.collect(),
+			children,
+			roleset,
 		})
 	}
 	// Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
@@ -612,6 +624,23 @@ impl std::fmt::Debug for Cache {
 // entries. When adding async methods, take care not to hold these mutexes
 // across .await points.
 impl Cache {
+	fn make_roleset<'a, C: Deref<Target = Cache>>(
+		children: &'a Vec<CacheRef>,
+		cache: &'a C,
+		connection: &'a zbus::Connection,
+	) -> impl Future<Output = OdiliaResult<RoleSet>> + 'a {
+		Box::pin(async move {
+			let mut set = RoleSet::EMPTY;
+			for child_ref in children {
+				let child_acc =
+					child_ref.key.clone().into_accessible(connection).await?;
+				let child = cache.get_or_create(&child_acc).await?;
+				set |= child.role;
+			}
+			Ok(set)
+		})
+	}
+
 	/// create a new, fresh cache
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
@@ -757,7 +786,6 @@ impl Cache {
 	pub async fn get_or_create(
 		&self,
 		accessible: &AccessibleProxy<'_>,
-		cache: Arc<Cache>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		let primitive = accessible.try_into()?;
@@ -766,7 +794,7 @@ impl Cache {
 		}
 		// otherwise, build a cache item
 		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(accessible, cache).await?;
+		let cache_item = accessible_to_cache_item(accessible, self).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
@@ -857,6 +885,10 @@ pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 		// otherwise, use the name instaed
 		Err(_) => Ok(accessible.name().await?),
 	}?;
+	let children: Vec<CacheRef> =
+		children.into_iter().map(|k| CacheRef::new(k.into())).collect();
+	let roleset =
+		Cache::make_roleset(&children, &cache, accessible.inner().connection()).await?;
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.into(),
@@ -867,7 +899,8 @@ pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 		role,
 		states,
 		text,
-		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
+		children,
 		cache: Arc::downgrade(&Arc::new(cache.deref().clone())),
+		roleset,
 	})
 }
