@@ -43,7 +43,7 @@ odilia-input = { path = "../input", version = "0.0.3" }
 odilia-tts = { path = "../tts", version = "0.1.4" }
 serde_json.workspace = true
 serde_plain.workspace = true
-ssip-client-async = { version = "0.13.0", features = ["tokio"] }
+ssip-client-async = { version = "0.14.0", features = ["tokio"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tracing-error.workspace = true
 tracing-log.workspace = true
@@ -59,7 +59,7 @@ toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
 tower = { version = "0.4.13", features = ["util", "filter", "steer"] }
-ssip = "0.1.0"
+ssip = "0.2.0"
 futures-lite = "2.3.0"
 pin-project = "1.1.5"
 static_assertions = "1.1.0"
