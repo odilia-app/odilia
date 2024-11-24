@@ -19,7 +19,7 @@ pub use accessible_ext::AccessibleExt;
 use std::{
 	collections::HashMap,
 	fmt::Debug,
-	ops::Deref,
+	future::Future,
 	sync::{Arc, RwLock, Weak},
 };
 
@@ -111,7 +111,11 @@ impl CacheItem {
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event);
-		accessible_to_cache_item(&a11y_prim.into_accessible(connection).await?, cache).await
+		accessible_to_cache_item(
+			&a11y_prim.into_accessible(connection).await?,
+			Arc::downgrade(&cache),
+		)
+		.await
 	}
 	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
 	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
@@ -607,6 +611,42 @@ impl std::fmt::Debug for Cache {
 	}
 }
 
+pub trait CacheExt {
+	fn get_ipc(
+		&self,
+		id: &CacheKey,
+	) -> impl Future<Output = Result<CacheItem, OdiliaError>> + Send;
+	fn item_from_event<T: EventProperties + Sync>(
+		&self,
+		ev: &T,
+	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
+}
+
+impl CacheExt for Arc<Cache> {
+	/// Get a single item from the cache. This will also get the information from DBus if it does not
+	/// exist in the cache.
+	#[must_use]
+	#[tracing::instrument(level = "trace", ret)]
+	async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
+		if let Some(ci) = self.get(id) {
+			return Ok(ci);
+		}
+		let acc = id.clone().into_accessible(&self.connection).await?;
+		accessible_to_cache_item(&acc, Arc::downgrade(self)).await
+	}
+	async fn item_from_event<T: EventProperties + Sync>(
+		&self,
+		ev: &T,
+	) -> OdiliaResult<CacheItem> {
+		let a11y_prim = AccessiblePrimitive::from_event(ev);
+		accessible_to_cache_item(
+			&a11y_prim.into_accessible(&self.connection).await?,
+			Arc::downgrade(self),
+		)
+		.await
+	}
+}
+
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
 // entries. When adding async methods, take care not to hold these mutexes
 // across .await points.
@@ -670,18 +710,6 @@ impl Cache {
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
-	}
-
-	/// Get a single item from the cache. This will also get the information from DBus if it does not
-	/// exist in the cache.
-	#[must_use]
-	#[tracing::instrument(level = "trace", ret)]
-	pub async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
-		if let Some(ci) = self.get(id) {
-			return Ok(ci);
-		}
-		let acc = id.clone().into_accessible(&self.connection).await?;
-		accessible_to_cache_item(&acc, self).await
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -765,7 +793,8 @@ impl Cache {
 		}
 		// otherwise, build a cache item
 		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(accessible, cache).await?;
+		let cache_item =
+			accessible_to_cache_item(accessible, Arc::downgrade(&cache)).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
@@ -816,11 +845,6 @@ impl Cache {
 		}
 		Ok(())
 	}
-	pub async fn from_event<T: EventProperties>(&self, ev: &T) -> OdiliaResult<CacheItem> {
-		let a11y_prim = AccessiblePrimitive::from_event(ev);
-		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?, self)
-			.await
-	}
 }
 
 /// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
@@ -835,9 +859,9 @@ impl Cache {
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err)]
-pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
+pub async fn accessible_to_cache_item(
 	accessible: &AccessibleProxy<'_>,
-	cache: C,
+	cache: Weak<Cache>,
 ) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
@@ -867,6 +891,6 @@ pub async fn accessible_to_cache_item<C: Deref<Target = Cache> + Debug>(
 		states,
 		text,
 		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
-		cache: Arc::downgrade(&Arc::new(cache.deref().clone())),
+		cache,
 	})
 }
