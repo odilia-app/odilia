@@ -26,7 +26,7 @@ use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::Handlers;
-use crate::tower::{cache_event::ActiveAppEvent, CacheEvent};
+use crate::tower::{cache_event::ActiveAppEvent, CacheEvent, Description, Name, RelationSet};
 use atspi::RelationType;
 use clap::Parser;
 use eyre::WrapErr;
@@ -118,7 +118,12 @@ async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCo
 use crate::tower::state_changed::{Focused, Unfocused};
 
 #[tracing::instrument(ret)]
-async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
+async fn focused(
+	state_changed: CacheEvent<Focused>,
+	name: Name,
+	description: Description,
+	relation_set: RelationSet,
+) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
 	//does this have a text or a name?
@@ -127,29 +132,26 @@ async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
 	if text.is_empty() {
 		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
 		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
-		let mut label = state_changed
-			.item
-			.name()
-			.await
-			.or(state_changed.item.description().await)?;
+		let label = if let Some(n) = name.as_deref() {
+			n.to_string()
+		} else if let Some(d) = description.as_deref() {
+			d.to_string()
 		// if both of those errored out, we'd know, because we'd be out of here
 		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
-		if label.is_empty() {
-			label = state_changed
-				.item
-				.get_relation_set()
-				.await?
-				.into_iter()
+		} else {
+			relation_set
+				.iter()
 				// we only need entries which contain the wanted relationship, only labeled by for now
 				.filter(|elem| elem.0 == RelationType::LabelledBy)
+				.cloned()
 				// we have to remove the first item of the entries, because it's constant now that we filtered by it
 				//furthermore, after doing this, we'd have something like Vec<Vec<Item>>, which is not what we need, we need something like Vec<Item>, so we do both the flattening of the structure and the mapping in one function call
 				.flat_map(|this| this.1)
 				// from a collection of items, to a collection of strings, in this case the text of those labels, because yes, technically there can be more than one
 				.map(|this| this.text)
 				// gather all that into a string, separated by newlines or spaces I think
-				.collect();
-		}
+				.collect()
+		};
 		utterance_buffer += &label;
 	} else {
 		//then just append to the buffer and be done with it
