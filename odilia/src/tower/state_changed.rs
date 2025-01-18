@@ -1,6 +1,6 @@
 use atspi_common::{
-  events::MessageConversion,
-	events::object::StateChangedEvent, AtspiError, EventProperties, State as AtspiState,
+	events::object::StateChangedEvent, events::MessageConversion, AtspiError, EventProperties,
+	State as AtspiState,
 };
 use derived_deref::{Deref, DerefMut};
 use refinement::Predicate;
@@ -34,13 +34,17 @@ where
 	const REGISTRY_EVENT_STRING: &'static str = StateChangedEvent::REGISTRY_EVENT_STRING;
 }
 impl<S, E> MessageConversion for StateChanged<S, E>
-    where StateChanged<S, E>: TryFrom<StateChangedEvent>, 
+where
+	StateChanged<S, E>: TryFrom<StateChangedEvent>,
 {
 	type Body = <StateChangedEvent as MessageConversion>::Body;
-  fn from_message_unchecked(msg: &zbus::Message) -> Result<Self, AtspiError> {
-      Self::from_message_unchecked_parts(msg.try_into()?, msg.body().deserialize()?)
-  }
-	fn from_message_unchecked_parts(or: atspi::ObjectRef, bdy: Self::Body) -> Result<Self, AtspiError> {
+	fn from_message_unchecked(msg: &zbus::Message) -> Result<Self, AtspiError> {
+		Self::from_message_unchecked_parts(msg.try_into()?, msg.body().deserialize()?)
+	}
+	fn from_message_unchecked_parts(
+		or: atspi::ObjectRef,
+		bdy: Self::Body,
+	) -> Result<Self, AtspiError> {
 		let ev = StateChangedEvent::from_message_unchecked_parts(or, bdy)?;
 		// TODO: we do not have an appropriate event type here; this should really be an OdiliaError.
 		// We may want to consider adding a type Error in the BusProperties impl.
