@@ -1,21 +1,16 @@
-use crate::{tower::EventProp, tower::EventProperty, OdiliaError, ScreenReaderState};
-use atspi::EventProperties;
-use std::sync::Arc;
+use crate::tower::{EventProp, GetProperty, PropertyType};
+use crate::OdiliaError;
+use odilia_cache::CacheItem;
 
 pub struct Name;
 
-impl EventProperty for Name {
-	type Output = Option<String>;
-	async fn from_state<E>(
-		state: Arc<ScreenReaderState>,
-		event: E,
-	) -> Result<EventProp<Self>, OdiliaError>
-	where
-		E: EventProperties,
-	{
-		state.get_or_create_event_object_to_cache::<E>(&event)
-			.await?
-			.name()
+impl PropertyType for Name {
+	type Type = Option<String>;
+}
+
+impl GetProperty<Name> for CacheItem {
+	async fn get_property(&self) -> Result<EventProp<Name>, OdiliaError> {
+		self.description()
 			.await
 			.map(|s| if s.is_empty() { None } else { Some(s) })
 			.map(EventProp)

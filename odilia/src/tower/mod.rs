@@ -5,7 +5,7 @@ pub mod choice;
 pub mod description;
 pub use description::Description;
 pub mod event_property;
-pub use event_property::{EventProp, EventProperty};
+pub use event_property::{EventProp, GetProperty, PropertyType};
 pub mod from_state;
 pub mod handler;
 pub mod iter_svc;

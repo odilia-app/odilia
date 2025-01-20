@@ -1,23 +1,16 @@
-use crate::{tower::EventProp, tower::EventProperty, OdiliaError, ScreenReaderState};
-use atspi::{EventProperties, RelationType};
+use crate::tower::{EventProp, GetProperty, PropertyType};
+use crate::OdiliaError;
+use atspi::RelationType;
 use odilia_cache::CacheItem;
-use std::sync::Arc;
 
 pub struct RelationSet;
 
-impl EventProperty for RelationSet {
-	type Output = Vec<(RelationType, Vec<CacheItem>)>;
-	async fn from_state<E>(
-		state: Arc<ScreenReaderState>,
-		event: E,
-	) -> Result<EventProp<Self>, OdiliaError>
-	where
-		E: EventProperties,
-	{
-		state.get_or_create_event_object_to_cache::<E>(&event)
-			.await?
-			.get_relation_set()
-			.await
-			.map(EventProp)
+impl PropertyType for RelationSet {
+	type Type = Vec<(RelationType, Vec<CacheItem>)>;
+}
+
+impl GetProperty<RelationSet> for CacheItem {
+	async fn get_property(&self) -> Result<EventProp<RelationSet>, OdiliaError> {
+		self.get_relation_set().await.map(EventProp)
 	}
 }
