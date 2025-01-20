@@ -26,9 +26,7 @@ use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::Handlers;
-use crate::tower::{
-	cache_event::ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet,
-};
+use crate::tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet};
 use atspi::RelationType;
 use clap::Parser;
 use eyre::WrapErr;
