@@ -1,31 +1,23 @@
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
+use crate::{tower::EventProp, tower::EventProperty, OdiliaError, ScreenReaderState};
 use atspi::EventProperties;
-use core::{fmt::Debug, future::Future};
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-pub struct Name(pub Option<String>);
+pub struct Name;
 
-impl From<String> for Name {
-	fn from(s: String) -> Name {
-		if s.is_empty() {
-			Name(None)
-		} else {
-			Name(Some(s))
-		}
+impl EventProperty for Name {
+	type Output = Option<String>;
+	async fn from_state<E>(
+		state: Arc<ScreenReaderState>,
+		event: E,
+	) -> Result<EventProp<Self>, OdiliaError>
+	where
+		E: EventProperties,
+	{
+		state.get_or_create_event_object_to_cache::<E>(&event)
+			.await?
+			.name()
+			.await
+			.map(|s| if s.is_empty() { None } else { Some(s) })
+			.map(EventProp)
 	}
 }
-
-async fn try_from_state<E>(state: Arc<ScreenReaderState>, event: E) -> Result<Name, OdiliaError>
-where
-	E: EventProperties,
-{
-	state.get_or_create_event_object_to_cache::<E>(&event)
-		.await?
-		.name()
-		.await
-		.map(Name::from)
-}
-
-try_from_state_event_fn!(try_from_state, Name);

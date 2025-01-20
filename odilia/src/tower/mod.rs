@@ -1,12 +1,11 @@
-#[macro_use]
-pub(crate) mod macros;
-
 pub mod async_try;
 pub mod cache_event;
 pub use cache_event::CacheEvent;
 pub mod choice;
 pub mod description;
 pub use description::Description;
+pub mod event_property;
+pub use event_property::{EventProp, EventProperty};
 pub mod from_state;
 pub mod handler;
 pub mod iter_svc;

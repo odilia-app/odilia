@@ -26,7 +26,9 @@ use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
 use crate::state::Speech;
 use crate::tower::Handlers;
-use crate::tower::{cache_event::ActiveAppEvent, CacheEvent, Description, Name, RelationSet};
+use crate::tower::{
+	cache_event::ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet,
+};
 use atspi::RelationType;
 use clap::Parser;
 use eyre::WrapErr;
@@ -120,9 +122,9 @@ use crate::tower::state_changed::{Focused, Unfocused};
 #[tracing::instrument(ret)]
 async fn focused(
 	state_changed: CacheEvent<Focused>,
-	Name(name): Name,
-	Description(description): Description,
-	RelationSet(relation_set): RelationSet,
+	EventProp(name): EventProp<Name>,
+	EventProp(description): EventProp<Description>,
+	EventProp(relation_set): EventProp<RelationSet>,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
