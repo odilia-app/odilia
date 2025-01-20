@@ -120,9 +120,9 @@ use crate::tower::state_changed::{Focused, Unfocused};
 #[tracing::instrument(ret)]
 async fn focused(
 	state_changed: CacheEvent<Focused>,
-	name: Name,
-	description: Description,
-	relation_set: RelationSet,
+	Name(name): Name,
+	Description(description): Description,
+	RelationSet(relation_set): RelationSet,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();

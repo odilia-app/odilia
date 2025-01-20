@@ -1,11 +1,11 @@
 use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 use atspi::EventProperties;
-use core::{fmt::Debug, future::Future, ops::Deref};
+use core::{fmt::Debug, future::Future};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct Description(Option<String>);
+pub struct Description(pub Option<String>);
 
 impl From<String> for Description {
 	fn from(s: String) -> Description {
@@ -14,13 +14,6 @@ impl From<String> for Description {
 		} else {
 			Description(Some(s))
 		}
-	}
-}
-
-impl Deref for Description {
-	type Target = Option<String>;
-	fn deref(&self) -> &Option<String> {
-		&self.0
 	}
 }
 

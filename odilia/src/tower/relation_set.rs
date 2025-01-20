@@ -1,12 +1,12 @@
 use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 use atspi::{EventProperties, RelationType};
-use core::{fmt::Debug, future::Future, ops::Deref};
+use core::{fmt::Debug, future::Future};
 use odilia_cache::CacheItem;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
-pub struct RelationSet(Vec<(RelationType, Vec<CacheItem>)>);
+pub struct RelationSet(pub Vec<(RelationType, Vec<CacheItem>)>);
 
 impl From<Vec<(RelationType, Vec<CacheItem>)>> for RelationSet {
 	fn from(rs: Vec<(RelationType, Vec<CacheItem>)>) -> RelationSet {
@@ -14,12 +14,6 @@ impl From<Vec<(RelationType, Vec<CacheItem>)>> for RelationSet {
 	}
 }
 
-impl Deref for RelationSet {
-	type Target = Vec<(RelationType, Vec<CacheItem>)>;
-	fn deref(&self) -> &Self::Target {
-		&self.0
-	}
-}
 async fn try_from_state<E>(
 	state: Arc<ScreenReaderState>,
 	event: E,
