@@ -20,20 +20,18 @@ impl Deref for RelationSet {
 		&self.0
 	}
 }
-
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for RelationSet
+async fn try_from_state<E>(
+	state: Arc<ScreenReaderState>,
+	event: E,
+) -> Result<RelationSet, OdiliaError>
 where
-	E: EventProperties + Debug,
+	E: EventProperties,
 {
-	type Error = OdiliaError;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
-		async move {
-			state.get_or_create_event_object_to_cache::<E>(&event)
-				.await?
-				.get_relation_set()
-				.await
-				.map(RelationSet::from)
-		}
-	}
+	state.get_or_create_event_object_to_cache::<E>(&event)
+		.await?
+		.get_relation_set()
+		.await
+		.map(RelationSet::from)
 }
+
+try_from_state_event_fn!(try_from_state, RelationSet);

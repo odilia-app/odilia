@@ -23,20 +23,15 @@ impl Deref for Name {
 		&self.0
 	}
 }
-
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for Name
+async fn try_from_state<E>(state: Arc<ScreenReaderState>, event: E) -> Result<Name, OdiliaError>
 where
-	E: EventProperties + Debug,
+	E: EventProperties,
 {
-	type Error = OdiliaError;
-	type Future = impl Future<Output = Result<Self, Self::Error>>;
-	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
-		async move {
-			state.get_or_create_event_object_to_cache::<E>(&event)
-				.await?
-				.name()
-				.await
-				.map(Name::from)
-		}
-	}
+	state.get_or_create_event_object_to_cache::<E>(&event)
+		.await?
+		.name()
+		.await
+		.map(Name::from)
 }
+
+try_from_state_event_fn!(try_from_state, Name);
