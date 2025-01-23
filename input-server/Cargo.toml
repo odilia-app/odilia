@@ -1,0 +1,11 @@
+[package]
+name = "input-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nix.workspace = true
+odilia-common.workspace = true
+rdev = { git = "https://github.com/TTWNO/rdev/", branch = "odilia-keys-v2", features = ["unstable_grab"] }
+serde_json.workspace = true
+tracing.workspace = true
