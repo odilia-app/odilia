@@ -13,7 +13,10 @@ use atspi::BusProperties;
 use atspi::Event;
 use atspi::EventProperties;
 use atspi::EventTypeProperties;
-use odilia_common::errors::OdiliaError;
+use odilia_common::{
+	errors::OdiliaError, events::EventType, events::ScreenReaderEvent,
+	events::ScreenReaderEventDiscriminants,
+};
 use std::fmt::Debug;
 use std::sync::Arc;
 
@@ -38,16 +41,28 @@ type ResultList = Vec<OdiliaResult<()>>;
 
 type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
+type InputHandler = BoxCloneService<ScreenReaderEvent, (), Error>;
 
+#[derive(Clone)]
 pub struct Handlers {
 	state: Arc<ScreenReaderState>,
 	atspi: ChoiceService<(&'static str, &'static str), ServiceSet<AtspiHandler>, Event>,
 	command: ChoiceService<CommandDiscriminants, ServiceSet<CommandHandler>, Command>,
+	input: ChoiceService<
+		ScreenReaderEventDiscriminants,
+		ServiceSet<InputHandler>,
+		ScreenReaderEvent,
+	>,
 }
 
 impl Handlers {
 	pub fn new(state: Arc<ScreenReaderState>) -> Self {
-		Handlers { state, atspi: ChoiceService::new(), command: ChoiceService::new() }
+		Handlers {
+			state,
+			atspi: ChoiceService::new(),
+			command: ChoiceService::new(),
+			input: ChoiceService::new(),
+		}
 	}
 	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
 		loop {
@@ -83,6 +98,20 @@ impl Handlers {
 			}
 		}
 	}
+	#[tracing::instrument(skip_all)]
+	pub async fn input_handler(mut self, mut events: Receiver<ScreenReaderEvent>) {
+		std::pin::pin!(&mut events);
+		loop {
+			let maybe_ev = events.recv().await;
+			let Some(ev) = maybe_ev else {
+				tracing::error!("Error in processing {maybe_ev:?}");
+				continue;
+			};
+			if let Err(e) = self.input.call(ev).await {
+				tracing::error!("{e:?}");
+			}
+		}
+	}
 	pub fn command_listener<H, T, C, R>(mut self, handler: H) -> Self
 	where
 		H: Handler<T, Response = R> + Send + Clone + 'static,
@@ -107,7 +136,48 @@ impl Handlers {
 			.request_try_from()
 			.boxed_clone();
 		self.command.entry(C::identifier()).or_default().push(bs);
-		Self { state: self.state, atspi: self.atspi, command: self.command }
+		Self {
+			state: self.state,
+			atspi: self.atspi,
+			command: self.command,
+			input: self.input,
+		}
+	}
+	pub fn input_listener<H, T, R, E>(mut self, handler: H) -> Self
+	where
+		H: Handler<T, Response = R> + Send + Clone + 'static,
+		<H as Handler<T>>::Future: Send,
+		E: EventType + ChooserStatic<ScreenReaderEventDiscriminants> + Send + 'static,
+		ScreenReaderEvent: TryInto<E>,
+		OdiliaError: From<<ScreenReaderEvent as TryInto<E>>::Error>
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
+		R: TryIntoCommands + 'static,
+		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
+		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
+		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send,
+	{
+		let bs = handler
+			.into_service()
+			.unwrap_map(TryIntoCommands::try_into_commands)
+			.request_async_try_from()
+			.with_state(Arc::clone(&self.state))
+			.request_try_from()
+			.iter_into(self.command.clone())
+			.map_result(
+				|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
+					res?.into_iter()
+						.flatten()
+						.collect::<Result<(), OdiliaError>>()
+				},
+			)
+			.boxed_clone();
+		self.input.entry(E::identifier()).or_default().push(bs);
+		Self {
+			state: self.state,
+			atspi: self.atspi,
+			command: self.command,
+			input: self.input,
+		}
 	}
 	pub fn atspi_listener<H, T, R, E>(mut self, handler: H) -> Self
 	where
@@ -148,6 +218,11 @@ impl Handlers {
 			})
 			.boxed_clone();
 		self.atspi.entry(E::identifier()).or_default().push(bs);
-		Self { state: self.state, atspi: self.atspi, command: self.command }
+		Self {
+			state: self.state,
+			atspi: self.atspi,
+			command: self.command,
+			input: self.input,
+		}
 	}
 }

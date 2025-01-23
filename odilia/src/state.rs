@@ -27,6 +27,7 @@ use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::{CacheError, OdiliaError},
+	events::EventType,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
 	Result as OdiliaResult,
@@ -72,6 +73,22 @@ pub struct Speech(pub Sender<SSIPRequest>);
 pub struct Command<T>(pub T)
 where
 	T: CommandType;
+
+#[derive(Debug)]
+pub struct InputEvent<T>(pub T)
+where
+	T: EventType;
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for InputEvent<E>
+where
+	E: EventType + Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<InputEvent<E>, Self::Error>>;
+	fn try_from_state(_state: Arc<ScreenReaderState>, i_ev: E) -> Self::Future {
+		ok(InputEvent(i_ev))
+	}
+}
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
 where
