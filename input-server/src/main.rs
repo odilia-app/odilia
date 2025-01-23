@@ -44,7 +44,9 @@ pub struct ComboSet {
 pub struct State {
 	activation_key_pressed: bool,
 	pressed: Vec<Key>,
-	combos: ComboSet,
+	focus_combos: ComboSet,
+	browse_combos: ComboSet,
+	common_combos: ComboSet,
 	tx: SyncSender<OdiliaEvent>,
 }
 
@@ -78,7 +80,9 @@ fn main() {
 	let state = State {
 		activation_key_pressed: false,
 		pressed: Vec::new(),
-		combos: ComboSet { combos },
+		common_combos: ComboSet { combos },
+		focus_combos: ComboSet::default(),
+		browse_combos: ComboSet::default(),
 		tx,
 	};
 	let _ = thread::spawn(move || {
@@ -130,7 +134,7 @@ fn callback(event: Event, state: &mut State) -> Option<Event> {
 			// otherwise, add it to the list of held keys
 			state.pressed.push(other);
 			// look in the combos
-			for combo in &state.combos.combos {
+			for combo in &state.common_combos.combos {
 				println!("Combo: {combo:?}");
 				println!("Pressed {:?}", state.pressed);
 				// if a combo matches the held keys (must be in right order)
