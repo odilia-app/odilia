@@ -18,7 +18,7 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::{fs, io::AsyncReadExt, net::UnixListener, sync::mpsc::Sender};
+use tokio::{fs, net::unix::SocketAddr, net::UnixListener, net::UnixStream, sync::mpsc::Sender};
 use tokio_util::sync::CancellationToken;
 
 #[tracing::instrument(ret)]
@@ -133,40 +133,72 @@ pub async fn sr_event_receiver(
 	tracing::debug!("Listener activated!");
 	loop {
 		tokio::select! {
-			msg = listener.accept() => {
-			    match msg {
-				Ok((mut socket, address)) => {
-				    tracing::debug!("Ok from socket");
-				    let mut response = String::new();
-				    match socket.read_to_string(&mut response).await {
-				      Ok(_) => {},
-				      Err(e) => {
-					tracing::error!("Error reading from socket {:#?}", e);
-				      }
-				    }
-				    // if valid screen reader event
-				    match serde_json::from_str::<ScreenReaderEvent>(&response) {
-				      Ok(sre) => {
-					if let Err(e) = event_sender.send(sre).await {
-					  tracing::error!("Error sending ScreenReaderEvent over socket: {}", e);
-		} else {
-					  tracing::debug!("Sent SR event");
-		}
-				      },
-				      Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
-				    }
-				    tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
-				},
-				Err(e) => tracing::error!("accept function failed: {:?}", e),
+			    msg = listener.accept() => {
+				match msg {
+				    Ok((socket, address)) => {
+					tracing::debug!("Ok from socket");
+		tokio::spawn(handle_event(socket, address, event_sender.clone(), shutdown.clone()));
+				    },
+				    Err(e) => tracing::error!("accept function failed: {:?}", e),
+				}
+				continue;
+			    }
+			    () = shutdown.cancelled() => {
+				tracing::debug!("Shutting down input socket due to cancellation token");
+				break;
 			    }
 			}
-			() = shutdown.cancelled() => {
-			    tracing::debug!("Shutting down input socket due to cancellation token");
-			    break;
-			}
-		    }
 	}
 	Ok(())
+}
+
+async fn handle_event(
+	socket: UnixStream,
+	address: SocketAddr,
+	event_sender: Sender<ScreenReaderEvent>,
+	shutdown: CancellationToken,
+) {
+	loop {
+		tokio::select! {
+			Ok(()) = socket.readable() => {
+			let mut buf = [0; 4096];
+						let bytes = match socket.try_read(&mut buf) {
+						  Ok(0) => {
+			      tracing::debug!("Socket {socket:?} was disconnected!");
+			      break;
+			  },
+			  Ok(b) => b,
+			  Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
+			      continue;
+			  },
+						  Err(e) => {
+						    tracing::error!("Error reading from socket {:#?}", e);
+			    continue;
+						  }
+						};
+			let response = std::str::from_utf8(&buf[..bytes])
+			    .expect("Valid UTF-8");
+						// if valid screen reader event
+			println!("RESP: '{response}'");
+						match serde_json::from_str::<ScreenReaderEvent>(response) {
+						  Ok(sre) => {
+						    if let Err(e) = event_sender.send(sre).await {
+						      tracing::error!("Error sending ScreenReaderEvent over socket: {}", e);
+			    } else {
+						      tracing::debug!("Sent SR event");
+			    }
+						  },
+						  Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
+						}
+						tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+
+		    }
+				    () = shutdown.cancelled() => {
+					tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
+					break;
+				    }
+		}
+	}
 }
 
 #[tracing::instrument(ret)]
