@@ -22,7 +22,7 @@ atspi-common.workspace = true
 atspi-proxies.workspace = true
 bitflags = "1.3.2"
 serde = "1.0.147"
-smartstring = "1.0.1"
+smartstring = { version = "1.0.1", features = ["serde"] }
 thiserror = "1.0.37"
 zbus.workspace = true
 serde_plain.workspace = true
