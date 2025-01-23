@@ -20,6 +20,7 @@ use crate::cli::Args;
 use crate::state::AccessibleHistory;
 use crate::state::Command;
 use crate::state::CurrentCaretPos;
+use crate::state::InputEvent;
 use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
@@ -37,6 +38,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
+	events::{ScreenReaderEvent, StopSpeech},
 	settings::ApplicationConfig,
 };
 
@@ -188,6 +190,11 @@ async fn new_caret_pos(
 	Ok(())
 }
 
+#[tracing::instrument(ret)]
+async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoCommands {
+	(Priority::Text, "Stop talking, eh!")
+}
+
 #[tracing::instrument(ret, err)]
 async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
@@ -251,6 +258,7 @@ async fn main() -> eyre::Result<()> {
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	let (mut ev_tx, ev_rx) =
 		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
+	let (input_tx, input_rx) = mpsc::channel::<ScreenReaderEvent>(255);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
@@ -281,7 +289,9 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
-		.atspi_listener(unfocused);
+		.atspi_listener(unfocused)
+		.input_listener(stop_speech);
+
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
@@ -303,12 +313,16 @@ async fn main() -> eyre::Result<()> {
 			}
 		}
 	};
-	let atspi_handlers_task = handlers.atspi_handler(ev_rx);
+	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
+	let input_task = odilia_input::sr_event_receiver(input_tx, token.clone());
+	let input_handler = handlers.input_handler(input_rx);
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
 	tracker.spawn(event_send_task);
+	tracker.spawn(input_task);
+	tracker.spawn(input_handler);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
 		.await
