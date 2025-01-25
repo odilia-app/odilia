@@ -6,7 +6,7 @@ members = [
   "common",
   "input",
   "odilia",
-  "odilia-notify",
+  "odilia-notify", "odilia-tower",
 ]
 
 [profile.release]
