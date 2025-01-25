@@ -1,10 +1,11 @@
+use futures::future::Ready;
 use futures::future::err;
 use futures::future::Either;
+use futures::future::ErrInto;
 use futures::TryFutureExt;
 use alloc::collections::{btree_map::Entry, BTreeMap};
 use core::{
     fmt::Debug,
-    future::Future,
     marker::PhantomData,
     task::{Context, Poll},
     mem::replace,
@@ -66,7 +67,7 @@ where
 {
 	type Response = S::Response;
 	type Error = E;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Future = Either<Ready<Result<S::Response, E>>, ErrInto<S::Future, E>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		for (_k, svc) in &mut self.services.iter_mut() {
 			let _ = svc.poll_ready(cx)?;
