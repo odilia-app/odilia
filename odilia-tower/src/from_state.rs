@@ -4,8 +4,10 @@ use futures::FutureExt;
 use futures_concurrency::future::Join;
 
 use odilia_common::errors::OdiliaError;
-use std::fmt::Debug;
-use std::future::Future;
+use core::{
+    fmt::Debug,
+    future::Future,
+};
 
 pub trait TryFromState<S, T>: Sized {
 	type Error;

@@ -1,34 +1,33 @@
-use std::{
-	sync::Arc,
-	task::{Context, Poll},
-};
+use core::task::{Context, Poll};
 use tower::{Layer, Service};
 
 pub struct StateLayer<S> {
-	state: Arc<S>,
+	state: S,
 }
 impl<S> StateLayer<S> {
-	pub fn new(state: Arc<S>) -> Self {
+	pub fn new(state: S) -> Self {
 		StateLayer { state }
 	}
 }
 
 pub struct StateService<Srv, Sta> {
 	inner: Srv,
-	state: Arc<Sta>,
+	state: Sta,
 }
 impl<Srv, Sta> Clone for StateService<Srv, Sta>
 where
 	Srv: Clone,
+  Sta: Clone,
 {
 	fn clone(&self) -> Self {
-		StateService { inner: self.inner.clone(), state: Arc::clone(&self.state) }
+		StateService { inner: self.inner.clone(), state: self.state.clone() }
 	}
 }
 
 impl<I, Srv, Sta> Service<I> for StateService<Srv, Sta>
 where
-	Srv: Service<(Arc<Sta>, I)>,
+	Srv: Service<(Sta, I)>,
+  Sta: Clone,
 {
 	type Error = Srv::Error;
 	type Response = Srv::Response;
@@ -37,13 +36,14 @@ where
 		self.inner.poll_ready(cx)
 	}
 	fn call(&mut self, input: I) -> Self::Future {
-		self.inner.call((Arc::clone(&self.state), input))
+		self.inner.call((self.state.clone(), input))
 	}
 }
 
-impl<Srv, Sta> Layer<Srv> for StateLayer<Sta> {
+impl<Srv, Sta> Layer<Srv> for StateLayer<Sta> 
+where Sta: Clone {
 	type Service = StateService<Srv, Sta>;
 	fn layer(&self, inner: Srv) -> Self::Service {
-		StateService { inner, state: Arc::clone(&self.state) }
+		StateService { inner, state: self.state.clone() }
 	}
 }

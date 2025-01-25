@@ -1,5 +1,5 @@
 use futures::future::{err, Either, Ready};
-use std::{
+use core::{
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
@@ -19,6 +19,8 @@ pub struct TryIntoLayer<O, I: TryInto<O>> {
 	_marker: PhantomData<fn(I) -> O>,
 }
 impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
+  // see async_try.rs's new_without_default impl for more information.
+#[allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		TryIntoLayer { _marker: PhantomData }
 	}

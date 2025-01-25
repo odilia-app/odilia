@@ -1,8 +1,10 @@
 use futures::FutureExt;
-use std::convert::Infallible;
-use std::future::Future;
-use std::marker::PhantomData;
-use std::task::{Context, Poll};
+use core::{
+    convert::Infallible,
+    future::Future,
+    marker::PhantomData,
+    task::{Context, Poll},
+};
 use tower::Service;
 
 #[allow(clippy::type_complexity)]

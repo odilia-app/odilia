@@ -1,31 +1,33 @@
 use futures::future::err;
 use futures::future::Either;
 use futures::TryFutureExt;
-use std::collections::{btree_map::Entry, BTreeMap};
-use std::fmt::Debug;
-use std::future::Future;
-use std::marker::PhantomData;
-use std::task::{Context, Poll};
+use alloc::collections::{btree_map::Entry, BTreeMap};
+use core::{
+    fmt::Debug,
+    future::Future,
+    marker::PhantomData,
+    task::{Context, Poll},
+    mem::replace,
+};
 use tower::Service;
+
+use crate::Error;
 
 pub trait Chooser<K> {
 	fn identifier(&self) -> K;
 }
-pub trait ChooserStatic<K> {
-	fn identifier() -> K;
-}
 
 #[allow(clippy::module_name_repetitions)]
-pub struct ChoiceService<K, S, Req>
+pub struct ChoiceService<K, S, Req, E>
 where
 	S: Service<Req>,
 	Req: Chooser<K>,
 {
 	services: BTreeMap<K, S>,
-	_marker: PhantomData<Req>,
+	_marker: PhantomData<fn(Req) -> E>,
 }
 
-impl<K, S, Req> Clone for ChoiceService<K, S, Req>
+impl<K, S, Req, E> Clone for ChoiceService<K, S, Req, E>
 where
 	K: Clone,
 	S: Clone + Service<Req>,
@@ -36,11 +38,14 @@ where
 	}
 }
 
-impl<K, S, Req> ChoiceService<K, S, Req>
+impl<K, S, Req, E> ChoiceService<K, S, Req, E>
 where
 	S: Service<Req>,
 	Req: Chooser<K>,
 {
+  // Yes, this breaks a clippy rule. But like stated in the ::new() function of async_try.rs, it
+  // feels wrong to call defualt with generic parameters.
+#[allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
 	}
@@ -52,15 +57,15 @@ where
 	}
 }
 
-impl<K, S, Req> Service<Req> for ChoiceService<K, S, Req>
+impl<K, S, Req, E> Service<Req> for ChoiceService<K, S, Req, E>
 where
 	S: Service<Req> + Clone,
 	Req: Chooser<K>,
 	K: Ord + Debug,
-	OdiliaError: From<S::Error>,
+  E: From<S::Error> + From<crate::Error>,
 {
 	type Response = S::Response;
-	type Error = OdiliaError;
+	type Error = E;
 	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		for (_k, svc) in &mut self.services.iter_mut() {
@@ -73,51 +78,12 @@ where
 
 		let mut svc = if let Some(orig_svc) = self.services.get_mut(&k) {
 			let clone = orig_svc.clone();
-			std::mem::replace(orig_svc, clone)
+			replace(orig_svc, clone)
 		} else {
-			return Either::Left(err(OdiliaError::ServiceNotFound(
+			return Either::Left(err(Error::ServiceNotFound(
                 format!("A service with key {k:?} could not be found in a list with keys of {:?}", self.services.keys())
-            )));
+            ).into()));
 		};
 		Either::Right(svc.call(req).err_into())
-	}
-}
-
-// TODO: here
-
-use atspi_common::{BusProperties, Event, EventTypeProperties};
-use odilia_common::{
-	command::{
-		CommandType, CommandTypeDynamic, OdiliaCommand as Command,
-		OdiliaCommandDiscriminants as CommandDiscriminants,
-	},
-	errors::OdiliaError,
-};
-
-impl<E> ChooserStatic<(&'static str, &'static str)> for E
-where
-	E: BusProperties,
-{
-	fn identifier() -> (&'static str, &'static str) {
-		(E::DBUS_INTERFACE, E::DBUS_MEMBER)
-	}
-}
-impl<C> ChooserStatic<CommandDiscriminants> for C
-where
-	C: CommandType,
-{
-	fn identifier() -> CommandDiscriminants {
-		C::CTYPE
-	}
-}
-
-impl Chooser<(&'static str, &'static str)> for Event {
-	fn identifier(&self) -> (&'static str, &'static str) {
-		(self.interface(), self.member())
-	}
-}
-impl Chooser<CommandDiscriminants> for Command {
-	fn identifier(&self) -> CommandDiscriminants {
-		self.ctype()
 	}
 }

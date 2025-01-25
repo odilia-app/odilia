@@ -3,10 +3,11 @@
 use crate::from_state::TryFromState;
 use futures::TryFutureExt;
 use odilia_common::errors::OdiliaError;
-use std::{
+use core::{
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
+  mem::replace,
 };
 use tower::{Layer, Service};
 
@@ -58,6 +59,10 @@ impl<O, I: AsyncTryInto<O>> Clone for AsyncTryIntoLayer<O, I> {
 		AsyncTryIntoLayer { _marker: PhantomData }
 	}
 }
+
+// A [`Default`] implementation would be awkward here, since at the call site, you may need to
+// specify O and I.... and it just.... idk "feels wrong"(?) to do that with default?
+#[allow(clippy::new_without_default)]
 impl<O, E, I: AsyncTryInto<O, Error = E>> AsyncTryIntoLayer<O, I> {
 	pub fn new() -> Self {
 		AsyncTryIntoLayer { _marker: PhantomData }
@@ -99,7 +104,7 @@ where
 	}
 	fn call(&mut self, req: I) -> Self::Future {
 		let clone = self.inner.clone();
-		let mut inner = std::mem::replace(&mut self.inner, clone);
+		let mut inner = replace(&mut self.inner, clone);
 		async move {
 			match req.try_into_async().await {
 				Ok(resp) => inner.call(resp).err_into().await,

@@ -5,7 +5,7 @@ use crate::{
 	sync_try::{TryIntoLayer, TryIntoService},
 	unwrap_svc::UnwrapService,
 };
-use std::{convert::Infallible, sync::Arc};
+use core::convert::Infallible;
 use tower::{Layer, Service};
 
 pub trait ServiceExt<Request>: Service<Request> {
@@ -26,9 +26,10 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		AsyncTryIntoLayer::new().layer(self)
 	}
-	fn with_state<S>(self, s: Arc<S>) -> StateService<Self, S>
+	fn with_state<S>(self, s: S) -> StateService<Self, S>
 	where
 		Self: Sized,
+    S: Clone,
 	{
 		StateLayer::new(s).layer(self)
 	}

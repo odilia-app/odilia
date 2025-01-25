@@ -1,7 +1,9 @@
-use std::future::Future;
-use std::marker::PhantomData;
-use std::task::Context;
-use std::task::Poll;
+use core::{
+    future::Future,
+    marker::PhantomData,
+    task::{Context, Poll},
+    mem::replace,
+};
 use tower::Service;
 
 #[allow(clippy::type_complexity)]
@@ -50,9 +52,9 @@ where
 	}
 	fn call(&mut self, input: Req) -> Self::Future {
 		let clone_outer = self.outer.clone();
-		let mut outer = std::mem::replace(&mut self.outer, clone_outer);
+		let mut outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
-		let mut inner = std::mem::replace(&mut self.inner, clone_inner);
+		let mut inner = replace(&mut self.inner, clone_inner);
 		async move {
 			let iter = inner.call(input).await?;
 			let mut results = vec![];
