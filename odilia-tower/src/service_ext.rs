@@ -29,7 +29,7 @@ pub trait ServiceExt<Request>: Service<Request> {
 	fn with_state<S>(self, s: S) -> StateService<Self, S>
 	where
 		Self: Sized,
-    S: Clone,
+		S: Clone,
 	{
 		StateLayer::new(s).layer(self)
 	}

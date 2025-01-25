@@ -1,17 +1,22 @@
 use core::{
-    mem::replace,
-    future::Future,
-    task::{Context, Poll},
+	future::Future,
+	iter::repeat,
+	marker::PhantomData,
+	mem::replace,
+	pin::Pin,
+	task::{Context, Poll},
 };
+use futures::future::{join_all, JoinAll};
+use pin_project::pin_project;
 use tower::Service;
 
-/// A series of services which are executed in the order they are placed in the [`ServiceSet::new`]
-/// initializer.
-/// Useful when creating a set of handler functions that need to be run without concurrency.
+/// Useful for running a set of services with the same signature in parallel.
 ///
 /// Note that although calling the [`ServiceSet::call`] function seems to return a
 /// `Result<Vec<S::Response, S::Error>, S::Error>`, the outer error is gaurenteed never to be
 /// returned and can safely be unwrapped _from the caller function_.
+///
+/// Or feel free to use the [`crate::UnwrapService`] also provided by this crate.
 #[derive(Clone)]
 pub struct ServiceSet<S> {
 	services: Vec<S>,
@@ -34,7 +39,7 @@ where
 {
 	type Response = Vec<Result<S::Response, S::Error>>;
 	type Error = S::Error;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Future = MapOk<JoinAll<<S as Service<Req>>::Future>, Self::Error, Self::Response>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		for svc in &mut self.services {
 			let _ = svc.poll_ready(cx)?;
@@ -44,13 +49,67 @@ where
 	fn call(&mut self, req: Req) -> Self::Future {
 		let clone = self.services.clone();
 		let services = replace(&mut self.services, clone);
-		async move {
-			let mut results = vec![];
-			for mut svc in services {
-				let result = svc.call(req.clone()).await;
-				results.push(result);
-			}
-			Ok(results)
+		let req_rep = repeat(req).take(services.len());
+		services.into_iter().zip(req_rep).call2().join_all().map_ok()
+	}
+}
+
+#[pin_project]
+pub struct MapOk<F, E, O> {
+	#[pin]
+	f: F,
+	_marker: PhantomData<(O, E)>,
+}
+impl<F, E, O> Future for MapOk<F, E, O>
+where
+	F: Future<Output = O>,
+{
+	type Output = Result<O, E>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		let this = self.project();
+		match this.f.poll(cx) {
+			Poll::Ready(o) => Poll::Ready(Ok(o)),
+			Poll::Pending => Poll::Pending,
 		}
+	}
+}
+
+trait MapOkExt<O, E>: Future<Output = O> {
+	fn map_ok(self) -> MapOk<Self, E, O>
+	where
+		Self: Sized,
+	{
+		MapOk { f: self, _marker: PhantomData }
+	}
+}
+impl<F, O, E> MapOkExt<O, E> for F where F: Future<Output = O> {}
+
+trait Call2Ext: Iterator + Sized {
+	fn call2<S, I, O>(self) -> Call2<Self, S, I, O> {
+		Call2 { inner: self, _marker: PhantomData }
+	}
+	fn join_all(self) -> JoinAll<Self::Item>
+	where
+		Self::Item: Future,
+	{
+		join_all(self)
+	}
+}
+impl<I> Call2Ext for I where I: Iterator + Sized {}
+
+pub struct Call2<Iter, S, I, O> {
+	inner: Iter,
+	_marker: PhantomData<fn(S, I) -> O>,
+}
+
+impl<Iter, S, I, O> Iterator for Call2<Iter, S, I, O>
+where
+	Iter: Iterator<Item = (S, I)>,
+	S: Service<I, Response = O>,
+{
+	type Item = S::Future;
+	fn next(&mut self) -> Option<Self::Item> {
+		let (mut s, i) = self.inner.next()?;
+		Some(s.call(i))
 	}
 }

@@ -1,15 +1,15 @@
-use futures::future::Ready;
+use alloc::collections::{btree_map::Entry, BTreeMap};
+use core::{
+	fmt::Debug,
+	marker::PhantomData,
+	mem::replace,
+	task::{Context, Poll},
+};
 use futures::future::err;
 use futures::future::Either;
 use futures::future::ErrInto;
+use futures::future::Ready;
 use futures::TryFutureExt;
-use alloc::collections::{btree_map::Entry, BTreeMap};
-use core::{
-    fmt::Debug,
-    marker::PhantomData,
-    task::{Context, Poll},
-    mem::replace,
-};
 use tower::Service;
 
 use crate::Error;
@@ -44,9 +44,9 @@ where
 	S: Service<Req>,
 	Req: Chooser<K>,
 {
-  // Yes, this breaks a clippy rule. But like stated in the ::new() function of async_try.rs, it
-  // feels wrong to call defualt with generic parameters.
-#[allow(clippy::new_without_default)]
+	// Yes, this breaks a clippy rule. But like stated in the ::new() function of async_try.rs, it
+	// feels wrong to call defualt with generic parameters.
+	#[allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
 	}
@@ -63,7 +63,7 @@ where
 	S: Service<Req> + Clone,
 	Req: Chooser<K>,
 	K: Ord + Debug,
-  E: From<S::Error> + From<crate::Error>,
+	E: From<S::Error> + From<crate::Error>,
 {
 	type Response = S::Response;
 	type Error = E;

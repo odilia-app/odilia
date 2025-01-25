@@ -17,7 +17,7 @@ pub struct StateService<Srv, Sta> {
 impl<Srv, Sta> Clone for StateService<Srv, Sta>
 where
 	Srv: Clone,
-  Sta: Clone,
+	Sta: Clone,
 {
 	fn clone(&self) -> Self {
 		StateService { inner: self.inner.clone(), state: self.state.clone() }
@@ -27,7 +27,7 @@ where
 impl<I, Srv, Sta> Service<I> for StateService<Srv, Sta>
 where
 	Srv: Service<(Sta, I)>,
-  Sta: Clone,
+	Sta: Clone,
 {
 	type Error = Srv::Error;
 	type Response = Srv::Response;
@@ -40,8 +40,10 @@ where
 	}
 }
 
-impl<Srv, Sta> Layer<Srv> for StateLayer<Sta> 
-where Sta: Clone {
+impl<Srv, Sta> Layer<Srv> for StateLayer<Sta>
+where
+	Sta: Clone,
+{
 	type Service = StateService<Srv, Sta>;
 	fn layer(&self, inner: Srv) -> Self::Service {
 		StateService { inner, state: self.state.clone() }

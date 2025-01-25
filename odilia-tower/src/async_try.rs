@@ -1,14 +1,14 @@
 #![allow(clippy::module_name_repetitions)]
 
 use crate::from_state::TryFromState;
-use futures::TryFutureExt;
-use odilia_common::errors::OdiliaError;
 use core::{
 	future::Future,
 	marker::PhantomData,
+	mem::replace,
 	task::{Context, Poll},
-  mem::replace,
 };
+use futures::TryFutureExt;
+use odilia_common::errors::OdiliaError;
 use tower::{Layer, Service};
 
 impl<T, S, U> AsyncTryFrom<(S, T)> for U

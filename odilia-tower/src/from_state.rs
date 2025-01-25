@@ -3,11 +3,8 @@
 use futures::FutureExt;
 use futures_concurrency::future::Join;
 
+use core::{fmt::Debug, future::Future};
 use odilia_common::errors::OdiliaError;
-use core::{
-    fmt::Debug,
-    future::Future,
-};
 
 pub trait TryFromState<S, T>: Sized {
 	type Error;
