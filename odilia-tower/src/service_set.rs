@@ -1,5 +1,8 @@
-use std::future::Future;
-use std::task::{Context, Poll};
+use core::{
+    mem::replace,
+    future::Future,
+    task::{Context, Poll},
+};
 use tower::Service;
 
 /// A series of services which are executed in the order they are placed in the [`ServiceSet::new`]
@@ -40,7 +43,7 @@ where
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
 		let clone = self.services.clone();
-		let services = std::mem::replace(&mut self.services, clone);
+		let services = replace(&mut self.services, clone);
 		async move {
 			let mut results = vec![];
 			for mut svc in services {
