@@ -1,10 +1,10 @@
-use futures::FutureExt;
 use core::{
-    convert::Infallible,
-    future::Future,
-    marker::PhantomData,
-    task::{Context, Poll},
+	convert::Infallible,
+	future::Future,
+	marker::PhantomData,
+	task::{Context, Poll},
 };
+use futures::FutureExt;
 use tower::Service;
 
 #[allow(clippy::type_complexity)]

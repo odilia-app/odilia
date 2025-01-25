@@ -1,3 +1,3 @@
 pub enum Error {
-    ServiceNotFound(String),
+	ServiceNotFound(String),
 }
