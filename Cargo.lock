@@ -131,7 +131,7 @@ dependencies = [
  "async-task",
  "concurrent-queue",
  "fastrand 2.2.0",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "slab",
 ]
 
@@ -143,7 +143,7 @@ checksum = "ebcd09b382f40fcd159c2d695175b2ae620ffa5f3bd6f664131efff4e8b9e04a"
 dependencies = [
  "async-lock",
  "blocking",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
 ]
 
 [[package]]
@@ -157,7 +157,7 @@ dependencies = [
  "async-io",
  "async-lock",
  "blocking",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "once_cell",
 ]
 
@@ -171,7 +171,7 @@ dependencies = [
  "cfg-if",
  "concurrent-queue",
  "futures-io",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "parking",
  "polling",
  "rustix",
@@ -205,7 +205,7 @@ dependencies = [
  "blocking",
  "cfg-if",
  "event-listener 5.3.1",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "rustix",
  "tracing",
 ]
@@ -253,7 +253,7 @@ dependencies = [
  "futures-channel",
  "futures-core",
  "futures-io",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "gloo-timers",
  "kv-log-macro",
  "log",
@@ -351,7 +351,7 @@ source = "git+https://github.com/odilia-app/atspi/?branch=zbus-5.0#2ddb9e1e6da95
 dependencies = [
  "atspi-common",
  "atspi-proxies",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "zbus 5.1.1",
 ]
 
@@ -404,10 +404,10 @@ dependencies = [
  "pin-project-lite",
  "rustversion",
  "serde",
- "sync_wrapper",
- "tower",
- "tower-layer",
- "tower-service",
+ "sync_wrapper 0.1.2",
+ "tower 0.4.13",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -423,8 +423,8 @@ dependencies = [
  "http-body",
  "mime",
  "rustversion",
- "tower-layer",
- "tower-service",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -484,7 +484,7 @@ dependencies = [
  "async-channel 2.3.1",
  "async-task",
  "futures-io",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "piper",
 ]
 
@@ -1143,9 +1143,9 @@ dependencies = [
 
 [[package]]
 name = "futures-lite"
-version = "2.5.0"
+version = "2.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cef40d21ae2c515b51041df9ed313ed21e572df340ea58a922a0aefe7e8891a1"
+checksum = "f5edaec856126859abb19ed65f39e90fea3a9574b9707f13539acf4abf7eb532"
 dependencies = [
  "fastrand 2.2.0",
  "futures-core",
@@ -1402,7 +1402,7 @@ dependencies = [
  "pin-project-lite",
  "socket2",
  "tokio",
- "tower-service",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
  "want",
 ]
@@ -1799,7 +1799,7 @@ dependencies = [
  "figment",
  "futures",
  "futures-concurrency",
- "futures-lite 2.5.0",
+ "futures-lite 2.6.0",
  "lazy_static",
  "odilia-cache",
  "odilia-common",
@@ -1817,7 +1817,7 @@ dependencies = [
  "tokio-test",
  "tokio-util",
  "toml",
- "tower",
+ "tower 0.4.13",
  "tracing",
  "tracing-error",
  "tracing-journald",
@@ -1900,6 +1900,23 @@ dependencies = [
  "serde_repr",
  "thiserror 1.0.69",
  "tokio",
+ "tracing",
+ "zbus 5.1.1",
+]
+
+[[package]]
+name = "odilia-tower"
+version = "0.1.0"
+dependencies = [
+ "atspi",
+ "atspi-common",
+ "futures",
+ "futures-concurrency",
+ "odilia-cache",
+ "odilia-common",
+ "pin-project",
+ "tokio",
+ "tower 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
  "zbus 5.1.1",
 ]
@@ -2010,18 +2027,18 @@ checksum = "e3148f5046208a5d56bcfc03053e3ca6334e51da8dfb19b6cdc8b306fae3283e"
 
 [[package]]
 name = "pin-project"
-version = "1.1.7"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be57f64e946e500c8ee36ef6331845d40a93055567ec57e8fae13efd33759b95"
+checksum = "1e2ec53ad785f4d35dac0adea7f7dc6f1bb277ad84a680c7afefeae05d1f5916"
 dependencies = [
  "pin-project-internal",
 ]
 
 [[package]]
 name = "pin-project-internal"
-version = "1.1.7"
+version = "1.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c0f5fad0874fc7abcd4d750e76917eaebbecaa2c20bde22e1dbeeba8beb758c"
+checksum = "d56a66c0c55993aa927429d0f8a0abfd74f084e4d9c192cffed01e418d83eefb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2030,9 +2047,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.15"
+version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "915a1e146535de9163f3987b8944ed8cf49a18bb0056bcebcdcece385cece4ff"
+checksum = "3b3cff922bd51709b605d9ead9aa71031d81447142d828eb4a6eba76fe619f9b"
 
 [[package]]
 name = "pin-utils"
@@ -2580,6 +2597,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
 
 [[package]]
+name = "sync_wrapper"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0bf256ce5efdfa370213c1dabab5935a12e49f2c58d15e9eac2870d3b4f27263"
+
+[[package]]
 name = "sysinfo"
 version = "0.26.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2835,9 +2858,9 @@ dependencies = [
  "prost",
  "tokio",
  "tokio-stream",
- "tower",
- "tower-layer",
- "tower-service",
+ "tower 0.4.13",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
 
@@ -2856,16 +2879,59 @@ dependencies = [
  "slab",
  "tokio",
  "tokio-util",
- "tower-layer",
- "tower-service",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "tracing",
 ]
+
+[[package]]
+name = "tower"
+version = "0.5.2"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "pin-project-lite",
+ "sync_wrapper 1.0.2",
+ "tower-layer 0.3.3",
+ "tower-service 0.3.3",
+]
+
+[[package]]
+name = "tower"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d039ad9159c98b70ecfd540b2573b97f7f52c3e8d9f8ad57a24b916a536975f9"
+dependencies = [
+ "futures-core",
+ "futures-util",
+ "pin-project-lite",
+ "sync_wrapper 1.0.2",
+ "tower-layer 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tower-service 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "tower-iter"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "pin-project",
+ "tower 0.5.2",
+]
+
+[[package]]
+name = "tower-layer"
+version = "0.3.3"
 
 [[package]]
 name = "tower-layer"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "121c2a6cda46980bb0fcd1647ffaf6cd3fc79a013de288782836f6df9c48780e"
+
+[[package]]
+name = "tower-service"
+version = "0.3.3"
 
 [[package]]
 name = "tower-service"
