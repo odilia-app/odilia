@@ -10,7 +10,8 @@ futures = "0.3.31"
 futures-concurrency.workspace = true
 odilia-cache.workspace = true
 odilia-common.workspace = true
+pin-project = "1.1.8"
 tokio.workspace = true
-tower = { version = "0.5.2", features = ["util"] }
+tower = { version = "0.5.2", default-features = false, features = ["util"] }
 tracing.workspace = true
 zbus.workspace = true
