@@ -4,11 +4,25 @@ use core::{
 	pin::Pin,
 	task::{Context, Poll},
 };
+use tower::Service;
 use alloc::vec::Vec;
 use futures::future::{JoinAll, join_all};
 use pin_project::pin_project;
 
 pub trait FutureExt<O, E>: Future<Output = O> {
+	fn into_multi_service<S2, Req>(self, s2: S2) -> IntoMultiSet</* TODO: make this function work! Maybe use layering? Idk */
+where S2: Service<Req>,
+	O: Iterator<Item = Req>,
+Self: Sized  {
+    let mut mapsvc: ServiceMultiset<S2, O, Repeat<S2>> = ServiceMultiset::from(s2);
+		
+    // TODO: must check if this is safe!
+    let x = 
+    inner.call(input)
+        .err_into::<E>()
+        .and_then(move |out| {
+            <ServiceMultiset<S2, Iter, Repeat<S2>> as Service<Iter>>::call(&mut mapsvc, out)
+}
   fn ok_join_all<Iter, I>(self) -> OkJoinAll<Self, E, O, Iter, I> 
   where Self: Sized,
         I: Future  {

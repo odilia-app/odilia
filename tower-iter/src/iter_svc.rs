@@ -51,7 +51,7 @@ where
   //TODO erase:
   Req: Clone,
 {
-	type Response = Vec<S2::Response>;
+	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
 	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
@@ -64,18 +64,14 @@ where
 		let clone_inner = self.inner.clone();
 		let mut inner = replace(&mut self.inner, clone_inner);
     let outers = repeat(outer.clone());
-    let mapsvc: ServiceMultiset<S2, Iter, Repeat<S2>> = ServiceMultiset::from(outer);
+    let mut mapsvc: ServiceMultiset<S2, Iter, Repeat<S2>> = ServiceMultiset::from(outer);
     // TODO: must check if this is safe!
     let x = 
     inner.call(input)
         .err_into::<E>()
-        .and_then(|out| async {
+        .and_then(move |out| {
             <ServiceMultiset<S2, Iter, Repeat<S2>> as Service<Iter>>::call(&mut mapsvc, out)
                 .err_into::<E>()
-                .await
-                .into_iter()
-                .flatten()
-                .collect()
         });
     x
     /*
