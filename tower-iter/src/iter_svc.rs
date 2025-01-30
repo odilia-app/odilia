@@ -1,12 +1,12 @@
 use core::{
-	future::Future,
+	future::{Future, ready},
 	marker::PhantomData,
 	mem::replace,
 	task::{Context, Poll},
   iter::{repeat, Repeat},
   pin::Pin,
 };
-use futures::{future::{join_all, ErrInto}, TryFutureExt, stream::iter, StreamExt, FutureExt};
+use futures::{future::{join_all, ErrInto, join}, TryFutureExt, stream::iter, StreamExt, FutureExt};
 use alloc::vec::Vec;
 use tower::Service;
 use tower::ServiceExt;
@@ -63,16 +63,15 @@ where
 		let outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
 		let mut inner = replace(&mut self.inner, clone_inner);
-    let outers = repeat(outer.clone());
-    let mut mapsvc: ServiceMultiset<S2, Iter, Repeat<S2>> = ServiceMultiset::from(outer);
-    // TODO: must check if this is safe!
     let x = 
-    inner.call(input)
-        .err_into::<E>()
-        .and_then(move |out| {
-            <ServiceMultiset<S2, Iter, Repeat<S2>> as Service<Iter>>::call(&mut mapsvc, out)
-                .err_into::<E>()
-        });
+    // TODO: make a map_into_service derivative that takes a clonable service and a future of some
+    // kind, then gets them to complete concurrently
+    join(inner.call(input), ready(outer))
+        .then(|(out, outr)| {
+            let mut msvc: ServiceMultiset<S2, Iter, Repeat<S2>> = ServiceMultiset::from(outr);
+            <ServiceMultiset<S2, Iter, Repeat<S2>> as Service<Iter>>::call(&mut msvc, out.unwrap_or_else(|_| panic!("No")))
+        })
+        .err_into();
     x
     /*
     async move {
