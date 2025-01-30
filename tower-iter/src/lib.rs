@@ -20,4 +20,5 @@ pub use future_ext::{FutureExt, MapOk};
 pub mod iter_svc;
 pub mod service_set;
 pub use service_set::ServiceSet;
+pub mod service_multi_iter;
 pub mod service_multiset;
