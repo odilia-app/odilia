@@ -33,13 +33,14 @@ impl<Si, Ii, S, I> ServiceMultiIter<Si,Ii,S,I> {
 		ServiceMultiIter { s_iter, i_iter, _marker: PhantomData }
 	}
 }
+/*
 
 impl<Si, Ii, S, I> IntoFuture for ServiceMultiIter<Si,Ii,S,I> 
 where S: Clone + Service<I>,
      Ii: Iterator<Item = I>,
      Si: Iterator<Item = S> {
     type Output = Vec<Result<S::Response, S::Error>>;
-    type IntoFuture = impl Future<Output = Self::Output>;
+    type IntoFuture = JoinAll<>;
     fn into_future(self) -> Self::IntoFuture {
         join_all(
         self.s_iter.zip(self.i_iter)
@@ -47,4 +48,5 @@ where S: Clone + Service<I>,
             )
     }
 }
+*/
 

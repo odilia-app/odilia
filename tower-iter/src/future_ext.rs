@@ -1,4 +1,5 @@
 use core::{
+	iter::Repeat,
   future::Future,
 	marker::PhantomData,
 	pin::Pin,
@@ -9,7 +10,42 @@ use alloc::vec::Vec;
 use futures::future::{JoinAll, join_all};
 use pin_project::pin_project;
 
+use crate::{
+	service_multiset::ServiceMultiset,
+	call_iter::FullServiceFut,
+};
+
+#[pin_project]
+pub struct MapFutureMultiSet<F, S, Lf, Lo> {
+	#[pin]
+	inner: F,
+	_marker: PhantomData<fn (Lf) -> Lo>,
+	_marker2: PhantomData<fn (S)>,
+}
+impl<F, S, Lf, Lo> Future for MapFutureMultiSet<F, S, Lf, Lo>
+where F: Future<Output = (Lf, S)>,
+		 Lf: Iterator<Item = Lo>,
+		  S: Service<Lo> + Clone, {
+	type Output = MapOk<JoinAll<FullServiceFut<S, Lo, <S as Service<Lo>>::Response, <S as Service<Lo>>::Error, <S as Service<Lo>>::Future>>, <S as Service<Lo>>::Error, Vec<Result<<S as Service<Lo>>::Response, <S as Service<Lo>>::Error>>>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		let this = self.project();
+		let Poll::Ready((iter,svc)) = this.inner.poll(cx) else {
+			return Poll::Pending;
+		};
+		let mut msvc: ServiceMultiset<S, Lf, Repeat<S>> = ServiceMultiset::from(svc);
+		Poll::Ready(msvc.call(iter))
+	}
+}
+
 pub trait FutureExt<O, E>: Future<Output = O> {
+	fn map_future_multiset<S, Lf, Lo>(self) -> MapFutureMultiSet<Self, S, Lf, Lo> 
+	where Self: Sized {
+		MapFutureMultiSet {
+			inner: self,
+			_marker: PhantomData,
+			_marker2: PhantomData,
+		}
+	}
   fn ok_join_all<Iter, I>(self) -> OkJoinAll<Self, E, O, Iter, I> 
   where Self: Sized,
         I: Future  {

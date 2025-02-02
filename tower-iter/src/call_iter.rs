@@ -182,10 +182,26 @@ where F: Future<Output = Result<Res, E>> {
     }
 }
 
+pub struct ReverseTuple<Iter, I1, I2> {
+	inner: Iter,
+	_marker: PhantomData<(I1, I2)>,
+}
+impl<Iter, I1, I2> Iterator for ReverseTuple<Iter, I2, I2>
+where Iter: Iterator<Item = (I1, I2)> {
+	type Item = (I2, I1);
+	fn next(&mut self) -> Option<Self::Item> {
+		let (i1, i2) = self.inner.next()?;
+		Some((i2, i1))
+	}
+}
+
 pub trait MapMExt: Iterator + Sized {
   fn map_service_call<S, I>(self) -> MapServiceCall<Self, S, I> {
       MapServiceCall { inner: self, _marker: PhantomData }
   }
+	fn reverse_tuple<I1, I2>(self) -> ReverseTuple<Self, I1, I2> {
+		ReverseTuple { inner: self, _marker: PhantomData  }
+	}
 }
 impl<I> MapMExt for I where I: Iterator + Sized {}
 

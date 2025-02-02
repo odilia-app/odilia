@@ -6,7 +6,7 @@ use core::{
   iter::{repeat, Repeat},
   pin::Pin,
 };
-use futures::{future::{join_all, ErrInto, join}, TryFutureExt, stream::iter, StreamExt, FutureExt};
+use futures::{future::{join_all, ErrInto, join}, TryFutureExt, stream::iter, FutureExt};
 use alloc::vec::Vec;
 use tower::Service;
 use tower::ServiceExt;
@@ -67,11 +67,8 @@ where
     // TODO: make a map_into_service derivative that takes a clonable service and a future of some
     // kind, then gets them to complete concurrently
     join(inner.call(input), ready(outer))
-        .then(|(out, outr)| {
-            let mut msvc: ServiceMultiset<S2, Iter, Repeat<S2>> = ServiceMultiset::from(outr);
-            <ServiceMultiset<S2, Iter, Repeat<S2>> as Service<Iter>>::call(&mut msvc, out.unwrap_or_else(|_| panic!("No")))
-        })
-        .err_into();
+				.map_future_multiset()
+				.flatten();
     x
     /*
     async move {
