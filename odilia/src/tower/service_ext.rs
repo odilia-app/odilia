@@ -3,7 +3,7 @@ use crate::tower::{
 	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
-	unwrap_svc::UnwrapService,
+	unwrap_svc::{MapErrIntoService, MapResponseIntoService, UnwrapService},
 };
 use std::{convert::Infallible, sync::Arc};
 use tower::{Layer, Service};
@@ -39,11 +39,31 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		UnwrapService::new(self, f)
 	}
+
+	fn map_response_into<Res, R, E, T>(
+		self,
+	) -> MapResponseIntoService<Self, Request, Res, R, E, T>
+	where
+		Self: Service<Request, Response = Res, Error = Infallible> + Sized,
+		Res: Into<Result<R, E>>,
+	{
+		MapResponseIntoService::new(self)
+	}
+	fn map_err_into<Req, E1, R, E, T>(self) -> MapErrIntoService<Self, Req, E1, R, E, T>
+	where
+		Self: Service<Req, Response = R, Error = E1> + Sized,
+		E: From<E1>,
+	{
+		MapErrIntoService::new(self)
+	}
 	fn iter_into<S, Iter, I, E>(self, s: S) -> IterService<Self, Request, Iter, I, S, E>
 	where
-		Self: Service<Request, Response = Iter> + Sized,
-		Iter: IntoIterator<Item = I>,
-		S: Service<I>,
+		Self: Service<Request, Response = Iter> + Clone + Sized,
+		Iter: Iterator<Item = I>,
+		S: Service<I> + ServiceExt<I> + Clone,
+		E: From<<Self as Service<Request>>::Error> + From<S::Error>,
+		//TODO erase:
+		Request: Clone,
 	{
 		IterService::new(self, s)
 	}
