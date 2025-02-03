@@ -1,6 +1,8 @@
 use atspi::{BusProperties, Event, EventTypeProperties};
 use futures::future::err;
 use futures::future::Either;
+use futures::future::ErrInto;
+use futures::future::Ready;
 use futures::TryFutureExt;
 use odilia_common::{
 	command::{
@@ -69,7 +71,8 @@ where
 {
 	type Response = S::Response;
 	type Error = OdiliaError;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Future =
+		Either<Ready<Result<Self::Response, Self::Error>>, ErrInto<S::Future, OdiliaError>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		for (_k, svc) in &mut self.services.iter_mut() {
 			let _ = svc.poll_ready(cx)?;
