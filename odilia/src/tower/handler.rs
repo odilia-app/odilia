@@ -2,10 +2,10 @@
 
 use futures::FutureExt;
 use std::{
-  pin::Pin,
 	convert::Infallible,
 	future::Future,
 	marker::PhantomData,
+	pin::Pin,
 	task::{Context, Poll},
 };
 use tower::Service;
@@ -86,13 +86,14 @@ where
 }
 
 trait FutureExt2: Future {
-    fn wrap_ok<E, O>(self) -> MapOk<Self, E, O> 
-    where Self: Sized {
-        MapOk { f: self, _marker: PhantomData }
-    }
+	fn wrap_ok<E, O>(self) -> MapOk<Self, E, O>
+	where
+		Self: Sized,
+	{
+		MapOk { f: self, _marker: PhantomData }
+	}
 }
-impl<F> FutureExt2 for F
-where F: Future {}
+impl<F> FutureExt2 for F where F: Future {}
 
 #[pin_project::pin_project]
 pub struct MapOk<F, E, O> {
