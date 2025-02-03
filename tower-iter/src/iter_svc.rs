@@ -1,10 +1,11 @@
 use crate::{
-	future_ext::FutureExt as CrateFutureExt, service_multiset::ServiceMultiset, MapMExt,
+	future_ext::FutureExt as CrateFutureExt, future_ext::MapFutureMultiSet,
+	service_multi_iter::ServiceMultiIter, service_multiset::ServiceMultiset, MapMExt,
 	ServiceSet,
 };
 use alloc::vec::Vec;
 use core::{
-	future::{ready, Future},
+	future::{ready, Future, IntoFuture},
 	iter::{repeat, Repeat},
 	marker::PhantomData,
 	mem::replace,
@@ -12,10 +13,11 @@ use core::{
 	task::{Context, Poll},
 };
 use futures::{
-	future::{join, join_all, ErrInto},
+	future::{join, join_all, ErrInto, Flatten},
 	stream::iter,
 	FutureExt, TryFutureExt,
 };
+use tower::util::Oneshot;
 use tower::Service;
 use tower::ServiceExt;
 
@@ -60,7 +62,10 @@ where
 {
 	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	//type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Future = Flatten<
+		MapFutureMultiSet<futures::future::ErrInto<Oneshot<S1, Req>, E>, S2, Iter, I, E>,
+	>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		let _ = self.inner.poll_ready(cx).map_err(Into::<E>::into)?;
 		self.outer.poll_ready(cx).map_err(Into::into)
@@ -70,19 +75,19 @@ where
 		let outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
 		let mut inner = replace(&mut self.inner, clone_inner);
-		//let x =
-		//// TODO: make a map_into_service derivative that takes a clonable service and a future of some
-		//// kind, then gets them to complete concurrently
-		//join(inner.call(input), ready(outer))
-		//		.map_future_multiset()
-		//		.flatten();
-		//x
+		let fut = inner.oneshot(input).err_into();
+		let x =
+		// TODO: make a map_into_service derivative that takes a clonable service and a future of some
+		// kind, then gets them to complete concurrently
+             <futures::future::ErrInto<Oneshot<S1, Req>, E> as crate::future_ext::FutureExt<Result<Iter, E>, E>>::map_future_multiset::<S2, Iter, I, E>(fut, outer)
+             .flatten();
+		x
+		/*
 		async move {
 			let x = inner.call(input).await?;
 			let res = repeat(outer).zip(x).map_service_call();
 			Ok(join_all(res).await)
 		}
-		/*
 		inner.call(input)
 		    .map_ok(move |iter| {
 			outers
