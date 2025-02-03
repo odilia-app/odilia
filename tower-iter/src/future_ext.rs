@@ -1,59 +1,62 @@
 use alloc::vec::Vec;
 use core::{
-	future::Future,
-	iter::Repeat,
+	future::{ready, Future, IntoFuture, Ready},
+	iter::{repeat, Repeat},
 	marker::PhantomData,
 	pin::Pin,
 	task::{Context, Poll},
 };
-use futures::future::{join_all, JoinAll};
+use futures::future::{err, join_all, Either, JoinAll};
+use futures::FutureExt as OtherFutExt;
 use pin_project::pin_project;
+use tower::util::Oneshot;
 use tower::Service;
 
-use crate::{call_iter::FullServiceFut, service_multiset::ServiceMultiset};
+use crate::{service_multi_iter::ServiceMultiIter, service_multiset::ServiceMultiset};
 
 #[pin_project]
-pub struct MapFutureMultiSet<F, S, Lf, Lo> {
+pub struct MapFutureMultiSet<F, S, Lf, Lo, E> {
 	#[pin]
 	inner: F,
+	svc: S,
 	_marker: PhantomData<fn(Lf) -> Lo>,
-	_marker2: PhantomData<fn(S)>,
+	_marker2: PhantomData<fn(S) -> E>,
 }
-impl<F, S, Lf, Lo> Future for MapFutureMultiSet<F, S, Lf, Lo>
+impl<F, S, Lf, Lo, E> Future for MapFutureMultiSet<F, S, Lf, Lo, E>
 where
-	F: Future<Output = (Lf, S)>,
+	F: Future<Output = Result<Lf, E>>,
 	Lf: Iterator<Item = Lo>,
 	S: Service<Lo> + Clone,
 {
-	type Output = MapOk<
-		JoinAll<
-			FullServiceFut<
-				S,
-				Lo,
-				<S as Service<Lo>>::Response,
-				<S as Service<Lo>>::Error,
-				<S as Service<Lo>>::Future,
-			>,
-		>,
-		<S as Service<Lo>>::Error,
-		Vec<Result<<S as Service<Lo>>::Response, <S as Service<Lo>>::Error>>,
+	type Output = Either<
+		Ready<Result<Vec<Result<S::Response, S::Error>>, E>>,
+		MapOk<JoinAll<Oneshot<S, Lo>>, E, Vec<Result<S::Response, S::Error>>>,
 	>;
-	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-		let this = self.project();
-		let Poll::Ready((iter, svc)) = this.inner.poll(cx) else {
+	fn poll(mut self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		let this = self.as_mut().project();
+		let Poll::Ready(maybe_iter) = this.inner.poll(cx) else {
 			return Poll::Pending;
 		};
-		let mut msvc: ServiceMultiset<S, Lf, Repeat<S>> = ServiceMultiset::from(svc);
-		Poll::Ready(msvc.call(iter))
+		match maybe_iter {
+			Err(e) => Poll::Ready(Either::Left(ready(Err(e)))),
+			Ok(iter) => {
+				let mut msvc: ServiceMultiIter<Repeat<S>, Lf, S, Lo> =
+					ServiceMultiIter::new(repeat(self.svc.clone()), iter);
+				Poll::Ready(msvc.into_future().wrap_ok().right_future())
+			}
+		}
 	}
 }
 
 pub trait FutureExt<O, E>: Future<Output = O> {
-	fn map_future_multiset<S, Lf, Lo>(self) -> MapFutureMultiSet<Self, S, Lf, Lo>
+	fn map_future_multiset<S, Lf, Lo, E2>(
+		self,
+		svc: S,
+	) -> MapFutureMultiSet<Self, S, Lf, Lo, E2>
 	where
 		Self: Sized,
 	{
-		MapFutureMultiSet { inner: self, _marker: PhantomData, _marker2: PhantomData }
+		MapFutureMultiSet { inner: self, svc, _marker: PhantomData, _marker2: PhantomData }
 	}
 	fn ok_join_all<Iter, I>(self) -> OkJoinAll<Self, E, O, Iter, I>
 	where

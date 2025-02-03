@@ -62,13 +62,7 @@ where
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
-		join_all(
-			self.inner
-				.clone()
-				.into_iter()
-				.zip(repeat(req))
-				.map_service_call(),
-		)
-		.wrap_ok()
+		join_all(self.inner.clone().into_iter().zip(repeat(req)).map_service_call())
+			.wrap_ok()
 	}
 }
