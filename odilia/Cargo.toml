@@ -58,7 +58,7 @@ tokio-util.workspace=true
 toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
-tower = { version = "0.4.13", features = ["util", "filter", "steer"] }
+tower = { version = "0.5.2", features = ["util", "filter", "steer"] }
 ssip = "0.2.0"
 futures-lite = "2.3.0"
 pin-project = "1.1.5"
@@ -67,6 +67,7 @@ futures-concurrency.workspace = true
 console-subscriber = { version = "0.3.0", optional = true }
 refinement = "0.5.0"
 derived-deref = "2.1.0"
+tower-iter = { version = "0.1", path = "../tower-iter/" }
 
 [dev-dependencies]
 lazy_static = "1.4.0"
