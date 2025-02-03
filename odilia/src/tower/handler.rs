@@ -1,6 +1,5 @@
 #![allow(clippy::module_name_repetitions)]
 
-use futures::FutureExt;
 use std::{
 	convert::Infallible,
 	future::Future,
