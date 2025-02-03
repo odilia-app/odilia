@@ -1,4 +1,4 @@
-use alloc::collections::{BTreeMap, btree_map::Entry};
+use alloc::collections::{btree_map::Entry, BTreeMap};
 use alloc::format;
 use core::{
 	fmt::Debug,
@@ -6,17 +6,20 @@ use core::{
 	mem::replace,
 	task::{Context, Poll},
 };
-use futures::TryFutureExt;
+use futures::future::err;
 use futures::future::Either;
 use futures::future::ErrInto;
 use futures::future::Ready;
-use futures::future::err;
+use futures::TryFutureExt;
 use tower::Service;
 
 use crate::Error;
 
 pub trait Chooser<K> {
 	fn identifier(&self) -> K;
+}
+pub trait ChooserStatic<K> {
+	fn identifier() -> K;
 }
 
 #[allow(clippy::module_name_repetitions)]
