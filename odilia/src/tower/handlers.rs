@@ -12,6 +12,7 @@ use atspi::BusProperties;
 use atspi::Event;
 use atspi::EventProperties;
 use atspi::EventTypeProperties;
+use odilia_common::command::{OdiliaCommand, OdiliaCommandDiscriminants};
 use odilia_common::errors::OdiliaError;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -95,7 +96,7 @@ impl Handlers {
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(Into::into)
+			.map_response_into::<R, (), OdiliaError, T>()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
@@ -131,8 +132,12 @@ impl Handlers {
 			.request_try_from()
 			.iter_into(self.command.clone())
 			.map_result(
-				|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
+				|res: Result<
+					Vec<Result<Vec<Result<(), OdiliaError>>, OdiliaError>>,
+					OdiliaError,
+				>| {
 					res?.into_iter()
+						.flatten()
 						.flatten()
 						.collect::<Result<(), OdiliaError>>()
 				},
