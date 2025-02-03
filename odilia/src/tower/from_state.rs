@@ -1,10 +1,9 @@
 #![allow(clippy::module_name_repetitions)]
 
-use futures::{future::ErrInto, FutureExt, TryFutureExt};
-use futures_concurrency::future::{Join, TryJoin};
+use futures::{future::ErrInto, TryFutureExt};
+use futures_concurrency::future::TryJoin;
 
 use odilia_common::errors::OdiliaError;
-use std::fmt::Debug;
 use std::future::Future;
 
 pub trait TryFromState<S, T>: Sized {

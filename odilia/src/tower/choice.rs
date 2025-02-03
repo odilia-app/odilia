@@ -13,7 +13,6 @@ use odilia_common::{
 };
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
-use std::future::Future;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower::Service;
