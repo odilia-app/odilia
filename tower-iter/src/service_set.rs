@@ -1,11 +1,13 @@
-use crate::{FutureExt, MapMExt, MapOk, call_iter::MapServiceCall, service_multiset::ServiceMultiset};
+use crate::{
+	call_iter::MapServiceCall, service_multiset::ServiceMultiset, FutureExt, MapMExt, MapOk,
+};
 use alloc::vec::Vec;
 use core::{
-	iter::{Zip, repeat, Repeat},
+	iter::{repeat, Repeat, Zip},
 	mem::replace,
 	task::{Context, Poll},
 };
-use futures::future::{JoinAll, join_all};
+use futures::future::{join_all, JoinAll};
 use tower::Service;
 
 /// Useful for running a set of services with the same signature in parallel.
@@ -20,40 +22,54 @@ use tower::Service;
 /// 2. To use the [`crate::UnwrapService`] also provided by this crate. Or,
 /// 3. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
 #[derive(Clone)]
-pub struct ServiceSet<S, I, Si> {
-	inner: ServiceMultiset<S, I, Si>,
+pub struct ServiceSet<S> {
+	inner: Vec<S>,
 }
-impl<S, I, Si> Default for ServiceSet<S, I, Si> {
+impl<S> Default for ServiceSet<S> {
 	fn default() -> Self {
-    ServiceSet { inner: ServiceMultiset::default() }
+		ServiceSet { inner: Vec::new() }
 	}
 }
-impl<S, I, Si> ServiceSet<S, I, Si> {
-  pub fn from(s: S) -> ServiceSet<S, I, Si> {
-      ServiceSet { inner: ServiceMultiset::from(s) }
-  }
+impl<S> ServiceSet<S> {
+	pub fn from(s: S) -> ServiceSet<S> {
+		ServiceSet { inner: Vec::from([s]) }
+	}
 	pub fn push(&mut self, svc: S) {
 		self.inner.push(svc);
 	}
-  pub fn clone_expand(&mut self, size: usize) 
-  where S: Clone {
-      self.inner.clone_expand(size);
-  }
 }
 
-impl<S, Si, Req> Service<Req> for ServiceSet<S, Repeat<Req>, Si>
+impl<S, Req> Service<Req> for ServiceSet<S>
 where
 	S: Service<Req> + Clone,
-  Req: Clone,
-  Si: Iterator<Item = S>,
+	Req: Clone,
 {
 	type Response = Vec<Result<S::Response, S::Error>>;
 	type Error = S::Error;
-	type Future = MapOk<JoinAll<<MapServiceCall<Zip<Si, Repeat<Req>>, S, Req> as Iterator>::Item>, Self::Error, Self::Response>;
+	type Future = MapOk<
+		JoinAll<
+			<MapServiceCall<
+				Zip<<Vec<S> as IntoIterator>::IntoIter, Repeat<Req>>,
+				S,
+				Req,
+			> as Iterator>::Item,
+		>,
+		Self::Error,
+		Self::Response,
+	>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-      self.inner.poll_ready(cx)
+		// all readiness is done in map_service_call
+		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
-      self.inner.call(repeat(req))
+		join_all(
+			self.inner
+				.clone()
+				.into_iter()
+				.into_iter()
+				.zip(repeat(req))
+				.map_service_call(),
+		)
+		.wrap_ok()
 	}
 }
