@@ -42,9 +42,10 @@ where
 }
 impl<S1, Req, Iter, I, S2, E> IterService<S1, Req, Iter, I, S2, E>
 where
-	S1: Service<Req, Response = Iter>,
-	Iter: IntoIterator<Item = I>,
-	S2: Service<I>,
+	S1: Service<Req, Response = Iter> + Clone,
+	Iter: Iterator<Item = I>,
+	S2: Service<I> + Clone,
+	E: From<S1::Error> + From<S2::Error>,
 {
 	pub fn new(inner: S1, outer: S2) -> Self {
 		IterService { inner, outer, _marker: PhantomData }
@@ -57,8 +58,6 @@ where
 	Iter: Iterator<Item = I>,
 	S2: Service<I> + ServiceExt<I> + Clone,
 	E: From<S1::Error> + From<S2::Error>,
-	//TODO erase:
-	Req: Clone,
 {
 	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
