@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 futures = { version = "0.3.31", default-features = false, features = ["alloc"] }
 pin-project = "1.1.8"
-tower = { version = "0.5.2", default-features = false, path = "../../tower/tower/", features = ["util"]  }
+tower = { version = "0.5.2", default-features = false, features = ["util"]  }
 
 [features]

@@ -1,14 +1,14 @@
-use crate::{FutureExt, MapMExt, MapOk, call_iter::MapServiceCall};
+use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
 use alloc::vec::Vec;
 use core::{
-  future::{Future,IntoFuture},
-  convert::Infallible,
-  iter::Zip,
+	convert::Infallible,
+	future::{Future, IntoFuture},
+	iter::Zip,
+	marker::PhantomData,
 	mem::replace,
 	task::{Context, Poll},
-  marker::PhantomData,
 };
-use futures::future::{JoinAll, join_all};
+use futures::future::{join_all, JoinAll};
 use tower::Service;
 
 /// Useful for running a set of services with the same signature in parallel.
@@ -24,29 +24,28 @@ use tower::Service;
 /// 3. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
 #[derive(Clone)]
 pub struct ServiceMultiIter<Si, Ii, S, I> {
-  s_iter: Si,
-  i_iter: Ii,
-  _marker: PhantomData<(S, I)>,
+	s_iter: Si,
+	i_iter: Ii,
+	_marker: PhantomData<(S, I)>,
 }
-impl<Si, Ii, S, I> ServiceMultiIter<Si,Ii,S,I> {
+impl<Si, Ii, S, I> ServiceMultiIter<Si, Ii, S, I> {
 	fn new(s_iter: Si, i_iter: Ii) -> Self {
 		ServiceMultiIter { s_iter, i_iter, _marker: PhantomData }
 	}
 }
 /*
 
-impl<Si, Ii, S, I> IntoFuture for ServiceMultiIter<Si,Ii,S,I> 
+impl<Si, Ii, S, I> IntoFuture for ServiceMultiIter<Si,Ii,S,I>
 where S: Clone + Service<I>,
      Ii: Iterator<Item = I>,
      Si: Iterator<Item = S> {
     type Output = Vec<Result<S::Response, S::Error>>;
     type IntoFuture = JoinAll<>;
     fn into_future(self) -> Self::IntoFuture {
-        join_all(
-        self.s_iter.zip(self.i_iter)
-            .map_service_call()
-            )
+	join_all(
+	self.s_iter.zip(self.i_iter)
+	    .map_service_call()
+	    )
     }
 }
 */
-
