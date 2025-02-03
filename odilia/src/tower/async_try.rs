@@ -100,11 +100,16 @@ where
 	fn call(&mut self, req: I) -> Self::Future {
 		let clone = self.inner.clone();
 		let mut inner = std::mem::replace(&mut self.inner, clone);
-		async move {
-			match req.try_into_async().await {
-				Ok(resp) => inner.call(resp).err_into().await,
-				Err(e) => Err(e.into()),
-			}
-		}
+		req.try_into_async()
+			.err_into()
+			.and_then(move |data| inner.call(data).err_into())
+		/*
+			    async move {
+				    match req.try_into_async().await {
+					    Ok(resp) => inner.call(resp).err_into().await,
+					    Err(e) => Err(e.into()),
+				    }
+			    }
+		*/
 	}
 }

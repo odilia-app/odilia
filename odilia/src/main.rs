@@ -301,7 +301,7 @@ async fn main() -> eyre::Result<()> {
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
-	tracker.spawn(atspi_handlers_task);
+	tracker.spawn_local(atspi_handlers_task);
 	tracker.spawn(event_send_task);
 	tracker.close();
 	let _ = sigterm_signal_watcher(token, tracker)
