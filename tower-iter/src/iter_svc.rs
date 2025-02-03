@@ -1,16 +1,23 @@
+use crate::{
+	future_ext::FutureExt as CrateFutureExt, service_multiset::ServiceMultiset, MapMExt,
+	ServiceSet,
+};
+use alloc::vec::Vec;
 use core::{
-	future::{Future, ready},
+	future::{ready, Future},
+	iter::{repeat, Repeat},
 	marker::PhantomData,
 	mem::replace,
+	pin::Pin,
 	task::{Context, Poll},
-  iter::{repeat, Repeat},
-  pin::Pin,
 };
-use futures::{future::{join_all, ErrInto, join}, TryFutureExt, stream::iter, FutureExt};
-use alloc::vec::Vec;
+use futures::{
+	future::{join, join_all, ErrInto},
+	stream::iter,
+	FutureExt, TryFutureExt,
+};
 use tower::Service;
 use tower::ServiceExt;
-use crate::{MapMExt, ServiceSet, future_ext::FutureExt as CrateFutureExt, service_multiset::ServiceMultiset};
 
 #[allow(clippy::type_complexity)]
 pub struct IterService<S1, Req, Iter, I, S2, E> {
@@ -48,8 +55,8 @@ where
 	Iter: Iterator<Item = I>,
 	S2: Service<I> + ServiceExt<I> + Clone,
 	E: From<S1::Error> + From<S2::Error>,
-  //TODO erase:
-  Req: Clone,
+	//TODO erase:
+	Req: Clone,
 {
 	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
@@ -63,41 +70,39 @@ where
 		let outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
 		let mut inner = replace(&mut self.inner, clone_inner);
-    let x = 
-    // TODO: make a map_into_service derivative that takes a clonable service and a future of some
-    // kind, then gets them to complete concurrently
-    join(inner.call(input), ready(outer))
-				.map_future_multiset()
-				.flatten();
-    x
-    /*
-    async move {
-        let x = inner.call(input).await?;
-        let res = outers.zip(x).map_service_call();
-        Ok(join_all(res).await.into_iter().flatten().collect())
-    }
-    */
-    /*
-    inner.call(input)
-        .map_ok(move |iter| {
-            outers
-                .zip(iter.into_iter())
-                .map_m::<S2, I, S2::Response>()
-        })
-        .ok_join_all()
-    */
-		//join_all(services.into_iter().zip(req_rep).map_m()).map_ok()
-    /*
+		//let x =
+		//// TODO: make a map_into_service derivative that takes a clonable service and a future of some
+		//// kind, then gets them to complete concurrently
+		//join(inner.call(input), ready(outer))
+		//		.map_future_multiset()
+		//		.flatten();
+		//x
 		async move {
-			let iter = inner.call(input).await?;
-			let mut results = Vec::new();
-			for item in iter {
-				let result = outer.call(item).await?;
-				results.push(result);
-			}
-			Ok(results)
+			let x = inner.call(input).await?;
+			let res = repeat(outer).zip(x).map_service_call();
+			Ok(join_all(res).await)
 		}
-    */
+		/*
+		inner.call(input)
+		    .map_ok(move |iter| {
+			outers
+			    .zip(iter.into_iter())
+			    .map_m::<S2, I, S2::Response>()
+		    })
+		    .ok_join_all()
+		*/
+		//join_all(services.into_iter().zip(req_rep).map_m()).map_ok()
+		/*
+			    async move {
+				    let iter = inner.call(input).await?;
+				    let mut results = Vec::new();
+				    for item in iter {
+					    let result = outer.call(item).await?;
+					    results.push(result);
+				    }
+				    Ok(results)
+			    }
+		*/
 	}
 }
 /*
@@ -150,12 +155,12 @@ where
     let f = self.inner.as_mut();
     // is we already have the result, check the inner services
     if self.inner_res.is_some() {
-        let _ = self.outer.poll_ready(cx)?;
-        return Poll::Ready(Ok(()));
+	let _ = self.outer.poll_ready(cx)?;
+	return Poll::Ready(Ok(()));
     }
     let mut res = match f.poll(cx) {
-        Poll::Pending => return Poll::Pending,
-        Poll::Ready(r) => r,
+	Poll::Pending => return Poll::Pending,
+	Poll::Ready(r) => r,
     };
     self.outer.clone_expand(res.by_ref().count());
     self.inner_res = Some(res);
@@ -168,7 +173,7 @@ where
 	}
 	fn call(&mut self, input: I) -> Self::Future {
       self.outer.call(input)
-          .err_into()
+	  .err_into()
 	}
 }
 */
