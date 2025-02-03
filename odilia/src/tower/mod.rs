@@ -4,7 +4,7 @@ pub use cache_event::CacheEvent;
 pub mod choice;
 pub mod from_state;
 pub mod handler;
-pub mod iter_svc;
+pub use tower_iter::iter_svc;
 pub mod service_ext;
 pub use tower_iter::service_set;
 pub mod state_changed;
