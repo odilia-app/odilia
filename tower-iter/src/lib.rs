@@ -5,7 +5,6 @@
 
 #![no_std]
 #![deny(clippy::all, clippy::pedantic)]
-#![feature(impl_trait_in_assoc_type)]
 
 extern crate alloc;
 
