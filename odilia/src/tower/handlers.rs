@@ -118,7 +118,7 @@ impl Handlers {
 			+ 'static,
 		OdiliaError: From<<Event as TryInto<E>>::Error>
 			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
-		R: TryIntoCommands + 'static,
+		R: TryIntoCommands + Send + 'static,
 		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
