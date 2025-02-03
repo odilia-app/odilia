@@ -66,7 +66,6 @@ where
 			self.inner
 				.clone()
 				.into_iter()
-				.into_iter()
 				.zip(repeat(req))
 				.map_service_call(),
 		)
