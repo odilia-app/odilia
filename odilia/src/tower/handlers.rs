@@ -123,10 +123,8 @@ impl Handlers {
 			+ 'static,
 		OdiliaError: From<<Event as TryInto<E>>::Error>
 			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>
-			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Error>
-			+ From<<R as TryIntoCommands>::Error>,
+			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Error>,
 		R: TryIntoCommands + Send + 'static,
-		R::Error: Send,
 		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
@@ -135,7 +133,8 @@ impl Handlers {
 	{
 		let bs = handler
 			.into_service()
-			.map_response_try_into_command()
+			.unwrap_map(TryIntoCommands::try_into_commands)
+			//.map_response_try_into_command()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
