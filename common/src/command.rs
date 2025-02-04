@@ -100,6 +100,14 @@ impl IntoCommands for () {
 		[].into_iter()
 	}
 }
+
+impl<const N: usize> IntoCommands for [OdiliaCommand; N] {
+	type Iter = IntoIter<OdiliaCommand, N>;
+	fn into_commands(self) -> Self::Iter {
+		self.into_iter()
+	}
+}
+
 impl<T1> IntoCommands for (T1,)
 where
 	T1: IntoCommands,
