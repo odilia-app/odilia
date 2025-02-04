@@ -1,13 +1,6 @@
-use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
+use crate::{call_iter::MapServiceCall, MapMExt};
 use alloc::vec::Vec;
-use core::{
-	convert::Infallible,
-	future::{Future, IntoFuture},
-	iter::Zip,
-	marker::PhantomData,
-	mem::replace,
-	task::{Context, Poll},
-};
+use core::{future::IntoFuture, iter::Zip, marker::PhantomData};
 use futures::future::{join_all, JoinAll};
 use tower::Service;
 

@@ -1,22 +1,12 @@
-use crate::{
-	future_ext::FutureExt as CrateFutureExt, future_ext::MapFutureMultiSet,
-	service_multi_iter::ServiceMultiIter, service_multiset::ServiceMultiset, MapMExt,
-	ServiceSet,
-};
+use crate::future_ext::MapFutureMultiSet;
 use alloc::vec::Vec;
 use core::{
-	future::{ready, Future, IntoFuture},
-	iter::{repeat, Repeat},
+	future::Future,
 	marker::PhantomData,
 	mem::replace,
-	pin::Pin,
 	task::{Context, Poll},
 };
-use futures::{
-	future::{join, join_all, ErrInto, Flatten},
-	stream::iter,
-	FutureExt, TryFutureExt,
-};
+use futures::{future::Flatten, FutureExt, TryFutureExt};
 use tower::util::Oneshot;
 use tower::Service;
 use tower::ServiceExt;
@@ -73,14 +63,14 @@ where
 		let clone_outer = self.outer.clone();
 		let outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
-		let mut inner = replace(&mut self.inner, clone_inner);
+		let inner = replace(&mut self.inner, clone_inner);
 		let fut = inner.oneshot(input).err_into();
-		let x =
-		// TODO: make a map_into_service derivative that takes a clonable service and a future of some
-		// kind, then gets them to complete concurrently
-             <futures::future::ErrInto<Oneshot<S1, Req>, E> as crate::future_ext::FutureExt<Result<Iter, E>, E>>::map_future_multiset::<S2, Iter, I, E>(fut, outer)
-             .flatten();
-		x
+
+		<futures::future::ErrInto<Oneshot<S1, Req>, E> as crate::future_ext::FutureExt<
+			Result<Iter, E>,
+			E,
+		>>::map_future_multiset::<S2, Iter, I, E>(fut, outer)
+		.flatten()
 		/*
 		async move {
 			let x = inner.call(input).await?;

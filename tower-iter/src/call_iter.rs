@@ -1,13 +1,7 @@
-use core::future::ready;
 use core::future::Future;
-use core::future::Ready;
 use core::marker::PhantomData;
 use core::pin::Pin;
 use core::task::{Context, Poll};
-use futures::future::join;
-use futures::future::FutureExt;
-use futures::future::TryFutureExt;
-use futures::future::{Join, Then};
 use tower::util::{Oneshot, ReadyOneshot};
 use tower::Service;
 use tower::ServiceExt as OtherServiceExt;
@@ -39,7 +33,7 @@ where
 {
 	type Item = ReadyOneshot<S, I>;
 	fn next(&mut self) -> Option<Self::Item> {
-		let mut s: S = self.inner.next()?;
+		let s: S = self.inner.next()?;
 		Some(s.ready_oneshot())
 	}
 }
@@ -69,15 +63,15 @@ where
 	}
 }
 
-pub struct ReverseTuple<Iter, I1, I2> {
+pub struct ReverseTuple<Iter, Left, Right> {
 	inner: Iter,
-	_marker: PhantomData<(I1, I2)>,
+	_marker: PhantomData<(Left, Right)>,
 }
-impl<Iter, I1, I2> Iterator for ReverseTuple<Iter, I2, I2>
+impl<Iter, Left, Right> Iterator for ReverseTuple<Iter, Left, Right>
 where
-	Iter: Iterator<Item = (I1, I2)>,
+	Iter: Iterator<Item = (Left, Right)>,
 {
-	type Item = (I2, I1);
+	type Item = (Right, Left);
 	fn next(&mut self) -> Option<Self::Item> {
 		let (i1, i2) = self.inner.next()?;
 		Some((i2, i1))
@@ -106,7 +100,7 @@ where
 {
 	type Item = Oneshot<S, I>;
 	fn next(&mut self) -> Option<Self::Item> {
-		let (mut s, i) = self.inner.next()?;
+		let (s, i) = self.inner.next()?;
 		Some(s.oneshot(i))
 	}
 }
