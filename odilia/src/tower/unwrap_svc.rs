@@ -139,47 +139,6 @@ where
 	}
 }
 
-#[allow(clippy::type_complexity)]
-pub struct UnwrapService<S, Req, Res, R, E, F> {
-	inner: S,
-	f: F,
-	_marker: PhantomData<fn(F, Req, Res) -> Result<R, E>>,
-}
-impl<S, Req, Res, R, E, F> UnwrapService<S, Req, Res, R, E, F>
-where
-	S: Service<Req, Response = Res, Error = Infallible>,
-{
-	pub fn new(inner: S, f: F) -> Self {
-		UnwrapService { inner, f, _marker: PhantomData }
-	}
-}
-impl<S, Req, Res, R, E, F> Clone for UnwrapService<S, Req, Res, R, E, F>
-where
-	S: Clone,
-	F: Clone,
-{
-	fn clone(&self) -> Self {
-		UnwrapService { inner: self.inner.clone(), f: self.f.clone(), _marker: PhantomData }
-	}
-}
-
-impl<S, Req, Res, R, E, F> Service<Req> for UnwrapService<S, Req, Res, R, E, F>
-where
-	S: Service<Req, Response = Res, Error = Infallible>,
-	E: From<Infallible>,
-	F: FnOnce(S::Response) -> Result<R, E> + Clone,
-{
-	type Error = E;
-	type Response = R;
-	type Future = impl Future<Output = Result<R, E>>;
-	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		self.inner.poll_ready(cx).map_err(Into::into)
-	}
-	fn call(&mut self, req: Req) -> Self::Future {
-		self.inner.call(req).unwrap_fut().map(self.f.clone())
-	}
-}
-
 use std::pin::Pin;
 
 #[pin_project::pin_project]
