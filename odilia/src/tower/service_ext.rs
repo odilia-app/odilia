@@ -55,10 +55,12 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		MapResponseIntoService::new(self)
 	}
-	fn map_response_try_into_command(self) -> MapResponseTryIntoCommandsService<Self, Request>
+	fn map_response_try_into_command<R>(
+		self,
+	) -> MapResponseTryIntoCommandsService<Self, Request>
 	where
-		Self: Service<Request, Error = Infallible> + Sized,
-		<Self as Service<Request>>::Response: TryIntoCommands,
+		Self: Service<Request, Error = Infallible, Response = R> + Sized,
+		R: TryIntoCommands,
 	{
 		MapResponseTryIntoCommandsService::new(self)
 	}
