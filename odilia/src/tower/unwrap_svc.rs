@@ -1,3 +1,4 @@
+use crate::TryIntoCommands;
 use futures::{
 	future::{ErrInto, OkInto},
 	FutureExt, TryFutureExt,
@@ -48,11 +49,60 @@ where
 }
 
 #[allow(clippy::type_complexity)]
-pub struct MapResponseIntoService<S, Req, Res, R, E, T> {
+pub struct MapResponseTryIntoCommandsService<S, Req> {
 	inner: S,
-	_marker: PhantomData<fn(Req, Res, T) -> Result<R, E>>,
+	_marker: PhantomData<Req>,
 }
-impl<S, Req, Res, R, E, T> MapResponseIntoService<S, Req, Res, R, E, T>
+impl<S, Req> MapResponseTryIntoCommandsService<S, Req>
+where
+	S: Service<Req, Error = Infallible>,
+	S::Response: TryIntoCommands,
+{
+	pub fn new(inner: S) -> Self {
+		MapResponseTryIntoCommandsService { inner, _marker: PhantomData }
+	}
+}
+impl<S, Req> Clone for MapResponseTryIntoCommandsService<S, Req>
+where
+	S: Clone,
+{
+	fn clone(&self) -> Self {
+		MapResponseTryIntoCommandsService {
+			inner: self.inner.clone(),
+			_marker: PhantomData,
+		}
+	}
+}
+
+impl<S, Req> Service<Req> for MapResponseTryIntoCommandsService<S, Req>
+where
+	S: Service<Req, Error = Infallible>,
+	S::Response: TryIntoCommands,
+{
+	type Error = <S::Response as TryIntoCommands>::Error;
+	type Response = <S::Response as TryIntoCommands>::Iter;
+	type Future = FlattenFutResult<
+		TryIntoCommandFut<S::Future, S::Response, S::Error>,
+		<S::Response as TryIntoCommands>::Iter,
+		<S::Response as TryIntoCommands>::Error,
+	>;
+	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+		let Poll::Ready(ready) = self.inner.poll_ready(cx) else {
+			return Poll::Pending;
+		};
+		Poll::Ready(Ok(ready.expect("An infallible poll_ready!")))
+	}
+	fn call(&mut self, req: Req) -> Self::Future {
+		self.inner.call(req).ok_try_into_command().flatten_fut_res()
+	}
+}
+
+#[allow(clippy::type_complexity)]
+pub struct MapResponseIntoService<S, Req, Res, R, E> {
+	inner: S,
+	_marker: PhantomData<fn(Req, Res) -> Result<R, E>>,
+}
+impl<S, Req, Res, R, E> MapResponseIntoService<S, Req, Res, R, E>
 where
 	S: Service<Req, Error = Infallible>,
 	S::Response: Into<Result<R, E>>,
@@ -61,7 +111,7 @@ where
 		MapResponseIntoService { inner, _marker: PhantomData }
 	}
 }
-impl<S, Req, Res, R, E, T> Clone for MapResponseIntoService<S, Req, Res, R, E, T>
+impl<S, Req, Res, R, E> Clone for MapResponseIntoService<S, Req, Res, R, E>
 where
 	S: Clone,
 {
@@ -70,7 +120,7 @@ where
 	}
 }
 
-impl<S, Req, Res, R, E, T> Service<Req> for MapResponseIntoService<S, Req, Res, R, E, T>
+impl<S, Req, Res, R, E> Service<Req> for MapResponseIntoService<S, Req, Res, R, E>
 where
 	S: Service<Req, Error = Infallible>,
 	S::Response: Into<Result<R, E>>,
@@ -133,6 +183,23 @@ where
 use std::pin::Pin;
 
 #[pin_project::pin_project]
+pub struct TryIntoCommandFut<F, Ic, E> {
+	#[pin]
+	f: F,
+	_marker: PhantomData<(Ic, E)>,
+}
+impl<F, Ic, E> Future for TryIntoCommandFut<F, Ic, E>
+where
+	F: Future<Output = Result<Ic, E>>,
+	Ic: TryIntoCommands,
+{
+	type Output = Result<Result<Ic::Iter, Ic::Error>, E>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		todo!()
+	}
+}
+
+#[pin_project::pin_project]
 pub struct FlattenFutResult<F, O, E1> {
 	#[pin]
 	fut: F,
@@ -190,6 +257,12 @@ trait UnwrapFutExt: Future {
 		Self: Sized,
 	{
 		FlattenFutResult { fut: self, _marker: PhantomData }
+	}
+	fn ok_try_into_command<O, E>(self) -> TryIntoCommandFut<Self, O, E>
+	where
+		Self: Sized,
+	{
+		TryIntoCommandFut { f: self, _marker: PhantomData }
 	}
 }
 impl<F> UnwrapFutExt for F where F: Future {}
