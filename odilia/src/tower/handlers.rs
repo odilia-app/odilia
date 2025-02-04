@@ -2,6 +2,7 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
+	async_try::{AsyncTryFrom, AsyncTryInto},
 	choice::{ChoiceService, ChooserStatic},
 	from_state::TryFromState,
 	service_set::ServiceSet,
@@ -88,15 +89,18 @@ impl Handlers {
 		C: CommandType + ChooserStatic<CommandDiscriminants> + Send + 'static,
 		Command: TryInto<C>,
 		OdiliaError: From<<Command as TryInto<C>>::Error>
-			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>,
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>
+			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, C)>>::Error>,
 		R: Into<Result<(), Error>> + Send + 'static,
 		T: TryFromState<Arc<ScreenReaderState>, C> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Future: Send,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
+		T: AsyncTryFrom<(Arc<ScreenReaderState>, C)>,
+		<T as AsyncTryFrom<(Arc<ScreenReaderState>, C)>>::Future: std::marker::Send,
 	{
 		let bs = handler
 			.into_service()
-			.map_response_into::<R, (), OdiliaError, T>()
+			.map_response_into::<R, (), OdiliaError>()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
@@ -118,15 +122,20 @@ impl Handlers {
 			+ Send
 			+ 'static,
 		OdiliaError: From<<Event as TryInto<E>>::Error>
-			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>
+			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Error>
+			+ From<<R as TryIntoCommands>::Error>,
 		R: TryIntoCommands + Send + 'static,
+		R::Error: Send,
 		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
+		T: AsyncTryFrom<(Arc<ScreenReaderState>, E)>,
+		<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Future: std::marker::Send,
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(TryIntoCommands::try_into_commands)
+			.map_response_try_into_command()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
