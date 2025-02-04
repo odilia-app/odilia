@@ -79,12 +79,12 @@ where
 	S: Service<Req, Error = Infallible>,
 	S::Response: TryIntoCommands,
 {
-	type Error = <S::Response as TryIntoCommands>::Error;
+	type Error = crate::OdiliaError;
 	type Response = <S::Response as TryIntoCommands>::Iter;
-	type Future = FlattenFutResult<
-		TryIntoCommandFut<S::Future, S::Response, S::Error>,
-		<S::Response as TryIntoCommands>::Iter,
-		<S::Response as TryIntoCommands>::Error,
+	type Future = TryIntoCommandFut<
+		UnwrapFut<S::Future, S::Response, Infallible>,
+		S::Response,
+		S::Error,
 	>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		let Poll::Ready(ready) = self.inner.poll_ready(cx) else {
@@ -93,7 +93,7 @@ where
 		Poll::Ready(Ok(ready.expect("An infallible poll_ready!")))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
-		self.inner.call(req).ok_try_into_command().flatten_fut_res()
+		self.inner.call(req).unwrap_fut().ok_try_into_command()
 	}
 }
 
@@ -190,12 +190,16 @@ pub struct TryIntoCommandFut<F, Ic, E> {
 }
 impl<F, Ic, E> Future for TryIntoCommandFut<F, Ic, E>
 where
-	F: Future<Output = Result<Ic, E>>,
+	F: Future<Output = Ic>,
 	Ic: TryIntoCommands,
 {
-	type Output = Result<Result<Ic::Iter, Ic::Error>, E>;
+	type Output = Result<Ic::Iter, crate::OdiliaError>;
 	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-		todo!()
+		let this = self.project();
+		match this.f.poll(cx) {
+			Poll::Pending => Poll::Pending,
+			Poll::Ready(ic) => Poll::Ready(ic.try_into_commands()),
+		}
 	}
 }
 
