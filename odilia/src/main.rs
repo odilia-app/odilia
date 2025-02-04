@@ -165,6 +165,14 @@ async fn focused(
 	])
 }
 
+#[tracing::instrument(ret)]
+async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
+	[
+		Focus(state_changed.item.object).into(),
+		Speak(state_changed.item.text, Priority::Text).into(),
+	]
+}
+
 #[tracing::instrument(ret, err)]
 async fn new_focused_item(
 	Command(Focus(new_focus)): Command<Focus>,
