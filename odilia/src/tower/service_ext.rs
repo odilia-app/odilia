@@ -5,7 +5,6 @@ use crate::tower::{
 	sync_try::{TryIntoLayer, TryIntoService},
 	unwrap_svc::{
 		MapErrIntoService, MapResponseIntoService, MapResponseTryIntoCommandsService,
-		UnwrapService,
 	},
 };
 use crate::TryIntoCommands;
@@ -39,13 +38,6 @@ pub trait ServiceExt<Request>: Service<Request> {
 		StateLayer<S>: Layer<Self, Service = StateService<Self, S>>,
 	{
 		StateLayer::new(s).layer(self)
-	}
-	fn unwrap_map<R, E, F>(self, f: F) -> UnwrapService<Self, Request, Self::Response, R, E, F>
-	where
-		Self: Service<Request, Error = Infallible> + Sized,
-		F: FnOnce(<Self as Service<Request>>::Response) -> Result<R, E>,
-	{
-		UnwrapService::new(self, f)
 	}
 
 	fn map_response_into<Res, R, E>(self) -> MapResponseIntoService<Self, Request, Res, R, E>
