@@ -9,17 +9,16 @@ use core::{
 use futures::future::{join_all, JoinAll};
 use tower::Service;
 
-/// Useful for running a set of services with the same signature in parallel.
+/// Useful for running a set of services with the same signature concurrently.
 ///
 /// Note that although calling the [`ServiceMultiset::call`] function seems to return a
 /// `Result<Vec<S::Response, S::Error>, S::Error>`, the outer error is gaurenteed never to be
 /// an error.
 ///
-/// Your three options for handling this are:
+/// Your two options for handling this are:
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
-/// 2. To use the [`crate::UnwrapService`] also provided by this crate. Or,
-/// 3. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
+/// 2. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
 #[derive(Clone)]
 pub struct ServiceMultiset<S, I, Si> {
 	services: Vec<S>,
@@ -64,8 +63,9 @@ where
 		Self::Response,
 	>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		// SAFETY: This is fine because all services are checked during the running of the future in
-		// call, due to `.map_service_call()`
+		for svc in &mut self.services {
+			let _ = svc.poll_ready(cx)?;
+		}
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: I) -> Self::Future {

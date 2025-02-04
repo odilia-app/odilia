@@ -6,13 +6,13 @@ use core::{
 	pin::Pin,
 	task::{Context, Poll},
 };
-use futures::future::{err, join_all, Either, JoinAll};
+use futures::future::{join_all, Either, JoinAll};
 use futures::FutureExt as OtherFutExt;
 use pin_project::pin_project;
 use tower::util::Oneshot;
 use tower::Service;
 
-use crate::{service_multi_iter::ServiceMultiIter, service_multiset::ServiceMultiset};
+use crate::service_multi_iter::ServiceMultiIter;
 
 #[pin_project]
 pub struct MapFutureMultiSet<F, S, Lf, Lo, E> {
@@ -40,7 +40,7 @@ where
 		match maybe_iter {
 			Err(e) => Poll::Ready(Either::Left(ready(Err(e)))),
 			Ok(iter) => {
-				let mut msvc: ServiceMultiIter<Repeat<S>, Lf, S, Lo> =
+				let msvc: ServiceMultiIter<Repeat<S>, Lf, S, Lo> =
 					ServiceMultiIter::new(repeat(self.svc.clone()), iter);
 				Poll::Ready(msvc.into_future().wrap_ok().right_future())
 			}
