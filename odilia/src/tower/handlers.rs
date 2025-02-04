@@ -133,8 +133,7 @@ impl Handlers {
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(TryIntoCommands::try_into_commands)
-			//.map_response_try_into_command()
+			.map_response_try_into_command()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
