@@ -26,8 +26,8 @@ smartstring = { version = "1.0.1", features = ["serde"] }
 serde_plain.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["async_tokio", "html_reports"] }
 atspi-connection.workspace = true
+criterion = { version = "0.5.1", features = ["async_tokio", "html_reports"] }
 rand = "0.8.5"
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
