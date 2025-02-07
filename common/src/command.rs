@@ -14,8 +14,8 @@ pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;
 	type Iter: Iterator<Item = OdiliaCommand> + Send;
 	/// Fallibly returns a [`Vec`] of [`OdiliaCommand`]s to run.
-	/// This collects the commands returned from [`try_into_commands`] and returns them upon
-	/// successful evaluation.
+	/// This collects the commands returned from [`TryIntoCommands::try_into_commands`] and returns
+	/// them collected upon successful conversion.
 	///
 	/// # Errors
 	///

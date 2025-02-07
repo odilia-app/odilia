@@ -6,15 +6,15 @@ use tower::Service;
 
 /// Useful for running a set of services with the same signature in parallel.
 ///
-/// Note that although calling the [`ServiceMultiIter::call`] function seems to return a
-/// `Result<Vec<S::Response, S::Error>, S::Error>`, the outer error is gaurenteed never to be
-/// an error.
+/// Note that although calling the [`ServiceMultiIter::into_future`] function seems to return a
+/// future that resolves to
+/// `Result<Vec<Result<S::Response, S::Error>>, S::Error>`, the outer error is gaurenteed never to be
+/// an error. It is [`std::convert::Infallible`].
 ///
 /// Your three options for handling this are:
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
-/// 2. To use the [`crate::UnwrapService`] also provided by this crate. Or,
-/// 3. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
+/// 2. Call [`Iterator::collect::<Result<Vec<T>, E>>()`] on the result of the future.
 #[derive(Clone)]
 pub struct ServiceMultiIter<Si, Ii, S, I> {
 	s_iter: Si,
