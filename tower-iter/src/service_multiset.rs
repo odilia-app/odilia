@@ -18,7 +18,7 @@ use tower::Service;
 /// Your two options for handling this are:
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
-/// 2. Call [`collect::<Result<Vec<T>, E>>()`] on the result of the future.
+/// 2. Call [`Iterator::collect::<Result<Vec<T>, E>>()`] on the result of the future.
 #[derive(Clone)]
 pub struct ServiceMultiset<S, I, Si> {
 	services: Vec<S>,
