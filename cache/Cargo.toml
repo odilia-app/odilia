@@ -4,7 +4,7 @@ version = "0.3.0"
 edition = "2021"
 authors = ["Tait Hoyem <tait@tait.tech>", "Sam Tay <samctay@pm.me>"]
 description = "A caching layer for the Odilia screen reader."
-license = "GPL-3.0-only" # Not gpl-3-or-later
+license = "MIT or Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
@@ -26,8 +26,8 @@ smartstring = { version = "1.0.1", features = ["serde"] }
 serde_plain.workspace = true
 
 [dev-dependencies]
-criterion = { version = "0.4.0", features = ["async_tokio", "html_reports"] }
 atspi-connection.workspace = true
+criterion = { version = "0.5.1", features = ["async_tokio", "html_reports"] }
 rand = "0.8.5"
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }

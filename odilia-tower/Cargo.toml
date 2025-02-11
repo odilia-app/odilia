@@ -1,0 +1,18 @@
+[package]
+name = "odilia-tower"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+atspi.workspace = true
+atspi-common.workspace = true
+futures = "0.3.31"
+futures-concurrency.workspace = true
+odilia-cache.workspace = true
+odilia-common.workspace = true
+pin-project = "1.1.8"
+tokio.workspace = true
+tower = { version = "0.5.2", default-features = false, features = ["util"] }
+tracing.workspace = true
+zbus.workspace = true

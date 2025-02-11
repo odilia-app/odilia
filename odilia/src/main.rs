@@ -7,7 +7,6 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
-#![feature(impl_trait_in_assoc_type)]
 
 mod cli;
 mod events;
@@ -166,10 +165,10 @@ async fn focused(state_changed: CacheEvent<Focused>) -> impl TryIntoCommands {
 
 #[tracing::instrument(ret)]
 async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
-	Ok(vec![
+	[
 		Focus(state_changed.item.object).into(),
 		Speak(state_changed.item.text, Priority::Text).into(),
-	])
+	]
 }
 
 #[tracing::instrument(ret, err)]
