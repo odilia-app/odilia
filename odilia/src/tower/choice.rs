@@ -1,4 +1,4 @@
-use atspi_common::{BusProperties, Event, EventTypeProperties};
+use atspi::{BusProperties, Event, EventTypeProperties};
 use futures::future::err;
 use futures::future::Either;
 use futures::TryFutureExt;

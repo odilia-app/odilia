@@ -65,3 +65,28 @@ where
 			.map(|(u1, u2, u3)| Ok((u1?, u2?, u3?)))
 	}
 }
+
+impl<S, T, U1, U2, U3, U4> TryFromState<S, T> for (U1, U2, U3, U4)
+where
+	U1: TryFromState<S, T>,
+	U2: TryFromState<S, T>,
+	U3: TryFromState<S, T>,
+	U4: TryFromState<S, T>,
+	OdiliaError: From<U1::Error> + From<U2::Error> + From<U3::Error> + From<U4::Error>,
+	S: Clone,
+	T: Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = impl Future<Output = Result<(U1, U2, U3, U4), OdiliaError>>;
+	#[tracing::instrument(skip(state))]
+	fn try_from_state(state: S, data: T) -> Self::Future {
+		(
+			U1::try_from_state(state.clone(), data.clone()),
+			U2::try_from_state(state.clone(), data.clone()),
+			U3::try_from_state(state.clone(), data.clone()),
+			U4::try_from_state(state, data),
+		)
+			.join()
+			.map(|(u1, u2, u3, u4)| Ok((u1?, u2?, u3?, u4?)))
+	}
+}
