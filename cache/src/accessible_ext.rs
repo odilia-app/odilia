@@ -29,7 +29,7 @@ pub trait AccessibleExt {
 	) -> impl Future<Output = Result<Vec<AccessibleProxy<'a>>, Self::Error>> + Send
 	where
 		Self: Sized;
-	fn get_children_indexes<'a>(
+	fn get_children_indexes(
 		&self,
 	) -> impl Future<Output = Result<Vec<i32>, Self::Error>> + Send;
 	fn get_siblings_before<'a>(
@@ -95,7 +95,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		let io: AccessiblePrimitive = or.into();
 		Ok(io.into_accessible(self.as_ref().connection()).await?)
 	}
-	async fn get_children_indexes<'a>(&self) -> Result<Vec<i32>, Self::Error> {
+	async fn get_children_indexes(&self) -> Result<Vec<i32>, Self::Error> {
 		let mut indexes = Vec::new();
 		for child in self.get_children_ext().await? {
 			indexes.push(child.get_index_in_parent().await?);

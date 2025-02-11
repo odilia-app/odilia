@@ -98,7 +98,7 @@ impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
 	}
 }
-impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
+impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
@@ -109,7 +109,7 @@ impl<'a> TryFrom<&AccessibleProxy<'a>> for AccessiblePrimitive {
 		Ok(AccessiblePrimitive { id, sender })
 	}
 }
-impl<'a> TryFrom<AccessibleProxy<'a>> for AccessiblePrimitive {
+impl TryFrom<AccessibleProxy<'_>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]

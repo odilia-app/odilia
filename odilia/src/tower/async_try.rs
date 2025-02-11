@@ -2,7 +2,6 @@
 
 use crate::tower::from_state::TryFromState;
 use futures::TryFutureExt;
-use odilia_common::errors::OdiliaError;
 use std::{
 	future::Future,
 	marker::PhantomData,
@@ -98,7 +97,7 @@ where
 	}
 	fn call(&mut self, req: I) -> Self::Future {
 		let clone = self.inner.clone();
-		let mut inner = std::mem::replace(&mut self.inner, clone);
+		let inner = std::mem::replace(&mut self.inner, clone);
 		req.try_into_async().err_into::<E>().and_then_call(inner).flatten()
 		/*
 			    async move {
@@ -111,7 +110,7 @@ where
 	}
 }
 
-use futures::future::{err, ready, Either, ErrInto, Flatten, FutureExt, Ready};
+use futures::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
 use std::pin::Pin;
 use tower::util::Oneshot;
 use tower::ServiceExt;

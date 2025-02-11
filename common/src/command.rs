@@ -44,7 +44,7 @@ impl TryIntoCommands for Result<Vec<OdiliaCommand>, OdiliaError> {
 	type Error = OdiliaError;
 	type Iter = std::vec::IntoIter<OdiliaCommand>;
 	fn try_into_commands(self) -> Result<Self::Iter, OdiliaError> {
-		self.map(|vec| vec.into_iter())
+		self.map(IntoIterator::into_iter)
 	}
 }
 impl<T: IntoCommands> TryIntoCommands for T {

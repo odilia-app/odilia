@@ -2,7 +2,7 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
-	async_try::{AsyncTryFrom, AsyncTryInto},
+	async_try::AsyncTryFrom,
 	choice::{ChoiceService, ChooserStatic},
 	from_state::TryFromState,
 	service_set::ServiceSet,
@@ -13,7 +13,6 @@ use atspi::BusProperties;
 use atspi::Event;
 use atspi::EventProperties;
 use atspi::EventTypeProperties;
-use odilia_common::command::{OdiliaCommand, OdiliaCommandDiscriminants};
 use odilia_common::errors::OdiliaError;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -34,6 +33,8 @@ use odilia_common::command::{
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
+type OdiliaResult<T> = Result<T, OdiliaError>;
+type ResultList = Vec<OdiliaResult<()>>;
 
 type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
@@ -138,17 +139,13 @@ impl Handlers {
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
 			.iter_into(self.command.clone())
-			.map_result(
-				|res: Result<
-					Vec<Result<Vec<Result<(), OdiliaError>>, OdiliaError>>,
-					OdiliaError,
-				>| {
-					res?.into_iter()
-						.flatten()
-						.flatten()
-						.collect::<Result<(), OdiliaError>>()
-				},
-			)
+			// TODO: do this without a bunch of allocation.
+			.map_result(|res: OdiliaResult<Vec<OdiliaResult<ResultList>>>| {
+				res?.into_iter() // Remove outer result
+					.flatten() // Flatten out first vec
+					.flatten() // Flatten out ResultList
+					.collect::<Result<(), OdiliaError>>()
+			})
 			.boxed_clone();
 		self.atspi.entry(E::identifier()).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }

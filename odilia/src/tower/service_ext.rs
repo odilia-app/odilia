@@ -1,11 +1,9 @@
 use crate::tower::{
-	async_try::{AsyncTryFrom, AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
+	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
 	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
-	unwrap_svc::{
-		MapErrIntoService, MapResponseIntoService, MapResponseTryIntoCommandsService,
-	},
+	unwrap_svc::{MapResponseIntoService, MapResponseTryIntoCommandsService},
 };
 use crate::TryIntoCommands;
 use std::{convert::Infallible, sync::Arc};
@@ -56,13 +54,13 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		MapResponseTryIntoCommandsService::new(self)
 	}
-	fn map_err_into<Req, E1, R, E, T>(self) -> MapErrIntoService<Self, Req, E1, R, E, T>
-	where
-		Self: Service<Req, Response = R, Error = E1> + Sized,
-		E: From<E1>,
-	{
-		MapErrIntoService::new(self)
-	}
+	//fn map_err_into<Req, E1, R, E, T>(self) -> MapErrIntoService<Self, Req, E1, R, E, T>
+	//where
+	//	Self: Service<Req, Response = R, Error = E1> + Sized,
+	//	E: From<E1>,
+	//{
+	//	MapErrIntoService::new(self)
+	//}
 	fn iter_into<S, Iter, I, E>(self, s: S) -> IterService<Self, Request, Iter, I, S, E>
 	where
 		Self: Service<Request, Response = Iter> + Clone + Sized,

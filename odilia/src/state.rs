@@ -408,7 +408,7 @@ impl ScreenReaderState {
 	pub async fn new_accessible<'a, T: EventProperties>(
 		&'a self,
 		event: &'a T,
-	) -> OdiliaResult<AccessibleProxy<'_>> {
+	) -> OdiliaResult<AccessibleProxy<'a>> {
 		let sender = event.sender().clone();
 		let path = event.path().to_owned();
 		Ok(AccessibleProxy::builder(self.connection())

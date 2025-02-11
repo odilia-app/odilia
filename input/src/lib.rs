@@ -159,7 +159,6 @@ pub async fn sr_event_receiver(
 				},
 				Err(e) => tracing::error!("accept function failed: {:?}", e),
 			    }
-			    continue;
 			}
 			() = shutdown.cancelled() => {
 			    tracing::debug!("Shutting down input socket due to cancellation token");

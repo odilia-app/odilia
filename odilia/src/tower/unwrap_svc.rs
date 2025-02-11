@@ -1,52 +1,49 @@
 use crate::TryIntoCommands;
-use futures::{
-	future::{ErrInto, OkInto},
-	FutureExt, TryFutureExt,
-};
+use futures::{future::OkInto, TryFutureExt};
 use std::convert::Infallible;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::task::{Context, Poll};
 use tower::Service;
 
-#[allow(clippy::type_complexity)]
-pub struct MapErrIntoService<S, Req, E1, R, E, T> {
-	inner: S,
-	_marker: PhantomData<fn(Req, E1, T) -> Result<R, E>>,
-}
-impl<S, Req, E1, R, E, T> MapErrIntoService<S, Req, E1, R, E, T>
-where
-	S: Service<Req, Response = R, Error = E1>,
-	E: From<E1>,
-{
-	pub fn new(inner: S) -> Self {
-		MapErrIntoService { inner, _marker: PhantomData }
-	}
-}
-impl<S, Req, Res, R, E, T> Clone for MapErrIntoService<S, Req, Res, R, E, T>
-where
-	S: Clone,
-{
-	fn clone(&self) -> Self {
-		MapErrIntoService { inner: self.inner.clone(), _marker: PhantomData }
-	}
-}
-
-impl<S, Req, E1, R, E, T> Service<Req> for MapErrIntoService<S, Req, E1, R, E, T>
-where
-	S: Service<Req, Response = R, Error = E1>,
-	E: From<E1>,
-{
-	type Error = E;
-	type Response = R;
-	type Future = ErrInto<S::Future, E>;
-	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		self.inner.poll_ready(cx).map_err(Into::into)
-	}
-	fn call(&mut self, req: Req) -> Self::Future {
-		self.inner.call(req).err_into()
-	}
-}
+//#[allow(clippy::type_complexity)]
+//pub struct MapErrIntoService<S, Req, E1, R, E, T> {
+//	inner: S,
+//	_marker: PhantomData<fn(Req, E1, T) -> Result<R, E>>,
+//}
+//impl<S, Req, E1, R, E, T> MapErrIntoService<S, Req, E1, R, E, T>
+//where
+//	S: Service<Req, Response = R, Error = E1>,
+//	E: From<E1>,
+//{
+//	pub fn new(inner: S) -> Self {
+//		MapErrIntoService { inner, _marker: PhantomData }
+//	}
+//}
+//impl<S, Req, Res, R, E, T> Clone for MapErrIntoService<S, Req, Res, R, E, T>
+//where
+//	S: Clone,
+//{
+//	fn clone(&self) -> Self {
+//		MapErrIntoService { inner: self.inner.clone(), _marker: PhantomData }
+//	}
+//}
+//
+//impl<S, Req, E1, R, E, T> Service<Req> for MapErrIntoService<S, Req, E1, R, E, T>
+//where
+//	S: Service<Req, Response = R, Error = E1>,
+//	E: From<E1>,
+//{
+//	type Error = E;
+//	type Response = R;
+//	type Future = ErrInto<S::Future, E>;
+//	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
+//		self.inner.poll_ready(cx).map_err(Into::into)
+//	}
+//	fn call(&mut self, req: Req) -> Self::Future {
+//		self.inner.call(req).err_into()
+//	}
+//}
 
 #[allow(clippy::type_complexity)]
 pub struct MapResponseTryIntoCommandsService<S, Req> {
@@ -90,7 +87,7 @@ where
 		let Poll::Ready(ready) = self.inner.poll_ready(cx) else {
 			return Poll::Pending;
 		};
-		Poll::Ready(Ok(ready.expect("An infallible poll_ready!")))
+		Poll::Ready(Ok(ready?))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
 		self.inner.call(req).unwrap_fut().ok_try_into_command()
@@ -129,10 +126,11 @@ where
 	type Response = R;
 	type Future = FlattenFutResult<OkInto<S::Future, Result<R, E>>, R, E>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		let Poll::Ready(ready) = self.inner.poll_ready(cx) else {
+		let Poll::Ready(_ready) = self.inner.poll_ready(cx) else {
 			return Poll::Pending;
 		};
-		Poll::Ready(Ok(ready.expect("An infallible poll_ready!")))
+		// allowed due to Error = Infallible
+		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: Req) -> Self::Future {
 		self.inner.call(req).ok_into().flatten_fut_res()
@@ -178,12 +176,7 @@ where
 		let Poll::Ready(output) = this.fut.poll(cx) else {
 			return Poll::Pending;
 		};
-		let mapped = match output {
-            Ok(Ok(o)) => Ok(o),
-            Ok(Err(e)) => Err(e),
-            Err(_) => panic!("Not possible to construct this future unless the error value in Infallible"),
-        };
-		Poll::Ready(mapped)
+		Poll::Ready(output.expect("An infallible future!"))
 	}
 }
 
