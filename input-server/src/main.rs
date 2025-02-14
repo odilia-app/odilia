@@ -38,15 +38,15 @@ fn get_file_paths() -> (PathBuf, PathBuf) {
 
 #[derive(Default)]
 pub struct ComboSet {
+  mode: Option<Mode>,
 	combos: Vec<(Vec<Key>, OdiliaEvent)>,
 }
 
 pub struct State {
 	activation_key_pressed: bool,
+  mode: Mode,
 	pressed: Vec<Key>,
-	focus_combos: ComboSet,
-	browse_combos: ComboSet,
-	common_combos: ComboSet,
+  combos: Vec<ComboSet>,
 	tx: SyncSender<OdiliaEvent>,
 }
 
@@ -63,11 +63,24 @@ fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
 	}
 }
 
+fn handle_modechange_from_socket(rx: Receiver<Mode>) {
+	let (_pid_path, sock_path) = get_file_paths();
+	println!("SOCK PATH: {sock_path:?}");
+	let Ok(mut stream) = UnixStream::connect(&sock_path) else {
+		panic!("Unable to connect to stream {:?}", sock_path);
+	};
+	for mode in rx.iter() {
+		let val = serde_json::to_string(&mode)
+			.expect("Should be able to serialize any event!");
+    println!("{val:?}");
+	}
+}
+
 fn main() {
 	// syncronous, bounded channel
 	// NOTE: this will _block the input thread_ if events are not removed from it often.
 	// This _should_ never be a problem, because two threads are running, but you never know.
-	let (tx, rx) = sync_channel::<OdiliaEvent>(255);
+	let (ev_tx, ev_rx) = sync_channel::<OdiliaEvent>(255);
 	let combos = vec![
 		(vec![Key::KeyA], ChangeMode(Mode::Browse).into()),
 		(vec![Key::KeyF], ChangeMode(Mode::Focus).into()),
@@ -78,12 +91,13 @@ fn main() {
 		(vec![Key::KeyG], StopSpeech.into()),
 	];
 	let state = State {
+    mode: Mode::Focus,
 		activation_key_pressed: false,
 		pressed: Vec::new(),
-		common_combos: ComboSet { combos },
-		focus_combos: ComboSet::default(),
-		browse_combos: ComboSet::default(),
-		tx,
+		combos: vec![
+        ComboSet { combos, mode: None },
+    ],
+		tx: ev_tx,
 	};
 	let _ = thread::spawn(move || {
 		// This will block.
@@ -91,7 +105,7 @@ fn main() {
 			println!("Error: {:?}", error)
 		}
 	});
-	handle_events_to_socket(rx);
+	handle_events_to_socket(ev_rx);
 }
 
 fn callback(event: Event, state: &mut State) -> Option<Event> {
@@ -134,18 +148,24 @@ fn callback(event: Event, state: &mut State) -> Option<Event> {
 			// otherwise, add it to the list of held keys
 			state.pressed.push(other);
 			// look in the combos
-			for combo in &state.common_combos.combos {
-				println!("Combo: {combo:?}");
-				println!("Pressed {:?}", state.pressed);
-				// if a combo matches the held keys (must be in right order)
-				if combo.0 == state.pressed {
-					// print out the command
-					println!("Combo found for {:?}", combo.1);
-					state.tx.send(combo.1.clone()).expect(
-						"To be able to send the combo over the channel",
-					);
-				}
-			}
+      for combo_set in &state.combos {
+          if combo_set.mode != Some(state.mode) && 
+            combo_set.mode.is_some() {
+            continue;
+          }
+          for combo in &combo_set.combos {
+            println!("Combo: {combo:?}");
+            println!("Pressed {:?}", state.pressed);
+            // if a combo matches the held keys (must be in right order)
+            if combo.0 == state.pressed {
+              // print out the command
+              println!("Combo found for {:?}", combo.1);
+              state.tx.send(combo.1.clone()).expect(
+                "To be able to send the combo over the channel",
+              );
+            }
+          }
+      }
 			// swallow the event
 			None
 		}
