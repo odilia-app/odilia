@@ -1,7 +1,9 @@
+#![deny(clippy::all)]
+
 use nix::unistd::Uid;
 use odilia_common::{
 	events::ScreenReaderEvent as OdiliaEvent,
-	events::{ChangeMode, Disable, Enable, StopSpeech, StructuralNavigation},
+	events::{ChangeMode, StopSpeech},
 	modes::ScreenReaderMode as Mode,
 };
 use rdev::{grab, Event, EventType, Key};
@@ -60,19 +62,6 @@ fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
 		let val = serde_json::to_string(&event)
 			.expect("Should be able to serialize any event!");
 		stream.write_all(val.as_bytes()).expect("Able to write to stream!");
-	}
-}
-
-fn handle_modechange_from_socket(rx: Receiver<Mode>) {
-	let (_pid_path, sock_path) = get_file_paths();
-	println!("SOCK PATH: {sock_path:?}");
-	let Ok(mut stream) = UnixStream::connect(&sock_path) else {
-		panic!("Unable to connect to stream {:?}", sock_path);
-	};
-	for mode in rx.iter() {
-		let val = serde_json::to_string(&mode)
-			.expect("Should be able to serialize any event!");
-    println!("{val:?}");
 	}
 }
 
