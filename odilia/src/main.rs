@@ -115,7 +115,7 @@ async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCo
 	(Priority::Text, "Doc loaded")
 }
 
-use crate::tower::state_changed::{Focused, Unfocused};
+use crate::tower::state_changed::Focused;
 
 #[tracing::instrument(ret)]
 async fn focused(
@@ -136,7 +136,6 @@ async fn focused(
 			n.to_string()
 		} else if let Some(d) = description.as_deref() {
 			d.to_string()
-		// if both of those errored out, we'd know, because we'd be out of here
 		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
 		} else {
 			relation_set
@@ -163,14 +162,6 @@ async fn focused(
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(utterance_buffer, Priority::Text).into(),
-	])
-}
-
-#[tracing::instrument(ret)]
-async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
-	Ok(vec![
-		Focus(state_changed.item.object).into(),
-		Speak(state_changed.item.text, Priority::Text).into(),
 	])
 }
 
@@ -284,9 +275,7 @@ async fn main() -> eyre::Result<()> {
 		.command_listener(new_caret_pos)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
-		.atspi_listener(focused)
-		.atspi_listener(unfocused);
-
+		.atspi_listener(focused);
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
