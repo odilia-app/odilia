@@ -1,6 +1,6 @@
 use core::{
 	future::Future,
-	iter::repeat,
+	iter::repeat_n,
 	marker::PhantomData,
 	mem::replace,
 	pin::Pin,
@@ -49,7 +49,7 @@ where
 	fn call(&mut self, req: Req) -> Self::Future {
 		let clone = self.services.clone();
 		let services = replace(&mut self.services, clone);
-		let req_rep = repeat(req).take(services.len());
+		let req_rep = repeat_n(req, services.len());
 		services.into_iter().zip(req_rep).call2().join_all().map_ok()
 	}
 }

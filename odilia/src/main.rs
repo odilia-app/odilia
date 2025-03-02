@@ -114,7 +114,7 @@ async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCo
 	(Priority::Text, "Doc loaded")
 }
 
-use crate::tower::state_changed::Focused;
+use crate::tower::state_changed::{Focused, Unfocused};
 
 #[tracing::instrument(ret)]
 async fn focused(
@@ -166,10 +166,8 @@ async fn focused(
 
 #[tracing::instrument(ret)]
 async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
-	[
-		Focus(state_changed.item.object).into(),
-		Speak(state_changed.item.text, Priority::Text).into(),
-	]
+    // TODO: set focused state on item to be false
+    Ok::<_, OdiliaError>(())
 }
 
 #[tracing::instrument(ret, err)]
@@ -282,7 +280,8 @@ async fn main() -> eyre::Result<()> {
 		.command_listener(new_caret_pos)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
-		.atspi_listener(focused);
+		.atspi_listener(focused)
+    .atspi_listener(unfocused);
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
