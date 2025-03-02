@@ -166,8 +166,8 @@ async fn focused(
 
 #[tracing::instrument(ret)]
 async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
-    // TODO: set focused state on item to be false
-    Ok::<_, OdiliaError>(())
+	// TODO: set focused state on item to be false
+	Ok::<_, OdiliaError>(())
 }
 
 #[tracing::instrument(ret, err)]
@@ -281,7 +281,7 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
-    .atspi_listener(unfocused);
+		.atspi_listener(unfocused);
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));

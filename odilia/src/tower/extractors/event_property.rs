@@ -47,7 +47,9 @@ where
 	E: EventProperties + Send + Sync + 'static,
 {
 	type Error = OdiliaError;
-	type Future = Pin<Box<(dyn Future<Output = Result<EventProp<T>, Self::Error>> + Send + 'static)>>;
+	type Future = Pin<
+		Box<(dyn Future<Output = Result<EventProp<T>, Self::Error>> + Send + 'static)>,
+	>;
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let ci = state.get_or_create_event_object_to_cache::<E>(&event).await?;
