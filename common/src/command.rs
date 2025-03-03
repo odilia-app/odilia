@@ -115,11 +115,9 @@ where
 	T2: IntoCommands,
 	T3: IntoCommands,
 {
-	type Iter = Chain<Chain<T1::Iter, T2::Iter>, T3::Iter>;
+	type Iter = Chain<<(T1, T2) as IntoCommands>::Iter, T3::Iter>;
 	fn into_commands(self) -> Self::Iter {
-		self.0.into_commands()
-			.chain(self.1.into_commands())
-			.chain(self.2.into_commands())
+		(self.0, self.1).into_commands().chain(self.2.into_commands())
 	}
 }
 impl<T1, T2, T3, T4> IntoCommands for (T1, T2, T3, T4)
@@ -129,12 +127,9 @@ where
 	T3: IntoCommands,
 	T4: IntoCommands,
 {
-	type Iter = Chain<Chain<Chain<T1::Iter, T2::Iter>, T3::Iter>, T4::Iter>;
+	type Iter = Chain<<(T1, T2, T3) as IntoCommands>::Iter, T4::Iter>;
 	fn into_commands(self) -> Self::Iter {
-		self.0.into_commands()
-			.chain(self.1.into_commands())
-			.chain(self.2.into_commands())
-			.chain(self.3.into_commands())
+		(self.0, self.1, self.2).into_commands().chain(self.3.into_commands())
 	}
 }
 
