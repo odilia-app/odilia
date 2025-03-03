@@ -1,15 +1,14 @@
-use alloc::collections::{btree_map::Entry, BTreeMap};
+use alloc::collections::BTreeMap;
 use core::{
 	fmt::Debug,
 	marker::PhantomData,
 	mem::replace,
 	task::{Context, Poll},
 };
-use futures::future::err;
-use futures::future::Either;
-use futures::future::ErrInto;
-use futures::future::Ready;
-use futures::TryFutureExt;
+use futures::{
+	future::{err, Either, ErrInto, Ready},
+	TryFutureExt,
+};
 use tower::Service;
 
 use crate::Error;
@@ -39,22 +38,23 @@ where
 	}
 }
 
+impl<K, S, Req, E> Default for ChoiceService<K, S, Req, E>
+where
+	S: Service<Req>,
+	Req: Chooser<K>,
+{
+	fn default() -> Self {
+		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
+	}
+}
+
 impl<K, S, Req, E> ChoiceService<K, S, Req, E>
 where
 	S: Service<Req>,
 	Req: Chooser<K>,
 {
-	// Yes, this breaks a clippy rule. But like stated in the ::new() function of async_try.rs, it
-	// feels wrong to call defualt with generic parameters.
-	#[allow(clippy::new_without_default)]
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
-	}
-	pub fn entry(&mut self, k: K) -> Entry<K, S>
-	where
-		K: Ord,
-	{
-		self.services.entry(k)
 	}
 }
 

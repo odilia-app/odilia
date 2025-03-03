@@ -1,51 +1,13 @@
-use core::convert::Infallible;
-use core::future::Future;
-use core::marker::PhantomData;
-use core::task::{Context, Poll};
+use core::{
+	convert::Infallible,
+	future::Future,
+	marker::PhantomData,
+	task::{Context, Poll},
+};
 use futures::{future::OkInto, TryFutureExt};
 use odilia_common::command::TryIntoCommands;
 use tower::Service;
 
-//#[allow(clippy::type_complexity)]
-//pub struct MapErrIntoService<S, Req, E1, R, E, T> {
-//	inner: S,
-//	_marker: PhantomData<fn(Req, E1, T) -> Result<R, E>>,
-//}
-//impl<S, Req, E1, R, E, T> MapErrIntoService<S, Req, E1, R, E, T>
-//where
-//	S: Service<Req, Response = R, Error = E1>,
-//	E: From<E1>,
-//{
-//	pub fn new(inner: S) -> Self {
-//		MapErrIntoService { inner, _marker: PhantomData }
-//	}
-//}
-//impl<S, Req, Res, R, E, T> Clone for MapErrIntoService<S, Req, Res, R, E, T>
-//where
-//	S: Clone,
-//{
-//	fn clone(&self) -> Self {
-//		MapErrIntoService { inner: self.inner.clone(), _marker: PhantomData }
-//	}
-//}
-//
-//impl<S, Req, E1, R, E, T> Service<Req> for MapErrIntoService<S, Req, E1, R, E, T>
-//where
-//	S: Service<Req, Response = R, Error = E1>,
-//	E: From<E1>,
-//{
-//	type Error = E;
-//	type Response = R;
-//	type Future = ErrInto<S::Future, E>;
-//	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-//		self.inner.poll_ready(cx).map_err(Into::into)
-//	}
-//	fn call(&mut self, req: Req) -> Self::Future {
-//		self.inner.call(req).err_into()
-//	}
-//}
-
-#[allow(clippy::type_complexity)]
 pub struct MapResponseTryIntoCommandsService<S, Req> {
 	inner: S,
 	_marker: PhantomData<Req>,
