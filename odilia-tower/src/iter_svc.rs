@@ -4,7 +4,12 @@ use core::{
 	mem::replace,
 	task::{Context, Poll},
 };
-use tower::Service;
+use futures::{
+	future::{ErrInto, Flatten},
+	FutureExt, TryFutureExt,
+};
+use tower::{util::Oneshot, Service, ServiceExt};
+use tower_iter::future_ext::{FutureExt as TowerIterFutureExt, MapFutureMultiSet};
 
 #[allow(clippy::type_complexity)]
 pub struct IterService<S1, Req, Iter, I, S2, E> {
@@ -39,30 +44,30 @@ where
 impl<S1, Req, Iter, I, S2, E> Service<Req> for IterService<S1, Req, Iter, I, S2, E>
 where
 	S1: Service<Req, Response = Iter> + Clone,
-	Iter: IntoIterator<Item = I>,
-	S2: Service<I> + Clone,
+	Iter: Iterator<Item = I>,
+	S2: Service<I> + ServiceExt<I> + Clone,
 	E: From<S1::Error> + From<S2::Error>,
 {
-	type Response = Vec<S2::Response>;
+	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
+	type Future = Flatten<
+		MapFutureMultiSet<futures::future::ErrInto<Oneshot<S1, Req>, E>, S2, Iter, I, E>,
+	>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		let _ = self.inner.poll_ready(cx).map_err(Into::<E>::into)?;
 		self.outer.poll_ready(cx).map_err(Into::into)
 	}
 	fn call(&mut self, input: Req) -> Self::Future {
 		let clone_outer = self.outer.clone();
-		let mut outer = replace(&mut self.outer, clone_outer);
+		let outer = replace(&mut self.outer, clone_outer);
 		let clone_inner = self.inner.clone();
-		let mut inner = replace(&mut self.inner, clone_inner);
-		async move {
-			let iter = inner.call(input).await?;
-			let mut results = vec![];
-			for item in iter {
-				let result = outer.call(item).await?;
-				results.push(result);
-			}
-			Ok(results)
-		}
+		let inner = replace(&mut self.inner, clone_inner);
+		let fut = inner.oneshot(input).err_into();
+
+		<ErrInto<Oneshot<S1, Req>, E> as TowerIterFutureExt<
+                                                            Result<Iter, E>,
+                                                                        E,
+                                                                                >>::map_future_multiset::<S2, Iter, I, E>(fut, outer)
+                                                                                        .flatten()
 	}
 }

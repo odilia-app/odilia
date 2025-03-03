@@ -1709,6 +1709,7 @@ dependencies = [
  "odilia-common",
  "odilia-input",
  "odilia-notify",
+ "odilia-tower",
  "odilia-tts",
  "pin-project",
  "refinement",
@@ -1822,6 +1823,7 @@ dependencies = [
  "pin-project",
  "tokio",
  "tower 0.5.2",
+ "tower-iter",
  "tracing",
  "zbus",
 ]

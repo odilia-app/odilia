@@ -3,9 +3,7 @@ use crate::{
 	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
-	unwrap_svc::UnwrapService,
 };
-use core::convert::Infallible;
 use tower::{Layer, Service};
 
 pub trait ServiceExt<Request>: Service<Request> {
@@ -32,13 +30,6 @@ pub trait ServiceExt<Request>: Service<Request> {
 		S: Clone,
 	{
 		StateLayer::new(s).layer(self)
-	}
-	fn unwrap_map<R, E, F>(self, f: F) -> UnwrapService<Self, Request, Self::Response, R, E, F>
-	where
-		Self: Service<Request, Error = Infallible> + Sized,
-		F: FnOnce(<Self as Service<Request>>::Response) -> Result<R, E>,
-	{
-		UnwrapService::new(self, f)
 	}
 	fn iter_into<S, Iter, I, E>(self, s: S) -> IterService<Self, Request, Iter, I, S, E>
 	where

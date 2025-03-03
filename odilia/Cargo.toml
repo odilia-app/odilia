@@ -41,6 +41,7 @@ odilia-common.workspace = true
 odilia-cache.workspace = true
 odilia-input = { path = "../input", version = "0.0.3" }
 odilia-tts = { path = "../tts", version = "0.1.4" }
+odilia-tower = { path = "../odilia-tower/", version = "0.1.0" }
 serde_json.workspace = true
 serde_plain.workspace = true
 ssip-client-async = { version = "0.14.0", features = ["tokio"] }

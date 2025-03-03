@@ -1,8 +1,8 @@
 #![forbid(clippy::std_instead_of_alloc, clippy::alloc_instead_of_core, clippy::std_instead_of_core)]
-#![allow(clippy::cargo)]
-#![feature(impl_trait_in_assoc_type)]
 
 extern crate alloc;
+
+use odilia_common::errors::OdiliaError;
 
 pub mod async_try;
 pub mod choice;
