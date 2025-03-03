@@ -12,7 +12,7 @@ readme = "README.md"
 [dependencies]
 atspi.workspace = true
 atspi-common.workspace = true
-futures = "0.3.31"
+futures.workspace = true
 futures-concurrency.workspace = true
 odilia-cache.workspace = true
 odilia-common.workspace = true

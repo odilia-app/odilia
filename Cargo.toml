@@ -36,6 +36,7 @@ atspi-proxies = { git = "https://github.com/odilia-app/atspi/", branch = "zbus-5
 atspi-common = { git = "https://github.com/odilia-app/atspi/", branch = "zbus-5.0", default-features = false, features = ["tokio"] }
 atspi-connection = { git = "https://github.com/odilia-app/atspi/", branch = "zbus-5.0", default-features = false, features = ["tokio"] }
 futures-concurrency = { version = "7.6.1" }
+futures = { version = "0.3.31", default-features = false }
 odilia-common = { version = "0.3.0", path = "./common", features = ["tokio"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"

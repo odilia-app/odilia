@@ -36,7 +36,7 @@ atspi-common.workspace = true
 atspi-connection.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
-futures = { version = "^0.3.25", default-features = false }
+futures = { workspace = true, features = ["std"] }
 odilia-common.workspace = true
 odilia-cache.workspace = true
 odilia-input = { path = "../input", version = "0.0.3" }
