@@ -36,7 +36,7 @@ atspi-common.workspace = true
 atspi-connection.workspace = true
 circular-queue = "^0.2.6"
 eyre.workspace = true
-futures = { workspace = true, features = ["std"] }
+futures.workspace = true
 odilia-common.workspace = true
 odilia-cache.workspace = true
 odilia-input = { path = "../input", version = "0.0.3" }
@@ -46,6 +46,7 @@ serde_json.workspace = true
 serde_plain.workspace = true
 ssip-client-async = { version = "0.14.0", features = ["tokio"] }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
+tower.workspace = true
 tracing-error.workspace = true
 tracing-log.workspace = true
 tracing-subscriber.workspace = true
@@ -59,7 +60,6 @@ tokio-util.workspace=true
 toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
-tower = { version = "0.5.2", features = ["util", "filter", "steer"] }
 ssip = "0.2.0"
 futures-lite = "2.3.0"
 pin-project = "1.1.5"
