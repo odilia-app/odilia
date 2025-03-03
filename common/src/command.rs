@@ -13,24 +13,6 @@ use strum::{Display, EnumDiscriminants};
 pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;
 	type Iter: Iterator<Item = OdiliaCommand> + Send;
-	/// Fallibly returns a [`Vec`] of [`OdiliaCommand`]s to run.
-	/// This collects the commands returned from [`TryIntoCommands::try_into_commands`] and returns
-	/// them collected upon successful conversion.
-	///
-	/// # Errors
-	///
-	/// When implemented, the function is allowed to fail with any type that can be converted into
-	/// [`OdiliaError`], but conversion should between these types should be done from the
-	/// implementers' side, liekly using `?`.
-	fn try_into_commands_collected(self) -> Result<Vec<OdiliaCommand>, OdiliaError>
-	where
-		Self: Sized,
-	{
-		match self.try_into_commands() {
-			Ok(vec) => Ok(vec.collect()),
-			Err(e) => Err(e),
-		}
-	}
 	/// Fallibly returns an iterator of [`OdiliaCommand`]s to run.
 	///
 	/// # Errors
