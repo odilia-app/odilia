@@ -9,8 +9,6 @@ extern crate alloc;
 
 pub mod call_iter;
 pub use call_iter::{MapM, MapMExt};
-pub mod choice;
-pub use choice::{ChoiceService, Chooser};
 pub mod error;
 pub use error::Error;
 pub mod future_ext;
