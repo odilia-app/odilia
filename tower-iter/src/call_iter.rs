@@ -1,11 +1,18 @@
-use core::future::Future;
-use core::marker::PhantomData;
-use core::pin::Pin;
-use core::task::{Context, Poll};
-use tower::util::{Oneshot, ReadyOneshot};
-use tower::Service;
-use tower::ServiceExt as OtherServiceExt;
+//! A set of types dedciated to running multiple services.
 
+use core::{
+	future::Future,
+	marker::PhantomData,
+	pin::Pin,
+	task::{Context, Poll},
+};
+use tower::{
+	util::{Oneshot, ReadyOneshot},
+	Service, ServiceExt,
+};
+
+/// Converts an [`Iterator`] over a set of (S, I) where `S` is a service that takes the input `I`
+/// into an iterator over the future from [`Service::oneshot`].
 pub struct MapServiceCall<Iter, S, I> {
 	inner: Iter,
 	_marker: PhantomData<(S, I)>,
@@ -22,6 +29,8 @@ where
 	}
 }
 
+/// Converts an [`Iterator`] over a set of (S, I) where `S` is a service that takes the input `I`
+/// into an iterator over the futures that yield the service once it is ready.
 pub struct MapReady<Iter, S, I> {
 	inner: Iter,
 	_marker: PhantomData<(S, I)>,
@@ -63,6 +72,7 @@ where
 	}
 }
 
+/// Converts an iterator of `(Left,Right)` into an iterator of `(Right,Left)`.
 pub struct ReverseTuple<Iter, Left, Right> {
 	inner: Iter,
 	_marker: PhantomData<(Left, Right)>,
@@ -79,9 +89,54 @@ where
 }
 
 pub trait MapMExt: Iterator + Sized {
+	/// Maps an iterator over `(S, I)`, where `S` is a [`Service`] and `I` is the input to that
+	/// service.
+	/// Into an iterator over the results of calling each `S` with the given inputs.
+	///
+	/// ```
+	/// use core::{
+	///   convert::Infallible,
+	///   iter::repeat_n,
+	/// };
+	/// use tower::service_fn;
+	/// # use tower::Service;
+	/// # use futures_lite::future::block_on;
+	/// use tower_iter::MapMExt;
+	///
+	/// async fn mul_2(i: u32) -> Result<u32, Infallible> {
+	///   Ok(i * 2)
+	/// }
+	/// let mut mul_svc = service_fn(mul_2);
+	/// let mut iter = repeat_n(mul_svc, 5)
+	///   .zip([
+	///       5, 10, 15, 20, 25
+	///   ].into_iter())
+	///   .map_service_call();
+	///
+	/// assert_eq!(block_on(iter.next().unwrap()), Ok(10));
+	/// assert_eq!(block_on(iter.next().unwrap()), Ok(20));
+	/// assert_eq!(block_on(iter.next().unwrap()), Ok(30));
+	/// assert_eq!(block_on(iter.next().unwrap()), Ok(40));
+	/// assert_eq!(block_on(iter.next().unwrap()), Ok(50));
+	/// assert!(iter.next().is_none());
+	/// ```
 	fn map_service_call<S, I>(self) -> MapServiceCall<Self, S, I> {
 		MapServiceCall { inner: self, _marker: PhantomData }
 	}
+	/// Reverses a 2-tuple's order.
+	/// ```
+	/// use tower_iter::MapMExt;
+	/// let iter = &mut [
+	///   (0, 1),
+	///   (2, 3),
+	///   (4, 5),
+	/// ].into_iter().reverse_tuple();
+	///
+	/// assert_eq!(iter.next(), Some((1, 0)));
+	/// assert_eq!(iter.next(), Some((3, 2)));
+	/// assert_eq!(iter.next(), Some((5, 4)));
+	/// assert_eq!(iter.next(), None);
+	/// ```
 	fn reverse_tuple<I1, I2>(self) -> ReverseTuple<Self, I1, I2> {
 		ReverseTuple { inner: self, _marker: PhantomData }
 	}
