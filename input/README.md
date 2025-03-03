@@ -20,4 +20,4 @@ or contribute directly by cloing [our repository](https://github.com/odilia-app/
 
 ## License
 
-All our code is licensed under the Apache 2.0 or MIT license at your choosing.
+All our code is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
