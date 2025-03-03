@@ -25,7 +25,7 @@ impl<O, E, I: TryInto<O, Error = E>> Default for TryIntoLayer<O, I> {
 }
 impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
 	pub fn new() -> Self {
-		TryIntoLayer { _marker: PhantomData }
+		Self::default()
 	}
 }
 
