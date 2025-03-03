@@ -12,7 +12,7 @@ use tower::{
 };
 
 /// Converts an [`Iterator`] over a set of (S, I) where `S` is a service that takes the input `I`
-/// into an iterator over the future from [`Service::oneshot`].
+/// into an iterator over the future from [`ServiceExt::oneshot`].
 pub struct MapServiceCall<Iter, S, I> {
 	inner: Iter,
 	_marker: PhantomData<(S, I)>,
