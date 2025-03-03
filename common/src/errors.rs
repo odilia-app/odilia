@@ -35,7 +35,7 @@ impl From<&'static str> for OdiliaError {
 
 #[derive(Debug)]
 pub enum SendError {
-	Atspi(atspi::Event),
+	Atspi(Box<atspi::Event>),
 	Command(OdiliaCommand),
 	Ssip(ssip::Request),
 }
@@ -49,10 +49,18 @@ macro_rules! send_err_impl {
 			}
 		}
 	};
+	($tokio_err:ty, $variant:path, Box) => {
+		#[cfg(feature = "tokio")]
+		impl From<$tokio_err> for OdiliaError {
+			fn from(t_err: $tokio_err) -> OdiliaError {
+				OdiliaError::SendError($variant(Box::new(t_err.0)))
+			}
+		}
+	};
 }
 
-send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi);
-send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi);
+send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi, Box);
+send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi, Box);
 send_err_impl!(tokio::sync::broadcast::error::SendError<OdiliaCommand>, SendError::Command);
 send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command);
 send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
@@ -60,13 +68,13 @@ send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ss
 
 #[derive(Debug)]
 pub enum ConfigError {
-	Figment(figment::Error),
+	Figment(Box<figment::Error>),
 	ValueNotFound,
 	PathNotFound,
 }
 impl From<figment::Error> for ConfigError {
 	fn from(t_err: figment::Error) -> Self {
-		Self::Figment(t_err)
+		Self::Figment(Box::new(t_err))
 	}
 }
 impl std::fmt::Display for ConfigError {

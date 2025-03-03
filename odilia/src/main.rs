@@ -14,7 +14,7 @@ mod logging;
 mod state;
 mod tower;
 
-use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{fmt::Write, fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
 use crate::state::AccessibleHistory;
@@ -157,7 +157,8 @@ async fn focused(
 	}
 	let role = state_changed.item.role;
 	//there has to be a space between the accessible name of an object and its role, so insert it now
-	utterance_buffer += &format!(" {}", role.name().to_owned());
+	//utterance_buffer += &format!(" {}", role.name());
+	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(utterance_buffer, Priority::Text).into(),
