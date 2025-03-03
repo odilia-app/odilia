@@ -19,14 +19,36 @@ use tower::Service;
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
 /// 2. Call [`Iterator::collect::<Result<Vec<T>, E>>()`] on the result of the future.
+///
+/// ```
+/// use core::{
+///   convert::Infallible,
+///   iter::repeat_n,
+/// };
+/// use tower::{service_fn, Service};
+/// use futures_lite::future::block_on;
+/// use tower_iter::ServiceSet;
+///
+/// async fn mul_2(i: u32) -> Result<u32, Infallible> {
+///   Ok(i * 2)
+/// }
+/// let mut mul_svc = ServiceSet::from(service_fn(mul_2));
+/// mul_svc.push(service_fn(mul_2));
+/// mul_svc.push(service_fn(mul_2));
+/// let mut fut = mul_svc
+///   .call(15);
+///
+/// assert_eq!(block_on(fut),
+///     Ok(vec![
+///         Ok(30),
+///         Ok(30),
+///         Ok(30),
+///     ])
+/// );
+/// ```
 #[derive(Clone)]
 pub struct ServiceSet<S> {
 	inner: Vec<S>,
-}
-impl<S> Default for ServiceSet<S> {
-	fn default() -> Self {
-		ServiceSet { inner: Vec::new() }
-	}
 }
 impl<S> ServiceSet<S> {
 	pub fn from(s: S) -> ServiceSet<S> {

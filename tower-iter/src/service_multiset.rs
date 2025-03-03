@@ -19,17 +19,42 @@ use tower::Service;
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
 /// 2. Call [`Iterator::collect::<Result<Vec<T>, E>>()`] on the result of the future.
+///
+/// ```
+/// use core::{
+///   convert::Infallible,
+///   iter::repeat_n,
+/// };
+/// use tower::{service_fn, Service};
+/// use futures_lite::future::block_on;
+/// use tower_iter::service_multiset::ServiceMultiset;
+///
+/// async fn mul_2(i: u32) -> Result<u32, Infallible> {
+///   Ok(i * 2)
+/// }
+/// let mut mul_svc = ServiceMultiset::from(service_fn(mul_2));
+/// mul_svc.clone_expand(5);
+/// let mut fut = mul_svc
+///   .call([
+///     5, 10, 15, 20, 25
+///   ].into_iter());
+///
+/// assert_eq!(block_on(fut),
+///     Ok(vec![
+///         Ok(10),
+///         Ok(20),
+///         Ok(30),
+///         Ok(40),
+///         Ok(50)
+///     ])
+/// );
+/// ```
 #[derive(Clone)]
-pub struct ServiceMultiset<S, I, Si> {
+pub struct ServiceMultiset<S, I> {
 	services: Vec<S>,
-	_marker: PhantomData<(I, Si)>,
+	_marker: PhantomData<I>,
 }
-impl<S, I, Si> Default for ServiceMultiset<S, I, Si> {
-	fn default() -> Self {
-		ServiceMultiset { services: Vec::new(), _marker: PhantomData }
-	}
-}
-impl<S, I, Si> ServiceMultiset<S, I, Si> {
+impl<S, I> ServiceMultiset<S, I> {
 	pub fn from(s: S) -> Self {
 		ServiceMultiset { services: Vec::from([s]), _marker: PhantomData }
 	}
@@ -49,16 +74,15 @@ impl<S, I, Si> ServiceMultiset<S, I, Si> {
 	}
 }
 
-impl<S, Req, I, Si> Service<I> for ServiceMultiset<S, I, Si>
+impl<S, Req, I> Service<I> for ServiceMultiset<S, I>
 where
 	S: Service<Req> + Clone,
 	I: Iterator<Item = Req>,
-	Si: Iterator<Item = S>,
 {
 	type Response = Vec<Result<S::Response, S::Error>>;
 	type Error = S::Error;
 	type Future = MapOk<
-		JoinAll<<MapServiceCall<Zip<Si, I>, S, Req> as Iterator>::Item>,
+		JoinAll<<MapServiceCall<Zip<<Vec<S> as IntoIterator>::IntoIter, I>, S, Req> as Iterator>::Item>,
 		Self::Error,
 		Self::Response,
 	>;

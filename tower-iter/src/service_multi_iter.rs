@@ -15,6 +15,35 @@ use tower::Service;
 ///
 /// 1. Use [`Result::unwrap`] in the inner service.
 /// 2. Call [`Iterator::collect::<Result<Vec<T>, E>>()`] on the result of the future.
+///
+/// ```
+/// use core::{
+///   convert::Infallible,
+///   iter::repeat_n,
+///   future::IntoFuture,
+/// };
+/// use tower::service_fn;
+/// use futures_lite::future::block_on;
+/// use tower_iter::service_multi_iter::ServiceMultiIter;
+///
+/// async fn mul_2(i: u32) -> Result<u32, Infallible> {
+///   Ok(i * 2)
+/// }
+/// let mul_svc_one = service_fn(mul_2);
+/// let mul_svc_all = repeat_n(mul_svc_one, 5);
+/// let input = [5, 10, 15, 20, 25].into_iter();
+/// let fut = ServiceMultiIter::new(mul_svc_all, input).into_future();
+///
+/// assert_eq!(block_on(fut),
+///     vec![
+///         Ok(10),
+///         Ok(20),
+///         Ok(30),
+///         Ok(40),
+///         Ok(50)
+///     ]
+/// );
+/// ```
 #[derive(Clone)]
 pub struct ServiceMultiIter<Si, Ii, S, I> {
 	s_iter: Si,
