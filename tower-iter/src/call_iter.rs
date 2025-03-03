@@ -1,4 +1,4 @@
-//! A set of types dedciated to running multiple services.
+//! A set of types dedicated to running multiple services.
 
 use core::{
 	future::Future,
@@ -99,8 +99,8 @@ pub trait MapMExt: Iterator + Sized {
 	///   iter::repeat_n,
 	/// };
 	/// use tower::service_fn;
-	/// # use tower::Service;
-	/// # use futures_lite::future::block_on;
+	/// use tower::Service;
+	/// use futures_lite::future::block_on;
 	/// use tower_iter::MapMExt;
 	///
 	/// async fn mul_2(i: u32) -> Result<u32, Infallible> {

@@ -1,11 +1,11 @@
 use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
-use alloc::vec::Vec;
 use core::{
 	iter::{repeat, Repeat, Zip},
 	mem::replace,
 	task::{Context, Poll},
 };
 use futures::future::{join_all, JoinAll};
+use std::vec::Vec;
 use tower::Service;
 
 /// Useful for running a set of services with the same signature concurrently.
@@ -53,12 +53,12 @@ pub struct ServiceSet<S> {
 }
 impl<S> Default for ServiceSet<S> {
 	fn default() -> Self {
-		Self::new()
+		ServiceSet { inner: Vec::new() }
 	}
 }
 impl<S> ServiceSet<S> {
 	pub fn new() -> ServiceSet<S> {
-		ServiceSet { inner: Vec::new() }
+		Self::default()
 	}
 	pub fn from(s: S) -> ServiceSet<S> {
 		ServiceSet { inner: Vec::from([s]) }

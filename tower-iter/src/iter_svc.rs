@@ -1,5 +1,4 @@
 use crate::future_ext::MapFutureMultiSet;
-use alloc::vec::Vec;
 use core::{
 	future::Future,
 	marker::PhantomData,
@@ -7,6 +6,7 @@ use core::{
 	task::{Context, Poll},
 };
 use futures::{future::Flatten, FutureExt, TryFutureExt};
+use std::vec::Vec;
 use tower::util::Oneshot;
 use tower::Service;
 use tower::ServiceExt;

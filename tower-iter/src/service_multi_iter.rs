@@ -1,7 +1,7 @@
 use crate::{call_iter::MapServiceCall, MapMExt};
-use alloc::vec::Vec;
 use core::{future::IntoFuture, iter::Zip, marker::PhantomData};
 use futures::future::{join_all, JoinAll};
+use std::vec::Vec;
 use tower::Service;
 
 /// Useful for running a set of services with the same signature in parallel.

@@ -1,4 +1,3 @@
-use alloc::vec::Vec;
 use core::{
 	future::{ready, Future, IntoFuture, Ready},
 	iter::{repeat, Repeat},
@@ -9,6 +8,7 @@ use core::{
 use futures::future::{join_all, Either, JoinAll};
 use futures::FutureExt as OtherFutExt;
 use pin_project::pin_project;
+use std::vec::Vec;
 use tower::util::Oneshot;
 use tower::Service;
 
