@@ -18,8 +18,8 @@ pub trait PropertyType {
 	type Type;
 }
 
-/// A helper trait which is (usually) implemented on [`CacheItem`], generically over
-/// [`GerProperty::P`].
+/// A helper trait which is (usually) implemented on [`CacheItem`], generically over the associated
+/// type `P`.
 /// `P` must implement [`PropertyType`], which defines the representation returned from
 /// [`GetProperty::get_property`] in the `EventProp<P>` generic.
 ///

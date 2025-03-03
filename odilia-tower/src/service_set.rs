@@ -15,8 +15,6 @@ use tower::Service;
 /// Note that although calling the [`ServiceSet::call`] function seems to return a
 /// `Result<Vec<S::Response, S::Error>, S::Error>`, the outer error is gaurenteed never to be
 /// returned and can safely be unwrapped _from the caller function_.
-///
-/// Or feel free to use the [`crate::UnwrapService`] also provided by this crate.
 #[derive(Clone)]
 pub struct ServiceSet<S> {
 	services: Vec<S>,
