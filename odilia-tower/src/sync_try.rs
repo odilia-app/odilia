@@ -19,9 +19,9 @@ pub struct TryIntoLayer<O, I: TryInto<O>> {
 	_marker: PhantomData<fn(I) -> O>,
 }
 impl<O, E, I: TryInto<O, Error = E>> Default for TryIntoLayer<O, I> {
-    fn default() -> Self {
-        TryIntoLayer { _marker: PhantomData }
-    }
+	fn default() -> Self {
+		TryIntoLayer { _marker: PhantomData }
+	}
 }
 impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
 	pub fn new() -> Self {

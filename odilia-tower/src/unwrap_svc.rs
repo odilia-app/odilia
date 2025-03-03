@@ -56,10 +56,9 @@ where
 	}
 }
 
-#[allow(clippy::type_complexity)]
 pub struct MapResponseIntoService<S, Req, Res, R, E> {
 	inner: S,
-	_marker: PhantomData<fn(Req, Res) -> Result<R, E>>,
+	_marker: PhantomData<(Res, Req, R, E)>,
 }
 impl<S, Req, Res, R, E> MapResponseIntoService<S, Req, Res, R, E>
 where
