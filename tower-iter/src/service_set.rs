@@ -47,10 +47,19 @@ use tower::Service;
 /// );
 /// ```
 #[derive(Clone)]
+#[must_use]
 pub struct ServiceSet<S> {
 	inner: Vec<S>,
 }
+impl<S> Default for ServiceSet<S> {
+	fn default() -> Self {
+		Self::new()
+	}
+}
 impl<S> ServiceSet<S> {
+	pub fn new() -> ServiceSet<S> {
+		ServiceSet { inner: Vec::new() }
+	}
 	pub fn from(s: S) -> ServiceSet<S> {
 		ServiceSet { inner: Vec::from([s]) }
 	}
