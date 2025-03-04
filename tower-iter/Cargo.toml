@@ -11,7 +11,7 @@ categories = ["tower"]
 
 [dependencies]
 futures.workspace = true
-pin-project = "1.0"
+pin-project.workspace = true
 tower.workspace = true
 
 [features]

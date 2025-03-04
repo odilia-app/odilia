@@ -41,6 +41,7 @@ odilia-common = { version = "0.3.0", path = "./common", features = ["tokio"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
 nix = "0.26.2"
+pin-project = "1.0"
 serde_json = "1.0.89"
 serde = { version = "1.0.194", features = ["derive"] }
 tokio = { version = "^1.22.0", default-features = false, features = ["sync", "macros", "rt", "signal", "tracing"] }

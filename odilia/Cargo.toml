@@ -62,7 +62,7 @@ figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
 ssip = "0.2.0"
 futures-lite = "2.3.0"
-pin-project = "1.1.5"
+pin-project.workspace = true
 static_assertions = "1.1.0"
 futures-concurrency.workspace = true
 console-subscriber = { version = "0.3.0", optional = true }

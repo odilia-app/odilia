@@ -16,7 +16,7 @@ futures.workspace = true
 futures-concurrency.workspace = true
 odilia-cache.workspace = true
 odilia-common.workspace = true
-pin-project = "1.1.8"
+pin-project.workspace = true 
 tokio.workspace = true
 tower.workspace = true
 tower-iter = { path = "../tower-iter/", version = "0.1.0" }
