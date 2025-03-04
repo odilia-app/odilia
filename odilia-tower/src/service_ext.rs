@@ -1,6 +1,5 @@
 use crate::{
 	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
-	iter_svc::IterService,
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
 };
@@ -30,14 +29,6 @@ pub trait ServiceExt<Request>: Service<Request> {
 		S: Clone,
 	{
 		StateLayer::new(s).layer(self)
-	}
-	fn iter_into<S, Iter, I, E>(self, s: S) -> IterService<Self, Request, Iter, I, S, E>
-	where
-		Self: Service<Request, Response = Iter> + Sized,
-		Iter: IntoIterator<Item = I>,
-		S: Service<I>,
-	{
-		IterService::new(self, s)
 	}
 }
 

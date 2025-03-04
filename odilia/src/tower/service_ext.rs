@@ -30,10 +30,10 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		AsyncTryIntoLayer::new().layer(self)
 	}
-	fn with_state<S>(self, s: Arc<S>) -> StateService<Self, S>
+	fn with_state<S>(self, s: Arc<S>) -> StateService<Self, Arc<S>>
 	where
 		Self: Service<Request> + Clone + Sized,
-		StateLayer<S>: Layer<Self, Service = StateService<Self, S>>,
+		StateLayer<Arc<S>>: Layer<Self, Service = StateService<Self, Arc<S>>>,
 	{
 		StateLayer::new(s).layer(self)
 	}
