@@ -140,7 +140,7 @@ fn val_key(k1: &Key) -> u64 {
 
 impl PartialOrd for KeySet {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		Some(self.cmp(&other))
+		Some(self.cmp(other))
 	}
 }
 impl Ord for KeySet {
@@ -263,7 +263,7 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 	}
 }
 impl ComboSet {
-	fn keys<'a>(&'a self) -> impl Iterator<Item = &'a KeySet> {
+	fn keys(&self) -> impl Iterator<Item = &'_ KeySet> {
 		self.inner.iter().map(|x| &x.0)
 	}
 	fn insert(&mut self, keys: KeySet, ev: OdiliaEvent) -> Result<(), ComboError> {
@@ -345,8 +345,10 @@ impl std::fmt::Debug for ComboSets {
 }
 impl ComboSets {
 	fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
-		if mode.is_some() && !self.inner.iter().map(|x| x.0).any(|m| m == mode) {
-			return Err(SetError::UnreachableMode(mode.unwrap()));
+		if let Some(some_mode) = mode {
+			if !self.inner.iter().map(|x| x.0).any(|m| m == mode) {
+				return Err(SetError::UnreachableMode(some_mode));
+			}
 		}
 		if cs.inner
 			.iter()
@@ -367,16 +369,7 @@ impl ComboSets {
 						} else if combo1
 							.0
 							.inner
-							.starts_with(&combo2.0.inner)
-						{
-							return Err(SetError::SamePrefixCombo {
-								original: (
-									*combo_mode,
-									combo1.0.clone(),
-								),
-								attempted: (mode, combo2.0.clone()),
-							});
-						} else if combo2
+							.starts_with(&combo2.0.inner) || combo2
 							.0
 							.inner
 							.starts_with(&combo1.0.inner)
@@ -391,7 +384,6 @@ impl ComboSets {
 						}
 					}
 				}
-			} else {
 			}
 		}
 		self.inner.push((mode, cs));
