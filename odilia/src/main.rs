@@ -288,6 +288,7 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
+		.atspi_listener(unfocused)
 		.input_listener(stop_speech);
 
 	let ssip_event_receiver =

@@ -151,25 +151,24 @@ impl Handlers {
 		ScreenReaderEvent: TryInto<E>,
 		OdiliaError: From<<ScreenReaderEvent as TryInto<E>>::Error>
 			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
-		R: TryIntoCommands + 'static,
+		R: TryIntoCommands + Send + 'static,
 		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send,
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(TryIntoCommands::try_into_commands)
+			.map_response_try_into_command()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
 			.iter_into(self.command.clone())
-			.map_result(
-				|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
-					res?.into_iter()
-						.flatten()
-						.collect::<Result<(), OdiliaError>>()
-				},
-			)
+			.map_result(|res: OdiliaResult<Vec<OdiliaResult<ResultList>>>| {
+				res?.into_iter() // Remove outer result
+					.flatten() // Flatten out first vec
+					.flatten() // Flatten out ResultList
+					.collect::<Result<(), OdiliaError>>()
+			})
 			.boxed_clone();
 		self.input.entry(E::identifier()).or_default().push(bs);
 		Self {
