@@ -3,6 +3,10 @@ name = "input-server"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+proptest = []
+
 [dependencies]
 nix.workspace = true
 odilia-common.workspace = true

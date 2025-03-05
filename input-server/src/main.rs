@@ -3,6 +3,9 @@
 #[cfg(test)]
 mod tests;
 
+#[cfg(all(test, feature = "proptest"))]
+mod proptests;
+
 use nix::unistd::Uid;
 use odilia_common::{
 	events::ScreenReaderEvent as OdiliaEvent,
@@ -166,6 +169,7 @@ impl KeySet {
 	fn new() -> Self {
 		KeySet { inner: Vec::new() }
 	}
+	#[cfg(all(test, feature = "proptest"))]
 	fn from_dedup(v: Vec<Key>) -> Self {
 		let mut this = Self::new();
 		for item in v {
@@ -392,6 +396,7 @@ impl ComboSets {
 	fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
+	#[cfg(all(test, feature = "proptest"))]
 	fn from_iter<I>(iter: I) -> Self
 	where
 		I: Iterator<Item = (Option<Mode>, ComboSet)>,
@@ -438,7 +443,7 @@ pub struct State {
 	pub(crate) tx: SyncSender<OdiliaEvent>,
 }
 impl State {
-	#[cfg(test)]
+	#[cfg(all(test, feature = "proptest"))]
 	/// For testing purposes only: create an "unbounded" (100,000-sized) buffer for accepting the
 	/// OdiliaEvents that may be triggered.
 	fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
