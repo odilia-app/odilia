@@ -612,6 +612,8 @@ impl std::fmt::Debug for Cache {
 }
 
 pub trait CacheExt {
+	/// Get a single item from the cache. This will also get the information from `DBus` if it does not
+	/// exist in the cache.
 	fn get_ipc(
 		&self,
 		id: &CacheKey,
@@ -623,9 +625,6 @@ pub trait CacheExt {
 }
 
 impl CacheExt for Arc<Cache> {
-	/// Get a single item from the cache. This will also get the information from DBus if it does not
-	/// exist in the cache.
-	#[must_use]
 	#[tracing::instrument(level = "trace", ret)]
 	async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
 		if let Some(ci) = self.get(id) {

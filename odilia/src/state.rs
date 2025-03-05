@@ -11,8 +11,8 @@ use std::sync::Mutex;
 use tokio::sync::mpsc::Sender;
 use tracing::{debug, Instrument, Level};
 use zbus::{
-	fdo::DBusProxy, message::Type as MessageType, names::BusName, proxy::CacheProperties,
-	zvariant::ObjectPath, MatchRule,
+	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
+	MatchRule,
 };
 
 use atspi_common::{
@@ -403,20 +403,6 @@ impl ScreenReaderState {
 		self.cache
 			.get_or_create(&accessible_proxy, Arc::clone(&self.cache))
 			.await
-	}
-	#[tracing::instrument(skip_all, ret, err)]
-	pub async fn new_accessible<'a, T: EventProperties>(
-		&'a self,
-		event: &'a T,
-	) -> OdiliaResult<AccessibleProxy<'_>> {
-		let sender = event.sender().clone();
-		let path = event.path().to_owned();
-		Ok(AccessibleProxy::builder(self.connection())
-			.cache_properties(CacheProperties::No)
-			.destination(sender)?
-			.path(path)?
-			.build()
-			.await?)
 	}
 	#[tracing::instrument(skip_all, err)]
 	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {

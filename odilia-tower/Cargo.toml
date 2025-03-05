@@ -1,0 +1,24 @@
+[package]
+name = "odilia-tower"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+description = "An integration layer for the Odilia screen reader and the Tower ecosystem."
+repository = "https://github.com/odilia-app/odilia/"
+categories = ["tower"]
+keywords = ["accessibility", "tower"]
+readme = "README.md"
+
+[dependencies]
+atspi.workspace = true
+atspi-common.workspace = true
+futures.workspace = true
+futures-concurrency.workspace = true
+odilia-cache.workspace = true
+odilia-common.workspace = true
+pin-project.workspace = true 
+tokio.workspace = true
+tower.workspace = true
+tower-iter = { path = "../tower-iter/", version = "0.1.0" }
+tracing.workspace = true
+zbus.workspace = true

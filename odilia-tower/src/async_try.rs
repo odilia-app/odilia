@@ -1,13 +1,12 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::tower::from_state::TryFromState;
-use futures::TryFutureExt;
-use odilia_common::errors::OdiliaError;
-use std::{
+use crate::from_state::TryFromState;
+use core::{
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
 };
+use futures::TryFutureExt;
 use tower::{Layer, Service};
 
 impl<T, S, U> AsyncTryFrom<(S, T)> for U
@@ -58,6 +57,7 @@ impl<O, I: AsyncTryInto<O>> Clone for AsyncTryIntoLayer<O, I> {
 		AsyncTryIntoLayer { _marker: PhantomData }
 	}
 }
+#[allow(clippy::new_without_default)]
 impl<O, E, I: AsyncTryInto<O, Error = E>> AsyncTryIntoLayer<O, I> {
 	pub fn new() -> Self {
 		AsyncTryIntoLayer { _marker: PhantomData }
@@ -86,25 +86,67 @@ where
 impl<O, E, E2, I: AsyncTryInto<O>, S, R, Fut1> Service<I> for AsyncTryIntoService<O, I, S, R, Fut1>
 where
 	I: AsyncTryInto<O, Error = E2>,
-	E: Into<OdiliaError>,
-	E2: Into<OdiliaError>,
-	S: Service<O, Response = R, Future = Fut1> + Clone,
+	E: From<E2>,
+	S: Service<O, Response = R, Future = Fut1, Error = E> + Clone,
 	Fut1: Future<Output = Result<R, E>>,
 {
 	type Response = R;
-	type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
-	type Error = OdiliaError;
+	type Future = Flatten<AndThenCall<ErrInto<I::Future, E>, S, O, E>>;
+	type Error = E;
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, req: I) -> Self::Future {
 		let clone = self.inner.clone();
-		let mut inner = std::mem::replace(&mut self.inner, clone);
-		async move {
-			match req.try_into_async().await {
-				Ok(resp) => inner.call(resp).err_into().await,
-				Err(e) => Err(e.into()),
+		let inner = core::mem::replace(&mut self.inner, clone);
+		req.try_into_async().err_into::<E>().and_then_call(inner).flatten()
+		/*
+			    async move {
+				    match req.try_into_async().await {
+					    Ok(resp) => inner.call(resp).err_into().await,
+					    Err(e) => Err(e.into()),
+				    }
+			    }
+		*/
+	}
+}
+
+use core::pin::Pin;
+use futures::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
+use tower::util::Oneshot;
+use tower::ServiceExt;
+
+#[pin_project::pin_project]
+pub struct AndThenCall<F, S, O, E> {
+	#[pin]
+	fut: F,
+	svc: S,
+	_marker: PhantomData<(E, O)>,
+}
+impl<F, S, O, E> Future for AndThenCall<F, S, O, E>
+where
+	S: Service<O, Error = E> + Clone,
+	F: Future<Output = Result<O, E>>,
+{
+	type Output = Either<Ready<Result<S::Response, E>>, Oneshot<S, O>>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		let this = self.project();
+		match this.fut.poll(cx) {
+			Poll::Pending => Poll::Pending,
+			Poll::Ready(Err(e)) => Poll::Ready(err(e).left_future()),
+			Poll::Ready(Ok(input)) => {
+				Poll::Ready(Either::Right(this.svc.clone().oneshot(input)))
 			}
 		}
 	}
 }
+
+trait AndThenCallExt: Future {
+	fn and_then_call<S, O, E>(self, svc: S) -> AndThenCall<Self, S, O, E>
+	where
+		Self: Sized,
+	{
+		AndThenCall { fut: self, svc, _marker: PhantomData }
+	}
+}
+impl<F> AndThenCallExt for F where F: Future {}

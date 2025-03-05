@@ -1,0 +1,20 @@
+[package]
+name = "tower-iter"
+version = "0.1.0"
+edition = "2021"
+description = "Fully-named Tower services for dealing with iterators (of services or requests)"
+readme = "README.md"
+license = "GPL-3.0-only"
+repository = "https://github.com/odilia-app/odilia/"
+keywords = ["tower"]
+categories = ["tower"]
+
+[dependencies]
+futures.workspace = true
+pin-project.workspace = true
+tower.workspace = true
+
+[features]
+
+[dev-dependencies]
+futures-lite = { version = "2.6.0", default-features = false, features = ["std"] }

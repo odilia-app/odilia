@@ -2,6 +2,7 @@
 
 use crate::state::ScreenReaderState;
 use crate::tower::{
+	async_try::AsyncTryFrom,
 	choice::{ChoiceService, ChooserStatic},
 	from_state::TryFromState,
 	service_set::ServiceSet,
@@ -32,6 +33,8 @@ use odilia_common::command::{
 type Response = Vec<Command>;
 type Request = Event;
 type Error = OdiliaError;
+type OdiliaResult<T> = Result<T, OdiliaError>;
+type ResultList = Vec<OdiliaResult<()>>;
 
 type AtspiHandler = BoxCloneService<Event, (), Error>;
 type CommandHandler = BoxCloneService<Command, (), Error>;
@@ -87,15 +90,18 @@ impl Handlers {
 		C: CommandType + ChooserStatic<CommandDiscriminants> + Send + 'static,
 		Command: TryInto<C>,
 		OdiliaError: From<<Command as TryInto<C>>::Error>
-			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>,
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, C>>::Error>
+			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, C)>>::Error>,
 		R: Into<Result<(), Error>> + Send + 'static,
 		T: TryFromState<Arc<ScreenReaderState>, C> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Future: Send,
 		<T as TryFromState<Arc<ScreenReaderState>, C>>::Error: Send,
+		T: AsyncTryFrom<(Arc<ScreenReaderState>, C)>,
+		<T as AsyncTryFrom<(Arc<ScreenReaderState>, C)>>::Future: std::marker::Send,
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(Into::into)
+			.map_response_into::<R, (), OdiliaError>()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
@@ -117,26 +123,29 @@ impl Handlers {
 			+ Send
 			+ 'static,
 		OdiliaError: From<<Event as TryInto<E>>::Error>
-			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>,
-		R: TryIntoCommands + 'static,
+			+ From<<T as TryFromState<Arc<ScreenReaderState>, E>>::Error>
+			+ From<<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Error>,
+		R: TryIntoCommands + Send + 'static,
 		T: TryFromState<Arc<ScreenReaderState>, E> + Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Error: Send + 'static,
 		<T as TryFromState<Arc<ScreenReaderState>, E>>::Future: Send,
+		T: AsyncTryFrom<(Arc<ScreenReaderState>, E)>,
+		<T as AsyncTryFrom<(Arc<ScreenReaderState>, E)>>::Future: std::marker::Send,
 	{
 		let bs = handler
 			.into_service()
-			.unwrap_map(TryIntoCommands::try_into_commands)
+			.map_response_try_into_command()
 			.request_async_try_from()
 			.with_state(Arc::clone(&self.state))
 			.request_try_from()
 			.iter_into(self.command.clone())
-			.map_result(
-				|res: Result<Vec<Vec<Result<(), OdiliaError>>>, OdiliaError>| {
-					res?.into_iter()
-						.flatten()
-						.collect::<Result<(), OdiliaError>>()
-				},
-			)
+			// TODO: do this without a bunch of allocation.
+			.map_result(|res: OdiliaResult<Vec<OdiliaResult<ResultList>>>| {
+				res?.into_iter() // Remove outer result
+					.flatten() // Flatten out first vec
+					.flatten() // Flatten out ResultList
+					.collect::<Result<(), OdiliaError>>()
+			})
 			.boxed_clone();
 		self.atspi.entry(E::identifier()).or_default().push(bs);
 		Self { state: self.state, atspi: self.atspi, command: self.command }

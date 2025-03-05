@@ -37,7 +37,6 @@
             ];
             buildInputs = [
               pkg-config
-              (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
             ];
 
             shellHook = ''

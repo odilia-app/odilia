@@ -7,7 +7,6 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
-#![feature(impl_trait_in_assoc_type)]
 
 mod cli;
 mod events;
@@ -15,7 +14,7 @@ mod logging;
 mod state;
 mod tower;
 
-use std::{fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{fmt::Write, fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
 
 use crate::cli::Args;
 use crate::state::AccessibleHistory;
@@ -115,7 +114,7 @@ async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCo
 	(Priority::Text, "Doc loaded")
 }
 
-use crate::tower::state_changed::Focused;
+use crate::tower::state_changed::{Focused, Unfocused};
 
 #[tracing::instrument(ret)]
 async fn focused(
@@ -158,11 +157,17 @@ async fn focused(
 	}
 	let role = state_changed.item.role;
 	//there has to be a space between the accessible name of an object and its role, so insert it now
-	utterance_buffer += &format!(" {}", role.name().to_owned());
+	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
 	Ok(vec![
 		Focus(state_changed.item.object).into(),
 		Speak(utterance_buffer, Priority::Text).into(),
 	])
+}
+
+#[tracing::instrument(ret)]
+async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
+	// TODO: set focused state on item to be false
+	Ok::<_, OdiliaError>(())
 }
 
 #[tracing::instrument(ret, err)]
@@ -275,7 +280,8 @@ async fn main() -> eyre::Result<()> {
 		.command_listener(new_caret_pos)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
-		.atspi_listener(focused);
+		.atspi_listener(focused)
+		.atspi_listener(unfocused);
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));

@@ -1,10 +1,10 @@
 #![allow(clippy::module_name_repetitions)]
 
-use futures::FutureExt;
 use std::{
 	convert::Infallible,
 	future::Future,
 	marker::PhantomData,
+	pin::Pin,
 	task::{Context, Poll},
 };
 use tower::Service;
@@ -30,7 +30,7 @@ macro_rules! impl_handler {
             Fut: Future<Output = R> + Send,
             $($type: Send,)+ {
       type Response = R;
-      type Future = impl Future<Output = R>;
+      type Future = Fut;
       fn call(self, params: ($($type,)+)) -> Self::Future {
           let ($($type,)+) = params;
           self($($type,)+)
@@ -73,13 +73,43 @@ where
 	H: Handler<T> + Clone,
 {
 	type Response = H::Response;
-	type Future = impl Future<Output = Result<H::Response, Infallible>>;
+	type Future = MapOk<H::Future, Infallible, H::Response>;
 	type Error = Infallible;
 
 	fn poll_ready(&mut self, _ctx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		Poll::Ready(Ok(()))
 	}
 	fn call(&mut self, params: T) -> Self::Future {
-		self.handler.clone().call(params).map(Ok)
+		self.handler.clone().call(params).wrap_ok()
+	}
+}
+
+trait FutureExt2: Future {
+	fn wrap_ok<E, O>(self) -> MapOk<Self, E, O>
+	where
+		Self: Sized,
+	{
+		MapOk { f: self, _marker: PhantomData }
+	}
+}
+impl<F> FutureExt2 for F where F: Future {}
+
+#[pin_project::pin_project]
+pub struct MapOk<F, E, O> {
+	#[pin]
+	f: F,
+	_marker: PhantomData<(O, E)>,
+}
+impl<F, E, O> Future for MapOk<F, E, O>
+where
+	F: Future<Output = O>,
+{
+	type Output = Result<O, E>;
+	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
+		let this = self.project();
+		match this.f.poll(cx) {
+			Poll::Ready(o) => Poll::Ready(Ok(o)),
+			Poll::Pending => Poll::Pending,
+		}
 	}
 }
