@@ -9,3 +9,7 @@ odilia-common.workspace = true
 rdev = { git = "https://github.com/TTWNO/rdev/", branch = "odilia-keys-v2", features = ["unstable_grab"] }
 serde_json.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+atspi-common.workspace = true
+proptest = "1.6.0"
