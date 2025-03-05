@@ -252,6 +252,16 @@ impl std::fmt::Debug for ComboSet {
 		self.inner.fmt(fmt)
 	}
 }
+impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
+	type Error = ComboError;
+	fn try_from(v: Vec<(KeySet, OdiliaEvent)>) -> Result<Self, Self::Error> {
+		let mut this = Self::new();
+		for item in v {
+			this.insert(item.0, item.1)?;
+		}
+		Ok(this)
+	}
+}
 impl ComboSet {
 	fn keys<'a>(&'a self) -> impl Iterator<Item = &'a KeySet> {
 		self.inner.iter().map(|x| &x.0)
