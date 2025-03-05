@@ -99,7 +99,9 @@ jobs:
           key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-
+      - name: Install dependencies
+        run:
+          sudo apt -y install libevdev-dev libx11-dev libxi-dev libxtst-dev
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
@@ -151,6 +153,10 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
+
+      - name: Install dependencies
+        run:
+          sudo apt -y install libevdev-dev libx11-dev libxi-dev libxtst-dev
 
       - name: Generate Documentation
         run: cargo doc --workspace --document-private-items
