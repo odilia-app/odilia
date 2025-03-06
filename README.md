@@ -66,4 +66,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for more detail on how to contribute.
 
 ## License
 
-The Odilia screen reader is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
+The Odilia screen reader is licensed under either the MIT or Apache 2.0 licenses at your choosing.

@@ -16,4 +16,4 @@ We can even help you walk through confusing parts of the code, if some of this c
 
 ## License
 
-All our code is licensed under the [GPL v3](https://www.gnu.org/licenses/gpl-3.0.html).
+All our code is licensed under either the MIT or Apache 2.0 licenses at your choosing.
