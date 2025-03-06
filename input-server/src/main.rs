@@ -6,6 +6,15 @@ mod tests;
 #[cfg(all(test, feature = "proptest"))]
 mod proptests;
 
+#[cfg(test)]
+pub(crate) trait EventFromEventType {
+	fn from_event_type(event_type: EventType) -> Event {
+		Event { event_type, time: std::time::SystemTime::now(), name: None }
+	}
+}
+#[cfg(test)]
+impl EventFromEventType for Event {}
+
 use nix::unistd::Uid;
 use odilia_common::{
 	events::ScreenReaderEvent as OdiliaEvent,
@@ -443,7 +452,7 @@ pub struct State {
 	pub(crate) tx: SyncSender<OdiliaEvent>,
 }
 impl State {
-	#[cfg(all(test, feature = "proptest"))]
+	#[cfg(test)]
 	/// For testing purposes only: create an "unbounded" (100,000-sized) buffer for accepting the
 	/// OdiliaEvents that may be triggered.
 	fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
@@ -572,6 +581,19 @@ pub(crate) fn callback(event: Event, state: &mut State) -> Option<Event> {
 		// if a key release is made while activation mode is on
 		(EventType::KeyRelease(other), true) => {
 			// if it's previously been pressed
+			if let Some(idx) = state.pressed.iter().position(|key| *key == other) {
+				// remove it from the list of held keys
+				state.pressed.remove(idx);
+				// and swallow the event
+				None
+				// otherwise, it was a key held from before the activation was enabled
+			} else {
+				// pass this through to the other layers, as applications need to be notified about
+				// letting go of the key
+				Some(event)
+			}
+		}
+		(EventType::KeyRelease(other), false) => {
 			if let Some(idx) = state.pressed.iter().position(|key| *key == other) {
 				// remove it from the list of held keys
 				state.pressed.remove(idx);
