@@ -1,16 +1,19 @@
 name: CI
-env:
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+    branches: [main]
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 jobs:
   test:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
@@ -49,6 +52,7 @@ jobs:
         run: cargo test
   deny:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -77,6 +81,7 @@ jobs:
           command: check license advisories bans
   clippy:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -106,6 +111,7 @@ jobs:
 
   rustfmt:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -122,6 +128,7 @@ jobs:
 
   rustdoc:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -162,6 +169,7 @@ jobs:
         if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
   coverage:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -204,6 +212,7 @@ jobs:
 
   nix:
     runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
