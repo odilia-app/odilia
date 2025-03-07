@@ -1,4 +1,4 @@
-#![deny(clippy::all)]
+#![deny(clippy::all, missing_docs)]
 
 #[cfg(test)]
 mod tests;
@@ -250,12 +250,16 @@ fn get_file_paths() -> (PathBuf, PathBuf) {
 	}
 }
 
+/// An error in creating a set of key combos.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComboError {
+  /// An existing combo has the same prefix.
 	SamePrefix { original: KeySet, new: KeySet },
+  /// An existing combo has the same set of keys assigned to it.
 	Identical(KeySet),
 }
 
+/// A set of key combos.
 #[derive(Clone, Eq, PartialEq)]
 pub struct ComboSet {
 	inner: Vec<(KeySet, OdiliaEvent)>,
@@ -330,23 +334,33 @@ impl<'a> IntoIterator for &'a ComboSet {
 	}
 }
 
+/// An error in adding a new set of keybindings to the [`ComboSets`] list.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SetError {
+  /// An identical combo has already been set.
+  /// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
+  /// (global).
 	IdenticalCombo {
 		mode: Option<Mode>,
 		set: KeySet,
 	},
+  /// A combo with the same prefix has already been set.
+  /// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
+  /// (global).
 	SamePrefixCombo {
 		original: (Option<Mode>, KeySet),
 		attempted: (Option<Mode>, KeySet),
 	},
-	/// Returned when attempting to add a keybinding with an empty keyset.
+	/// Attempted to add a combo with an empty set of keys.
 	UnpressableKey,
-	/// Returned when attempting to add a keybinding with a mode which can not be reached from the
-	/// existing set of keybindings.
+  /// Attempted to add a keybinding with a mode that is not accessible via pressing other keys.
+  /// This can usually be fixed by changing the order in which the keys are added.
+  /// Make sure to introduce the keybinding to change to a given mode before the keybindings that
+  /// are active in that mode.
 	UnreachableMode(Mode),
 }
 
+/// A list of modes and their associated key combos.
 #[derive(Clone, PartialEq, Eq)]
 pub struct ComboSets {
 	inner: Vec<(Option<Mode>, ComboSet)>,
@@ -443,12 +457,19 @@ impl<'a> IntoIterator for &'a ComboSets {
 	}
 }
 
+/// The primary holder of state for all keybindings in the daemon.
 #[derive(Debug)]
 pub struct State {
+  /// If the activation key ([`crate::ACTIVATION_KEY`]) is pressed.
 	pub(crate) activation_key_pressed: bool,
+  /// Which mode the screen reader is in.
 	pub(crate) mode: Mode,
+  /// All pressed keys _after_ activation is pressed.
 	pub(crate) pressed: Vec<Key>,
+  /// List of key combos.
 	pub(crate) combos: ComboSets,
+  /// A synchronous channel to send events to.
+  /// The receiver will send them over a socket to the main Odilia process.
 	pub(crate) tx: SyncSender<OdiliaEvent>,
 }
 impl State {
