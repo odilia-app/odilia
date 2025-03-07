@@ -482,7 +482,8 @@ impl State {
 			Self {
 				activation_key_pressed: false,
 				mode: Mode::Focus,
-				pressed: Vec::new(),
+				// handle up to 10 key presses without allocation
+				pressed: Vec::with_capacity(10),
 				combos: ComboSets::new(),
 				tx,
 			},
@@ -524,7 +525,8 @@ fn main() {
 	let state = State {
 		mode: Mode::Focus,
 		activation_key_pressed: false,
-		pressed: Vec::new(),
+		// no allocations below 10-key rollover
+		pressed: Vec::with_capacity(10),
 		combos: [(None, combos)].try_into().unwrap(),
 		tx: ev_tx,
 	};

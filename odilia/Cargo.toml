@@ -7,7 +7,7 @@ authors = [
   "Alberto Tirla <albertotirla@gmail.com>",
 ]
 description = "Building a better screen reader for the Linux desktop, one step at a time."
-license = "GPL-3.0-only" # Not gpl-3-or-later
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
