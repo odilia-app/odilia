@@ -1,13 +1,15 @@
 name: CI
-env:
-  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 on:
   push:
     branches:
       - main
   pull_request:
-    branches:
-      - main
+    branches: [main]
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
 jobs:
   test:
     runs-on: ubuntu-latest
