@@ -9,7 +9,6 @@
 #![allow(clippy::multiple_crate_versions)]
 
 mod cli;
-mod events;
 mod logging;
 mod state;
 mod tower;

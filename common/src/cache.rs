@@ -29,7 +29,7 @@ pub struct AccessiblePrimitive {
 
 impl AccessiblePrimitive {
 	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
+	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	pub fn from_event<T: EventProperties>(event: &T) -> Self {
 		let sender = event.sender();
 		let path = event.path();
