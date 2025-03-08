@@ -14,6 +14,7 @@ pub mod command;
 pub mod elements;
 pub mod errors;
 pub mod events;
+pub mod from_state;
 pub mod modes;
 pub mod result;
 pub mod settings;

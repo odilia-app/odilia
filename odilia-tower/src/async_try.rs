@@ -1,12 +1,19 @@
-#![allow(clippy::module_name_repetitions)]
+//! A trait [`AsyncTryFrom`], its associated layer [`AsyncTryFromlayer`], and a blanket
+//! implementation of [`odilia_common::from_state::TryFromState`].
+//!
+//! Due to the blanket implementation, this is required to be a trait defined by us.
+//! This means that even in the future, if a crate were to become available that offered similar
+//! functionality, we could still not remove this.
 
-use crate::from_state::TryFromState;
 use core::{
 	future::Future,
 	marker::PhantomData,
 	task::{Context, Poll},
 };
 use futures::TryFutureExt;
+#[allow(clippy::module_name_repetitions)]
+use odilia_common::from_state::TryFromState;
+use static_assertions::const_assert_eq;
 use tower::{Layer, Service};
 
 impl<T, S, U> AsyncTryFrom<(S, T)> for U
@@ -20,16 +27,26 @@ where
 	}
 }
 
+/// An async version of [`TryFrom`] with an associated future.
 pub trait AsyncTryFrom<T>: Sized {
+	/// The possible conversion error.
 	type Error;
+	/// Named future (for use with other [`tower`] components.
+	/// Will be dropped in favour of ITIAT or RTN if either of them land.
 	type Future: Future<Output = Result<Self, Self::Error>>;
 
+	/// Attempt to asynchronously convert a value from [`Self::T`] to [`Self`].
 	fn try_from_async(value: T) -> Self::Future;
 }
+/// An async version of [`TryInto`] with an associated future.
 pub trait AsyncTryInto<T>: Sized {
+	/// The possible conversion error.
 	type Error;
+	/// Named future (for use with other [`tower`] components.
+	/// Will be dropped in favour of ITIAT or RTN if either of them land.
 	type Future: Future<Output = Result<T, Self::Error>>;
 
+	/// Attempt to asynchronously convert a value from [`Self::T`] to [`Self`].
 	fn try_into_async(self) -> Self::Future;
 }
 impl<T, U: AsyncTryFrom<T>> AsyncTryInto<U> for T {
@@ -40,33 +57,48 @@ impl<T, U: AsyncTryFrom<T>> AsyncTryInto<U> for T {
 	}
 }
 
-pub struct AsyncTryIntoService<O, I: AsyncTryInto<O>, S, R, Fut1> {
+/// A service which applies an [`AsyncTryInto`] transformation to a service's input.
+pub struct AsyncTryIntoService<O, I, S, R, Fut1> {
 	inner: S,
 	_marker: PhantomData<fn(O, I, Fut1) -> R>,
 }
-impl<O, E, I: AsyncTryInto<O, Error = E>, S, R, Fut1> AsyncTryIntoService<O, I, S, R, Fut1> {
+
+impl<O, I, S, R, Fut1> AsyncTryIntoService<O, I, S, R, Fut1> {
+	/// Wrap the inner service with an [`AsyncTryInto`] function transforming its input.
 	pub fn new(inner: S) -> Self {
 		AsyncTryIntoService { inner, _marker: PhantomData }
 	}
 }
-pub struct AsyncTryIntoLayer<O, I: AsyncTryInto<O>> {
+
+/// A [ZST](https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts) representing
+/// a [`AsyncTryInto`] as a [`tower::Layer`].
+pub struct AsyncTryIntoLayer<O, I> {
 	_marker: PhantomData<fn(I) -> O>,
 }
-impl<O, I: AsyncTryInto<O>> Clone for AsyncTryIntoLayer<O, I> {
+const_assert_eq!(size_of::<AsyncTryIntoLayer<(), ()>>(), 0);
+const_assert_eq!(size_of::<AsyncTryIntoLayer<u128, Option<u16>>>(), 0);
+
+impl<O, I> Clone for AsyncTryIntoLayer<O, I> {
 	fn clone(&self) -> Self {
 		AsyncTryIntoLayer { _marker: PhantomData }
 	}
 }
-#[allow(clippy::new_without_default)]
-impl<O, E, I: AsyncTryInto<O, Error = E>> AsyncTryIntoLayer<O, I> {
-	pub fn new() -> Self {
+impl<O, I> Default for AsyncTryIntoLayer<O, I> {
+	fn default() -> Self {
+		AsyncTryIntoLayer { _marker: PhantomData }
+	}
+}
+impl<O, I> AsyncTryIntoLayer<O, I> {
+	/// Create a new `AsyncTryIntoLayer` from generic types.
+	pub(crate) fn new() -> Self {
 		AsyncTryIntoLayer { _marker: PhantomData }
 	}
 }
 
-impl<I: AsyncTryInto<O>, O, S, Fut1> Layer<S> for AsyncTryIntoLayer<O, I>
+impl<I, O, S, Fut1> Layer<S> for AsyncTryIntoLayer<O, I>
 where
 	S: Service<O, Future = Fut1>,
+	I: AsyncTryInto<O>,
 {
 	type Service = AsyncTryIntoService<O, I, S, <S as Service<O>>::Response, Fut1>;
 	fn layer(&self, inner: S) -> Self::Service {
@@ -74,9 +106,10 @@ where
 	}
 }
 
-impl<O, I: AsyncTryInto<O>, S, R, Fut1> Clone for AsyncTryIntoService<O, I, S, R, Fut1>
+impl<O, I, S, R, Fut1> Clone for AsyncTryIntoService<O, I, S, R, Fut1>
 where
 	S: Clone,
+	I: AsyncTryInto<O>,
 {
 	fn clone(&self) -> Self {
 		AsyncTryIntoService { inner: self.inner.clone(), _marker: PhantomData }
@@ -99,15 +132,12 @@ where
 	fn call(&mut self, req: I) -> Self::Future {
 		let clone = self.inner.clone();
 		let inner = core::mem::replace(&mut self.inner, clone);
-		req.try_into_async().err_into::<E>().and_then_call(inner).flatten()
-		/*
-			    async move {
-				    match req.try_into_async().await {
-					    Ok(resp) => inner.call(resp).err_into().await,
-					    Err(e) => Err(e.into()),
-				    }
-			    }
-		*/
+		AndThenCall {
+			fut: req.try_into_async().err_into::<E>(),
+			svc: inner,
+			_marker: PhantomData,
+		}
+		.flatten()
 	}
 }
 
@@ -116,6 +146,8 @@ use futures::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
 use tower::util::Oneshot;
 use tower::ServiceExt;
 
+/// A version of [`tower::util::future::AndThenFuture`] that is not generic over an un-namable
+/// future type.
 #[pin_project::pin_project]
 pub struct AndThenCall<F, S, O, E> {
 	#[pin]
@@ -140,13 +172,3 @@ where
 		}
 	}
 }
-
-trait AndThenCallExt: Future {
-	fn and_then_call<S, O, E>(self, svc: S) -> AndThenCall<Self, S, O, E>
-	where
-		Self: Sized,
-	{
-		AndThenCall { fut: self, svc, _marker: PhantomData }
-	}
-}
-impl<F> AndThenCallExt for F where F: Future {}

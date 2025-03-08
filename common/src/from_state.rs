@@ -3,8 +3,8 @@
 use futures::{future::ErrInto, TryFutureExt};
 use futures_concurrency::future::TryJoin;
 
+use crate::errors::OdiliaError;
 use core::future::Future;
-use odilia_common::errors::OdiliaError;
 
 pub trait TryFromState<S, T>: Sized {
 	type Error;
