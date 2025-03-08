@@ -1,3 +1,6 @@
+//! Synchronous version of [`crate::async_try`].
+//! Create [`tower::Service`]s out of the ability to convert values via [`TryFrom`] and `TryInto`].
+
 use core::{
 	future::Future,
 	marker::PhantomData,

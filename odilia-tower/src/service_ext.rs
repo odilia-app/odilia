@@ -1,3 +1,5 @@
+//! Allow postfix notation for building services from existing ones.
+
 use crate::{
 	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
 	state_svc::{StateLayer, StateService},
@@ -23,6 +25,30 @@ pub trait ServiceExt<Request>: Service<Request> {
 	{
 		AsyncTryIntoLayer::new().layer(self)
 	}
+	/// Inject a clonable state into each invocation of the inner service.
+	/// NOTE: since [`tower::Service`] only accepts functions with one parameter, this is passed as
+	/// `(S, P)` where `S` is the state type and `P` is the parameter type.
+	///
+	/// ```
+	/// use odilia_tower::service_ext::ServiceExt;
+	/// use tower::{service_fn, Service};
+	/// use futures::executor::block_on;
+	/// use std::{convert::Infallible, sync::Arc};
+	/// // a stand in for some comlpex type, don't actually do this.
+	/// type State = Arc<usize>;
+	///
+	/// // NOTE: `tower` does not allow multiple parameters to services.
+	/// async fn state_and_param((state, param): (Arc<usize>, u8)) -> Result<Vec<u8>, Infallible> {
+	///     let mut vec = Vec::with_capacity(*state);
+	///     for _ in 0..*state {
+	///         vec.push(param);
+	///     }
+	///     Ok(vec)
+	/// }
+	/// let mut service = service_fn(state_and_param)
+	///     .with_state(Arc::new(5));
+	/// assert_eq!(block_on(service.call(2)), Ok(vec![2u8, 2, 2, 2, 2]));
+	/// ```
 	fn with_state<S>(self, s: S) -> StateService<Self, S>
 	where
 		Self: Sized,
