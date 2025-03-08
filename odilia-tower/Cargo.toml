@@ -17,8 +17,12 @@ futures-concurrency.workspace = true
 odilia-cache.workspace = true
 odilia-common.workspace = true
 pin-project.workspace = true 
+static_assertions = "1.1.0"
 tokio.workspace = true
 tower.workspace = true
 tower-iter = { path = "../tower-iter/", version = "0.1.0" }
 tracing.workspace = true
 zbus.workspace = true
+
+[dev-dependencies]
+static_assertions = "1.1.0"
