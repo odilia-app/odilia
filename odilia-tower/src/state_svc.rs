@@ -1,3 +1,6 @@
+//! A generic state provider service.
+//! This clones the state upon every invocation of [`Service::call`], so make sure it's relatively cheap to do so.
+
 use core::task::{Context, Poll};
 use tower::{Layer, Service};
 
