@@ -1,3 +1,11 @@
+//! A service built specifically to run `.unwrap()` on computed futures.
+//!
+//! Why not just call `.await.unwrap()`?
+//! Because when chaining together async functions on stable Rust, if the type is returned from a
+//! trait, it must be named (see: unnamable types).
+//!
+//! This module also contains a few related "unwrap-then-..." cases that are useful in Odilia.
+
 use core::{
 	convert::Infallible,
 	future::Future,
@@ -8,6 +16,7 @@ use futures::{future::OkInto, TryFutureExt};
 use odilia_common::command::TryIntoCommands;
 use tower::Service;
 
+/// Maps a response value of `Result<T, E>` to `[<T as TryIntoCommands>::into`]
 pub struct MapResponseTryIntoCommandsService<S, Req> {
 	inner: S,
 	_marker: PhantomData<Req>,
@@ -141,6 +150,26 @@ where
 	}
 }
 
+/// A future which unwraps the future's [`Future::Output`] value if it is a [`Result<T,
+/// Infallible>`] and converts it into [`T`].
+///
+/// This is useful in the context of [`tower`] where all services must return `Result<T, E>`, even
+/// if `Err(E)` will never occur.
+/// To ensure safety, this is only possible to use when the `E` parameter is
+/// [`std::convert::Infallible`].
+///
+/// ```
+/// # use futures::executor::block_on;
+/// # use std::convert::Infallible;
+/// # use odilia_tower::unwrap_svc::UnwrapFutExt;
+/// async fn first_four_bits(x: u8) -> Result<u8, Infallible> {
+///     Ok(x & 0xF)
+/// }
+/// assert_eq!(
+///     block_on(first_four_bits(0xFA).unwrap_fut()),
+///     0xA
+/// );
+/// ```
 #[pin_project::pin_project]
 pub struct UnwrapFut<F, O, E> {
 	#[pin]
