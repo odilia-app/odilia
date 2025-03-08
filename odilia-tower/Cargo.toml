@@ -25,4 +25,4 @@ tracing.workspace = true
 zbus.workspace = true
 
 [dev-dependencies]
-static_assertions = "1.1.0"
+futures = { workspace = true, features = ["executor"] }
