@@ -90,7 +90,7 @@ impl<O, I> Default for AsyncTryIntoLayer<O, I> {
 }
 impl<O, I> AsyncTryIntoLayer<O, I> {
 	/// Create a new `AsyncTryIntoLayer` from generic types.
-	pub(crate) fn new() -> Self {
+	pub fn new() -> Self {
 		AsyncTryIntoLayer { _marker: PhantomData }
 	}
 }
