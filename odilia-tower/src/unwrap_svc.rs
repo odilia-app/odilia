@@ -26,6 +26,7 @@ where
 	S: Service<Req, Error = Infallible>,
 	S::Response: TryIntoCommands,
 {
+	/// Wrap an inner service.
 	pub fn new(inner: S) -> Self {
 		MapResponseTryIntoCommandsService { inner, _marker: PhantomData }
 	}
@@ -65,6 +66,8 @@ where
 	}
 }
 
+/// Map the `Ok` variant of [`Service::call`] into a new type.
+/// Where the new type `R` implements `From<Res>`.
 pub struct MapResponseIntoService<S, Req, Res, R, E> {
 	inner: S,
 	_marker: PhantomData<(Res, Req, R, E)>,
@@ -74,6 +77,7 @@ where
 	S: Service<Req, Error = Infallible>,
 	S::Response: Into<Result<R, E>>,
 {
+	/// Wrap an inner service.
 	pub fn new(inner: S) -> Self {
 		MapResponseIntoService { inner, _marker: PhantomData }
 	}
@@ -109,6 +113,7 @@ where
 
 use core::pin::Pin;
 
+/// Map a future result into return of [`TryIntoCommands::try_into_commands`].
 #[pin_project::pin_project]
 pub struct TryIntoCommandFut<F, Ic, E> {
 	#[pin]
@@ -130,6 +135,28 @@ where
 	}
 }
 
+/// A future which flattens a future's nested results when the outer result in
+/// [`std::convert::Infallible`].
+///
+/// ```
+/// use futures::executor::block_on;
+/// use futures::future::TryFutureExt;
+/// use odilia_tower::unwrap_svc::UnwrapFutExt;
+/// use std::convert::Infallible;
+/// #[derive(Debug, PartialEq)]
+/// pub struct Error;
+/// async fn inner(x: u8) -> Result<u8, Infallible> {
+///   Ok(x+2)
+/// }
+/// fn outer(x: u8) -> Result<u8, Error> {
+///     Ok(x-3)
+/// }
+/// let fut = inner(10)
+///     .map_ok(outer)
+///     .flatten_fut_res();
+/// // Note Ok(8) instead of Ok(Ok(9))!
+/// assert_eq!(block_on(fut), Ok(9));
+/// ```
 #[pin_project::pin_project]
 pub struct FlattenFutResult<F, O, E1> {
 	#[pin]
@@ -151,7 +178,7 @@ where
 }
 
 /// A future which unwraps the future's [`Future::Output`] value if it is a [`Result<T,
-/// Infallible>`] and converts it into [`T`].
+/// Infallible>`] and converts it into `T`.
 ///
 /// This is useful in the context of [`tower`] where all services must return `Result<T, E>`, even
 /// if `Err(E)` will never occur.
@@ -159,9 +186,9 @@ where
 /// [`std::convert::Infallible`].
 ///
 /// ```
-/// # use futures::executor::block_on;
-/// # use std::convert::Infallible;
-/// # use odilia_tower::unwrap_svc::UnwrapFutExt;
+/// use futures::executor::block_on;
+/// use std::convert::Infallible;
+/// use odilia_tower::unwrap_svc::UnwrapFutExt;
 /// async fn first_four_bits(x: u8) -> Result<u8, Infallible> {
 ///     Ok(x & 0xF)
 /// }
@@ -191,7 +218,7 @@ where
 	}
 }
 
-trait UnwrapFutExt: Future {
+pub trait UnwrapFutExt: Future {
 	fn unwrap_fut<O, E>(self) -> UnwrapFut<Self, O, E>
 	where
 		Self: Sized,
