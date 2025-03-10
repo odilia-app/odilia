@@ -137,26 +137,6 @@ where
 
 /// A future which flattens a future's nested results when the outer result in
 /// [`std::convert::Infallible`].
-///
-/// ```
-/// use futures::executor::block_on;
-/// use futures::future::TryFutureExt;
-/// use odilia_tower::unwrap_svc::UnwrapFutExt;
-/// use std::convert::Infallible;
-/// #[derive(Debug, PartialEq)]
-/// pub struct Error;
-/// async fn inner(x: u8) -> Result<u8, Infallible> {
-///   Ok(x+2)
-/// }
-/// fn outer(x: u8) -> Result<u8, Error> {
-///     Ok(x-3)
-/// }
-/// let fut = inner(10)
-///     .map_ok(outer)
-///     .flatten_fut_res();
-/// // Note Ok(8) instead of Ok(Ok(9))!
-/// assert_eq!(block_on(fut), Ok(9));
-/// ```
 #[pin_project::pin_project]
 pub struct FlattenFutResult<F, O, E1> {
 	#[pin]
@@ -184,19 +164,6 @@ where
 /// if `Err(E)` will never occur.
 /// To ensure safety, this is only possible to use when the `E` parameter is
 /// [`std::convert::Infallible`].
-///
-/// ```
-/// use futures::executor::block_on;
-/// use std::convert::Infallible;
-/// use odilia_tower::unwrap_svc::UnwrapFutExt;
-/// async fn first_four_bits(x: u8) -> Result<u8, Infallible> {
-///     Ok(x & 0xF)
-/// }
-/// assert_eq!(
-///     block_on(first_four_bits(0xFA).unwrap_fut()),
-///     0xA
-/// );
-/// ```
 #[pin_project::pin_project]
 pub struct UnwrapFut<F, O, E> {
 	#[pin]
@@ -219,18 +186,74 @@ where
 }
 
 pub trait UnwrapFutExt: Future {
+	///
+	/// ```
+	/// use futures::executor::block_on;
+	/// use std::convert::Infallible;
+	/// use odilia_tower::unwrap_svc::UnwrapFutExt;
+	/// async fn first_four_bits(x: u8) -> Result<u8, Infallible> {
+	///     Ok(x & 0xF)
+	/// }
+	/// assert_eq!(
+	///     block_on(first_four_bits(0xFA).unwrap_fut()),
+	///     0xA
+	/// );
+	/// ```
 	fn unwrap_fut<O, E>(self) -> UnwrapFut<Self, O, E>
 	where
 		Self: Sized,
 	{
 		UnwrapFut { fut: self, _marker: PhantomData }
 	}
+	/// ```
+	/// use futures::executor::block_on;
+	/// use futures::future::TryFutureExt;
+	/// use odilia_tower::unwrap_svc::UnwrapFutExt;
+	/// use std::convert::Infallible;
+	/// #[derive(Debug, PartialEq)]
+	/// pub struct Error;
+	/// async fn inner(x: u8) -> Result<u8, Infallible> {
+	///   Ok(x+2)
+	/// }
+	/// fn outer(x: u8) -> Result<u8, Error> {
+	///     Ok(x-3)
+	/// }
+	/// let fut = inner(10)
+	///     .map_ok(outer)
+	///     .flatten_fut_res();
+	/// // Note Ok(8) instead of Ok(Ok(9))!
+	/// assert_eq!(block_on(fut), Ok(9));
+	/// ```
 	fn flatten_fut_res<O, E1>(self) -> FlattenFutResult<Self, O, E1>
 	where
 		Self: Sized,
 	{
 		FlattenFutResult { fut: self, _marker: PhantomData }
 	}
+	/// Map's a future into it's corresponding [`TryIntoCommands::try_into_commands`] output.
+	/// This type is only for being able to name it.
+	/// The same effect can be achieved with [`FutureExt::map`] if you do not need to name the type.
+	///
+	/// ```
+	/// use ssip::Priority;
+	/// use odilia_common::command::{OdiliaCommand, Speak, TryIntoCommands};
+	/// use futures::executor::block_on;
+	/// use futures::future::TryFutureExt;
+	/// use odilia_tower::unwrap_svc::{UnwrapFutExt, TryIntoCommandFut};
+	/// use std::convert::Infallible;
+	/// async fn commands() -> (Priority, &'static str) {
+	///   (Priority::Text, "This should convert into a speak command!")
+	/// }
+	/// let fut = commands()
+	///     .ok_try_into_command::<_, Infallible>();
+	/// let mut iter = block_on(fut).expect("Conversion success");
+	/// assert_eq!(iter.next().expect("First item"),
+	///     OdiliaCommand::Speak(Speak(
+	///         "This should convert into a speak command!".to_string(),
+	///         Priority::Text,
+	///     ))
+	/// );
+	/// ```
 	fn ok_try_into_command<O, E>(self) -> TryIntoCommandFut<Self, O, E>
 	where
 		Self: Sized,
