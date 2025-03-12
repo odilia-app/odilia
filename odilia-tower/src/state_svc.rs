@@ -15,8 +15,8 @@ impl<S> StateLayer<S> {
 	}
 }
 
-/// A service which clones state [`Sta`] into the [`Service::call`] method of the given service
-/// [`Srv`].
+/// A service which clones state `Sta` into the [`Service::call`] method of the given service
+/// `Srv`.
 pub struct StateService<Srv, Sta> {
 	inner: Srv,
 	state: Sta,
