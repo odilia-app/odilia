@@ -146,13 +146,13 @@ impl<T: CommandType> CommandTypeDynamic for T {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CaretPos(pub usize);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Speak(pub String, pub Priority);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Focus(pub AccessiblePrimitive);
 
 impl CommandType for Speak {
@@ -165,7 +165,7 @@ impl CommandType for CaretPos {
 	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::CaretPos;
 }
 
-#[derive(Debug, Clone, EnumDiscriminants)]
+#[derive(Debug, Clone, EnumDiscriminants, PartialEq, Eq)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
