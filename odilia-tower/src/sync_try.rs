@@ -10,7 +10,8 @@ use futures::future::{err, Either, Ready};
 use static_assertions::const_assert_eq;
 use tower::{Layer, Service};
 
-/// A service which maps the inner service's output to another type which implements [`Tryinto`].
+/// A service which maps from a new input into the inner [`tower::Service`]'s input based on a
+/// [`TryInto`] implementation between the two types.
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
 	inner: S,
 	_marker: PhantomData<fn(O, I, Fut1) -> R>,
