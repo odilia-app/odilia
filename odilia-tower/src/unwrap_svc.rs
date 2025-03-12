@@ -233,7 +233,7 @@ pub trait UnwrapFutExt: Future {
 	}
 	/// Map's a future into it's corresponding [`TryIntoCommands::try_into_commands`] output.
 	/// This type is only for being able to name it.
-	/// The same effect can be achieved with [`FutureExt::map`] if you do not need to name the type.
+	/// The same effect can be achieved with [`futures::future::FutureExt::map`] if you do not need to name the type.
 	///
 	/// ```
 	/// use ssip::Priority;
