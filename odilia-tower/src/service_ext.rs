@@ -30,9 +30,9 @@ pub trait ServiceExt<Request>: Service<Request> {
 	/// NOTE:
 	///
 	/// - since [`tower::Service`] only accepts functions with one parameter, this is passed as
-	/// `(S, P)` where `S` is the state type and `P` is the parameter type.
+	///   `(S, P)` where `S` is the state type and `P` is the parameter type.
 	/// - The `S` parameter will be cloned upon each invocation to [`Service::call`]. It should be
-	/// relatively cheap to clone.
+	///   relatively cheap to clone.
 	///
 	/// ```
 	/// use odilia_tower::service_ext::ServiceExt;

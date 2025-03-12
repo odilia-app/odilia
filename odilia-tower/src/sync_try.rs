@@ -7,26 +7,35 @@ use core::{
 	task::{Context, Poll},
 };
 use futures::future::{err, Either, Ready};
+use static_assertions::const_assert_eq;
 use tower::{Layer, Service};
 
+/// A service which maps the inner service's output to another type which implements [`Tryinto`].
 pub struct TryIntoService<O, I: TryInto<O>, S, R, Fut1> {
 	inner: S,
 	_marker: PhantomData<fn(O, I, Fut1) -> R>,
 }
 impl<O, E, I: TryInto<O, Error = E>, S, R, Fut1> TryIntoService<O, I, S, R, Fut1> {
+	/// Create a new [`TryIntoService`] from an inner [`tower::Service`].
 	pub fn new(inner: S) -> Self {
 		TryIntoService { inner, _marker: PhantomData }
 	}
 }
+/// A [ZST](https://doc.rust-lang.org/nomicon/exotic-sizes.html#zero-sized-types-zsts) describing a
+/// layer which runs the corresponding [`TryInto`] implementation.
 pub struct TryIntoLayer<O, I: TryInto<O>> {
 	_marker: PhantomData<fn(I) -> O>,
 }
+const_assert_eq!(size_of::<TryIntoLayer<u32, u16>>(), 0);
+
 impl<O, E, I: TryInto<O, Error = E>> Default for TryIntoLayer<O, I> {
 	fn default() -> Self {
 		TryIntoLayer { _marker: PhantomData }
 	}
 }
 impl<O, E, I: TryInto<O, Error = E>> TryIntoLayer<O, I> {
+	/// Create a new [`TryIntoLayer`] from the generic types.
+	#[must_use]
 	pub fn new() -> Self {
 		Self::default()
 	}

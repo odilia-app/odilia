@@ -6,7 +6,7 @@
 //! We are open to removing them in the case that general-purpose ones are avaialbe and easy to
 //! integrate.
 
-#![forbid(
+#![deny(
 	clippy::std_instead_of_core,
 	clippy::alloc_instead_of_core,
 	clippy::std_instead_of_alloc,
