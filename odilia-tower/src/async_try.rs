@@ -1,4 +1,4 @@
-//! A trait [`AsyncTryFrom`], its associated layer [`AsyncTryFromlayer`], and a blanket
+//! A trait [`AsyncTryFrom`], its associated layer [`AsyncTryIntoLayer`], and a blanket
 //! implementation of [`odilia_common::from_state::TryFromState`].
 //!
 //! Due to the blanket implementation, this is required to be a trait defined by us.
@@ -35,7 +35,7 @@ pub trait AsyncTryFrom<T>: Sized {
 	/// Will be dropped in favour of ITIAT or RTN if either of them land.
 	type Future: Future<Output = Result<Self, Self::Error>>;
 
-	/// Attempt to asynchronously convert a value from [`Self::T`] to [`Self`].
+	/// Attempt to asynchronously convert a value from `T` to [`Self`].
 	fn try_from_async(value: T) -> Self::Future;
 }
 /// An async version of [`TryInto`] with an associated future.
@@ -46,7 +46,7 @@ pub trait AsyncTryInto<T>: Sized {
 	/// Will be dropped in favour of ITIAT or RTN if either of them land.
 	type Future: Future<Output = Result<T, Self::Error>>;
 
-	/// Attempt to asynchronously convert a value from [`Self::T`] to [`Self`].
+	/// Attempt to asynchronously convert a value from `T` to [`Self`].
 	fn try_into_async(self) -> Self::Future;
 }
 impl<T, U: AsyncTryFrom<T>> AsyncTryInto<U> for T {
