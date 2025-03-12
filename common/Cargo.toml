@@ -25,7 +25,7 @@ futures.workspace = true
 futures-concurrency.workspace = true
 serde = "1.0.147"
 smartstring = { version = "1.0.1", features = ["serde"] }
-thiserror = "1.0.37"
+thiserror.workspace = true
 zbus.workspace = true
 serde_plain.workspace = true
 figment = "0.10.15"
