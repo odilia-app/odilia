@@ -7,6 +7,7 @@ use crate::{
 };
 use tower::{Layer, Service};
 
+/// Use postfix notation on your [`tower::Service`]s to produce nested services.
 pub trait ServiceExt<Request>: Service<Request> {
 	fn request_try_from<I, R, Fut1>(self) -> TryIntoService<Request, I, Self, R, Fut1>
 	where
@@ -26,8 +27,12 @@ pub trait ServiceExt<Request>: Service<Request> {
 		AsyncTryIntoLayer::new().layer(self)
 	}
 	/// Inject a clonable state into each invocation of the inner service.
-	/// NOTE: since [`tower::Service`] only accepts functions with one parameter, this is passed as
+	/// NOTE:
+	///
+	/// - since [`tower::Service`] only accepts functions with one parameter, this is passed as
 	/// `(S, P)` where `S` is the state type and `P` is the parameter type.
+	/// - The `S` parameter will be cloned upon each invocation to [`Service::call`]. It should be
+	/// relatively cheap to clone.
 	///
 	/// ```
 	/// use odilia_tower::service_ext::ServiceExt;
