@@ -185,6 +185,7 @@ where
 	}
 }
 
+/// Add postfix notation for [`TryIntoCommandFut`].
 pub trait UnwrapFutExt: Future {
 	///
 	/// ```

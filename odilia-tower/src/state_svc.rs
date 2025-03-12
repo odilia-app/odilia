@@ -4,15 +4,19 @@
 use core::task::{Context, Poll};
 use tower::{Layer, Service};
 
+/// A [`tower::Layer`] which stores state `S`.
 pub struct StateLayer<S> {
 	state: S,
 }
 impl<S> StateLayer<S> {
+	/// Create a new [`StateLayer`] with service of type `S`.
 	pub fn new(state: S) -> Self {
 		StateLayer { state }
 	}
 }
 
+/// A service which clones state [`Sta`] into the [`Service::call`] method of the given service
+/// [`Srv`].
 pub struct StateService<Srv, Sta> {
 	inner: Srv,
 	state: Sta,
