@@ -1,0 +1,6 @@
+- Use DBus for sending messages.
+- Add autospawn functionality over DBus.
+- Add option to add `Type` impl for `ssip`.
+- Add `Type` impl for more types in `common/`
+- Add polkit scripts that work, add those checks to CI just in case.
+- Fix missing docs!

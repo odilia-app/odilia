@@ -1499,6 +1499,7 @@ dependencies = [
  "rdev",
  "serde_json",
  "tracing",
+ "zbus",
 ]
 
 [[package]]
