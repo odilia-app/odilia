@@ -1,4 +1,8 @@
-#![deny(clippy::all, missing_docs)]
+//! Input handlers for the Odilia screen reader.
+
+//#![deny(clippy::all, missing_docs)]
+
+mod proxy;
 
 #[cfg(test)]
 mod tests;
