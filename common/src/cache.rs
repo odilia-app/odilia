@@ -4,13 +4,19 @@ use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use serde::{Deserialize, Serialize};
 use zbus::{
 	names::OwnedUniqueName, proxy::Builder as ProxyBuilder, proxy::CacheProperties,
-	zvariant::OwnedObjectPath,
+	zvariant::{OwnedObjectPath, Type},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {
+	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
+	/// Examples:
+	/// * :1.1 (the first window has opened)
+	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
+	/// * :1.262 (many applications have been started on this bus)
+	pub sender: String,
 	/// The accessible ID, which is an arbitrary string specified by the application.
 	/// It is guaranteed to be unique per application.
 	/// Examples:
@@ -19,12 +25,6 @@ pub struct AccessiblePrimitive {
 	/// * /org/a11y/atspi/accessible/root
 	/// * /org/Gnome/GTK/abab22-bbbb33-2bba2
 	pub id: String,
-	/// Assuming that the sender is ":x.y", this stores the (x,y) portion of this sender.
-	/// Examples:
-	/// * :1.1 (the first window has opened)
-	/// * :2.5 (a second session exists, where at least 5 applications have been lauinched)
-	/// * :1.262 (many applications have been started on this bus)
-	pub sender: smartstring::alias::String,
 }
 
 impl AccessiblePrimitive {
@@ -89,13 +89,13 @@ impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
-		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0.into() }
+		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0 }
 	}
 }
 impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
-		AccessiblePrimitive { id: so.1.to_string(), sender: so.0.into() }
+		AccessiblePrimitive { id: so.1.to_string(), sender: so.0 }
 	}
 }
 impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
@@ -106,7 +106,7 @@ impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
 		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
+		Ok(AccessiblePrimitive { sender, id })
 	}
 }
 impl TryFrom<AccessibleProxy<'_>> for AccessiblePrimitive {
@@ -117,6 +117,6 @@ impl TryFrom<AccessibleProxy<'_>> for AccessiblePrimitive {
 		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { id, sender })
+		Ok(AccessiblePrimitive { sender, id })
 	}
 }

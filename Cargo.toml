@@ -55,5 +55,7 @@ tracing-error = "^0.2.0"
 tracing-tree = "^0.2.2"
 zbus = { version = "5.1", features = ["tokio"] }
 serde_plain = "1.0.1"
+ssip = "0.3"
+ssip-client-async = { version = "0.15.0", features = ["tokio"] }
 
 xdg = "2.5.2"

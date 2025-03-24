@@ -168,7 +168,7 @@ impl_command_type!(Focus, Focus);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
 
-#[derive(Debug, Clone, EnumDiscriminants, Type)]
+#[derive(Debug, Clone, EnumDiscriminants)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
