@@ -32,7 +32,7 @@ pub async fn create_ssip_client(
 ) -> eyre::Result<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>> {
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
 	let mut ssip_core =
-		match Builder::new().build().await {
+		match Builder::default().build().await {
 			Ok(ssip) => ssip,
 			Err(e) => {
 				if e.kind() == ErrorKind::ConnectionRefused {
@@ -49,7 +49,7 @@ pub async fn create_ssip_client(
 						"Attempting to connect to speech-dispatcher again!"
 					);
 					tokio::time::sleep(time::Duration::from_secs(1)).await;
-					Builder::new().build().await?
+					Builder::default().build().await?
 				} else {
 					tracing::debug!("Speech dispatcher could not be started.");
 					exit(1);

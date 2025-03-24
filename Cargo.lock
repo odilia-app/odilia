@@ -1900,7 +1900,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_plain",
- "smartstring",
  "tokio",
  "tokio-test",
  "tracing",
@@ -1919,7 +1918,6 @@ dependencies = [
  "figment",
  "serde",
  "serde_plain",
- "smartstring",
  "ssip",
  "strum",
  "thiserror 1.0.69",
@@ -2612,18 +2610,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcf8323ef1faaee30a44a340193b1ac6814fd9b7b4e88e9d4519a3e4abe1cfd"
 
 [[package]]
-name = "smartstring"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fb72c633efbaa2dd666986505016c32c3044395ceaf881518399d2f4127ee29"
-dependencies = [
- "autocfg",
- "serde",
- "static_assertions",
- "version_check",
-]
-
-[[package]]
 name = "socket2"
 version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2641,19 +2627,21 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "ssip"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0638da247dfdcacd5d8a96f7f7857c1b63d77f4771e5424ee3e34d056c8e5712"
+checksum = "816b347967ac1ae4445c98b1d72223c03e2840654a1aff4b7176d692cf35fd2a"
 dependencies = [
+ "serde",
  "strum_macros",
  "thiserror 2.0.12",
+ "zvariant",
 ]
 
 [[package]]
 name = "ssip-client-async"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "691fc2697a52e183a9bcd7b56c0f99ace7243a6f82d49fbef8f8e47463e91f4d"
+checksum = "fa3ba5c3c660883741f0e8b9f88adf79c2121d97cc4b30c346143885a53389d5"
 dependencies = [
  "async-std",
  "dirs",

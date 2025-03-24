@@ -8,6 +8,8 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+mod proxy;
+
 use eyre::Context;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;

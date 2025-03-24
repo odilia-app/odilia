@@ -22,7 +22,6 @@ tokio.workspace = true
 tracing.workspace = true
 zbus.workspace = true
 fxhash = "0.2.1"
-smartstring = { version = "1.0.1", features = ["serde"] }
 serde_plain.workspace = true
 
 [dev-dependencies]
