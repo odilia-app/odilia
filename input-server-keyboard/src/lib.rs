@@ -254,9 +254,16 @@ impl KeySet {
   ///
   /// - Equal to [`ACTIVATION_KEY`], or
   /// - Already contained in the set of keys.
+  ///
   /// ```
+  /// use rdev::Key;
   /// use input_server_keyboard::KeySet;
-  /// let ks = KeySet::new();
+  /// let mut ks = KeySet::new();
+  /// assert!(ks.insert(Key::ShiftLeft).is_ok());
+  /// assert!(ks.insert(Key::KeyA).is_ok());
+  /// assert!(ks.insert(Key::KeyL).is_ok());
+  /// assert!(ks.insert(Key::KeyA).is_err());
+  /// assert!(ks.insert(Key::CapsLock).is_err());
   /// ```
 	pub fn insert(&mut self, t: Key) -> Result<(), ()> {
 		if t == ACTIVATION_KEY || self.inner.contains(&t) {
@@ -266,10 +273,17 @@ impl KeySet {
 			Ok(())
 		}
 	}
+  /// Creates a new, emptt `KeySet`.
 	pub fn new() -> Self {
 		KeySet { inner: Vec::new() }
 	}
 	#[cfg(all(test, feature = "proptest"))]
+  /// Create a `KeySet` from a list of keys.
+  /// Automatically reject and deduplicate the keys during insertion.
+  /// While this can not fail, it will simply throw out any key which is the [`ACTIVATION_KEY`] or
+  /// a repeated key that is already contained within it.
+  ///
+  /// NOTE: Only used during proptests. This should never become part of the public API.
 	fn from_dedup(v: Vec<Key>) -> Self {
 		let mut this = Self::new();
 		for item in v {
@@ -318,29 +332,6 @@ impl IntoIterator for KeySet {
 	}
 }
 
-fn get_file_paths() -> (PathBuf, PathBuf) {
-	match env::var("XDG_RUNTIME_DIR") {
-		Ok(val) => {
-			tracing::info!(
-                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
-            );
-
-			let pid_file_path = format!("{val}/odilias.pid");
-			let sock_file_path = format!("{val}/odilia.sock");
-
-			(pid_file_path.into(), sock_file_path.into())
-		}
-		Err(e) => {
-			tracing::warn!(error=%e, "XDG_RUNTIME_DIR Variable is not set, falling back to hardcoded path");
-
-			let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
-			let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
-
-			(pid_file_path.into(), sock_file_path.into())
-		}
-	}
-}
-
 /// An error in creating a set of key combos.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComboError {
@@ -350,7 +341,7 @@ pub enum ComboError {
 	Identical(KeySet),
 }
 
-/// A set of key combos.
+/// A set of key combos and their associated action.
 #[derive(Clone, Eq, PartialEq)]
 pub struct ComboSet {
 	inner: Vec<(KeySet, OdiliaEvent)>,
@@ -371,9 +362,50 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 	}
 }
 impl ComboSet {
+  /// [`Iterator`] through each [`KeySet`] contained in the [`ComboSet`].
 	pub fn keys(&self) -> impl Iterator<Item = &'_ KeySet> {
 		self.inner.iter().map(|x| &x.0)
 	}
+  /// Insert a new [`KeySet`], [`OdiliaEvent`] combination.
+  ///
+  /// # Results
+  ///
+  /// Fails under any of the following conditions:
+  ///
+  /// 1. There is an existing, identical [`KeySet`] already inserted,
+  /// 2. There is an existing [`KeySet`] that starts with same sequence,
+  /// 3. The attempted [`KeySet`] starts with the same sequence as an existing [`KeySet`]
+  /// (reciprocal of 2.)
+  /// ```
+  /// use rdev::Key;
+  /// use input_server_keyboard::{KeySet, ComboSet};
+  /// // Shift + A
+  /// let mut ks1 = KeySet::new();
+  /// ks1.insert(Key::ShiftLeft).unwrap();
+  /// ks1.insert(Key::KeyA).unwrap();
+  /// // Control + A
+  /// let mut ks2 = KeySet::new();
+  /// ks2.insert(Key::ControlLeft).unwrap();
+  /// ks2.insert(Key::KeyA).unwrap();
+  /// // Shift + Control + A
+  /// let mut ks3 = KeySet::new();
+  /// ks3.insert(Key::ShiftLeft).unwrap();
+  /// ks3.insert(Key::ControlLeft).unwrap();
+  /// ks3.insert(Key::KeyA).unwrap();
+  /// // Control + Shift + A
+  /// let mut ks4 = KeySet::new();
+  /// ks4.insert(Key::ControlLeft).unwrap();
+  /// ks4.insert(Key::ShiftLeft).unwrap();
+  /// ks4.insert(Key::KeyA).unwrap();
+  ///
+  /// let mut cs1 = ComboSet::new();
+  /// // TODO
+  /// ```
+  ///
+  /// This ensures that keys can not overlap and cause unexpected behaviour for the user.
+  /// This does add one restriction: you may not have one keybinding run two actions.
+  /// While we recognize this limitation, we would like to keep it this way (at least for now) for
+  /// stability purposes.
 	pub fn insert(&mut self, keys: KeySet, ev: OdiliaEvent) -> Result<(), ComboError> {
 		for keyset in self.keys() {
 			if *keyset == keys {
@@ -395,9 +427,15 @@ impl ComboSet {
 		self.inner.push((keys, ev));
 		Ok(())
 	}
+  /// Create a new, empty [`ComboSet`].
 	pub fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
+  /// Create a [`ComboSet`] from an iterator.
+  /// While this can work, it ignores all failure cases and can cause issues.
+  ///
+  /// TODO: remove
+  #[deprecated]
 	pub fn from_iter<I>(iter: I) -> Self
 	where
 		I: Iterator<Item = (KeySet, OdiliaEvent)>,
@@ -462,6 +500,13 @@ impl std::fmt::Debug for ComboSets {
 	}
 }
 impl ComboSets {
+  /// Add a new set of combos.
+  ///
+  /// # Results
+  ///
+  /// Fails under any of the following conditions:
+  ///
+  /// - TODO
 	fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
 		if let Some(some_mode) = mode {
 			if !self.inner.iter().map(|x| x.0).any(|m| m == mode) {
@@ -580,19 +625,6 @@ impl State {
 			},
 			rx,
 		)
-	}
-}
-
-fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
-	let (_pid_path, sock_path) = get_file_paths();
-	println!("SOCK PATH: {sock_path:?}");
-	let Ok(mut stream) = UnixStream::connect(&sock_path) else {
-		panic!("Unable to connect to stream {:?}", sock_path);
-	};
-	for event in rx.iter() {
-		let val = serde_json::to_string(&event)
-			.expect("Should be able to serialize any event!");
-		stream.write_all(val.as_bytes()).expect("Able to write to stream!");
 	}
 }
 
