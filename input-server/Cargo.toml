@@ -9,18 +9,6 @@ readme = "README.md"
 keywords = ["keybaord"]
 categories = ["daemon", "odilia"]
 
-[features]
-default = []
-proptest = []
-
 [dependencies]
-nix.workspace = true
-odilia-common.workspace = true
-rdev = { git = "https://github.com/TTWNO/rdev2/", branch = "odilia-keys-v2", features = ["unstable_grab"] }
-serde_json.workspace = true
-tracing.workspace = true
-zbus.workspace = true
+input-server-keyboard = { version = "0.1.0", path = "../input-server-keyboard/" }
 
-[dev-dependencies]
-atspi-common.workspace = true
-proptest = "1.6.0"
