@@ -1492,6 +1492,13 @@ dependencies = [
 name = "input-server"
 version = "0.1.0"
 dependencies = [
+ "input-server-keyboard",
+]
+
+[[package]]
+name = "input-server-keyboard"
+version = "0.1.0"
+dependencies = [
  "atspi-common",
  "nix 0.26.4",
  "odilia-common",
