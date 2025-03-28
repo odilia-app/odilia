@@ -49,7 +49,7 @@ jobs:
           systemctl --user start dbus;
           xvfb-run dunst --screen 0 600x400x8 &
       - name: Run tests
-        run: cargo test
+        run: cargo test --features proptest
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
