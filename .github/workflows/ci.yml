@@ -49,7 +49,9 @@ jobs:
           systemctl --user start dbus;
           xvfb-run dunst --screen 0 600x400x8 &
       - name: Run tests
-        run: cargo test --features proptest
+        # we need to run in release because proptests are slow;
+        # if you think compiling is slow, try running proptests without release mode :)
+        run: cargo test --release --features proptest
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
