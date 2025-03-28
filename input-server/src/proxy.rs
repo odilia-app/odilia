@@ -1,6 +1,6 @@
 //! Proxy and interface for implementing the Odilia control DBus interface.
 
-use odilia_common::command::OdiliaCommand;
+use odilia_common::command::{Speak, Focus, CaretPos};
 use zbus::{proxy, interface, Result as zResult, object_server::SignalEmitter};
 
 #[proxy(
@@ -10,17 +10,10 @@ use zbus::{proxy, interface, Result as zResult, object_server::SignalEmitter};
 )]
 trait ControllerInterface {
 	#[zbus(signal)]
-	fn control_event(&self) -> zResult<OdiliaCommand>;
-}
-
-struct ControllerInterface;
-
-#[interface(name = "app.odilia.Control")]
-impl ControllerInterface {
+  fn spoke(&self) -> zResult<Speak>;
 	#[zbus(signal)]
-	async fn send_event(sig_em: &SignalEmitter<'_>, ev: OdiliaCommand) -> zResult<()> {
-		todo!()
-	}
+  fn focused(&self) -> zResult<Focus>;
+	#[zbus(signal)]
+  fn caret_pos_moved(&self) -> zResult<CaretPos>;
 }
-
 
