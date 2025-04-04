@@ -8,38 +8,38 @@
 //! os::unix::net::UnixStream, io::Write};
 //! use odilia_common::{events::{StopSpeech, ChangeMode, ScreenReaderEvent as OdiliaEvent}, modes::ScreenReaderMode as Mode};
 //! fn get_file_paths() -> (PathBuf, PathBuf) {
-//! 	match env::var("XDG_RUNTIME_DIR") {
-//! 		Ok(val) => {
-//! 			tracing::info!(
+//!     match env::var("XDG_RUNTIME_DIR") {
+//!         Ok(val) => {
+//!             tracing::info!(
 //!                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
 //!             );
 //! 
-//! 			let pid_file_path = format!("{val}/odilias.pid");
-//! 			let sock_file_path = format!("{val}/odilia.sock");
+//!             let pid_file_path = format!("{val}/odilias.pid");
+//!             let sock_file_path = format!("{val}/odilia.sock");
 //! 
-//! 			(pid_file_path.into(), sock_file_path.into())
-//! 		}
-//! 		Err(e) => {
-//! 			tracing::warn!(error=%e, "XDG_RUNTIME_DIR Variable is not set, falling back to hardcoded path");
+//!             (pid_file_path.into(), sock_file_path.into())
+//!         }
+//!         Err(e) => {
+//!             tracing::warn!(error=%e, "XDG_RUNTIME_DIR Variable is not set, falling back to hardcoded path");
 //! 
-//! 			let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
-//! 			let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
+//!             let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
+//!             let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
 //! 
-//! 			(pid_file_path.into(), sock_file_path.into())
-//! 		}
-//! 	}
+//!             (pid_file_path.into(), sock_file_path.into())
+//!         }
+//!     }
 //! }
 //! fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
-//! 	let (_pid_path, sock_path) = get_file_paths();
-//! 	println!("SOCK PATH: {sock_path:?}");
-//! 	let Ok(mut stream) = UnixStream::connect(&sock_path) else {
-//! 		panic!("Unable to connect to stream {:?}", sock_path);
-//! 	};
-//! 	for event in rx.iter() {
-//! 		let val = serde_json::to_string(&event)
-//! 			.expect("Should be able to serialize any event!");
-//! 		stream.write_all(val.as_bytes()).expect("Able to write to stream!");
-//! 	}
+//!     let (_pid_path, sock_path) = get_file_paths();
+//!     println!("SOCK PATH: {sock_path:?}");
+//!     let Ok(mut stream) = UnixStream::connect(&sock_path) else {
+//!         panic!("Unable to connect to stream {:?}", sock_path);
+//!     };
+//!     for event in rx.iter() {
+//!         let val = serde_json::to_string(&event)
+//!             .expect("Should be able to serialize any event!");
+//!         stream.write_all(val.as_bytes()).expect("Able to write to stream!");
+//!     }
 //! }
 //! // syncronous, bounded channel
 //! // NOTE: this will _block the input thread_ if events are not removed from it often.
@@ -76,8 +76,6 @@
 
 //#![deny(clippy::all, missing_docs)]
 
-mod proxy;
-
 #[cfg(test)]
 mod tests;
 
@@ -93,21 +91,14 @@ pub(crate) trait EventFromEventType {
 #[cfg(test)]
 impl EventFromEventType for Event {}
 
-use nix::unistd::Uid;
 use odilia_common::{
 	events::ScreenReaderEvent as OdiliaEvent,
-	events::{ChangeMode, StopSpeech},
 	modes::ScreenReaderMode as Mode,
 };
-use rdev::{grab, Event, EventType, Key};
+use rdev::{Event, EventType, Key};
 
 use std::cmp::Ordering;
-use std::env;
-use std::io::Write;
-use std::os::unix::net::UnixStream;
-use std::path::PathBuf;
-use std::sync::mpsc::{sync_channel, Receiver, SyncSender};
-use std::thread;
+use std::sync::mpsc::SyncSender;
 
 const ACTIVATION_KEY: Key = Key::CapsLock;
 
@@ -229,6 +220,11 @@ fn val_key(k1: &Key) -> u64 {
 	}
 }
 
+pub enum KeySetError {
+    ActivationKey,
+    AlreadyContains(rdev::Key),
+}
+
 impl PartialOrd for KeySet {
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
 		Some(self.cmp(other))
@@ -245,6 +241,12 @@ impl std::fmt::Debug for KeySet {
 		self.inner.fmt(fmt)
 	}
 }
+impl Default for KeySet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KeySet {
   /// Add a new key to the set.
   ///
@@ -265,10 +267,12 @@ impl KeySet {
   /// assert!(ks.insert(Key::KeyA).is_err());
   /// assert!(ks.insert(Key::CapsLock).is_err());
   /// ```
-	pub fn insert(&mut self, t: Key) -> Result<(), ()> {
-		if t == ACTIVATION_KEY || self.inner.contains(&t) {
-			Err(())
-		} else {
+	pub fn insert(&mut self, t: Key) -> Result<(), KeySetError> {
+		if t == ACTIVATION_KEY {
+			Err(KeySetError::ActivationKey)
+		} else if self.inner.contains(&t) {
+      Err(KeySetError::AlreadyContains(t))
+    } else {
 			self.inner.push(t);
 			Ok(())
 		}
@@ -294,7 +298,7 @@ impl KeySet {
 	}
 }
 impl<const N: usize> TryFrom<[Key; N]> for KeySet {
-	type Error = ();
+	type Error = KeySetError;
 	fn try_from(items: [Key; N]) -> Result<Self, Self::Error> {
 		let mut this = KeySet::new();
 		for item in items {
@@ -304,7 +308,7 @@ impl<const N: usize> TryFrom<[Key; N]> for KeySet {
 	}
 }
 impl TryFrom<Vec<Key>> for KeySet {
-	type Error = ();
+	type Error = KeySetError;
 	fn try_from(items: Vec<Key>) -> Result<Self, Self::Error> {
 		let mut this = KeySet::new();
 		for item in items {
@@ -361,6 +365,12 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 		Ok(this)
 	}
 }
+impl Default for ComboSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ComboSet {
   /// [`Iterator`] through each [`KeySet`] contained in the [`ComboSet`].
 	pub fn keys(&self) -> impl Iterator<Item = &'_ KeySet> {
@@ -375,7 +385,7 @@ impl ComboSet {
   /// 1. There is an existing, identical [`KeySet`] already inserted,
   /// 2. There is an existing [`KeySet`] that starts with same sequence,
   /// 3. The attempted [`KeySet`] starts with the same sequence as an existing [`KeySet`]
-  /// (reciprocal of 2.)
+  ///    (reciprocal of 2.)
   /// ```
   /// use rdev::Key;
   /// use input_server_keyboard::{KeySet, ComboSet};
