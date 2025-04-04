@@ -23,7 +23,7 @@ atspi-proxies.workspace = true
 bitflags = "2"
 futures.workspace = true
 futures-concurrency.workspace = true
-serde = "1.0.147"
+serde.workspace = true
 thiserror.workspace = true
 zbus.workspace = true
 serde_plain.workspace = true
@@ -34,3 +34,6 @@ tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 ssip = { workspace = true, features = ["dbus"] }
 xdg.workspace = true
+zbus-lockstep = { version = "0.5", path = "../../zbus-lockstep/zbus-lockstep/" }
+zbus-lockstep-macros = { version = "0.5", path = "../../zbus-lockstep/zbus-lockstep-macros/" }
+zvariant = "5.4.0"

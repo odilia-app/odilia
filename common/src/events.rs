@@ -1,3 +1,5 @@
+use zbus::zvariant::Type;
+use zbus_lockstep_macros::validate;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
@@ -5,7 +7,7 @@ use strum::{Display, EnumDiscriminants};
 use crate::modes::ScreenReaderMode;
 use atspi_common::Role;
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug, Type)]
 /// A list of features supported natively by Odilia.
 pub enum Feature {
 	/// Unimplemented, but will eventually stop all speech until re-activated.
@@ -14,7 +16,7 @@ pub enum Feature {
 	Braille, // TODO
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug, Type)]
 #[serde(tag = "direction")]
 pub enum Direction {
 	Forward,
@@ -42,23 +44,25 @@ macro_rules! impl_event_type {
 	};
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct StopSpeech;
 impl_event_type!(StopSpeech, StopSpeech);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct Enable(pub Feature);
 impl_event_type!(Enable, Enable);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct Disable(pub Feature);
 impl_event_type!(Disable, Disable);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[validate(signal: "ModeChanged")]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
+#[repr(transparent)]
 pub struct ChangeMode(pub ScreenReaderMode);
 impl_event_type!(ChangeMode, ChangeMode);
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub struct StructuralNavigation(pub Direction, pub Role);
 impl_event_type!(StructuralNavigation, StructuralNavigation);
 

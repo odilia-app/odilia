@@ -1,7 +1,10 @@
+use zbus_lockstep_macros::validate;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, PartialEq, Debug, Eq, Hash, Serialize, Deserialize, Copy)]
+#[validate(signal: "ModeChanged")]
+#[derive(Clone, PartialEq, Debug, Eq, Hash, Serialize, Deserialize, Copy, zbus::zvariant::Type)]
+#[repr(u32)]
 pub enum ScreenReaderMode {
-	Focus,
-	Browse,
+	Focus = 1,
+	Browse = 2,
 }
