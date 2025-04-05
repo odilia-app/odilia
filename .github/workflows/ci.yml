@@ -51,7 +51,7 @@ jobs:
       - name: Run tests
         # we need to run in release because proptests are slow;
         # if you think compiling is slow, try running proptests without release mode :)
-        run: cargo test --release --features proptest
+        run: cargo test --workspace --release --features proptest
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
