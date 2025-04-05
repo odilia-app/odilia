@@ -18,3 +18,7 @@ zbus.workspace = true
 [dev-dependencies]
 atspi-common.workspace = true
 proptest = "1.6.0"
+
+[[bin]]
+name = "input-server-keyboard"
+path = "bin/input-server-keyboard.rs"

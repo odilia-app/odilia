@@ -220,8 +220,12 @@ fn val_key(k1: &Key) -> u64 {
 	}
 }
 
+/// An error in creating (or modifying) a [`KeySet`].
+#[derive(Debug, PartialEq, Eq)]
 pub enum KeySetError {
+    /// Attempted to add the [`ACTIVATION_KEY`].
     ActivationKey,
+    /// Attempted to add a key twice.
     AlreadyContains(rdev::Key),
 }
 
