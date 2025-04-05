@@ -53,25 +53,13 @@ fn main() {
 	// NOTE: this will _block the input thread_ if events are not removed from it often.
 	// This _should_ never be a problem, because two threads are running, but you never know.
 	let (ev_tx, ev_rx) = sync_channel::<OdiliaEvent>(255);
-	let combos = ComboSet::try_from_iter(
-		vec![
-			(vec![Key::KeyA].try_into().unwrap(), ChangeMode(Mode::Browse).into()),
-			(vec![Key::KeyF].try_into().unwrap(), ChangeMode(Mode::Focus).into()),
-			// use Odilia + G to mean "stop speech"; like Emacs
-			// this allows us to vastly simplify the key handling code since we don't have to create a
-			// virtual keyboard and send control if the user is _actually_ using control vs. using it to
-			// stop speech.
-			(vec![Key::KeyG].try_into().unwrap(), StopSpeech.into()),
-		]
-		.into_iter(),
-	)
-	.unwrap();
+	let combos = ComboSets::default();
 	let state = State {
 		mode: Mode::Focus,
 		activation_key_pressed: false,
 		// no allocations below 10-key rollover
 		pressed: Vec::with_capacity(10),
-		combos: [(None, combos)].try_into().unwrap(),
+		combos,
 		tx: ev_tx,
 	};
 	let _ = thread::spawn(move || {

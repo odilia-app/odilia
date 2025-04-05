@@ -7,20 +7,22 @@ use rdev::{Event, EventType, Key};
 
 #[test]
 fn test_unreachable_mode() {
-	let core_combos = ComboSet::from_iter(
+	let core_combos = ComboSet::try_from_iter(
 		vec![(vec![Key::KeyA].try_into().unwrap(), ChangeMode(Mode::Browse).into())]
 			.into_iter(),
-	);
-	let focus_combos = ComboSet::from_iter(
+	)
+	.unwrap();
+	let focus_combos = ComboSet::try_from_iter(
 		vec![(vec![Key::KeyP].try_into().unwrap(), StopSpeech.into())].into_iter(),
-	);
+	)
+	.unwrap();
 	let combos = ComboSets::try_from([(None, core_combos), (Some(Mode::Focus), focus_combos)]);
 	assert_eq!(combos, Err(SetError::UnreachableMode(Mode::Focus)), "It should not be possible to construct the ComboSet when there is no way to activate that mode!");
 }
 
 #[test]
 fn test_same_prefix() {
-	let core_combos = ComboSet::from_iter(
+	let core_combos = ComboSet::try_from_iter(
 		vec![
 			(
 				vec![Key::ShiftLeft, Key::KeyA].try_into().unwrap(),
@@ -32,7 +34,8 @@ fn test_same_prefix() {
 			),
 		]
 		.into_iter(),
-	);
+	)
+	.unwrap();
 	ComboSets::try_from([(None, core_combos)])
 		.expect("Able to construct two bindings with the same prefix!");
 }

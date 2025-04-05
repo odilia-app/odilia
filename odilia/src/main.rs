@@ -44,7 +44,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
-	events::{ScreenReaderEvent, StopSpeech},
+	events::{ChangeMode, ScreenReaderEvent, StopSpeech},
 	settings::{ApplicationConfig, InputSettings},
 };
 
@@ -81,7 +81,7 @@ fn try_spawn_input_server(input: &InputSettings) -> eyre::Result<()> {
 	let path = found.unwrap().next();
 	assert!(path.is_some(), "Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism; this is a fatal error!", bin_name);
 	tracing::info!("Input server path: {:?}", path);
-	let id = ProcCommand::new(path.unwrap()).spawn()?;
+	let _id = ProcCommand::new(path.unwrap()).spawn()?;
 	Ok(())
 }
 
@@ -223,7 +223,12 @@ async fn new_caret_pos(
 
 #[tracing::instrument(ret)]
 async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoCommands {
-	(Priority::Text, "Stop talking, eh!")
+	(Priority::Text, "Stop speech")
+}
+
+#[tracing::instrument(ret)]
+async fn change_mode(InputEvent(cm): InputEvent<ChangeMode>) -> impl TryIntoCommands {
+	(Priority::Text, format!("{:?} mode", cm.0))
 }
 
 #[tracing::instrument(ret, err)]
@@ -321,7 +326,8 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
 		.atspi_listener(unfocused)
-		.input_listener(stop_speech);
+		.input_listener(stop_speech)
+		.input_listener(change_mode);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())

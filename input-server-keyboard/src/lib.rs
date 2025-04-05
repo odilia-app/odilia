@@ -1,7 +1,7 @@
 //! Input handlers for the Odilia screen reader.
 //!
 //! ```no_run
-//! use input_server_keyboard::*;
+//! use odilia_input_server_keyboard::*;
 //! use nix::unistd::Uid;
 //! use rdev::{grab, Key};
 //! use std::{thread, sync::mpsc::{sync_channel, Sender, Receiver}, path::PathBuf, env,
@@ -98,11 +98,21 @@ pub(crate) trait EventFromEventType {
 #[cfg(test)]
 impl EventFromEventType for Event {}
 
-use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
+use odilia_common::{
+	atspi::Role,
+	events::{
+		ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech,
+		StructuralNavigation,
+	},
+	modes::ScreenReaderMode as Mode,
+};
 use rdev::{Event, EventType, Key};
 
 use std::cmp::Ordering;
 use std::sync::mpsc::SyncSender;
+
+#[cfg(test)]
+use std::sync::mpsc::{sync_channel, Receiver};
 
 const ACTIVATION_KEY: Key = Key::CapsLock;
 
@@ -268,7 +278,7 @@ impl KeySet {
 	///
 	/// ```
 	/// use rdev::Key;
-	/// use input_server_keyboard::KeySet;
+	/// use odilia_input_server_keyboard::KeySet;
 	/// let mut ks = KeySet::new();
 	/// assert!(ks.insert(Key::ShiftLeft).is_ok());
 	/// assert!(ks.insert(Key::KeyA).is_ok());
@@ -290,6 +300,21 @@ impl KeySet {
 	#[must_use]
 	pub fn new() -> Self {
 		KeySet { inner: Vec::new() }
+	}
+	/// Create a `KeySet` from a list of keys.
+	///
+	/// # Errors
+	///
+	/// See [`Self::insert`].
+	pub fn try_from_iter<I>(iter: I) -> Result<Self, KeySetError>
+	where
+		I: Iterator<Item = Key>,
+	{
+		let mut this = Self::new();
+		for item in iter {
+			this.insert(item)?;
+		}
+		Ok(this)
 	}
 	#[cfg(all(test, feature = "proptest"))]
 	/// Create a `KeySet` from a list of keys.
@@ -380,6 +405,16 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 		Ok(this)
 	}
 }
+impl<const N: usize> TryFrom<[(KeySet, OdiliaEvent); N]> for ComboSet {
+	type Error = ComboError;
+	fn try_from(v: [(KeySet, OdiliaEvent); N]) -> Result<Self, Self::Error> {
+		let mut this = ComboSet::new();
+		for item in v {
+			this.insert(item.0, item.1)?;
+		}
+		Ok(this)
+	}
+}
 impl Default for ComboSet {
 	fn default() -> Self {
 		Self::new()
@@ -403,7 +438,7 @@ impl ComboSet {
 	///    (reciprocal of 2.)
 	/// ```
 	/// use rdev::Key;
-	/// use input_server_keyboard::{KeySet, ComboSet};
+	/// use odilia_input_server_keyboard::{KeySet, ComboSet};
 	/// // Shift + A
 	/// let mut ks1 = KeySet::new();
 	/// ks1.insert(Key::ShiftLeft).unwrap();
@@ -482,7 +517,8 @@ impl IntoIterator for ComboSet {
 }
 
 impl ComboSet {
-	fn iter(&self) -> std::slice::Iter<'_, (KeySet, OdiliaEvent)> {
+	/// Iterate over the items in [`ComboSet`].
+	pub fn iter(&self) -> std::slice::Iter<'_, (KeySet, OdiliaEvent)> {
 		<&Self as IntoIterator>::into_iter(self)
 	}
 }
@@ -491,7 +527,7 @@ impl<'a> IntoIterator for &'a ComboSet {
 	type IntoIter = std::slice::Iter<'a, (KeySet, OdiliaEvent)>;
 	type Item = &'a (KeySet, OdiliaEvent);
 	fn into_iter(self) -> Self::IntoIter {
-		self.iter()
+		self.inner.iter()
 	}
 }
 
@@ -545,7 +581,15 @@ impl ComboSets {
 	/// - TODO
 	fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
 		if let Some(some_mode) = mode {
-			if !self.inner.iter().map(|x| x.0).any(|m| m == mode) {
+			if !self.inner
+				.iter()
+				.flat_map(|x| x.1.inner.iter())
+				.filter_map(|ev| match ev.1 {
+					OdiliaEvent::ChangeMode(ChangeMode(mode)) => Some(mode),
+					_ => None,
+				})
+				.any(|m| m == some_mode)
+			{
 				return Err(SetError::UnreachableMode(some_mode));
 			}
 		}
@@ -625,8 +669,75 @@ impl IntoIterator for ComboSets {
 	}
 }
 
+impl Default for ComboSets {
+	fn default() -> Self {
+		ComboSets::try_from([
+			(
+				None,
+				ComboSet::try_from([
+					(
+						[Key::KeyF].try_into().unwrap(),
+						ChangeMode(Mode::Focus).into(),
+					),
+					([Key::KeyG].try_into().unwrap(), StopSpeech.into()),
+					(
+						[Key::KeyB].try_into().unwrap(),
+						ChangeMode(Mode::Browse).into(),
+					),
+				])
+				.unwrap(),
+			),
+			(
+				Some(Mode::Browse),
+				ComboSet::try_from([
+					(
+						[Key::KeyT].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Forward,
+							Role::Table,
+						)
+						.into(),
+					),
+					(
+						[Key::KeyH].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Forward,
+							Role::Header,
+						)
+						.into(),
+					),
+					(
+						[Key::KeyI].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Forward,
+							Role::Image,
+						)
+						.into(),
+					),
+					(
+						[Key::KeyK].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Forward,
+							Role::Link,
+						)
+						.into(),
+					),
+				])
+				.unwrap(),
+			),
+		])
+		.unwrap()
+	}
+}
+
+#[test]
+fn test_default_combosets_no_panic() {
+	let _ = ComboSets::default();
+}
+
 impl ComboSets {
-	fn iter(&self) -> std::slice::Iter<'_, (Option<Mode>, ComboSet)> {
+	/// Iterate over the items in [`ComboSets`].
+	pub fn iter(&self) -> std::slice::Iter<'_, (Option<Mode>, ComboSet)> {
 		<&Self as IntoIterator>::into_iter(self)
 	}
 }
@@ -635,7 +746,7 @@ impl<'a> IntoIterator for &'a ComboSets {
 	type IntoIter = std::slice::Iter<'a, (Option<Mode>, ComboSet)>;
 	type Item = &'a (Option<Mode>, ComboSet);
 	fn into_iter(self) -> Self::IntoIter {
-		self.iter()
+		self.inner.iter()
 	}
 }
 
