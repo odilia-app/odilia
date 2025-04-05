@@ -42,7 +42,7 @@ jobs:
           target: ${{ matrix.target }}
 
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst xvfb
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb libevdev-dev libx11-dev libxi-dev libxtst-dev
       - name: setup dbus and notification daemon
         run:
           sudo systemctl start dbus;
