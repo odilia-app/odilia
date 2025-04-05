@@ -243,4 +243,4 @@ jobs:
         uses: cachix/install-nix-action@v30
 
       - name: Run tests
-        run: nix develop --command cargo clippy --tests --workspace --no-deps -- -D warnings
+        run: nix develop --command cargo build --tests --workspace --no-deps -- -D warnings

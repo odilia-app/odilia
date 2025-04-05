@@ -27,4 +27,4 @@ zbus.workspace = true
 [dev-dependencies]
 assert_matches = "1.5.0"
 futures = { workspace = true, features = ["executor"] }
-ssip = "0.2.0"
+ssip.workspace = true
