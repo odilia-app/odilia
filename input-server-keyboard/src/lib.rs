@@ -506,6 +506,19 @@ impl ComboSet {
 		}
 		Ok(this)
 	}
+	/// Create a [`ComboSet`] from an iterator.
+	/// Ignores all errors.
+	#[cfg(feature = "proptest")]
+	pub fn from_iter_ignore_errors<I>(iter: I) -> Self
+	where
+		I: Iterator<Item = (KeySet, OdiliaEvent)>,
+	{
+		let mut this = Self::new();
+		for item in iter {
+			let _ = this.insert(item.0, item.1);
+		}
+		this
+	}
 }
 
 impl IntoIterator for ComboSet {
@@ -649,6 +662,19 @@ impl ComboSets {
 			this.insert(item.0, item.1)?;
 		}
 		Ok(this)
+	}
+	/// Create a [`ComboSets`] from an iterator.
+	/// Ignores all errors.
+	#[cfg(feature = "proptest")]
+	pub fn from_iter_ignore_errors<I>(iter: I) -> Self
+	where
+		I: Iterator<Item = (Option<Mode>, ComboSet)>,
+	{
+		let mut this = Self::new();
+		for item in iter {
+			let _ = this.insert(item.0, item.1);
+		}
+		this
 	}
 }
 impl<const N: usize> TryFrom<[(Option<Mode>, ComboSet); N]> for ComboSets {

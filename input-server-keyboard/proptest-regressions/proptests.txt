@@ -1,0 +1,7 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 7aac8f7958086849052ef9e8920a4c868285d0f4d51191e3ac013762bb3fb31a # shrinks to (mut state, rx) = (State { activation_key_pressed: false, mode: Focus, pressed: [], combos: [(None, [([Alt], ChangeMode(ChangeMode(Focus)))]), (Some(Focus), [([ControlLeft], ChangeMode(ChangeMode(Browse))), ([ControlRight], StopSpeech(StopSpeech))])], tx: SyncSender { .. } }, Receiver { .. })

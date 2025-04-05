@@ -339,12 +339,13 @@ fn combo() -> impl Strategy<Value = (KeySet, OdiliaEvent)> {
 }
 
 fn combo_set() -> impl Strategy<Value = ComboSet> {
-	prop::collection::vec(combo(), 1..20).prop_map(|v| ComboSet::from_iter(v.into_iter()))
+	prop::collection::vec(combo(), 1..20)
+		.prop_map(|v| ComboSet::from_iter_ignore_errors(v.into_iter()))
 }
 
 fn combo_sets() -> impl Strategy<Value = ComboSets> {
 	prop::collection::vec((mode_option(), combo_set()), 0..20)
-		.prop_map(|v| ComboSets::from_iter(v.into_iter()))
+		.prop_map(|v| ComboSets::from_iter_ignore_errors(v.into_iter()))
 }
 
 prop_compose! {
