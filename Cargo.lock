@@ -1917,7 +1917,7 @@ dependencies = [
  "refinement",
  "serde_json",
  "serde_plain",
- "ssip 0.3.0",
+ "ssip",
  "ssip-client-async",
  "static_assertions",
  "tokio",
@@ -1973,7 +1973,7 @@ dependencies = [
  "futures-concurrency",
  "serde",
  "serde_plain",
- "ssip 0.3.0",
+ "ssip",
  "strum",
  "thiserror 2.0.12",
  "tokio",
@@ -2042,7 +2042,7 @@ dependencies = [
  "odilia-cache",
  "odilia-common",
  "pin-project",
- "ssip 0.2.0",
+ "ssip",
  "static_assertions",
  "tokio",
  "tower 0.5.2",
@@ -2056,7 +2056,7 @@ name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
  "eyre",
- "ssip 0.3.0",
+ "ssip",
  "ssip-client-async",
  "tokio",
  "tokio-util",
@@ -2721,16 +2721,6 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "ssip"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0638da247dfdcacd5d8a96f7f7857c1b63d77f4771e5424ee3e34d056c8e5712"
-dependencies = [
- "strum_macros",
- "thiserror 2.0.12",
-]
-
-[[package]]
-name = "ssip"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "816b347967ac1ae4445c98b1d72223c03e2840654a1aff4b7176d692cf35fd2a"
@@ -2750,7 +2740,7 @@ dependencies = [
  "async-std",
  "dirs",
  "log",
- "ssip 0.3.0",
+ "ssip",
  "tokio",
 ]
 
