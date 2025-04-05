@@ -45,7 +45,7 @@
 //! // NOTE: this will _block the input thread_ if events are not removed from it often.
 //! // This _should_ never be a problem, because two threads are running, but you never know.
 //! let (ev_tx, ev_rx) = sync_channel::<OdiliaEvent>(255);
-//! let combos = ComboSet::from_iter(
+//! let combos = ComboSet::try_from_iter(
 //! vec![
 //!   (vec![Key::KeyA].try_into().unwrap(), ChangeMode(Mode::Browse).into()),
 //!   (vec![Key::KeyF].try_into().unwrap(), ChangeMode(Mode::Focus).into()),
@@ -56,7 +56,7 @@
 //!   (vec![Key::KeyG].try_into().unwrap(), StopSpeech.into()),
 //! ]
 //! .into_iter(),
-//! );
+//! ).unwrap();
 //! let state = State {
 //! mode: Mode::Focus,
 //! activation_key_pressed: false,
@@ -74,7 +74,14 @@
 //! handle_events_to_socket(ev_rx);
 //! ```
 
-//#![deny(clippy::all, missing_docs)]
+#![deny(
+	clippy::all,
+	clippy::pedantic,
+	missing_docs,
+	clippy::perf,
+	clippy::complexity,
+	clippy::style
+)]
 
 #[cfg(test)]
 mod tests;
@@ -106,6 +113,7 @@ pub struct KeySet {
 	inner: Vec<Key>,
 }
 
+#[allow(clippy::too_many_lines, clippy::trivially_copy_pass_by_ref)]
 fn val_key(k1: &Key) -> u64 {
 	match k1 {
 		Key::Alt => 1 << 32,
@@ -279,6 +287,7 @@ impl KeySet {
 		}
 	}
 	/// Creates a new, emptt `KeySet`.
+	#[must_use]
 	pub fn new() -> Self {
 		KeySet { inner: Vec::new() }
 	}
@@ -341,7 +350,12 @@ impl IntoIterator for KeySet {
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComboError {
 	/// An existing combo has the same prefix.
-	SamePrefix { original: KeySet, new: KeySet },
+	SamePrefix {
+		/// Existing combo that has the same prefix.
+		original: KeySet,
+		/// The combo which was attempted to be added, but failed.
+		new: KeySet,
+	},
 	/// An existing combo has the same set of keys assigned to it.
 	Identical(KeySet),
 }
@@ -379,7 +393,7 @@ impl ComboSet {
 	}
 	/// Insert a new [`KeySet`], [`OdiliaEvent`] combination.
 	///
-	/// # Results
+	/// # Errors
 	///
 	/// Fails under any of the following conditions:
 	///
@@ -439,25 +453,26 @@ impl ComboSet {
 		Ok(())
 	}
 	/// Create a new, empty [`ComboSet`].
+	#[must_use]
 	pub fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
 	/// Create a [`ComboSet`] from an iterator.
-	/// While this can work, it ignores all failure cases and can cause issues.
+	/// # Errors
 	///
-	/// TODO: remove
-	#[deprecated]
-	pub fn from_iter<I>(iter: I) -> Self
+	/// See [`Self::insert`].
+	pub fn try_from_iter<I>(iter: I) -> Result<Self, ComboError>
 	where
 		I: Iterator<Item = (KeySet, OdiliaEvent)>,
 	{
 		let mut this = Self::new();
 		for item in iter {
-			let _ = this.insert(item.0, item.1);
+			this.insert(item.0, item.1)?;
 		}
-		this
+		Ok(this)
 	}
 }
+
 impl IntoIterator for ComboSet {
 	type IntoIter = <Vec<Self::Item> as IntoIterator>::IntoIter;
 	type Item = (KeySet, OdiliaEvent);
@@ -466,11 +481,17 @@ impl IntoIterator for ComboSet {
 	}
 }
 
+impl ComboSet {
+	fn iter(&self) -> std::slice::Iter<'_, (KeySet, OdiliaEvent)> {
+		<&Self as IntoIterator>::into_iter(self)
+	}
+}
+
 impl<'a> IntoIterator for &'a ComboSet {
 	type IntoIter = std::slice::Iter<'a, (KeySet, OdiliaEvent)>;
 	type Item = &'a (KeySet, OdiliaEvent);
 	fn into_iter(self) -> Self::IntoIter {
-		self.inner.iter()
+		self.iter()
 	}
 }
 
@@ -480,11 +501,21 @@ pub enum SetError {
 	/// An identical combo has already been set.
 	/// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
 	/// (global).
-	IdenticalCombo { mode: Option<Mode>, set: KeySet },
+	IdenticalCombo {
+		/// The mode, if specified.
+		mode: Option<Mode>,
+		/// The keyset
+		set: KeySet,
+	},
 	/// A combo with the same prefix has already been set.
 	/// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
 	/// (global).
-	SamePrefixCombo { original: (Option<Mode>, KeySet), attempted: (Option<Mode>, KeySet) },
+	SamePrefixCombo {
+		/// The mode and keyset which contain the same prefix.
+		original: (Option<Mode>, KeySet),
+		/// The attempted combo to add.
+		attempted: (Option<Mode>, KeySet),
+	},
 	/// Attempted to add a combo with an empty set of keys.
 	UnpressableKey,
 	/// Attempted to add a keybinding with a mode that is not accessible via pressing other keys.
@@ -525,7 +556,7 @@ impl ComboSets {
 		{
 			return Err(SetError::UnpressableKey);
 		}
-		for (combo_mode, combo_sets) in self.inner.iter() {
+		for (combo_mode, combo_sets) in self.iter() {
 			if mode.is_none() || *combo_mode == mode || combo_mode.is_none() {
 				for combo1 in combo_sets {
 					for combo2 in &cs {
@@ -560,16 +591,20 @@ impl ComboSets {
 	fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
-	#[cfg(all(test, feature = "proptest"))]
-	fn from_iter<I>(iter: I) -> Self
+	/// Attmept to construct from an iterator.
+	///
+	/// # Errors
+	///
+	/// See error section for [`Self::insert`].
+	pub fn try_from_iter<I>(iter: I) -> Result<Self, SetError>
 	where
 		I: Iterator<Item = (Option<Mode>, ComboSet)>,
 	{
 		let mut this = Self::new();
 		for item in iter {
-			let _ = this.insert(item.0, item.1);
+			this.insert(item.0, item.1)?;
 		}
-		this
+		Ok(this)
 	}
 }
 impl<const N: usize> TryFrom<[(Option<Mode>, ComboSet); N]> for ComboSets {
@@ -590,11 +625,17 @@ impl IntoIterator for ComboSets {
 	}
 }
 
+impl ComboSets {
+	fn iter(&self) -> std::slice::Iter<'_, (Option<Mode>, ComboSet)> {
+		<&Self as IntoIterator>::into_iter(self)
+	}
+}
+
 impl<'a> IntoIterator for &'a ComboSets {
 	type IntoIter = std::slice::Iter<'a, (Option<Mode>, ComboSet)>;
 	type Item = &'a (Option<Mode>, ComboSet);
 	fn into_iter(self) -> Self::IntoIter {
-		self.inner.iter()
+		self.iter()
 	}
 }
 
@@ -633,8 +674,15 @@ impl State {
 	}
 }
 
+/// The callback function to call in a tight loop.
+/// Returns [`None`] to indicate a desire to swallow an event,
+/// Returns [`Some(Event)`] to indicate a passthrough of the event.
+///
+/// # Panics
+///
+/// If the [`State`]'s [`Sender`] for the [`OdiliaEvent`] is unable to be sent to.
 pub fn callback(event: Event, state: &mut State) -> Option<Event> {
-	println!("My callback {:?}", event);
+	println!("My callback {event:?}");
 	match (event.event_type, state.activation_key_pressed) {
 		// if capslock is pressed while activation is disabled
 		(EventType::KeyPress(ACTIVATION_KEY), false) => {

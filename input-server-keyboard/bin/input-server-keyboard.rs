@@ -53,7 +53,7 @@ fn main() {
 	// NOTE: this will _block the input thread_ if events are not removed from it often.
 	// This _should_ never be a problem, because two threads are running, but you never know.
 	let (ev_tx, ev_rx) = sync_channel::<OdiliaEvent>(255);
-	let combos = ComboSet::from_iter(
+	let combos = ComboSet::try_from_iter(
 		vec![
 			(vec![Key::KeyA].try_into().unwrap(), ChangeMode(Mode::Browse).into()),
 			(vec![Key::KeyF].try_into().unwrap(), ChangeMode(Mode::Focus).into()),
@@ -64,7 +64,8 @@ fn main() {
 			(vec![Key::KeyG].try_into().unwrap(), StopSpeech.into()),
 		]
 		.into_iter(),
-	);
+	)
+	.unwrap();
 	let state = State {
 		mode: Mode::Focus,
 		activation_key_pressed: false,
