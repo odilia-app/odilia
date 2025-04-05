@@ -13,18 +13,18 @@
 //!             tracing::info!(
 //!                 "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
 //!             );
-//! 
+//!
 //!             let pid_file_path = format!("{val}/odilias.pid");
 //!             let sock_file_path = format!("{val}/odilia.sock");
-//! 
+//!
 //!             (pid_file_path.into(), sock_file_path.into())
 //!         }
 //!         Err(e) => {
 //!             tracing::warn!(error=%e, "XDG_RUNTIME_DIR Variable is not set, falling back to hardcoded path");
-//! 
+//!
 //!             let pid_file_path = format!("/run/user/{}/odilias.pid", Uid::current());
 //!             let sock_file_path = format!("/run/user/{}/odilia.sock", Uid::current());
-//! 
+//!
 //!             (pid_file_path.into(), sock_file_path.into())
 //!         }
 //!     }
@@ -91,10 +91,7 @@ pub(crate) trait EventFromEventType {
 #[cfg(test)]
 impl EventFromEventType for Event {}
 
-use odilia_common::{
-	events::ScreenReaderEvent as OdiliaEvent,
-	modes::ScreenReaderMode as Mode,
-};
+use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
 use rdev::{Event, EventType, Key};
 
 use std::cmp::Ordering;
@@ -223,10 +220,10 @@ fn val_key(k1: &Key) -> u64 {
 /// An error in creating (or modifying) a [`KeySet`].
 #[derive(Debug, PartialEq, Eq)]
 pub enum KeySetError {
-    /// Attempted to add the [`ACTIVATION_KEY`].
-    ActivationKey,
-    /// Attempted to add a key twice.
-    AlreadyContains(rdev::Key),
+	/// Attempted to add the [`ACTIVATION_KEY`].
+	ActivationKey,
+	/// Attempted to add a key twice.
+	AlreadyContains(rdev::Key),
 }
 
 impl PartialOrd for KeySet {
@@ -246,52 +243,52 @@ impl std::fmt::Debug for KeySet {
 	}
 }
 impl Default for KeySet {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl KeySet {
-  /// Add a new key to the set.
-  ///
-  /// # Errors
-  ///
-  /// Returns an `Err` variant if either:
-  ///
-  /// - Equal to [`ACTIVATION_KEY`], or
-  /// - Already contained in the set of keys.
-  ///
-  /// ```
-  /// use rdev::Key;
-  /// use input_server_keyboard::KeySet;
-  /// let mut ks = KeySet::new();
-  /// assert!(ks.insert(Key::ShiftLeft).is_ok());
-  /// assert!(ks.insert(Key::KeyA).is_ok());
-  /// assert!(ks.insert(Key::KeyL).is_ok());
-  /// assert!(ks.insert(Key::KeyA).is_err());
-  /// assert!(ks.insert(Key::CapsLock).is_err());
-  /// ```
+	/// Add a new key to the set.
+	///
+	/// # Errors
+	///
+	/// Returns an `Err` variant if either:
+	///
+	/// - Equal to [`ACTIVATION_KEY`], or
+	/// - Already contained in the set of keys.
+	///
+	/// ```
+	/// use rdev::Key;
+	/// use input_server_keyboard::KeySet;
+	/// let mut ks = KeySet::new();
+	/// assert!(ks.insert(Key::ShiftLeft).is_ok());
+	/// assert!(ks.insert(Key::KeyA).is_ok());
+	/// assert!(ks.insert(Key::KeyL).is_ok());
+	/// assert!(ks.insert(Key::KeyA).is_err());
+	/// assert!(ks.insert(Key::CapsLock).is_err());
+	/// ```
 	pub fn insert(&mut self, t: Key) -> Result<(), KeySetError> {
 		if t == ACTIVATION_KEY {
 			Err(KeySetError::ActivationKey)
 		} else if self.inner.contains(&t) {
-      Err(KeySetError::AlreadyContains(t))
-    } else {
+			Err(KeySetError::AlreadyContains(t))
+		} else {
 			self.inner.push(t);
 			Ok(())
 		}
 	}
-  /// Creates a new, emptt `KeySet`.
+	/// Creates a new, emptt `KeySet`.
 	pub fn new() -> Self {
 		KeySet { inner: Vec::new() }
 	}
 	#[cfg(all(test, feature = "proptest"))]
-  /// Create a `KeySet` from a list of keys.
-  /// Automatically reject and deduplicate the keys during insertion.
-  /// While this can not fail, it will simply throw out any key which is the [`ACTIVATION_KEY`] or
-  /// a repeated key that is already contained within it.
-  ///
-  /// NOTE: Only used during proptests. This should never become part of the public API.
+	/// Create a `KeySet` from a list of keys.
+	/// Automatically reject and deduplicate the keys during insertion.
+	/// While this can not fail, it will simply throw out any key which is the [`ACTIVATION_KEY`] or
+	/// a repeated key that is already contained within it.
+	///
+	/// NOTE: Only used during proptests. This should never become part of the public API.
 	fn from_dedup(v: Vec<Key>) -> Self {
 		let mut this = Self::new();
 		for item in v {
@@ -343,9 +340,9 @@ impl IntoIterator for KeySet {
 /// An error in creating a set of key combos.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ComboError {
-  /// An existing combo has the same prefix.
+	/// An existing combo has the same prefix.
 	SamePrefix { original: KeySet, new: KeySet },
-  /// An existing combo has the same set of keys assigned to it.
+	/// An existing combo has the same set of keys assigned to it.
 	Identical(KeySet),
 }
 
@@ -370,56 +367,56 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 	}
 }
 impl Default for ComboSet {
-    fn default() -> Self {
-        Self::new()
-    }
+	fn default() -> Self {
+		Self::new()
+	}
 }
 
 impl ComboSet {
-  /// [`Iterator`] through each [`KeySet`] contained in the [`ComboSet`].
+	/// [`Iterator`] through each [`KeySet`] contained in the [`ComboSet`].
 	pub fn keys(&self) -> impl Iterator<Item = &'_ KeySet> {
 		self.inner.iter().map(|x| &x.0)
 	}
-  /// Insert a new [`KeySet`], [`OdiliaEvent`] combination.
-  ///
-  /// # Results
-  ///
-  /// Fails under any of the following conditions:
-  ///
-  /// 1. There is an existing, identical [`KeySet`] already inserted,
-  /// 2. There is an existing [`KeySet`] that starts with same sequence,
-  /// 3. The attempted [`KeySet`] starts with the same sequence as an existing [`KeySet`]
-  ///    (reciprocal of 2.)
-  /// ```
-  /// use rdev::Key;
-  /// use input_server_keyboard::{KeySet, ComboSet};
-  /// // Shift + A
-  /// let mut ks1 = KeySet::new();
-  /// ks1.insert(Key::ShiftLeft).unwrap();
-  /// ks1.insert(Key::KeyA).unwrap();
-  /// // Control + A
-  /// let mut ks2 = KeySet::new();
-  /// ks2.insert(Key::ControlLeft).unwrap();
-  /// ks2.insert(Key::KeyA).unwrap();
-  /// // Shift + Control + A
-  /// let mut ks3 = KeySet::new();
-  /// ks3.insert(Key::ShiftLeft).unwrap();
-  /// ks3.insert(Key::ControlLeft).unwrap();
-  /// ks3.insert(Key::KeyA).unwrap();
-  /// // Control + Shift + A
-  /// let mut ks4 = KeySet::new();
-  /// ks4.insert(Key::ControlLeft).unwrap();
-  /// ks4.insert(Key::ShiftLeft).unwrap();
-  /// ks4.insert(Key::KeyA).unwrap();
-  ///
-  /// let mut cs1 = ComboSet::new();
-  /// // TODO
-  /// ```
-  ///
-  /// This ensures that keys can not overlap and cause unexpected behaviour for the user.
-  /// This does add one restriction: you may not have one keybinding run two actions.
-  /// While we recognize this limitation, we would like to keep it this way (at least for now) for
-  /// stability purposes.
+	/// Insert a new [`KeySet`], [`OdiliaEvent`] combination.
+	///
+	/// # Results
+	///
+	/// Fails under any of the following conditions:
+	///
+	/// 1. There is an existing, identical [`KeySet`] already inserted,
+	/// 2. There is an existing [`KeySet`] that starts with same sequence,
+	/// 3. The attempted [`KeySet`] starts with the same sequence as an existing [`KeySet`]
+	///    (reciprocal of 2.)
+	/// ```
+	/// use rdev::Key;
+	/// use input_server_keyboard::{KeySet, ComboSet};
+	/// // Shift + A
+	/// let mut ks1 = KeySet::new();
+	/// ks1.insert(Key::ShiftLeft).unwrap();
+	/// ks1.insert(Key::KeyA).unwrap();
+	/// // Control + A
+	/// let mut ks2 = KeySet::new();
+	/// ks2.insert(Key::ControlLeft).unwrap();
+	/// ks2.insert(Key::KeyA).unwrap();
+	/// // Shift + Control + A
+	/// let mut ks3 = KeySet::new();
+	/// ks3.insert(Key::ShiftLeft).unwrap();
+	/// ks3.insert(Key::ControlLeft).unwrap();
+	/// ks3.insert(Key::KeyA).unwrap();
+	/// // Control + Shift + A
+	/// let mut ks4 = KeySet::new();
+	/// ks4.insert(Key::ControlLeft).unwrap();
+	/// ks4.insert(Key::ShiftLeft).unwrap();
+	/// ks4.insert(Key::KeyA).unwrap();
+	///
+	/// let mut cs1 = ComboSet::new();
+	/// // TODO
+	/// ```
+	///
+	/// This ensures that keys can not overlap and cause unexpected behaviour for the user.
+	/// This does add one restriction: you may not have one keybinding run two actions.
+	/// While we recognize this limitation, we would like to keep it this way (at least for now) for
+	/// stability purposes.
 	pub fn insert(&mut self, keys: KeySet, ev: OdiliaEvent) -> Result<(), ComboError> {
 		for keyset in self.keys() {
 			if *keyset == keys {
@@ -441,15 +438,15 @@ impl ComboSet {
 		self.inner.push((keys, ev));
 		Ok(())
 	}
-  /// Create a new, empty [`ComboSet`].
+	/// Create a new, empty [`ComboSet`].
 	pub fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
-  /// Create a [`ComboSet`] from an iterator.
-  /// While this can work, it ignores all failure cases and can cause issues.
-  ///
-  /// TODO: remove
-  #[deprecated]
+	/// Create a [`ComboSet`] from an iterator.
+	/// While this can work, it ignores all failure cases and can cause issues.
+	///
+	/// TODO: remove
+	#[deprecated]
 	pub fn from_iter<I>(iter: I) -> Self
 	where
 		I: Iterator<Item = (KeySet, OdiliaEvent)>,
@@ -480,26 +477,20 @@ impl<'a> IntoIterator for &'a ComboSet {
 /// An error in adding a new set of keybindings to the [`ComboSets`] list.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SetError {
-  /// An identical combo has already been set.
-  /// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
-  /// (global).
-	IdenticalCombo {
-		mode: Option<Mode>,
-		set: KeySet,
-	},
-  /// A combo with the same prefix has already been set.
-  /// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
-  /// (global).
-	SamePrefixCombo {
-		original: (Option<Mode>, KeySet),
-		attempted: (Option<Mode>, KeySet),
-	},
+	/// An identical combo has already been set.
+	/// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
+	/// (global).
+	IdenticalCombo { mode: Option<Mode>, set: KeySet },
+	/// A combo with the same prefix has already been set.
+	/// This happens if either the two combos have the same mode, or the mode of the original combo is `None`
+	/// (global).
+	SamePrefixCombo { original: (Option<Mode>, KeySet), attempted: (Option<Mode>, KeySet) },
 	/// Attempted to add a combo with an empty set of keys.
 	UnpressableKey,
-  /// Attempted to add a keybinding with a mode that is not accessible via pressing other keys.
-  /// This can usually be fixed by changing the order in which the keys are added.
-  /// Make sure to introduce the keybinding to change to a given mode before the keybindings that
-  /// are active in that mode.
+	/// Attempted to add a keybinding with a mode that is not accessible via pressing other keys.
+	/// This can usually be fixed by changing the order in which the keys are added.
+	/// Make sure to introduce the keybinding to change to a given mode before the keybindings that
+	/// are active in that mode.
 	UnreachableMode(Mode),
 }
 
@@ -514,13 +505,13 @@ impl std::fmt::Debug for ComboSets {
 	}
 }
 impl ComboSets {
-  /// Add a new set of combos.
-  ///
-  /// # Results
-  ///
-  /// Fails under any of the following conditions:
-  ///
-  /// - TODO
+	/// Add a new set of combos.
+	///
+	/// # Results
+	///
+	/// Fails under any of the following conditions:
+	///
+	/// - TODO
 	fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
 		if let Some(some_mode) = mode {
 			if !self.inner.iter().map(|x| x.0).any(|m| m == mode) {
@@ -610,16 +601,16 @@ impl<'a> IntoIterator for &'a ComboSets {
 /// The primary holder of state for all keybindings in the daemon.
 #[derive(Debug)]
 pub struct State {
-  /// If the activation key ([`crate::ACTIVATION_KEY`]) is pressed.
+	/// If the activation key ([`crate::ACTIVATION_KEY`]) is pressed.
 	pub activation_key_pressed: bool,
-  /// Which mode the screen reader is in.
+	/// Which mode the screen reader is in.
 	pub mode: Mode,
-  /// All pressed keys _after_ activation is pressed.
+	/// All pressed keys _after_ activation is pressed.
 	pub pressed: Vec<Key>,
-  /// List of key combos.
+	/// List of key combos.
 	pub combos: ComboSets,
-  /// A synchronous channel to send events to.
-  /// The receiver will send them over a socket to the main Odilia process.
+	/// A synchronous channel to send events to.
+	/// The receiver will send them over a socket to the main Odilia process.
 	pub tx: SyncSender<OdiliaEvent>,
 }
 impl State {

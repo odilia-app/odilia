@@ -4,7 +4,7 @@ default-members = ["odilia", "odilia-notify"]
 members = [
   "cache",
   "common",
-  "input", "input-server", "input-server-keyboard",
+  "input", "input-server-keyboard",
   "odilia",
   "odilia-notify", "odilia-tower", "tower-iter",
 ]

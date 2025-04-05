@@ -43,6 +43,7 @@ pub(crate) struct ScreenReaderState {
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
+	pub config: Arc<ApplicationConfig>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
@@ -224,6 +225,7 @@ impl ScreenReaderState {
 			accessible_history,
 			event_history,
 			cache,
+			config: Arc::new(config),
 		})
 	}
 	#[tracing::instrument(level = "debug", skip(self), err)]

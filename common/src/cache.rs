@@ -3,7 +3,9 @@ use atspi::{EventProperties, ObjectRef};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use serde::{Deserialize, Serialize};
 use zbus::{
-	names::OwnedUniqueName, proxy::Builder as ProxyBuilder, proxy::CacheProperties,
+	names::OwnedUniqueName,
+	proxy::Builder as ProxyBuilder,
+	proxy::CacheProperties,
 	zvariant::{OwnedObjectPath, Type},
 };
 

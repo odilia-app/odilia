@@ -1,14 +1,14 @@
 #![allow(clippy::module_name_repetitions)]
 
-use zbus::zvariant::Type;
-use serde::{Serialize, Deserialize};
 use crate::cache::AccessiblePrimitive;
 use crate::errors::OdiliaError;
 use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
 use ssip::Priority;
 use std::array::IntoIter;
 use std::convert::Infallible;
 use std::iter::Chain;
+use zbus::zvariant::Type;
 
 use strum::{Display, EnumDiscriminants};
 

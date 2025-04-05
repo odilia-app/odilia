@@ -10,7 +10,7 @@
 
 mod proxy;
 
-use eyre::Context;
+use eyre::{Context, Report};
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use std::{
@@ -52,17 +52,12 @@ fn get_log_file_name() -> String {
 	}
 }
 
-/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
+/// Open a socket to handle Odilia's input events from an input server.
 /// This function will exit upon the expiry of the cancellation token passed in.
 /// # Errors
-/// This function will return an error type if the same function is already running.
-/// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
-/// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
-#[tracing::instrument(skip_all)]
-pub async fn sr_event_receiver(
-	event_sender: Sender<ScreenReaderEvent>,
-	shutdown: CancellationToken,
-) -> eyre::Result<()> {
+/// - This function will return an error type if the same function is already running. This is checked by looking for a file on disk. If the file exists, this program is probably already running.
+/// - If there is no way to get access to the directory.
+pub async fn setup_input_server() -> eyre::Result<UnixListener> {
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
 
@@ -83,24 +78,14 @@ pub async fn sr_event_receiver(
 			%pid_file_path, "Reading pid file  and checking for running instances"
 
 		);
-		let odilias_pid = match fs::read_to_string(&pid_file_path).await {
-			Ok(odilias_pid) => odilias_pid,
-			Err(e) => {
-				tracing::error!(
-					"Unable to read {} to check all running instances",
-					e
-				);
-				exit(1);
-			}
-		};
+		let odilias_pid = fs::read_to_string(&pid_file_path).await?;
 		tracing::debug!("Previous PID: {}", odilias_pid);
 
 		let mut sys = System::new_all();
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
 			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
-				tracing::error!("Server is already running!");
-				exit(1);
+				return Err(Report::msg("Server is already running!"));
 			}
 		}
 	}
@@ -133,6 +118,21 @@ pub async fn sr_event_receiver(
 
 	let listener = UnixListener::bind(sock_file_path).context("Could not open socket")?;
 	tracing::debug!("Listener activated!");
+	Ok(listener)
+}
+
+/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
+/// This function will exit upon the expiry of the cancellation token passed in.
+/// # Errors
+/// This function will return an error type if the same function is already running.
+/// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
+/// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
+#[tracing::instrument(skip_all)]
+pub async fn sr_event_receiver(
+	listener: UnixListener,
+	event_sender: Sender<ScreenReaderEvent>,
+	shutdown: CancellationToken,
+) -> eyre::Result<()> {
 	loop {
 		tokio::select! {
 			    msg = listener.accept() => {

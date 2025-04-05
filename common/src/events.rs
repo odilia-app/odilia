@@ -1,8 +1,8 @@
-use zbus::zvariant::Type;
-use zbus_lockstep_macros::validate;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
+use zbus::zvariant::Type;
+use zbus_lockstep_macros::validate;
 
 use crate::modes::ScreenReaderMode;
 use atspi_common::Role;

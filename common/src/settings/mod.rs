@@ -1,8 +1,10 @@
+pub mod input;
 pub mod log;
 pub mod speech;
 
-use log::LogSettings;
-use speech::SpeechSettings;
+pub use input::InputSettings;
+pub use log::LogSettings;
+pub use speech::SpeechSettings;
 
 use serde::{Deserialize, Serialize};
 
@@ -13,4 +15,5 @@ use serde::{Deserialize, Serialize};
 pub struct ApplicationConfig {
 	pub speech: SpeechSettings,
 	pub log: LogSettings,
+	pub input_method: InputSettings,
 }

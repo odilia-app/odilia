@@ -13,7 +13,14 @@ mod logging;
 mod state;
 mod tower;
 
-use std::{fmt::Write, fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{
+	fmt::Write,
+	fs,
+	path::PathBuf,
+	process::{exit, Command as ProcCommand},
+	sync::Arc,
+	time::Duration,
+};
 
 use crate::cli::Args;
 use crate::state::AccessibleHistory;
@@ -38,7 +45,7 @@ use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	events::{ScreenReaderEvent, StopSpeech},
-	settings::ApplicationConfig,
+	settings::{ApplicationConfig, InputSettings},
 };
 
 use odilia_notify::listen_to_dbus_notifications;
@@ -53,6 +60,31 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use atspi_common::events::{document, object};
 use tracing::Instrument;
+
+/// Try to spawn the `odilia-input-server-*` binary.
+#[tracing::instrument]
+fn try_spawn_input_server(input: &InputSettings) -> eyre::Result<()> {
+	let bin_name = format!(
+		"{}-{}",
+		"odilia-input-server",
+		match input {
+			InputSettings::Keyboard => "keyboard",
+			InputSettings::Custom(s) => &s,
+		}
+	);
+	if let Err(_) = which::which(&bin_name) {
+		tracing::info!("Unable to find {bin_name} in $PATH; trying hardcoded paths.");
+	};
+	let found =
+		which::which_in_global(bin_name.clone(), Some("./target/debug/:./target/release/"));
+	assert!(found.is_ok(), "Unable to find {} in $PATH, and failed to look in other directories! This means Odilia in uncontrollable by any mechanism; this is a fatal error!", bin_name);
+	let path = found.unwrap().next();
+	assert!(path.is_some(), "Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism; this is a fatal error!", bin_name);
+	tracing::info!("Input server path: {:?}", path);
+	let id = ProcCommand::new(path.unwrap()).spawn()?;
+	Ok(())
+}
+
 #[tracing::instrument(skip(state, shutdown))]
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
@@ -313,8 +345,12 @@ async fn main() -> eyre::Result<()> {
 		}
 	};
 	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
-	let input_task = odilia_input::sr_event_receiver(input_tx, token.clone());
+	let listener = odilia_input::setup_input_server()
+		.await
+		.expect("Able to set up input server; without it, Odilia is uncontrollable!");
+	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
 	let input_handler = handlers.input_handler(input_rx);
+	let _ = try_spawn_input_server(&state.config.input_method);
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
