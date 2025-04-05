@@ -366,11 +366,11 @@ proptest! {
 	let caps_press = Event::from_event_type(EventType::KeyPress(ACTIVATION_KEY));
 	callback(caps_press, &mut state);
 	for (mode, combos) in combo_sets {
+	    for (combo, odilia_trigger) in combos {
 	    // directly set mode required to trigger the given combo
 	    if let Some(mode) = mode {
 		state.mode = mode;
 	    }
-	    for (combo, odilia_trigger) in combos {
 		for key in combo.clone() {
 		    assert_eq!(rx.try_recv(), Err(TryRecvError::Empty), "An OdiliaCommand was sent before a full keybinding has been pressed!");
 		    callback(Event::from_event_type(EventType::KeyPress(key)), &mut state);
