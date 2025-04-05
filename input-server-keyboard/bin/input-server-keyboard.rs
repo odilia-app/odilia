@@ -1,10 +1,7 @@
 use nix::unistd::Uid;
-use odilia_common::{
-	events::{ChangeMode, ScreenReaderEvent as OdiliaEvent, StopSpeech},
-	modes::ScreenReaderMode as Mode,
-};
+use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
 use odilia_input_server_keyboard::*;
-use rdev::{grab, Key};
+use rdev::grab;
 use std::{
 	env,
 	io::Write,

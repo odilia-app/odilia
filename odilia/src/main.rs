@@ -44,7 +44,7 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
-	events::{ChangeMode, ScreenReaderEvent, StopSpeech},
+	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputSettings},
 };
 
@@ -72,16 +72,20 @@ fn try_spawn_input_server(input: &InputSettings) -> eyre::Result<()> {
 			InputSettings::Custom(s) => &s,
 		}
 	);
-	if let Err(_) = which::which(&bin_name) {
+	if which::which(&bin_name).is_err() {
 		tracing::info!("Unable to find {bin_name} in $PATH; trying hardcoded paths.");
-	};
-	let found =
-		which::which_in_global(bin_name.clone(), Some("./target/debug/:./target/release/"));
-	assert!(found.is_ok(), "Unable to find {} in $PATH, and failed to look in other directories! This means Odilia in uncontrollable by any mechanism; this is a fatal error!", bin_name);
-	let path = found.unwrap().next();
-	assert!(path.is_some(), "Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism; this is a fatal error!", bin_name);
-	tracing::info!("Input server path: {:?}", path);
-	let _id = ProcCommand::new(path.unwrap()).spawn()?;
+	}
+	let mut found = which::which_in_global(
+		bin_name.clone(),
+		Some("./target/debug/:./target/release/"),
+	)?;
+	match found.next() {
+      None => tracing::error!("Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!", bin_name),
+      Some(path) => {
+          tracing::info!("Input server path: {:?}", path);
+          let _id = ProcCommand::new(path).spawn()?;
+      }
+  }
 	Ok(())
 }
 
@@ -227,6 +231,11 @@ async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoComma
 }
 
 #[tracing::instrument(ret)]
+async fn structural_nav(InputEvent(sn): InputEvent<StructuralNavigation>) -> impl TryIntoCommands {
+	(Priority::Text, format!("Navigate to {}, {:?}", sn.1, sn.0))
+}
+
+#[tracing::instrument(ret)]
 async fn change_mode(InputEvent(cm): InputEvent<ChangeMode>) -> impl TryIntoCommands {
 	(Priority::Text, format!("{:?} mode", cm.0))
 }
@@ -327,7 +336,8 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(focused)
 		.atspi_listener(unfocused)
 		.input_listener(stop_speech)
-		.input_listener(change_mode);
+		.input_listener(change_mode)
+		.input_listener(structural_nav);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())

@@ -6,8 +6,8 @@ description = "Use keybindings to control with the Odilia screen reader."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/odilia-app/odilia/"
 readme = "README.md"
-keywords = []
-categories = []
+keywords = ["accessibility", "screen readers"]
+categories = ["Accessibility"]
 
 [features]
 default = []

@@ -699,9 +699,25 @@ impl Default for ComboSets {
 						.into(),
 					),
 					(
+						[Key::ShiftLeft, Key::KeyT].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Backward,
+							Role::Table,
+						)
+						.into(),
+					),
+					(
 						[Key::KeyH].try_into().unwrap(),
 						StructuralNavigation(
 							Direction::Forward,
+							Role::Header,
+						)
+						.into(),
+					),
+					(
+						[Key::ShiftLeft, Key::KeyH].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Backward,
 							Role::Header,
 						)
 						.into(),
@@ -715,9 +731,25 @@ impl Default for ComboSets {
 						.into(),
 					),
 					(
+						[Key::ShiftLeft, Key::KeyI].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Backward,
+							Role::Image,
+						)
+						.into(),
+					),
+					(
 						[Key::KeyK].try_into().unwrap(),
 						StructuralNavigation(
 							Direction::Forward,
+							Role::Link,
+						)
+						.into(),
+					),
+					(
+						[Key::ShiftLeft, Key::KeyK].try_into().unwrap(),
+						StructuralNavigation(
+							Direction::Backward,
 							Role::Link,
 						)
 						.into(),
@@ -845,6 +877,13 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 					if combo.0 == state.pressed {
 						// print out the command
 						println!("Combo found for {:?}", combo.1);
+						// if it's a change mode event, update the mode
+						if let OdiliaEvent::ChangeMode(ChangeMode(
+							new_mode,
+						)) = combo.1
+						{
+							state.mode = new_mode;
+						}
 						state.tx.send(combo.1.clone()).expect(
                 "To be able to send the combo over the channel",
               );
