@@ -8,7 +8,6 @@ use ssip::Priority;
 use std::array::IntoIter;
 use std::convert::Infallible;
 use std::iter::Chain;
-use zbus::zvariant::Type;
 
 use strum::{Display, EnumDiscriminants};
 
