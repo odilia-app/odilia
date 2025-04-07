@@ -2446,7 +2446,7 @@ dependencies = [
 [[package]]
 name = "rdev"
 version = "0.5.3"
-source = "git+https://github.com/TTWNO/rdev2/?branch=odilia-keys-v2#9462aa592a3f477b64f9ac8de6485ca7d3348ded"
+source = "git+https://github.com/TTWNO/rdev2/?branch=odilia-keys-v2#966651c040e32abaddd4a4ab6c903753c858c0fa"
 dependencies = [
  "cocoa",
  "core-foundation 0.7.0",
@@ -2456,9 +2456,7 @@ dependencies = [
  "evdev-rs",
  "inotify",
  "lazy_static",
- "libc",
  "winapi",
- "x11",
 ]
 
 [[package]]
@@ -3678,16 +3676,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6f42320e61fe2cfd34354ecb597f86f413484a798ba44a8ca1165c58d42da6c1"
 dependencies = [
  "bitflags 2.9.0",
-]
-
-[[package]]
-name = "x11"
-version = "2.21.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "502da5464ccd04011667b11c435cb992822c2c0dbde1770c988480d312a0db2e"
-dependencies = [
- "libc",
- "pkg-config",
 ]
 
 [[package]]
