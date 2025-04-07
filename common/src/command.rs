@@ -147,13 +147,13 @@ impl<T: CommandType> CommandTypeDynamic for T {
 	}
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CaretPos(pub usize);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Speak(pub String, pub Priority);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
 
 macro_rules! impl_command_type {
@@ -168,7 +168,7 @@ impl_command_type!(Focus, Focus);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
 
-#[derive(Debug, Clone, EnumDiscriminants, Serialize, Deserialize)]
+#[derive(Debug, Clone, EnumDiscriminants, Serialize, Deserialize, Eq, PartialEq)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
