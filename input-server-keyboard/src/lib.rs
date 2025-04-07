@@ -913,6 +913,8 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 						state.tx.send(combo.1.clone()).expect(
                 "To be able to send the combo over the channel",
               );
+						// exit early; found combo!
+						return None;
 					}
 				}
 			}
