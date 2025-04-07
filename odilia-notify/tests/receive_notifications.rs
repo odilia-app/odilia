@@ -6,6 +6,8 @@ use notify_rust::Notification;
 
 #[tokio::test]
 async fn test_listen_to_dbus_notifications() -> Result<(), Box<dyn Error>> {
+  // init logging
+  tracing_subscriber::fmt::init();
 	// Spawn a new task to listen for notifications
 	let listener_task = tokio::spawn(async move {
 		let mut stream = listen_to_dbus_notifications().await.unwrap();
