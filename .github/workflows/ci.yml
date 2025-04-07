@@ -14,6 +14,42 @@ jobs:
   test:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+
+      - name: Cache cargo home
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-cargo-home
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-${{ env.cache-name }}-
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Install Dependencies
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb libevdev-dev libx11-dev libxi-dev libxtst-dev
+      - name: setup dbus and notification daemon
+        run:
+          sudo systemctl start dbus;
+          systemctl --user start dbus;
+          xvfb-run dunst --screen 0 600x400x8 &
+      - name: Run tests
+        # we need to run in release because proptests are slow;
+        # if you think compiling is slow, try running proptests without release mode :)
+        run: cargo test --workspace --release --features proptest
+  multi-platform:
+    runs-on: ubuntu-latest
+    if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
@@ -34,24 +70,15 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
           target: ${{ matrix.target }}
-
       - name: Install Dependencies
         run: sudo apt -y install at-spi2-core systemd dunst xvfb libevdev-dev libx11-dev libxi-dev libxtst-dev
-      - name: setup dbus and notification daemon
-        run:
-          sudo systemctl start dbus;
-          systemctl --user start dbus;
-          xvfb-run dunst --screen 0 600x400x8 &
-      - name: Run tests
-        # we need to run in release because proptests are slow;
-        # if you think compiling is slow, try running proptests without release mode :)
-        run: cargo test --workspace --release --features proptest
+      - name: Cross Compile for ${{ matrix.target }}
+        run: cargo build --workspace --target ${{ matrix.target }}
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
