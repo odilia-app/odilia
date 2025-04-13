@@ -6,8 +6,6 @@ use odilia_common::{
 fn main() {
 	// stop all current speech
 	let stop = ScreenReaderEvent::StopSpeech(StopSpeech);
-
-	// change to an arbitrary mode
 	let mode_change = ScreenReaderEvent::ChangeMode(ChangeMode(Mode::Browse));
 
 	println!("{}", serde_json::to_string(&stop).unwrap());
