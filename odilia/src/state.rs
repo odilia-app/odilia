@@ -32,7 +32,15 @@ use odilia_common::{
 	types::TextSelectionArea,
 	Result as OdiliaResult,
 };
+use std::fmt;
+use std::process::Child;
 use std::sync::Arc;
+
+impl Debug for ScreenReaderState {
+	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+		fmt.debug_struct("State").finish_non_exhaustive()
+	}
+}
 
 #[allow(clippy::module_name_repetitions)]
 pub(crate) struct ScreenReaderState {
@@ -44,6 +52,7 @@ pub(crate) struct ScreenReaderState {
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
 	pub config: Arc<ApplicationConfig>,
+	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
@@ -226,6 +235,7 @@ impl ScreenReaderState {
 			event_history,
 			cache,
 			config: Arc::new(config),
+			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
 	}
 	#[tracing::instrument(level = "debug", skip(self), err)]
@@ -430,6 +440,12 @@ impl ScreenReaderState {
 			.interface("org.a11y.atspi.Cache")?
 			.build();
 		self.dbus.add_match_rule(cache_rule).await?;
+		Ok(())
+	}
+	#[tracing::instrument(skip_all, err)]
+	pub fn add_child_proc(&self, child: Child) -> OdiliaResult<()> {
+		let mut children = self.children_pids.lock()?;
+		children.push(child);
 		Ok(())
 	}
 }

@@ -82,6 +82,6 @@ pub enum ScreenReaderEvent {
 	ChangeMode(ChangeMode),
 	/// Navigate to the next [`Role`] in [`Direction`] by depth-first search.
 	StructuralNavigation(StructuralNavigation),
-  /// Quit the screen reader.
-  Quit(Quit),
+	/// Quit the screen reader.
+	Quit(Quit),
 }

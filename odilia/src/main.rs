@@ -17,7 +17,7 @@ use std::{
 	fmt::Write,
 	fs,
 	path::PathBuf,
-	process::{exit, Command as ProcCommand},
+	process::{exit, Child, Command as ProcCommand},
 	sync::Arc,
 	time::Duration,
 };
@@ -35,7 +35,7 @@ use crate::tower::Handlers;
 use crate::tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet};
 use atspi::RelationType;
 use clap::Parser;
-use eyre::WrapErr;
+use eyre::{Report, WrapErr};
 use figment::{
 	providers::{Format, Serialized, Toml},
 	Figment,
@@ -63,7 +63,7 @@ use tracing::Instrument;
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
-fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<()> {
+fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
 	let bin_name = format!(
 		"{}-{}",
 		"odilia-input-server",
@@ -79,14 +79,16 @@ fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<()> {
 		bin_name.clone(),
 		Some("./target/debug/:./target/release/"),
 	)?;
-	match found.next() {
-      None => tracing::error!("Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!", bin_name),
-      Some(path) => {
-          tracing::info!("Input server path: {:?}", path);
-          let _id = ProcCommand::new(path).spawn()?;
-      }
-  }
-	Ok(())
+	let child = match found.next() {
+		None => {
+			return Err(Report::msg(format!("Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!", bin_name)));
+		}
+		Some(path) => {
+			tracing::info!("Input server path: {:?}", path);
+			ProcCommand::new(path).spawn()?
+		}
+	};
+	Ok(child)
 }
 
 #[tracing::instrument(skip(state, shutdown))]
@@ -116,11 +118,16 @@ async fn notifications_monitor(
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	tracker: TaskTracker,
+	state: Arc<ScreenReaderState>,
 ) -> eyre::Result<()> {
 	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
 	let mut c = signal(SignalKind::interrupt())?;
 	c.recv().instrument(tracing::debug_span!("Watching for Ctrl+C")).await;
 	tracing::debug!("Asking all processes to stop.");
+	(*state.children_pids.lock().expect("Able to lock mutex!"))
+		.iter_mut()
+		.try_for_each(|child| child.kill())
+		.expect("Able to kill child processes");
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
 	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
@@ -363,10 +370,11 @@ async fn main() -> eyre::Result<()> {
 	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
 	let listener = odilia_input::setup_input_server()
 		.await
-		.expect("Able to set up input server; without it, Odilia is uncontrollable!");
+		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
 	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
 	let input_handler = handlers.input_handler(input_rx);
-	let _ = try_spawn_input_server(&state.config.input.method);
+	let child = try_spawn_input_server(&state.config.input.method)?;
+	state.add_child_proc(child).expect("Able to add child to process!");
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
@@ -375,7 +383,7 @@ async fn main() -> eyre::Result<()> {
 	tracker.spawn(input_task);
 	tracker.spawn(input_handler);
 	tracker.close();
-	let _ = sigterm_signal_watcher(token, tracker)
+	let _ = sigterm_signal_watcher(token, tracker, Arc::clone(&state))
 		.await
 		.wrap_err("can not process interrupt signal");
 	Ok(())
