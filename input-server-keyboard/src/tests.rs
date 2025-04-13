@@ -5,7 +5,7 @@ use odilia_common::events::*;
 use rdev::{Event, EventType, Key};
 use std::sync::mpsc::{sync_channel, Receiver};
 
-trait EventFromEventType {
+pub(crate) trait EventFromEventType {
 	fn from_event_type(event_type: EventType) -> Event {
 		Event { event_type, time: std::time::SystemTime::now(), name: None }
 	}
@@ -16,7 +16,7 @@ impl EventFromEventType for Event {}
 impl State {
 	/// For testing purposes only: create an "unbounded" (100,000-sized) buffer for accepting the
 	/// `OdiliaEvents` that may be triggered.
-	fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
+	pub(crate) fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
 		let (tx, rx) = sync_channel(100_000);
 		(
 			Self {

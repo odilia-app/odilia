@@ -846,7 +846,7 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 		(EventType::KeyPress(other), true) => {
 			// if the key is already pressed (i.e., it's been held down)
 			let None = state.pressed.iter().position(|key| *key == other) else {
-				// swallow the event immediately, do not pass go
+				// swallow the event immediately, do not pass through
 				return None;
 			};
 			// otherwise, add it to the list of held keys
@@ -880,21 +880,8 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 			None
 		}
 		// if a key release is made while activation mode is on
-		(EventType::KeyRelease(other), true) => {
+		(EventType::KeyRelease(other), _) => {
 			// if it's previously been pressed
-			if let Some(idx) = state.pressed.iter().position(|key| *key == other) {
-				// remove it from the list of held keys
-				state.pressed.remove(idx);
-				// and swallow the event
-				None
-				// otherwise, it was a key held from before the activation was enabled
-			} else {
-				// pass this through to the other layers, as applications need to be notified about
-				// letting go of the key
-				Some(event)
-			}
-		}
-		(EventType::KeyRelease(other), false) => {
 			if let Some(idx) = state.pressed.iter().position(|key| *key == other) {
 				// remove it from the list of held keys
 				state.pressed.remove(idx);
