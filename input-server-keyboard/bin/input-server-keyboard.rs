@@ -10,6 +10,10 @@ use std::{
 	sync::mpsc::{sync_channel, Receiver},
 	thread,
 };
+
+/// Finds PID and Socket files and returns their respective [`PathBuf`]s.
+/// The first return value is the PID file.
+/// The second return value is the Socket file.
 fn get_file_paths() -> (PathBuf, PathBuf) {
 	match env::var("XDG_RUNTIME_DIR") {
 		Ok(val) => {
