@@ -35,7 +35,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: stable
       - name: Install Dependencies
         run: sudo apt -y install at-spi2-core systemd dunst xvfb
       - name: setup dbus and notification daemon
@@ -73,7 +73,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly
+          toolchain: stable
           target: ${{ matrix.target }}
       - name: Cross Compile for ${{ matrix.target }}
         run: cargo build --workspace --target ${{ matrix.target }}
@@ -131,10 +131,8 @@ jobs:
         with:
           toolchain: nightly
           components: clippy
-
       - name: Run tests
         run: cargo clippy --tests --workspace --no-deps -- -D warnings
-
   rustfmt:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
@@ -148,7 +146,6 @@ jobs:
           profile: minimal
           toolchain: nightly
           components: rustfmt
-
       - name: Run formatter
         run: cargo fmt --all --check
 
@@ -172,12 +169,10 @@ jobs:
           key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
-
       - name: Generate Documentation
         run: cargo doc --workspace --document-private-items
 
