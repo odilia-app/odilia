@@ -114,10 +114,11 @@ use std::sync::mpsc::SyncSender;
 #[cfg(test)]
 use std::sync::mpsc::{sync_channel, Receiver};
 
-const ACTIVATION_KEY: Key = Key::CapsLock;
+/// The fixed activation key for all keybindings.
+pub const ACTIVATION_KEY: Key = Key::CapsLock;
 
 /// A set of keys to be used as the combination for a binding.
-#[derive(Eq, PartialEq, Clone)]
+#[derive(Eq, PartialEq, Clone, Default)]
 #[repr(transparent)]
 pub struct KeySet {
 	inner: Vec<Key>,
@@ -260,11 +261,6 @@ impl std::fmt::Debug for KeySet {
 		self.inner.fmt(fmt)
 	}
 }
-impl Default for KeySet {
-	fn default() -> Self {
-		Self::new()
-	}
-}
 
 impl KeySet {
 	/// Add a new key to the set.
@@ -365,7 +361,7 @@ pub enum ComboError {
 }
 
 /// A set of key combos and their associated action.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct ComboSet {
 	inner: Vec<(KeySet, OdiliaEvent)>,
@@ -391,11 +387,6 @@ impl<const N: usize> TryFrom<[(KeySet, OdiliaEvent); N]> for ComboSet {
 		Ok(this)
 	}
 }
-impl Default for ComboSet {
-	fn default() -> Self {
-		Self::new()
-	}
-}
 
 impl ComboSet {
 	/// [`Iterator`] through each [`KeySet`] contained in the [`ComboSet`].
@@ -415,6 +406,11 @@ impl ComboSet {
 	/// ```
 	/// use rdev::Key;
 	/// use odilia_input_server_keyboard::{KeySet, ComboSet};
+	/// use odilia_common::{
+	///   atspi::Role,
+	///   events::{ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech, StructuralNavigation},
+	///   modes::ScreenReaderMode as Mode,
+	/// };
 	/// // Shift + A
 	/// let mut ks1 = KeySet::new();
 	/// ks1.insert(Key::ShiftLeft).unwrap();
@@ -435,7 +431,10 @@ impl ComboSet {
 	/// ks4.insert(Key::KeyA).unwrap();
 	///
 	/// let mut cs1 = ComboSet::new();
-	/// // TODO
+	/// assert!(cs1.insert(ks1, StopSpeech.into()).is_ok());
+	/// assert!(cs1.insert(ks2, StructuralNavigation(Direction::Forward, Role::Link).into()).is_ok());
+	/// assert!(cs1.insert(ks3, ChangeMode(Mode::Focus).into()).is_ok());
+	/// assert!(cs1.insert(ks4, ChangeMode(Mode::Browse).into()).is_ok());
 	/// ```
 	///
 	/// This ensures that keys can not overlap and cause unexpected behaviour for the user.
@@ -553,8 +552,52 @@ impl ComboSets {
 	///
 	/// Fails under any of the following conditions:
 	///
-	/// - TODO
-	fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
+	/// - The new `mode` param is not reachable by current keyboard shortcuts.
+	/// - There is an identical (or identically prefixed) combo in an existing [`ComboSet`] which is
+	/// globally available (mode: `None`) or in the same mode as the attempted insertion.
+	///
+	/// ```
+	/// use rdev::Key;
+	/// use odilia_input_server_keyboard::{KeySet, ComboSet, SetError, ComboSets};
+	/// use odilia_common::{
+	///   atspi::Role,
+	///   events::{ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech, StructuralNavigation},
+	///   modes::ScreenReaderMode as Mode,
+	/// };
+	/// // Shift + A
+	/// let mut ks1 = KeySet::new();
+	/// ks1.insert(Key::ShiftLeft).unwrap();
+	/// ks1.insert(Key::KeyA).unwrap();
+	/// // Control + A
+	/// let mut ks2 = KeySet::new();
+	/// ks2.insert(Key::ControlLeft).unwrap();
+	/// ks2.insert(Key::KeyA).unwrap();
+	/// // Shift + Control + A
+	/// let mut ks3 = KeySet::new();
+	/// ks3.insert(Key::ShiftLeft).unwrap();
+	/// ks3.insert(Key::ControlLeft).unwrap();
+	/// ks3.insert(Key::KeyA).unwrap();
+	/// // Control + Shift + A
+	/// let mut ks4 = KeySet::new();
+	/// ks4.insert(Key::ControlLeft).unwrap();
+	/// ks4.insert(Key::ShiftLeft).unwrap();
+	/// ks4.insert(Key::KeyA).unwrap();
+	///
+	/// let mut cs1 = ComboSet::new();
+	/// cs1.insert(ks1, StopSpeech.into());
+	/// let mut cs2 = ComboSet::new();
+	/// cs2.insert(ks2, StructuralNavigation(Direction::Forward, Role::Link).into());
+	/// let mut cs3 = ComboSet::new();
+	/// cs3.insert(ks3, ChangeMode(Mode::Focus).into());
+	/// cs3.insert(ks4, ChangeMode(Mode::Browse).into());
+	///
+	/// let mut css = ComboSets::new();
+	/// assert!(css.insert(None, cs1).is_ok());
+	/// assert_eq!(css.insert(Some(Mode::Focus), cs2.clone()), Err(SetError::UnreachableMode(Mode::Focus)));
+	/// assert!(css.insert(None, cs3).is_ok());
+	/// assert!(css.insert(Some(Mode::Focus), cs2).is_ok());
+	/// ```
+	pub fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
 		if let Some(some_mode) = mode {
 			if !self.inner
 				.iter()
@@ -607,7 +650,8 @@ impl ComboSets {
 		self.inner.push((mode, cs));
 		Ok(())
 	}
-	fn new() -> Self {
+	/// Create a new, empty [`ComboSets`].
+	pub fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
 	/// Attmept to construct from an iterator.
@@ -794,7 +838,7 @@ impl State {
 ///
 /// # Panics
 ///
-/// If the [`State`]'s [`Sender`] for the [`OdiliaEvent`] is unable to be sent to.
+/// If the [`State`]'s [`SyncSender`] for the [`OdiliaEvent`] is unable to be sent to.
 pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 	println!("My callback {event:?}");
 	match (event.event_type, state.activation_key_pressed) {
