@@ -314,20 +314,6 @@ impl KeySet {
 		iter.try_for_each(|item| this.insert(item))?;
 		Ok(this)
 	}
-	#[cfg(all(test, feature = "proptest"))]
-	/// Create a `KeySet` from a list of keys.
-	/// Automatically reject and deduplicate the keys during insertion.
-	/// While this can not fail, it will simply throw out any key which is the [`ACTIVATION_KEY`] or
-	/// a repeated key that is already contained within it.
-	///
-	/// NOTE: Only used during proptests. This should never become part of the public API.
-	fn from_dedup(v: Vec<Key>) -> Self {
-		let mut this = Self::new();
-		v.into_iter().for_each(|item| {
-			let _ = this.insert(item);
-		});
-		this
-	}
 }
 impl<const N: usize> TryFrom<[Key; N]> for KeySet {
 	type Error = KeySetError;
@@ -493,19 +479,6 @@ impl ComboSet {
 		iter.try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
-	/// Create a [`ComboSet`] from an iterator.
-	/// Ignores all errors.
-	#[cfg(feature = "proptest")]
-	pub fn from_iter_ignore_errors<I>(iter: I) -> Self
-	where
-		I: Iterator<Item = (KeySet, OdiliaEvent)>,
-	{
-		let mut this = Self::new();
-		iter.for_each(|item| {
-			let _ = this.insert(item.0, item.1);
-		});
-		this
-	}
 }
 
 impl IntoIterator for ComboSet {
@@ -647,19 +620,6 @@ impl ComboSets {
 		let mut this = Self::new();
 		iter.try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
-	}
-	/// Create a [`ComboSets`] from an iterator.
-	/// Ignores all errors.
-	#[cfg(feature = "proptest")]
-	pub fn from_iter_ignore_errors<I>(iter: I) -> Self
-	where
-		I: Iterator<Item = (Option<Mode>, ComboSet)>,
-	{
-		let mut this = Self::new();
-		iter.for_each(|item| {
-			let _ = this.insert(item.0, item.1);
-		});
-		this
 	}
 }
 impl<const N: usize> TryFrom<[(Option<Mode>, ComboSet); N]> for ComboSets {
