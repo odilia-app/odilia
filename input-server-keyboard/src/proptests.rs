@@ -408,7 +408,7 @@ prop_compose! {
 
 proptest! {
     #[test]
-    fn test_all_keybingings_capture(
+    fn test_all_keybindings_capture(
 	(mut state, rx) in state(),
     ) {
 	let combo_sets = state.combos.clone();
