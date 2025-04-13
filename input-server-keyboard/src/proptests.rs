@@ -468,7 +468,7 @@ proptest! {
 		EventType::KeyPress(key) | EventType::KeyRelease(key) => {
 		    let ev2 = event.clone();
 		    if !all_grabbable_keys.contains(&key) && !caps_held {
-			assert_eq!(callback(event, &mut state), Some(ev2), "{:?} is not in the grabbale key list, but was still captured!", key);
+			assert_eq!(callback(event, &mut state), Some(ev2), "{:?} is not in the grabale key list, but it still was captured!", key);
 		    } else {
 			let _ = callback(event, &mut state);
 		    }
