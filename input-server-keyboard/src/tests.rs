@@ -1,6 +1,5 @@
 use crate::{
-	callback, ComboError, ComboSet, ComboSets, KeySet, Mode, SetError,
-	State, OdiliaEvent,
+	callback, ComboError, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, SetError, State,
 };
 use odilia_common::events::*;
 use rdev::{Event, EventType, Key};
@@ -130,4 +129,3 @@ fn test_repeating_key_problem() {
 fn test_default_combosets_no_panic() {
 	let _ = ComboSets::default();
 }
-

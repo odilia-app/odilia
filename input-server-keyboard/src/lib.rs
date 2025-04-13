@@ -80,7 +80,9 @@
 	missing_docs,
 	clippy::perf,
 	clippy::complexity,
-	clippy::style
+	clippy::style,
+	clippy::print_stdout,
+	clippy::print_stderr
 )]
 
 #[cfg(test)]
@@ -809,13 +811,13 @@ pub struct State {
 ///
 /// If the [`State`]'s [`SyncSender`] for the [`OdiliaEvent`] is unable to be sent to.
 pub fn callback(event: Event, state: &mut State) -> Option<Event> {
-	println!("My callback {event:?}");
+	tracing::debug!("Callback called for {event:?}");
 	match (event.event_type, state.activation_key_pressed) {
 		// if capslock is pressed while activation is disabled
 		(EventType::KeyPress(ACTIVATION_KEY), false) => {
 			// enable it
 			state.activation_key_pressed = true;
-			println!("Cancelling CL!");
+			tracing::trace!("Activation enabled!");
 			// swallow the event
 			None
 		}
@@ -836,7 +838,7 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 		(EventType::KeyRelease(ACTIVATION_KEY), true) => {
 			// disable activate state
 			state.activation_key_pressed = false;
-			println!("Cancelling CL! Dropping activation feature.");
+			tracing::trace!("Activation disabled!");
 			// and swallow event
 			None
 		}
@@ -855,12 +857,10 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 					continue;
 				}
 				for combo in combos {
-					println!("Combo: {combo:?}");
-					println!("Pressed {:?}", state.pressed);
 					// if a combo matches the held keys (must be in right order)
 					if combo.0 == *state.pressed {
 						// print out the command
-						println!("Combo found for {:?}", combo.1);
+						tracing::debug!("Combo found for {:?}", combo.1);
 						// if it's a change mode event, update the mode
 						if let OdiliaEvent::ChangeMode(ChangeMode(
 							new_mode,
