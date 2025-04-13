@@ -45,7 +45,7 @@ use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
-	settings::{ApplicationConfig, InputSettings},
+	settings::{ApplicationConfig, InputMethod},
 };
 
 use odilia_notify::listen_to_dbus_notifications;
@@ -63,13 +63,13 @@ use tracing::Instrument;
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
-fn try_spawn_input_server(input: &InputSettings) -> eyre::Result<()> {
+fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<()> {
 	let bin_name = format!(
 		"{}-{}",
 		"odilia-input-server",
 		match input {
-			InputSettings::Keyboard => "keyboard",
-			InputSettings::Custom(s) => &s,
+			InputMethod::Keyboard => "keyboard",
+			InputMethod::Custom(s) => &s,
 		}
 	);
 	if which::which(&bin_name).is_err() {
@@ -366,7 +366,7 @@ async fn main() -> eyre::Result<()> {
 		.expect("Able to set up input server; without it, Odilia is uncontrollable!");
 	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
 	let input_handler = handlers.input_handler(input_rx);
-	let _ = try_spawn_input_server(&state.config.input_method);
+	let _ = try_spawn_input_server(&state.config.input.method);
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
