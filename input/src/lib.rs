@@ -4,7 +4,9 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
-	unsafe_code
+	unsafe_code,
+	clippy::print_stdout,
+	clippy::print_stderr
 )]
 #![allow(clippy::multiple_crate_versions)]
 
@@ -180,7 +182,6 @@ async fn handle_event(
 			let response = std::str::from_utf8(&buf[..bytes])
 			    .expect("Valid UTF-8");
 						// if valid screen reader event
-			println!("RESP: '{response}'");
 						match serde_json::from_str::<ScreenReaderEvent>(response) {
 						  Ok(sre) => {
 						    if let Err(e) = event_sender.send(sre).await {
