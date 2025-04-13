@@ -296,7 +296,7 @@ impl KeySet {
 			Ok(())
 		}
 	}
-	/// Creates a new, emptt `KeySet`.
+	/// Creates a new, empty `KeySet`.
 	#[must_use]
 	pub fn new() -> Self {
 		KeySet { inner: Vec::new() }
