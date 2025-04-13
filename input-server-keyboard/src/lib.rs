@@ -286,13 +286,13 @@ impl KeySet {
 	/// assert!(ks.insert(Key::KeyA).is_err());
 	/// assert!(ks.insert(Key::CapsLock).is_err());
 	/// ```
-	pub fn insert(&mut self, t: Key) -> Result<(), KeySetError> {
-		if t == ACTIVATION_KEY {
+	pub fn insert(&mut self, key: Key) -> Result<(), KeySetError> {
+		if key == ACTIVATION_KEY {
 			Err(KeySetError::ActivationKey)
-		} else if self.inner.contains(&t) {
-			Err(KeySetError::AlreadyContains(t))
+		} else if self.inner.contains(&key) {
+			Err(KeySetError::AlreadyContains(key))
 		} else {
-			self.inner.push(t);
+			self.inner.push(key);
 			Ok(())
 		}
 	}
