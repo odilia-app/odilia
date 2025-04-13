@@ -1,9 +1,37 @@
 use crate::{
-	callback, ComboError, ComboSet, ComboSets, EventFromEventType, KeySet, Mode, SetError,
-	State,
+	callback, ComboError, ComboSet, ComboSets, KeySet, Mode, SetError,
+	State, OdiliaEvent,
 };
 use odilia_common::events::*;
 use rdev::{Event, EventType, Key};
+use std::sync::mpsc::{sync_channel, Receiver};
+
+trait EventFromEventType {
+	fn from_event_type(event_type: EventType) -> Event {
+		Event { event_type, time: std::time::SystemTime::now(), name: None }
+	}
+}
+
+impl EventFromEventType for Event {}
+
+impl State {
+	/// For testing purposes only: create an "unbounded" (100,000-sized) buffer for accepting the
+	/// `OdiliaEvents` that may be triggered.
+	fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
+		let (tx, rx) = sync_channel(100_000);
+		(
+			Self {
+				activation_key_pressed: false,
+				mode: Mode::Focus,
+				// handle up to 10 key presses without allocation
+				pressed: Vec::with_capacity(10),
+				combos: ComboSets::new(),
+				tx,
+			},
+			rx,
+		)
+	}
+}
 
 #[test]
 fn test_unreachable_mode() {
@@ -97,3 +125,9 @@ fn test_repeating_key_problem() {
 		assert_eq!(val, correct, "Failed on action [{i}]!");
 	}
 }
+
+#[test]
+fn test_default_combosets_no_panic() {
+	let _ = ComboSets::default();
+}
+

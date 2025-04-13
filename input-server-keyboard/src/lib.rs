@@ -89,15 +89,6 @@ mod tests;
 #[cfg(all(test, feature = "proptest"))]
 mod proptests;
 
-#[cfg(test)]
-pub(crate) trait EventFromEventType {
-	fn from_event_type(event_type: EventType) -> Event {
-		Event { event_type, time: std::time::SystemTime::now(), name: None }
-	}
-}
-#[cfg(test)]
-impl EventFromEventType for Event {}
-
 use odilia_common::{
 	atspi::Role,
 	events::{
@@ -110,9 +101,6 @@ use rdev::{Event, EventType, Key};
 
 use std::cmp::Ordering;
 use std::sync::mpsc::SyncSender;
-
-#[cfg(test)]
-use std::sync::mpsc::{sync_channel, Receiver};
 
 /// The fixed activation key for all keybindings.
 pub const ACTIVATION_KEY: Key = Key::CapsLock;
@@ -782,11 +770,6 @@ impl Default for ComboSets {
 	}
 }
 
-#[test]
-fn test_default_combosets_no_panic() {
-	let _ = ComboSets::default();
-}
-
 impl ComboSets {
 	/// Iterate over the items in [`ComboSets`].
 	pub fn iter(&self) -> std::slice::Iter<'_, (Option<Mode>, ComboSet)> {
@@ -816,25 +799,6 @@ pub struct State {
 	/// A synchronous channel to send events to.
 	/// The receiver will send them over a socket to the main Odilia process.
 	pub tx: SyncSender<OdiliaEvent>,
-}
-impl State {
-	#[cfg(test)]
-	/// For testing purposes only: create an "unbounded" (100,000-sized) buffer for accepting the
-	/// OdiliaEvents that may be triggered.
-	fn new_unbounded() -> (Self, Receiver<OdiliaEvent>) {
-		let (tx, rx) = sync_channel(100_000);
-		(
-			Self {
-				activation_key_pressed: false,
-				mode: Mode::Focus,
-				// handle up to 10 key presses without allocation
-				pressed: Vec::with_capacity(10),
-				combos: ComboSets::new(),
-				tx,
-			},
-			rx,
-		)
-	}
 }
 
 /// The callback function to call in a tight loop.
