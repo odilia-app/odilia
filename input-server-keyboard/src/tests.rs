@@ -48,7 +48,7 @@ fn test_unreachable_mode() {
 }
 
 #[test]
-fn test_same_prefix() {
+fn create_keybindings_same_mode_same_prefix() {
 	let core_combos = ComboSet::try_from_iter(
 		vec![
 			(
@@ -68,7 +68,7 @@ fn test_same_prefix() {
 }
 
 #[test]
-fn test_two_bindings_same_keys() {
+fn two_bindings_same_keys() {
 	let shift_plus_a: KeySet = vec![Key::ShiftLeft, Key::KeyA].try_into().unwrap();
 	let core_combos = ComboSet::try_from(vec![
 		(shift_plus_a.clone(), ChangeMode(Mode::Browse).into()),
@@ -78,7 +78,7 @@ fn test_two_bindings_same_keys() {
 }
 
 #[test]
-fn test_repeating_key_problem() {
+fn forever_repeating_key_problem() {
 	// Consuming a key release that was pressed before the activation key causes applications to
 	// believe the g key is held down forever (until the user presses and releases g again)
 	//
@@ -126,6 +126,6 @@ fn test_repeating_key_problem() {
 }
 
 #[test]
-fn test_default_combosets_no_panic() {
+fn default_combosets_no_panic() {
 	let _ = ComboSets::default();
 }
