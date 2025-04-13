@@ -366,6 +366,7 @@ pub enum ComboError {
 
 /// A set of key combos and their associated action.
 #[derive(Clone, Eq, PartialEq)]
+#[repr(transparent)]
 pub struct ComboSet {
 	inner: Vec<(KeySet, OdiliaEvent)>,
 }
@@ -536,6 +537,7 @@ pub enum SetError {
 
 /// A list of modes and their associated key combos.
 #[derive(Clone, PartialEq, Eq)]
+#[repr(transparent)]
 pub struct ComboSets {
 	inner: Vec<(Option<Mode>, ComboSet)>,
 }
