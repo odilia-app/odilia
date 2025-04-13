@@ -20,7 +20,7 @@ tracing = ["dep:tracing"]
 atspi.workspace = true
 atspi-common.workspace = true
 atspi-proxies.workspace = true
-bitflags = "2"
+#bitflags = "2"
 futures.workspace = true
 futures-concurrency.workspace = true
 serde.workspace = true
@@ -34,6 +34,6 @@ tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 ssip = { workspace = true, features = ["dbus"] }
 xdg.workspace = true
-zbus-lockstep = { version = "0.5" }
-zbus-lockstep-macros = { version = "0.5" }
+#zbus-lockstep = { version = "0.5" }
+#zbus-lockstep-macros = { version = "0.5" }
 zvariant = "5.4.0"

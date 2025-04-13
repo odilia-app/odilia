@@ -2,7 +2,7 @@
 name = "odilia-input-server-keyboard"
 version = "0.1.0"
 edition = "2021"
-description = "Use keybindings to control with the Odilia screen reader."
+description = "Use keybindings to control the Odilia screen reader."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/odilia-app/odilia/"
 readme = "README.md"
@@ -19,7 +19,6 @@ odilia-common.workspace = true
 rdev = { version = "0.5.0", features = ["unstable_grab"], git = "https://github.com/TTWNO/rdev2/", branch = "odilia-keys-v2" }
 serde_json.workspace = true
 tracing.workspace = true
-zbus.workspace = true
 
 [dev-dependencies]
 atspi-common.workspace = true
