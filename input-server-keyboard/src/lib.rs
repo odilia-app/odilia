@@ -331,14 +331,14 @@ impl TryFrom<Vec<Key>> for KeySet {
 		Ok(this)
 	}
 }
-impl PartialEq<Vec<Key>> for KeySet {
-	fn eq(&self, other: &Vec<Key>) -> bool {
+impl PartialEq<[Key]> for KeySet {
+	fn eq(&self, other: &[Key]) -> bool {
 		&self.inner == other
 	}
 }
 
-impl PartialEq<Vec<Key>> for &KeySet {
-	fn eq(&self, other: &Vec<Key>) -> bool {
+impl PartialEq<[Key]> for &KeySet {
+	fn eq(&self, other: &[Key]) -> bool {
 		&self.inner == other
 	}
 }
@@ -843,7 +843,7 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 					println!("Combo: {combo:?}");
 					println!("Pressed {:?}", state.pressed);
 					// if a combo matches the held keys (must be in right order)
-					if combo.0 == state.pressed {
+					if combo.0 == *state.pressed {
 						// print out the command
 						println!("Combo found for {:?}", combo.1);
 						// if it's a change mode event, update the mode
