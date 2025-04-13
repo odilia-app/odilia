@@ -62,6 +62,10 @@ impl_event_type!(ChangeMode, ChangeMode);
 pub struct StructuralNavigation(pub Direction, pub Role);
 impl_event_type!(StructuralNavigation, StructuralNavigation);
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Quit;
+impl_event_type!(Quit, Quit);
+
 #[derive(Eq, PartialEq, Clone, Serialize, Deserialize, Debug, EnumDiscriminants)]
 /// Events which can be trigged through Odilia's external API.
 /// Subject to change without notice until v1.0, but we're [open to suggestions on our Github](https://github.com/odilia-app/odilia/); please reach out with features you'd like to see.
@@ -78,4 +82,6 @@ pub enum ScreenReaderEvent {
 	ChangeMode(ChangeMode),
 	/// Navigate to the next [`Role`] in [`Direction`] by depth-first search.
 	StructuralNavigation(StructuralNavigation),
+  /// Quit the screen reader.
+  Quit(Quit),
 }

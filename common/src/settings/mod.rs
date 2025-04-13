@@ -2,7 +2,7 @@ pub mod input;
 pub mod log;
 pub mod speech;
 
-pub use input::{InputSettings, InputMethod};
+pub use input::{InputMethod, InputSettings};
 pub use log::LogSettings;
 pub use speech::SpeechSettings;
 

@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub struct InputSettings {
-    pub method: InputMethod,
+	pub method: InputMethod,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]

@@ -101,7 +101,7 @@ impl EventFromEventType for Event {}
 use odilia_common::{
 	atspi::Role,
 	events::{
-		ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech,
+		ChangeMode, Direction, Quit, ScreenReaderEvent as OdiliaEvent, StopSpeech,
 		StructuralNavigation,
 	},
 	modes::ScreenReaderMode as Mode,
@@ -329,13 +329,13 @@ impl TryFrom<Vec<Key>> for KeySet {
 }
 impl PartialEq<[Key]> for KeySet {
 	fn eq(&self, other: &[Key]) -> bool {
-		&self.inner == other
+		self.inner == other
 	}
 }
 
 impl PartialEq<[Key]> for &KeySet {
 	fn eq(&self, other: &[Key]) -> bool {
-		&self.inner == other
+		self.inner == other
 	}
 }
 impl IntoIterator for KeySet {
@@ -548,13 +548,13 @@ impl std::fmt::Debug for ComboSets {
 impl ComboSets {
 	/// Add a new set of combos.
 	///
-	/// # Results
+	/// # Errors
 	///
 	/// Fails under any of the following conditions:
 	///
 	/// - The new `mode` param is not reachable by current keyboard shortcuts.
 	/// - There is an identical (or identically prefixed) combo in an existing [`ComboSet`] which is
-	/// globally available (mode: `None`) or in the same mode as the attempted insertion.
+	///   globally available (mode: `None`) or in the same mode as the attempted insertion.
 	///
 	/// ```
 	/// use rdev::Key;
@@ -651,10 +651,11 @@ impl ComboSets {
 		Ok(())
 	}
 	/// Create a new, empty [`ComboSets`].
+	#[must_use]
 	pub fn new() -> Self {
 		Self { inner: Vec::new() }
 	}
-	/// Attmept to construct from an iterator.
+	/// Attempt to construct from an iterator.
 	///
 	/// # Errors
 	///
@@ -698,6 +699,10 @@ impl Default for ComboSets {
 					(
 						[Key::KeyB].try_into().unwrap(),
 						ChangeMode(Mode::Browse).into(),
+					),
+					(
+						[Key::ShiftLeft, Key::KeyQ].try_into().unwrap(),
+						Quit.into(),
 					),
 				])
 				.unwrap(),
