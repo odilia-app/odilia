@@ -306,14 +306,12 @@ impl KeySet {
 	/// # Errors
 	///
 	/// See [`Self::insert`].
-	pub fn try_from_iter<I>(iter: I) -> Result<Self, KeySetError>
+	pub fn try_from_iter<I>(mut iter: I) -> Result<Self, KeySetError>
 	where
 		I: Iterator<Item = Key>,
 	{
 		let mut this = Self::new();
-		for item in iter {
-			this.insert(item)?;
-		}
+		iter.try_for_each(|item| this.insert(item))?;
 		Ok(this)
 	}
 	#[cfg(all(test, feature = "proptest"))]
@@ -325,10 +323,9 @@ impl KeySet {
 	/// NOTE: Only used during proptests. This should never become part of the public API.
 	fn from_dedup(v: Vec<Key>) -> Self {
 		let mut this = Self::new();
-		for item in v {
-			// ignore when it's broken
+		v.into_iter().for_each(|item| {
 			let _ = this.insert(item);
-		}
+		});
 		this
 	}
 }
@@ -336,9 +333,7 @@ impl<const N: usize> TryFrom<[Key; N]> for KeySet {
 	type Error = KeySetError;
 	fn try_from(items: [Key; N]) -> Result<Self, Self::Error> {
 		let mut this = KeySet::new();
-		for item in items {
-			this.insert(item)?;
-		}
+		items.into_iter().try_for_each(|item| this.insert(item))?;
 		Ok(this)
 	}
 }
@@ -346,9 +341,7 @@ impl TryFrom<Vec<Key>> for KeySet {
 	type Error = KeySetError;
 	fn try_from(items: Vec<Key>) -> Result<Self, Self::Error> {
 		let mut this = KeySet::new();
-		for item in items {
-			this.insert(item)?;
-		}
+		items.into_iter().try_for_each(|item| this.insert(item))?;
 		Ok(this)
 	}
 }
@@ -399,9 +392,7 @@ impl TryFrom<Vec<(KeySet, OdiliaEvent)>> for ComboSet {
 	type Error = ComboError;
 	fn try_from(v: Vec<(KeySet, OdiliaEvent)>) -> Result<Self, Self::Error> {
 		let mut this = Self::new();
-		for item in v {
-			this.insert(item.0, item.1)?;
-		}
+		v.into_iter().try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
 }
@@ -409,9 +400,7 @@ impl<const N: usize> TryFrom<[(KeySet, OdiliaEvent); N]> for ComboSet {
 	type Error = ComboError;
 	fn try_from(v: [(KeySet, OdiliaEvent); N]) -> Result<Self, Self::Error> {
 		let mut this = ComboSet::new();
-		for item in v {
-			this.insert(item.0, item.1)?;
-		}
+		v.into_iter().try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
 }
@@ -496,14 +485,12 @@ impl ComboSet {
 	/// # Errors
 	///
 	/// See [`Self::insert`].
-	pub fn try_from_iter<I>(iter: I) -> Result<Self, ComboError>
+	pub fn try_from_iter<I>(mut iter: I) -> Result<Self, ComboError>
 	where
 		I: Iterator<Item = (KeySet, OdiliaEvent)>,
 	{
 		let mut this = Self::new();
-		for item in iter {
-			this.insert(item.0, item.1)?;
-		}
+		iter.try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
 	/// Create a [`ComboSet`] from an iterator.
@@ -514,9 +501,9 @@ impl ComboSet {
 		I: Iterator<Item = (KeySet, OdiliaEvent)>,
 	{
 		let mut this = Self::new();
-		for item in iter {
+		iter.for_each(|item| {
 			let _ = this.insert(item.0, item.1);
-		}
+		});
 		this
 	}
 }
@@ -653,14 +640,12 @@ impl ComboSets {
 	/// # Errors
 	///
 	/// See error section for [`Self::insert`].
-	pub fn try_from_iter<I>(iter: I) -> Result<Self, SetError>
+	pub fn try_from_iter<I>(mut iter: I) -> Result<Self, SetError>
 	where
 		I: Iterator<Item = (Option<Mode>, ComboSet)>,
 	{
 		let mut this = Self::new();
-		for item in iter {
-			this.insert(item.0, item.1)?;
-		}
+		iter.try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
 	/// Create a [`ComboSets`] from an iterator.
@@ -671,9 +656,9 @@ impl ComboSets {
 		I: Iterator<Item = (Option<Mode>, ComboSet)>,
 	{
 		let mut this = Self::new();
-		for item in iter {
+		iter.for_each(|item| {
 			let _ = this.insert(item.0, item.1);
-		}
+		});
 		this
 	}
 }
@@ -681,9 +666,7 @@ impl<const N: usize> TryFrom<[(Option<Mode>, ComboSet); N]> for ComboSets {
 	type Error = SetError;
 	fn try_from(items: [(Option<Mode>, ComboSet); N]) -> Result<Self, Self::Error> {
 		let mut this = ComboSets::new();
-		for item in items {
-			this.insert(item.0, item.1)?;
-		}
+		items.into_iter().try_for_each(|item| this.insert(item.0, item.1))?;
 		Ok(this)
 	}
 }
