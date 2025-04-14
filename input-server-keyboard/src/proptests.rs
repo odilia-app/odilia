@@ -51,13 +51,14 @@ impl KeySet {
 	/// NOTE: Only used during proptests. This should never become part of the public API.
 	fn from_dedup(v: Vec<Key>) -> Self {
 		let mut this = Self::new();
-		v.into_iter().for_each(|item| {
+		for item in v {
 			let _ = this.insert(item);
-		});
+		}
 		this
 	}
 }
 
+#[allow(clippy::too_many_lines)]
 fn key() -> impl Strategy<Value = Key> {
 	prop_oneof![
 		Just(Key::Alt),
@@ -228,6 +229,7 @@ fn mode_option() -> impl Strategy<Value = Option<Mode>> {
 	prop_oneof![Just(None), mode().prop_map(Some)]
 }
 
+#[allow(clippy::too_many_lines)]
 fn role() -> impl Strategy<Value = Role> {
 	prop_oneof![
 		Just(Role::Invalid),
@@ -468,7 +470,7 @@ proptest! {
 		EventType::KeyPress(key) | EventType::KeyRelease(key) => {
 		    let ev2 = event.clone();
 		    if !all_grabbable_keys.contains(&key) && !caps_held {
-			assert_eq!(callback(event, &mut state), Some(ev2), "{:?} is not in the grabale key list, but it still was captured!", key);
+			assert_eq!(callback(event, &mut state), Some(ev2), "{key:?} is not in the grabale key list, but it still was captured!");
 		    } else {
 			let _ = callback(event, &mut state);
 		    }
@@ -497,9 +499,8 @@ proptest! {
 	(events, _size) in events(),
 	(mut state, _rx) in state(),
     ) {
-	events.into_iter()
-	    .for_each(|ev| {
-		callback(ev, &mut state);
-	    });
+			for ev in events {
+				callback(ev, &mut state);
+			}
 		}
 }
