@@ -70,15 +70,16 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
-      - name: Install Dependencies
-        run: sudo apt -y install musl-dev
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          target: ${{ matrix.target }}
       - name: Cross Compile for ${{ matrix.target }}
-        run: cargo build --workspace --target ${{ matrix.target }}
+        uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          target: ${{ matrix.platform }}
+          args: --locked --workspace
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
