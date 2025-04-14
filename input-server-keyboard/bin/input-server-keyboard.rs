@@ -1,6 +1,21 @@
+//! `odilia-input-method-keyboard`
+//!
+//! Control the Odilia screen reader with your keyboard.
+//! This crate uses the `evdev` kernel interface to work anywhere with physical keyboard access (virtual keyboards are not supported).
+//! To use it, you must be a part of your system's `input`, `evdev`, or `plugdev` group (depending on distributions).
+#![deny(
+	clippy::all,
+	clippy::pedantic,
+	clippy::print_stdout,
+	clippy::print_stderr,
+	missing_docs,
+	rustdoc::all,
+	clippy::missing_docs_in_private_items
+)]
+
 use nix::unistd::Uid;
 use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
-use odilia_input_server_keyboard::*;
+use odilia_input_server_keyboard::{callback, ComboSets, State};
 use rdev::grab;
 use std::{
 	env,
@@ -36,20 +51,22 @@ fn get_file_paths() -> (PathBuf, PathBuf) {
 		}
 	}
 }
-fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
+
+/// Takes a [`Receiver`] and blocks forever waiting on results from it.
+/// When it receives an event, it sends it over the unix socket to notify Odilia.
+fn handle_events_to_socket(rx: &Receiver<OdiliaEvent>) -> Result<(), std::io::Error> {
 	let (_pid_path, sock_path) = get_file_paths();
-	println!("SOCK PATH: {sock_path:?}");
-	let Ok(mut stream) = UnixStream::connect(&sock_path) else {
-		panic!("Unable to connect to stream {:?}", sock_path);
-	};
-	for event in rx.iter() {
+	tracing::debug!("Socket path: {sock_path:?}");
+	let mut stream = UnixStream::connect(&sock_path)?;
+	for event in rx {
 		let val = serde_json::to_string(&event)
 			.expect("Should be able to serialize any event!");
-		stream.write_all(val.as_bytes()).expect("Able to write to stream!");
+		stream.write_all(val.as_bytes())?;
 	}
+	Ok(())
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// syncronous, bounded channel
 	// NOTE: this will _block the input thread_ if events are not removed from it often.
 	// This _should_ never be a problem, because two threads are running, but you never know.
@@ -66,8 +83,9 @@ fn main() {
 	let _ = thread::spawn(move || {
 		// This will block.
 		if let Err(error) = grab(callback, state) {
-			println!("Error: {:?}", error)
+			tracing::error!("Error gravving keyboard: {error:?}");
 		}
 	});
-	handle_events_to_socket(ev_rx);
+	handle_events_to_socket(&ev_rx)?;
+	Ok(())
 }

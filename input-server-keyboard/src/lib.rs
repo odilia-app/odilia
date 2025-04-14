@@ -81,6 +81,7 @@
 	clippy::perf,
 	clippy::complexity,
 	clippy::style,
+	rustdoc::all,
 	clippy::print_stdout,
 	clippy::print_stderr
 )]
