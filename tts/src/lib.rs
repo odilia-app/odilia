@@ -15,7 +15,6 @@ use ssip_client_async::{
 use std::{
 	io::ErrorKind,
 	process::{exit, Command, Stdio},
-	time,
 };
 use tokio::{
 	io::{BufReader, BufWriter},
