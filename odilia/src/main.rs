@@ -82,7 +82,7 @@ fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
 	)?;
 	let child = match found.next() {
 		None => {
-			return Err(Report::msg(format!("Unable to find {} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!", bin_name)));
+			return Err(Report::msg(format!("Unable to find {bin_name} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!")));
 		}
 		Some(path) => {
 			tracing::info!("Input server path: {:?}", path);
@@ -127,7 +127,7 @@ async fn sigterm_signal_watcher(
 	tracing::debug!("Asking all processes to stop.");
 	(*state.children_pids.lock().expect("Able to lock mutex!"))
 		.iter_mut()
-		.try_for_each(|child| child.kill())
+		.try_for_each(Child::kill)
 		.expect("Able to kill child processes");
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
