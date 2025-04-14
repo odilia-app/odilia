@@ -1,24 +1,24 @@
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
 	"apt update",
-	"apt install -y libevdev-dev linux-headers",
+	"apt install -y libevdev-dev linux-headers-generic",
 ]
 
 [target.aarch64-unknown-linux-musl]
 pre-build = [
 	"apt update",
-	"apt install -y libevdev-dev linux-headers",
+	"apt install -y libevdev-dev linux-headers-generic",
 ]
 
 [target.x86_64-unknown-linux-gnu]
 pre-build = [
 	"apt update",
-	"apt install -y libevdev-dev linux-headers",
+	"apt install -y libevdev-dev linux-headers-generic",
 ]
 
 [target.x86_64-unknown-linux-musl]
 pre-build = [
 	"apt update",
-	"apt install -y libevdev-dev linux-headers",
+	"apt install -y libevdev-dev linux-headers-generic",
 ]
 
