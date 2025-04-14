@@ -48,7 +48,6 @@ pub async fn create_ssip_client(
 					tracing::debug!(
 						"Attempting to connect to speech-dispatcher again!"
 					);
-					tokio::time::sleep(time::Duration::from_secs(1)).await;
 					Builder::default().build().await?
 				} else {
 					tracing::debug!("Speech dispatcher could not be started.");
