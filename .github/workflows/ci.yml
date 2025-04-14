@@ -78,8 +78,8 @@ jobs:
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
-          target: ${{ matrix.platform }}
-          args: --locked --workspace
+          target: ${{ matrix.target }}
+          args: "--locked --workspace"
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
