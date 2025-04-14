@@ -402,8 +402,9 @@ impl ComboSet {
 	}
 }
 
+#[allow(dead_code)]
 impl ComboSet {
-	fn iter(&self) -> std::slice::Iter<'a, (KeySet, OdiliaEvent)> {
+	fn iter(&self) -> std::slice::Iter<'_, (KeySet, OdiliaEvent)> {
 		<&Self as IntoIterator>::into_iter(self)
 	}
 }
