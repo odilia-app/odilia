@@ -402,6 +402,12 @@ impl ComboSet {
 	}
 }
 
+impl ComboSet {
+	fn iter(&self) -> std::slice::Iter<'a, (KeySet, OdiliaEvent)> {
+		<&Self as IntoIterator>::into_iter(self)
+	}
+}
+
 impl IntoIterator for ComboSet {
 	type IntoIter = <Vec<Self::Item> as IntoIterator>::IntoIter;
 	type Item = (KeySet, OdiliaEvent);
