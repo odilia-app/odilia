@@ -4,9 +4,10 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
-	unsafe_code
+	unsafe_code,
+	clippy::print_stdout,
+	clippy::print_stderr
 )]
-#![allow(clippy::multiple_crate_versions)]
 
 mod cli;
 mod logging;
