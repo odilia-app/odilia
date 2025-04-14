@@ -410,13 +410,6 @@ impl IntoIterator for ComboSet {
 	}
 }
 
-impl ComboSet {
-	/// Iterate over the items in [`ComboSet`].
-	pub fn iter(&self) -> std::slice::Iter<'_, (KeySet, OdiliaEvent)> {
-		<&Self as IntoIterator>::into_iter(self)
-	}
-}
-
 impl<'a> IntoIterator for &'a ComboSet {
 	type IntoIter = std::slice::Iter<'a, (KeySet, OdiliaEvent)>;
 	type Item = &'a (KeySet, OdiliaEvent);
