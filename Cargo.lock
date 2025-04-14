@@ -1909,8 +1909,6 @@ dependencies = [
  "eyre",
  "figment",
  "futures",
- "futures-concurrency",
- "futures-lite",
  "lazy_static",
  "odilia-cache",
  "odilia-common",
@@ -1920,11 +1918,8 @@ dependencies = [
  "odilia-tts",
  "pin-project",
  "refinement",
- "serde_json",
- "serde_plain",
  "ssip",
  "ssip-client-async",
- "static_assertions",
  "tokio",
  "tokio-test",
  "tokio-util",
@@ -1934,7 +1929,6 @@ dependencies = [
  "tracing",
  "tracing-error",
  "tracing-journald",
- "tracing-log 0.1.4",
  "tracing-subscriber",
  "tracing-tree",
  "which",
@@ -1971,7 +1965,6 @@ dependencies = [
  "atspi",
  "atspi-common",
  "atspi-proxies",
- "bitflags 2.9.0",
  "enum_dispatch",
  "figment",
  "futures",
@@ -1985,8 +1978,6 @@ dependencies = [
  "tracing",
  "xdg",
  "zbus",
- "zbus-lockstep",
- "zbus-lockstep-macros",
  "zvariant",
 ]
 
@@ -1995,10 +1986,8 @@ name = "odilia-input"
 version = "0.0.3"
 dependencies = [
  "eyre",
- "lazy_static",
  "nix",
  "odilia-common",
- "once_cell",
  "serde_json",
  "sysinfo",
  "tokio",
@@ -2017,7 +2006,6 @@ dependencies = [
  "rdev",
  "serde_json",
  "tracing",
- "zbus",
 ]
 
 [[package]]
@@ -2028,7 +2016,6 @@ dependencies = [
  "itertools 0.12.1",
  "notify-rust",
  "serde",
- "serde_repr",
  "thiserror 2.0.12",
  "tokio",
  "tracing",
@@ -2041,20 +2028,12 @@ name = "odilia-tower"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
- "atspi",
- "atspi-common",
  "futures",
- "futures-concurrency",
- "odilia-cache",
  "odilia-common",
  "pin-project",
  "ssip",
  "static_assertions",
- "tokio",
  "tower 0.5.2",
- "tower-iter",
- "tracing",
- "zbus",
 ]
 
 [[package]]
@@ -2062,7 +2041,6 @@ name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
  "eyre",
- "ssip",
  "ssip-client-async",
  "tokio",
  "tokio-util",
