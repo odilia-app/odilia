@@ -80,6 +80,8 @@ jobs:
           command: build
           target: ${{ matrix.target }}
           args: "--locked --workspace"
+          # force use container, otherwise you need host tools when building x86_64
+          force-use-cross: true
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
