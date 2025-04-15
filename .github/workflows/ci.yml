@@ -52,7 +52,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl, riscv64gc-unknown-linux-gnu, riscv64gc-unknown-linux-musl]
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
@@ -70,17 +70,13 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
       - name: Cross Compile for ${{ matrix.target }}
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           target: ${{ matrix.target }}
           args: "--locked --workspace"
-          # force use container, otherwise you need host tools when building x86_64
+          # force use container, otherwise you need host tools when building same-architecture targets
           force-use-cross: true
   deny:
     runs-on: ubuntu-latest
