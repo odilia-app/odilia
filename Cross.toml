@@ -1,5 +1,8 @@
 [build]
 pre-build = [
 	"apt update",
-	"apt install -y libevdev-dev linux-headers-generic python",
+	# libevdev-dev for `evdev` headers
+	# linux-header-generic for access to linux/types.h (also required for evdev)
+	# clang for rust compiler
+	"apt install -y libevdev-dev linux-headers-generic clang",
 ]
