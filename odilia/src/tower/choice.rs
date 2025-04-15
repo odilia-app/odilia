@@ -10,6 +10,7 @@ use odilia_common::{
 		OdiliaCommandDiscriminants as CommandDiscriminants,
 	},
 	errors::OdiliaError,
+	events::{EventType, EventTypeDynamic, ScreenReaderEvent, ScreenReaderEventDiscriminants},
 };
 use std::collections::{btree_map::Entry, BTreeMap};
 use std::fmt::Debug;
@@ -109,6 +110,14 @@ where
 		C::CTYPE
 	}
 }
+impl<E> ChooserStatic<ScreenReaderEventDiscriminants> for E
+where
+	E: EventType,
+{
+	fn identifier() -> ScreenReaderEventDiscriminants {
+		E::ETYPE
+	}
+}
 
 impl Chooser<(&'static str, &'static str)> for Event {
 	fn identifier(&self) -> (&'static str, &'static str) {
@@ -118,5 +127,10 @@ impl Chooser<(&'static str, &'static str)> for Event {
 impl Chooser<CommandDiscriminants> for Command {
 	fn identifier(&self) -> CommandDiscriminants {
 		self.ctype()
+	}
+}
+impl Chooser<ScreenReaderEventDiscriminants> for ScreenReaderEvent {
+	fn identifier(&self) -> ScreenReaderEventDiscriminants {
+		self.etype()
 	}
 }
