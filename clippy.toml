@@ -1,0 +1,1 @@
+allowed-duplicate-crates = ["windows-sys", "wasi", "rustix", "regex-syntax", "regex-automata", "linux-raw-sys", "thiserror-impl", "thiserror", "nu-ansi-term", "hashbrown", "getrandom", "event-listener", "async-channel"]

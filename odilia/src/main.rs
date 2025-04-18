@@ -4,21 +4,30 @@
 	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
-	unsafe_code
+	unsafe_code,
+	clippy::print_stdout,
+	clippy::print_stderr
 )]
-#![allow(clippy::multiple_crate_versions)]
 
 mod cli;
 mod logging;
 mod state;
 mod tower;
 
-use std::{fmt::Write, fs, path::PathBuf, process::exit, sync::Arc, time::Duration};
+use std::{
+	fmt::Write,
+	fs,
+	path::PathBuf,
+	process::{exit, Child, Command as ProcCommand},
+	sync::Arc,
+	time::Duration,
+};
 
 use crate::cli::Args;
 use crate::state::AccessibleHistory;
 use crate::state::Command;
 use crate::state::CurrentCaretPos;
+use crate::state::InputEvent;
 use crate::state::LastCaretPos;
 use crate::state::LastFocused;
 use crate::state::ScreenReaderState;
@@ -27,7 +36,7 @@ use crate::tower::Handlers;
 use crate::tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet};
 use atspi::RelationType;
 use clap::Parser;
-use eyre::WrapErr;
+use eyre::{Report, WrapErr};
 use figment::{
 	providers::{Format, Serialized, Toml},
 	Figment,
@@ -36,7 +45,8 @@ use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
 	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
 	errors::OdiliaError,
-	settings::ApplicationConfig,
+	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
+	settings::{ApplicationConfig, InputMethod},
 };
 
 use odilia_notify::listen_to_dbus_notifications;
@@ -51,6 +61,37 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 use atspi_common::events::{document, object};
 use tracing::Instrument;
+
+/// Try to spawn the `odilia-input-server-*` binary.
+#[tracing::instrument]
+fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
+	let bin_name = format!(
+		"{}-{}",
+		"odilia-input-server",
+		match input {
+			InputMethod::Keyboard => "keyboard",
+			InputMethod::Custom(s) => &s,
+		}
+	);
+	if which::which(&bin_name).is_err() {
+		tracing::info!("Unable to find {bin_name} in $PATH; trying hardcoded paths.");
+	}
+	let mut found = which::which_in_global(
+		bin_name.clone(),
+		Some("./target/debug/:./target/release/"),
+	)?;
+	let child = match found.next() {
+		None => {
+			return Err(Report::msg(format!("Unable to find {bin_name} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!")));
+		}
+		Some(path) => {
+			tracing::info!("Input server path: {:?}", path);
+			ProcCommand::new(path).spawn()?
+		}
+	};
+	Ok(child)
+}
+
 #[tracing::instrument(skip(state, shutdown))]
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
@@ -78,11 +119,16 @@ async fn notifications_monitor(
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	tracker: TaskTracker,
+	state: Arc<ScreenReaderState>,
 ) -> eyre::Result<()> {
 	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
 	let mut c = signal(SignalKind::interrupt())?;
 	c.recv().instrument(tracing::debug_span!("Watching for Ctrl+C")).await;
 	tracing::debug!("Asking all processes to stop.");
+	(*state.children_pids.lock().expect("Able to lock mutex!"))
+		.iter_mut()
+		.try_for_each(Child::kill)
+		.expect("Able to kill child processes");
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
 	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
@@ -187,6 +233,21 @@ async fn new_caret_pos(
 	Ok(())
 }
 
+#[tracing::instrument(ret)]
+async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoCommands {
+	(Priority::Text, "Stop speech")
+}
+
+#[tracing::instrument(ret)]
+async fn structural_nav(InputEvent(sn): InputEvent<StructuralNavigation>) -> impl TryIntoCommands {
+	(Priority::Text, format!("Navigate to {}, {:?}", sn.1, sn.0))
+}
+
+#[tracing::instrument(ret)]
+async fn change_mode(InputEvent(cm): InputEvent<ChangeMode>) -> impl TryIntoCommands {
+	(Priority::Text, format!("{:?} mode", cm.0))
+}
+
 #[tracing::instrument(ret, err)]
 async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
@@ -250,6 +311,7 @@ async fn main() -> eyre::Result<()> {
 	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
 	let (mut ev_tx, ev_rx) =
 		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
+	let (input_tx, input_rx) = mpsc::channel::<ScreenReaderEvent>(255);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
@@ -280,7 +342,11 @@ async fn main() -> eyre::Result<()> {
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
-		.atspi_listener(unfocused);
+		.atspi_listener(unfocused)
+		.input_listener(stop_speech)
+		.input_listener(change_mode)
+		.input_listener(structural_nav);
+
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
 			.map(|r| r.wrap_err("Could no process SSIP request"));
@@ -302,14 +368,23 @@ async fn main() -> eyre::Result<()> {
 			}
 		}
 	};
-	let atspi_handlers_task = handlers.atspi_handler(ev_rx);
+	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
+	let listener = odilia_input::setup_input_server()
+		.await
+		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
+	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
+	let input_handler = handlers.input_handler(input_rx);
+	let child = try_spawn_input_server(&state.config.input.method)?;
+	state.add_child_proc(child).expect("Able to add child to process!");
 
 	tracker.spawn(ssip_event_receiver);
 	tracker.spawn(notification_task);
 	tracker.spawn(atspi_handlers_task);
 	tracker.spawn(event_send_task);
+	tracker.spawn(input_task);
+	tracker.spawn(input_handler);
 	tracker.close();
-	let _ = sigterm_signal_watcher(token, tracker)
+	let _ = sigterm_signal_watcher(token, tracker, Arc::clone(&state))
 		.await
 		.wrap_err("can not process interrupt signal");
 	Ok(())

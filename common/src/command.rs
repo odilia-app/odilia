@@ -3,6 +3,7 @@
 use crate::cache::AccessiblePrimitive;
 use crate::errors::OdiliaError;
 use enum_dispatch::enum_dispatch;
+use serde::{Deserialize, Serialize};
 use ssip::Priority;
 use std::array::IntoIter;
 use std::convert::Infallible;
@@ -146,26 +147,28 @@ impl<T: CommandType> CommandTypeDynamic for T {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CaretPos(pub usize);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Speak(pub String, pub Priority);
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
 
-impl CommandType for Speak {
-	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::Speak;
-}
-impl CommandType for Focus {
-	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::Focus;
-}
-impl CommandType for CaretPos {
-	const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::CaretPos;
+macro_rules! impl_command_type {
+	($type:ty, $disc:ident) => {
+		impl CommandType for $type {
+			const CTYPE: OdiliaCommandDiscriminants = OdiliaCommandDiscriminants::$disc;
+		}
+	};
 }
 
-#[derive(Debug, Clone, EnumDiscriminants, PartialEq, Eq)]
+impl_command_type!(Focus, Focus);
+impl_command_type!(Speak, Speak);
+impl_command_type!(CaretPos, CaretPos);
+
+#[derive(Debug, Clone, EnumDiscriminants, Serialize, Deserialize, Eq, PartialEq)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
 #[enum_dispatch(CommandTypeDynamic)]
 pub enum OdiliaCommand {
