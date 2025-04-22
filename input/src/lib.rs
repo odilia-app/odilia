@@ -22,7 +22,11 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::{fs, net::unix::SocketAddr, net::UnixListener, net::UnixStream, sync::mpsc::Sender};
+use tokio::{
+	fs,
+	net::{unix::SocketAddr, UnixListener, UnixStream},
+	sync::mpsc::Sender,
+};
 use tokio_util::sync::CancellationToken;
 
 #[tracing::instrument(ret)]

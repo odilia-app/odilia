@@ -56,7 +56,7 @@ fn get_file_paths() -> (PathBuf, PathBuf) {
 /// When it receives an event, it sends it over the unix socket to notify Odilia.
 fn handle_events_to_socket(rx: &Receiver<OdiliaEvent>) -> Result<(), std::io::Error> {
 	let (_pid_path, sock_path) = get_file_paths();
-	tracing::debug!("Socket path: {sock_path:?}");
+	tracing::debug!(?sock_path, "This is the socket path we recieved");
 	let mut stream = UnixStream::connect(&sock_path)?;
 	for event in rx {
 		let val = serde_json::to_string(&event)
@@ -83,7 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	let _ = thread::spawn(move || {
 		// This will block.
 		if let Err(error) = grab(callback, state) {
-			tracing::error!("Error gravving keyboard: {error:?}");
+			tracing::error!("Error grabbing keyboard: {error:?}");
 		}
 	});
 	handle_events_to_socket(&ev_rx)?;
