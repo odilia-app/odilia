@@ -1,8 +1,8 @@
-[build]
-pre-build = [
-	"apt update",
-	# libevdev-dev for `evdev` headers
-	# linux-header-generic for access to linux/types.h (also required for evdev)
-	# clang for rust compiler
-	"apt install -y libevdev-dev linux-headers-generic clang",
-]
+[target.aarch64-unknown-linux-musl]
+dockerfile = "podman/aarch64-unknown-linux-musl.Containerfile"
+[target.aarch64-unknown-linux-gnu]
+dockerfile = "podman/aarch64-unknown-linux-gnu.Containerfile"
+[target.x86_64-unknown-linux-musl]
+dockerfile = "podman/x86_64-unknown-linux-musl.Containerfile"
+[target.x86_64-unknown-linux-gnu]
+dockerfile = "podman/x86_64-unknown-linux-gnu.Containerfile"

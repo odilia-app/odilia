@@ -40,6 +40,13 @@ cd odilia && \
 cargo install --path odilia
 ```
 
+## Cross-Compiling
+
+Odilia can be cross-compiled with `cross`.
+
+We recommend the rootless, `podman` container engine to use do so.
+To accomplish this, set the `CROSS_CONTAINER_ENGINE=podman` environment variable when using `cross` with Odilia.
+
 ## Running
 
 Simply type `odilia` in your terminal!
