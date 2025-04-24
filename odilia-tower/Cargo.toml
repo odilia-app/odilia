@@ -10,21 +10,13 @@ keywords = ["accessibility", "tower"]
 readme = "README.md"
 
 [dependencies]
-atspi.workspace = true
-atspi-common.workspace = true
 futures.workspace = true
-futures-concurrency.workspace = true
-odilia-cache.workspace = true
 odilia-common.workspace = true
 pin-project.workspace = true 
 static_assertions = "1.1.0"
-tokio.workspace = true
 tower.workspace = true
-tower-iter = { path = "../tower-iter/", version = "0.1.0" }
-tracing.workspace = true
-zbus.workspace = true
 
 [dev-dependencies]
 assert_matches = "1.5.0"
 futures = { workspace = true, features = ["executor"] }
-ssip = "0.2.0"
+ssip.workspace = true

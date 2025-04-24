@@ -2,7 +2,6 @@ use crate::command::OdiliaCommand;
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
-use smartstring::alias::String as SmartString;
 use std::{error::Error, fmt, str::FromStr};
 
 #[derive(Debug)]
@@ -196,13 +195,13 @@ pub enum KeyFromStrError {
 	#[error("Empty key")]
 	EmptyKey,
 	#[error("Invalid key: {0:?}")]
-	InvalidKey(SmartString),
+	InvalidKey(String),
 	#[error("Invalid repeat: {0:?}")]
-	InvalidRepeat(SmartString),
+	InvalidRepeat(String),
 	#[error("Invalid modifier: {0:?}")]
-	InvalidModifier(SmartString),
+	InvalidModifier(String),
 	#[error("Invalid mode: {0:?}")]
-	InvalidMode(SmartString),
+	InvalidMode(String),
 }
 
 #[derive(Debug, Clone, Copy, thiserror::Error)]

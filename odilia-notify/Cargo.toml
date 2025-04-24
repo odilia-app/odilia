@@ -16,10 +16,10 @@ edition = "2021"
 futures.workspace=true
 itertools = "0.12.1"
 serde.workspace=true
-serde_repr = "0.1.18"
 thiserror.workspace = true
 tokio.workspace=true
 tracing.workspace=true
 zbus.workspace=true
 [dev-dependencies]
 notify-rust = "4.10.0"
+tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }

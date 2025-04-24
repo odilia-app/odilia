@@ -27,11 +27,20 @@ use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::{CacheError, OdiliaError},
+	events::EventType,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
 	Result as OdiliaResult,
 };
+use std::fmt;
+use std::process::Child;
 use std::sync::Arc;
+
+impl Debug for ScreenReaderState {
+	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+		fmt.debug_struct("State").finish_non_exhaustive()
+	}
+}
 
 #[allow(clippy::module_name_repetitions)]
 pub(crate) struct ScreenReaderState {
@@ -42,6 +51,8 @@ pub(crate) struct ScreenReaderState {
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache: Arc<Cache>,
+	pub config: Arc<ApplicationConfig>,
+	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
@@ -72,6 +83,22 @@ pub struct Speech(pub Sender<SSIPRequest>);
 pub struct Command<T>(pub T)
 where
 	T: CommandType;
+
+#[derive(Debug)]
+pub struct InputEvent<T>(pub T)
+where
+	T: EventType;
+
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for InputEvent<E>
+where
+	E: EventType + Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<InputEvent<E>, Self::Error>>;
+	fn try_from_state(_state: Arc<ScreenReaderState>, i_ev: E) -> Self::Future {
+		ok(InputEvent(i_ev))
+	}
+}
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
 where
@@ -207,6 +234,8 @@ impl ScreenReaderState {
 			accessible_history,
 			event_history,
 			cache,
+			config: Arc::new(config),
+			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
 	}
 	#[tracing::instrument(level = "debug", skip(self), err)]
@@ -411,6 +440,12 @@ impl ScreenReaderState {
 			.interface("org.a11y.atspi.Cache")?
 			.build();
 		self.dbus.add_match_rule(cache_rule).await?;
+		Ok(())
+	}
+	#[tracing::instrument(skip_all, err)]
+	pub fn add_child_proc(&self, child: Child) -> OdiliaResult<()> {
+		let mut children = self.children_pids.lock()?;
+		children.push(child);
 		Ok(())
 	}
 }

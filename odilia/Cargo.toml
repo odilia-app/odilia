@@ -42,13 +42,10 @@ odilia-cache.workspace = true
 odilia-input = { path = "../input", version = "0.0.3" }
 odilia-tts = { path = "../tts", version = "0.1.4" }
 odilia-tower = { path = "../odilia-tower/", version = "0.1.0" }
-serde_json.workspace = true
-serde_plain.workspace = true
-ssip-client-async = { version = "0.14.0", features = ["tokio"] }
+ssip-client-async.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 tower.workspace = true
 tracing-error.workspace = true
-tracing-log.workspace = true
 tracing-subscriber.workspace = true
 tracing-tree.workspace = true
 tracing.workspace = true
@@ -60,15 +57,13 @@ tokio-util.workspace=true
 toml = "0.8.11"
 figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
-ssip = "0.2.0"
-futures-lite = "2.3.0"
+ssip.workspace = true
 pin-project.workspace = true
-static_assertions = "1.1.0"
-futures-concurrency.workspace = true
 console-subscriber = { version = "0.4.0", optional = true }
 refinement = "0.5.0"
 derived-deref = "2.1.0"
 tower-iter = { version = "0.1", path = "../tower-iter/" }
+which = "7.0.2"
 
 [dev-dependencies]
 lazy_static = "1.4.0"
