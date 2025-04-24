@@ -10,6 +10,8 @@ on:
       - reopened
       - synchronize
       - ready_for_review
+env:
+  CROSS_CONTAINER_ENGINE: 'podman'
 jobs:
   test:
     runs-on: ubuntu-latest
