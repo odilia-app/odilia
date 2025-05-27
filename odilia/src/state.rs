@@ -16,7 +16,7 @@ use zbus::{
 };
 
 use atspi_common::{
-	events::{EventProperties, HasMatchRule, HasRegistryEventString},
+	events::{DBusMatchRule, EventProperties, RegistryEventString},
 	Event,
 };
 use atspi_connection::AccessibilityConnection;
@@ -337,14 +337,14 @@ impl ScreenReaderState {
 		Ok(text_selection)
 	}
 	#[tracing::instrument(skip_all, err)]
-	pub async fn register_event<E: HasRegistryEventString + HasMatchRule>(
+	pub async fn register_event<E: RegistryEventString + DBusMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
 		Ok(self.atspi.register_event::<E>().await?)
 	}
 
 	#[allow(dead_code)]
-	pub async fn deregister_event<E: HasRegistryEventString + HasMatchRule>(
+	pub async fn deregister_event<E: RegistryEventString + DBusMatchRule>(
 		&self,
 	) -> OdiliaResult<()> {
 		Ok(self.atspi.deregister_event::<E>().await?)

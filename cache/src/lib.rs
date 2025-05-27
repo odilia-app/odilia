@@ -644,7 +644,7 @@ impl Cache {
 		} else {
 			match parent_id.children(&cache).nth(sibling_index) {
 				Some(left_sibling) => {
-					left_sibling.checked_insert_after(id, &mut cache)?
+					left_sibling.checked_insert_after(id, &mut cache)?;
 				}
 				// TODO: what should this error be called?
 				// This happens when the sibling to attach the node to doesn't exist.

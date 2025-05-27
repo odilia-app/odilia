@@ -9,7 +9,6 @@ use crate::tower::{
 	Handler, ServiceExt as OdiliaServiceExt,
 };
 use atspi::AtspiError;
-use atspi::BusProperties;
 use atspi::Event;
 use atspi::EventProperties;
 use atspi::EventTypeProperties;
@@ -184,7 +183,7 @@ impl Handlers {
 		<H as Handler<T>>::Future: Send,
 		E: EventTypeProperties
 			+ Debug
-			+ BusProperties
+			+ EventProperties
 			+ TryFrom<Event>
 			+ EventProperties
 			+ ChooserStatic<(&'static str, &'static str)>

@@ -1,6 +1,8 @@
 use atspi_common::{
-	events::object::StateChangedEvent, events::MessageConversion, AtspiError, EventProperties,
-	State as AtspiState,
+	events::object::StateChangedEvent,
+	events::MessageConversion,
+	events::{DBusInterface, DBusMatchRule, DBusMember, DBusProperties, RegistryEventString},
+	AtspiError, EventProperties, EventTypeProperties, State as AtspiState,
 };
 use derived_deref::{Deref, DerefMut};
 use refinement::Predicate;
@@ -24,33 +26,76 @@ impl<S, E> EventProperties for StateChanged<S, E> {
 		self.ev.path()
 	}
 }
-impl<S, E> atspi::BusProperties for StateChanged<S, E>
+impl<S, E> EventTypeProperties for StateChanged<S, E> {
+	fn member(&self) -> &'static str {
+		self.ev.member()
+	}
+	fn interface(&self) -> &'static str {
+		self.ev.interface()
+	}
+	fn match_rule(&self) -> &'static str {
+		self.ev.match_rule()
+	}
+	fn registry_string(&self) -> &'static str {
+		self.ev.registry_string()
+	}
+}
+
+impl<S, E> DBusMember for StateChanged<S, E>
 where
 	StateChanged<S, E>: TryFrom<StateChangedEvent>,
 {
 	const DBUS_MEMBER: &'static str = StateChangedEvent::DBUS_MEMBER;
-	const DBUS_INTERFACE: &'static str = StateChangedEvent::DBUS_INTERFACE;
-	const MATCH_RULE_STRING: &'static str = StateChangedEvent::MATCH_RULE_STRING;
-	const REGISTRY_EVENT_STRING: &'static str = StateChangedEvent::REGISTRY_EVENT_STRING;
 }
-impl<S, E> MessageConversion for StateChanged<S, E>
+impl<S, E> DBusInterface for StateChanged<S, E>
 where
 	StateChanged<S, E>: TryFrom<StateChangedEvent>,
 {
-	type Body = <StateChangedEvent as MessageConversion>::Body;
-	fn from_message_unchecked(msg: &zbus::Message) -> Result<Self, AtspiError> {
-		Self::from_message_unchecked_parts(msg.try_into()?, msg.body().deserialize()?)
+	const DBUS_INTERFACE: &'static str = StateChangedEvent::DBUS_INTERFACE;
+}
+impl<S, E> DBusMatchRule for StateChanged<S, E>
+where
+	StateChanged<S, E>: TryFrom<StateChangedEvent>,
+{
+	const MATCH_RULE_STRING: &'static str = StateChangedEvent::MATCH_RULE_STRING;
+}
+impl<S, E> RegistryEventString for StateChanged<S, E>
+where
+	StateChanged<S, E>: TryFrom<StateChangedEvent>,
+{
+	const REGISTRY_EVENT_STRING: &'static str = StateChangedEvent::REGISTRY_EVENT_STRING;
+}
+
+impl<S, E> DBusProperties for StateChanged<S, E> where StateChanged<S, E>: TryFrom<StateChangedEvent>
+{}
+
+impl<'b, S, E> MessageConversion<'b> for StateChanged<S, E>
+where
+	StateChanged<S, E>: TryFrom<StateChangedEvent>,
+{
+	type Body<'msg>
+		= <StateChangedEvent as MessageConversion<'b>>::Body<'msg>
+	where
+		Self: 'msg;
+	fn from_message_unchecked(
+		msg: &zbus::Message,
+		header: &zbus::message::Header,
+	) -> Result<Self, AtspiError>
+	where
+		Self: Sized + 'b,
+	{
+		Self::from_message_unchecked_parts(header.try_into()?, msg.body())
 	}
 	fn from_message_unchecked_parts(
 		or: atspi::ObjectRef,
-		bdy: Self::Body,
+		bdy: zbus::message::Body,
 	) -> Result<Self, AtspiError> {
 		let ev = StateChangedEvent::from_message_unchecked_parts(or, bdy)?;
 		// TODO: we do not have an appropriate event type here; this should really be an OdiliaError.
 		// We may want to consider adding a type Error in the BusProperties impl.
 		Self::try_from(ev).map_err(|_| AtspiError::InterfaceMatch(String::new()))
 	}
-	fn body(&self) -> Self::Body {
+	fn body(&self) -> Self::Body<'_> {
 		self.ev.body()
 	}
 }

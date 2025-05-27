@@ -1,4 +1,7 @@
-use atspi::{BusProperties, Event, EventTypeProperties};
+use atspi::{
+	events::{DBusInterface, DBusMember},
+	Event, EventTypeProperties,
+};
 use futures::future::err;
 use futures::future::Either;
 use futures::future::ErrInto;
@@ -96,7 +99,7 @@ where
 
 impl<E> ChooserStatic<(&'static str, &'static str)> for E
 where
-	E: BusProperties,
+	E: DBusInterface + DBusMember,
 {
 	fn identifier() -> (&'static str, &'static str) {
 		(E::DBUS_INTERFACE, E::DBUS_MEMBER)
