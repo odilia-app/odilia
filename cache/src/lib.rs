@@ -21,12 +21,7 @@ pub use accessible_ext::AccessibleExt;
 
 use itertools::Itertools;
 use parking_lot::RwLock;
-use std::{
-	collections::HashMap,
-	fmt::Debug,
-	future::Future,
-	sync::{Arc, Weak},
-};
+use std::{collections::HashMap, fmt::Debug, future::Future, sync::Arc};
 
 use atspi_common::{
 	ClipType, CoordType, EventProperties, Granularity, InterfaceSet, RelationType, Role,
@@ -81,9 +76,6 @@ pub struct CacheItem {
 	pub text: String,
 	/// The children (ids) of the accessible
 	pub children: Vec<AccessiblePrimitive>,
-
-	#[serde(skip)]
-	pub cache: Weak<Cache>,
 }
 impl CacheItem {
 	/// Creates a `CacheItem` from an [`atspi::Event`] type.
@@ -94,56 +86,12 @@ impl CacheItem {
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub async fn from_atspi_event<T: EventProperties>(
+	pub async fn from_atspi_event<T: EventProperties, E: CacheSideEffect>(
 		event: &T,
-		cache: Arc<Cache>,
-		connection: &zbus::Connection,
+		external: &E,
 	) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event);
-		accessible_to_cache_item(
-			&a11y_prim.into_accessible(connection).await?,
-			Arc::downgrade(&cache),
-		)
-		.await
-	}
-	/// Convert an [`atspi::CacheItem`] into a [`crate::CacheItem`].
-	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
-	/// # Errors
-	/// This function can fail under the following conditions:
-	///
-	/// 1. The [`atspi::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
-	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi_proxies::accessible::AccessibleProxy`]. This should never happen.
-	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
-	///
-	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
-	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub async fn from_atspi_cache_item(
-		atspi_cache_item: atspi_common::CacheItem,
-		cache: Weak<Cache>,
-		connection: &zbus::Connection,
-	) -> OdiliaResult<Self> {
-		let children: Vec<AccessiblePrimitive> =
-			AccessiblePrimitive::from(atspi_cache_item.object.clone())
-				.into_accessible(connection)
-				.await?
-				.get_children()
-				.await?
-				.into_iter()
-				.map_into::<AccessiblePrimitive>()
-				.collect();
-		Ok(Self {
-			object: atspi_cache_item.object.into(),
-			app: atspi_cache_item.app.into(),
-			parent: atspi_cache_item.parent.into(),
-			index: atspi_cache_item.index.try_into().ok(),
-			children_num: atspi_cache_item.children.try_into().ok(),
-			interfaces: atspi_cache_item.ifaces,
-			role: atspi_cache_item.role,
-			states: atspi_cache_item.states,
-			text: atspi_cache_item.name,
-			cache,
-			children,
-		})
+		external.lookup_external(&a11y_prim).await
 	}
 	/// Convert an [`atspi::LegacyCacheItem`] into a [`crate::CacheItem`].
 	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
@@ -158,7 +106,6 @@ impl CacheItem {
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_legacy_cache_item(
 		atspi_cache_item: atspi_common::LegacyCacheItem,
-		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
 		let index: i32 = AccessiblePrimitive::from(atspi_cache_item.object.clone())
@@ -176,119 +123,104 @@ impl CacheItem {
 			role: atspi_cache_item.role,
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
-			cache,
 			children: atspi_cache_item.children.into_iter().map_into::<_>().collect(),
 		})
 	}
-	// Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
-	/// Get a `Vec` of children with the same type as `Self`.
-	/// # Errors
-	/// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
-	/// 2. Any children keys' values are not found in the cache itself.
-	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		let children = self
-			.children
-			.iter()
-			.map(|child_ref| derefed_cache.get(child_ref).ok_or(CacheError::NoItem))
-			.collect::<Result<Vec<_>, _>>()?;
-		Ok(children)
-	}
-}
-
-#[inline]
-#[tracing::instrument(level = "trace", ret, err)]
-async fn as_accessible(cache_item: &CacheItem) -> OdiliaResult<AccessibleProxy<'_>> {
-	let cache = strong_cache(&cache_item.cache)?;
-	Ok(cache_item.object.clone().into_accessible(&cache.connection).await?)
-}
-#[inline]
-#[tracing::instrument(level = "trace", ret, err)]
-async fn as_text(cache_item: &CacheItem) -> OdiliaResult<TextProxy<'_>> {
-	let cache = strong_cache(&cache_item.cache)?;
-	Ok(cache_item.object.clone().into_text(&cache.connection).await?)
-}
-
-#[inline]
-#[tracing::instrument(level = "trace", ret, err)]
-fn strong_cache(weak_cache: &Weak<Cache>) -> OdiliaResult<Arc<Cache>> {
-	Weak::upgrade(weak_cache).ok_or(OdiliaError::Cache(CacheError::NotAvailable))
+	/*
+	      // Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
+	      /// Get a `Vec` of children with the same type as `Self`.
+	      /// # Errors
+	      /// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
+	      /// 2. Any children keys' values are not found in the cache itself.
+	      #[tracing::instrument(level = "trace", skip_all, ret, err)]
+	      pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
+		      let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
+		      let children = self
+			      .children
+			      .iter()
+			      .map(|child_ref| derefed_cache.get(child_ref).ok_or(CacheError::NoItem))
+			      .collect::<Result<Vec<_>, _>>()?;
+		      Ok(children)
+	      }
+	*/
 }
 
 impl CacheItem {
-	/// See [`atspi_proxies::accessible::AccessibleProxy::get_application`]
-	/// # Errors
-	/// - [`CacheError::NoItem`] if application is not in cache
-	pub fn get_application(&self) -> Result<Self, OdiliaError> {
-		let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::parent`]
-	/// # Errors
-	/// - [`CacheError::NoItem`] if application is not in cache
-	pub fn parent(&self) -> Result<Self, OdiliaError> {
-		self.cache
-			.upgrade()
-			.ok_or::<OdiliaError>(CacheError::NotAvailable.into())?
-			.get(&self.parent)
-			.ok_or(CacheError::NoItem.into())
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
-	/// # Errors
-	/// - If the item is no longer available over the AT-SPI connection.
-	pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
-		Ok(as_accessible(self).await?.get_attributes().await?)
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::name`]
-	/// # Errors
-	/// - If the item is no longer available over the AT-SPI connection.
-	pub async fn name(&self) -> Result<String, OdiliaError> {
-		Ok(as_accessible(self).await?.name().await?)
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::locale`]
-	/// # Errors
-	/// - If the item is no longer available over the AT-SPI connection.
-	pub async fn locale(&self) -> Result<String, OdiliaError> {
-		Ok(as_accessible(self).await?.locale().await?)
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::description`]
-	/// # Errors
-	/// - If the item is no longer available over the AT-SPI connection.
-	pub async fn description(&self) -> Result<String, OdiliaError> {
-		Ok(as_accessible(self).await?.description().await?)
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::get_relation_set`]
-	/// # Errors
-	/// - If the item is no longer available over the AT-SPI connection.
-	/// - The items mentioned are not in the cache.
-	pub async fn get_relation_set(
-		&self,
-	) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
-		let cache = strong_cache(&self.cache)?;
-		let ipc_rs = as_accessible(self).await?.get_relation_set().await?;
-		let mut relations = Vec::new();
-		for (relation, object_pairs) in ipc_rs {
-			let mut cache_keys = Vec::new();
-			for object_pair in object_pairs {
-				let cached = cache.get_ipc(&object_pair.into()).await?;
-				cache_keys.push(cached);
-			}
-			relations.push((relation, cache_keys));
-		}
-		Ok(relations)
-	}
-	/// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
-	/// # Errors
-	/// - The items mentioned are not in the cache.
-	pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
-		self.get_children()?
-			.get(usize::try_from(idx)?)
-			.ok_or(CacheError::NoItem.into())
-			.cloned()
-	}
+	/*
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_application`]
+	      /// # Errors
+	      /// - [`CacheError::NoItem`] if application is not in cache
+	      pub fn get_application(&self) -> Result<Self, OdiliaError> {
+		      let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
+		      derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::parent`]
+	      /// # Errors
+	      /// - [`CacheError::NoItem`] if application is not in cache
+	      pub fn parent(&self) -> Result<Self, OdiliaError> {
+		      self.cache
+			      .upgrade()
+			      .ok_or::<OdiliaError>(CacheError::NotAvailable.into())?
+			      .get(&self.parent)
+			      .ok_or(CacheError::NoItem.into())
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
+	      /// # Errors
+	      /// - If the item is no longer available over the AT-SPI connection.
+	      pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
+		      Ok(as_accessible(self).await?.get_attributes().await?)
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::name`]
+	      /// # Errors
+	      /// - If the item is no longer available over the AT-SPI connection.
+	      pub async fn name(&self) -> Result<String, OdiliaError> {
+		      Ok(as_accessible(self).await?.name().await?)
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::locale`]
+	      /// # Errors
+	      /// - If the item is no longer available over the AT-SPI connection.
+	      pub async fn locale(&self) -> Result<String, OdiliaError> {
+		      Ok(as_accessible(self).await?.locale().await?)
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::description`]
+	      /// # Errors
+	      /// - If the item is no longer available over the AT-SPI connection.
+	      pub async fn description(&self) -> Result<String, OdiliaError> {
+		      Ok(as_accessible(self).await?.description().await?)
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_relation_set`]
+	      /// # Errors
+	      /// - If the item is no longer available over the AT-SPI connection.
+	      /// - The items mentioned are not in the cache.
+	      pub async fn get_relation_set(
+		      &self,
+	      ) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
+		      let cache = strong_cache(&self.cache)?;
+		      let ipc_rs = as_accessible(self).await?.get_relation_set().await?;
+		      let mut relations = Vec::new();
+		      for (relation, object_pairs) in ipc_rs {
+			      let mut cache_keys = Vec::new();
+			      for object_pair in object_pairs {
+				      let cached = cache.get_ipc(&object_pair.into()).await?;
+				      cache_keys.push(cached);
+			      }
+			      relations.push((relation, cache_keys));
+		      }
+		      Ok(relations)
+	      }
+	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
+	      /// # Errors
+	      /// - The items mentioned are not in the cache.
+	      pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
+		      self.get_children()?
+			      .get(usize::try_from(idx)?)
+			      .ok_or(CacheError::NoItem.into())
+			      .cloned()
+	      }
+	*/
 }
 
+/*
 impl CacheItem {
 	pub async fn add_selection(
 		&self,
@@ -540,6 +472,7 @@ impl CacheItem {
 		self.text.len()
 	}
 }
+*/
 
 /// An internal cache used within Odilia.
 ///
@@ -582,18 +515,54 @@ impl CacheExt for Arc<Cache> {
 			return Ok(ci);
 		}
 		let acc = id.clone().into_accessible(&self.connection).await?;
-		accessible_to_cache_item(&acc, Arc::downgrade(self)).await
+		accessible_to_cache_item(&acc).await
 	}
 	async fn item_from_event<T: EventProperties + Sync>(
 		&self,
 		ev: &T,
 	) -> OdiliaResult<CacheItem> {
 		let a11y_prim = AccessiblePrimitive::from_event(ev);
-		accessible_to_cache_item(
-			&a11y_prim.into_accessible(&self.connection).await?,
-			Arc::downgrade(self),
-		)
-		.await
+		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?).await
+	}
+}
+
+/// A method of performing I/O side-effects outside the cache itself.
+/// This is made an explicit trait such that we can either:
+///
+/// 1. Call out to DBus (production), or
+/// 2. Use a fixed set of items (testing).
+pub trait CacheSideEffect {
+	/// Lookup a given [`CacheKey`] that was not found in the cache..
+	fn lookup_external(
+		&self,
+		key: &CacheKey,
+	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
+}
+
+pub struct CacheEffectDBus {
+	connection: zbus::Connection,
+}
+impl CacheSideEffect for CacheEffectDBus {
+	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
+		let accessible = AccessibleProxy::builder(&self.connection)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			.path(key.id.clone())?
+			.build()
+			.await?;
+		accessible_to_cache_item(&accessible).await
+	}
+}
+
+pub struct CacheEffectFixedList {
+	items: HashMap<CacheKey, CacheItem>,
+}
+impl CacheSideEffect for CacheEffectFixedList {
+	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
+		Ok(self.items
+			.get(&key)
+			.ok_or::<OdiliaError>(CacheError::NoItem.into())?
+			.clone())
 	}
 }
 
@@ -731,7 +700,7 @@ impl Cache {
 	///
 	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
 	#[tracing::instrument(level = "trace", skip(modify), ret, err)]
-	pub fn modify_item<F>(&mut self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
+	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
 	{
@@ -759,23 +728,34 @@ impl Cache {
 	#[tracing::instrument(level = "debug", ret, err)]
 	pub async fn get_or_create(
 		&self,
-		accessible: &AccessibleProxy<'_>,
+		key: &AccessiblePrimitive,
+		connection: &zbus::Connection,
 		cache: Arc<Cache>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
-		let primitive = accessible.try_into()?;
-		if let Some(cache_item) = self.get(&primitive) {
+		if let Some(cache_item) = self.get(&key) {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
+		let accessible = AccessibleProxy::builder(connection)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			.path(key.id.clone())?
+			.build()
+			.await?;
 		let start = std::time::Instant::now();
-		let cache_item =
-			accessible_to_cache_item(accessible, Arc::downgrade(&cache)).await?;
+		let cache_item = accessible_to_cache_item(&accessible).await?;
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
-		// add a clone of it to the cache
-		self.add(cache_item.clone())?;
+		let parent_key = cache_item.parent.clone();
+		if let Err(OdiliaError::Cache(CacheError::MoreData)) = self.add(cache_item.clone())
+		{
+			Box::pin(async move {
+				self.get_or_create(&parent_key, connection, cache).await
+			})
+			.await?;
+		}
 		// return that same cache item
 		Ok(cache_item)
 	}
@@ -800,10 +780,7 @@ impl Cache {
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err)]
-pub async fn accessible_to_cache_item(
-	accessible: &AccessibleProxy<'_>,
-	cache: Weak<Cache>,
-) -> OdiliaResult<CacheItem> {
+pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
 		accessible.get_application(),
 		accessible.parent(),
@@ -832,6 +809,5 @@ pub async fn accessible_to_cache_item(
 		states,
 		text,
 		children: children.into_iter().map_into().collect(),
-		cache,
 	})
 }
