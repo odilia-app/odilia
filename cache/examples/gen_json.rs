@@ -17,9 +17,7 @@ use atspi::{
 	AccessibilityConnection,
 };
 use futures::future::try_join_all;
-use indextree::NodeId;
-use odilia_cache::{accessible_to_cache_item, Cache, CacheItem};
-use odilia_common::cache::AccessiblePrimitive;
+use odilia_cache::{Cache, CacheItem};
 use serde_json::to_string;
 use std::{collections::VecDeque, sync::Arc};
 use zbus::{proxy::CacheProperties, Connection};
@@ -45,8 +43,6 @@ impl BuildFromA11yProxy for Cache {
 
 		// If the stack has an `AccessibleProxy`, we take the last.
 		while let Some(ap) = stack.pop_front() {
-			let object = accessible_to_cache_item(&ap, Arc::downgrade(&cache)).await?;
-			let object_id = cache.add(object)?;
 			// Prevent obects with huge child counts from stalling the program.
 			if ap.child_count().await? > 65536 {
 				continue;
@@ -86,13 +82,9 @@ async fn main() -> Result<()> {
 	let conn = a11y.connection();
 	let registry = get_registry_accessible(conn).await?;
 
-	let no_children = registry.child_count().await?;
-
-	let now = std::time::Instant::now();
 	let tree = Cache::from_a11y_proxy(registry).await?;
-	let elapsed = now.elapsed();
 
-	let read_cache = tree.tree.read().expect("Able to lock RwLock!");
+	let read_cache = tree.tree.read();
 	// this makes sure that all parent nodes are listed first in the list
 	let output = read_cache
 		.iter()
