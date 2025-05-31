@@ -52,7 +52,7 @@ where
 	>;
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let ci = state.get_or_create_event_object_to_cache::<E>(&event).await?;
+			let ci = state.get_or_create::<E>(&event).await?;
 			<CacheItem as GetProperty<T>>::get_property(&ci).await
 		})
 	}

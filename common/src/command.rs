@@ -2,6 +2,7 @@
 
 use crate::cache::AccessiblePrimitive;
 use crate::errors::OdiliaError;
+use atspi::State;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use ssip::Priority;
@@ -54,6 +55,12 @@ pub trait IntoCommands {
 }
 
 impl IntoCommands for CaretPos {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self.into()].into_iter()
+	}
+}
+impl IntoCommands for SetState {
 	type Iter = IntoIter<OdiliaCommand, 1>;
 	fn into_commands(self) -> Self::Iter {
 		[self.into()].into_iter()
@@ -156,6 +163,9 @@ pub struct Speak(pub String, pub Priority);
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
 
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct SetState(pub AccessiblePrimitive, pub State, pub bool);
+
 macro_rules! impl_command_type {
 	($type:ty, $disc:ident) => {
 		impl CommandType for $type {
@@ -165,6 +175,7 @@ macro_rules! impl_command_type {
 }
 
 impl_command_type!(Focus, Focus);
+impl_command_type!(SetState, SetState);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
 
@@ -175,4 +186,5 @@ pub enum OdiliaCommand {
 	Speak(Speak),
 	Focus(Focus),
 	CaretPos(CaretPos),
+	SetState(SetState),
 }

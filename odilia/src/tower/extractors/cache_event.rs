@@ -71,17 +71,14 @@ where
 
 impl<E> TryFromState<Arc<ScreenReaderState>, E> for InnerEvent<E>
 where
-	E: EventProperties + Debug + Clone + Send + Unpin + 'static,
+	E: EventProperties + Debug + Clone + Send + Sync + Unpin + 'static,
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let a11y = AccessiblePrimitive::from_event(&event);
-			let proxy = a11y.into_accessible(state.connection()).await?;
-			let cache_item =
-				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
+			let cache_item = state.get_or_create(&event).await?;
 			Ok(InnerEvent::new(event, cache_item))
 		})
 	}
@@ -89,7 +86,7 @@ where
 
 impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for EventPredicate<E, P>
 where
-	E: EventProperties + Debug + Clone + Send + 'static,
+	E: EventProperties + Debug + Clone + Send + Sync + 'static,
 	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
 {
 	type Error = OdiliaError;
@@ -97,10 +94,7 @@ where
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let a11y = AccessiblePrimitive::from_event(&event);
-			let proxy = a11y.into_accessible(state.connection()).await?;
-			let cache_item =
-				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
+			let cache_item = state.get_or_create(&event).await?;
 			let cache_event = InnerEvent::new(event.clone(), cache_item);
 			EventPredicate::from_cache_event(cache_event, state).ok_or(
 				OdiliaError::PredicateFailure(format!(

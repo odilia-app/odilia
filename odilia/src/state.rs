@@ -22,7 +22,7 @@ use atspi_common::{
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use odilia_cache::Convertable;
-use odilia_cache::{AccessibleExt, Cache, CacheItem};
+use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
@@ -50,18 +50,27 @@ pub(crate) struct ScreenReaderState {
 	pub previous_caret_position: Arc<AtomicUsize>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
-	pub cache: Arc<Cache>,
+	pub cache: Arc<InnerCache>,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
+#[derive(Debug, Clone)]
+pub struct Cache(pub Arc<InnerCache>);
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
 		ok(AccessibleHistory(Arc::clone(&state.accessible_history)))
+	}
+}
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Cache {
+	type Error = OdiliaError;
+	type Future = Ready<Result<Self, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(Cache(Arc::clone(&state.cache)))
 	}
 }
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
@@ -183,7 +192,7 @@ impl ScreenReaderState {
 		let previous_caret_position = Arc::new(AtomicUsize::new(0));
 		let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Arc::new(Cache::new(atspi.connection().clone()));
+		let cache = Arc::new(InnerCache::new(atspi.connection().clone()));
 		ssip.send(SSIPRequest::SetPitch(
 			ssip_client_async::ClientScope::Current,
 			config.speech.pitch,
@@ -238,53 +247,15 @@ impl ScreenReaderState {
 			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
 	}
-	#[tracing::instrument(level = "debug", skip(self), err)]
-	pub async fn get_or_create_atspi_cache_item_to_cache(
-		&self,
-		atspi_cache_item: atspi_common::CacheItem,
-	) -> OdiliaResult<CacheItem> {
-		let prim = atspi_cache_item.object.clone().into();
-		if self.cache.get(&prim).is_none() {
-			self.cache.add(CacheItem::from_atspi_cache_item(
-				atspi_cache_item,
-				Arc::downgrade(&Arc::clone(&self.cache)),
-				self.atspi.connection(),
-			)
-			.await?)?;
-		}
-		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
-	}
-	#[tracing::instrument(level = "debug", skip(self), err)]
-	pub async fn get_or_create_atspi_legacy_cache_item_to_cache(
-		&self,
-		atspi_cache_item: atspi_common::LegacyCacheItem,
-	) -> OdiliaResult<CacheItem> {
-		let prim = atspi_cache_item.object.clone().into();
-		if self.cache.get(&prim).is_none() {
-			self.cache.add(CacheItem::from_atspi_legacy_cache_item(
-				atspi_cache_item,
-				Arc::downgrade(&Arc::clone(&self.cache)),
-				self.atspi.connection(),
-			)
-			.await?)?;
-		}
-		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
-	}
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
-	pub async fn get_or_create_event_object_to_cache<T: EventProperties>(
+	pub async fn get_or_create<T: EventProperties>(
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
 		let prim = AccessiblePrimitive::from_event(event);
-		if self.cache.get(&prim).is_none() {
-			self.cache.add(CacheItem::from_atspi_event(
-				event,
-				Arc::clone(&self.cache),
-				self.atspi.connection(),
-			)
-			.await?)?;
-		}
-		self.cache.get(&prim).ok_or(CacheError::NoItem.into())
+		self.cache
+			.get_or_create(&prim, self.atspi.connection(), Arc::clone(&self.cache))
+			.await
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
@@ -418,20 +389,6 @@ impl ScreenReaderState {
 			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
 			.build()
 			.await?)
-	}
-	#[allow(dead_code)]
-	pub async fn get_or_create_cache_item(
-		&self,
-		accessible: AccessiblePrimitive,
-	) -> OdiliaResult<CacheItem> {
-		let accessible_proxy = AccessibleProxy::builder(self.atspi.connection())
-			.destination(accessible.sender.as_str())?
-			.path(accessible.id.to_string())?
-			.build()
-			.await?;
-		self.cache
-			.get_or_create(&accessible_proxy, Arc::clone(&self.cache))
-			.await
 	}
 	#[tracing::instrument(skip_all, err)]
 	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {

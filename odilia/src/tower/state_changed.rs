@@ -10,7 +10,6 @@ use std::marker::PhantomData;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 pub type Focused = StateChanged<StateFocused, True>;
-pub type Unfocused = StateChanged<StateFocused, False>;
 
 #[derive(Debug, Default, Clone, Deref, DerefMut)]
 pub struct StateChanged<S, E> {
