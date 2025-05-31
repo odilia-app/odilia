@@ -135,8 +135,9 @@ jobs:
         with:
           toolchain: nightly
           components: clippy
-      - name: Run tests
-        run: cargo clippy --tests --workspace --no-deps -- -D warnings
+      - uses: taiki-e/install-action@cargo-hack
+      - name: Clippy hack
+        run: cargo hack --feature-powerset clippy --examples --tests --workspace --no-deps -- -D warnings
   rustfmt:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
