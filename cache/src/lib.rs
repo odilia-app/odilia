@@ -1,6 +1,3 @@
-// TODO: replace DashMap with RwLock<HashMap<...>>
-// the deadlocking behaviour is fucking irritating!
-
 #![deny(
 	clippy::all,
 	clippy::pedantic,
@@ -10,9 +7,6 @@
 	unsafe_code
 )]
 #![allow(clippy::multiple_crate_versions)]
-#![allow(clippy::missing_errors_doc)]
-#![allow(clippy::missing_panics_doc)]
-#![allow(clippy::too_many_arguments)]
 
 mod convertable;
 pub use convertable::Convertable;
@@ -21,7 +15,12 @@ pub use accessible_ext::AccessibleExt;
 
 use itertools::Itertools;
 use parking_lot::RwLock;
-use std::{collections::HashMap, fmt::Debug, future::Future, sync::Arc};
+use std::{
+	collections::{HashMap, VecDeque},
+	fmt::Debug,
+	future::Future,
+	sync::Arc,
+};
 
 use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
@@ -832,37 +831,42 @@ impl Cache {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
-		let accessible = AccessibleProxy::builder(connection)
-			.destination(key.sender.clone())?
-			.cache_properties(CacheProperties::No)
-			.path(key.id.clone())?
-			.build()
-			.await?;
-		let start = std::time::Instant::now();
-		let cache_item = accessible_to_cache_item(&accessible).await?;
-		let end = std::time::Instant::now();
-		let diff = end - start;
-		tracing::debug!("Time to create cache item: {:?}", diff);
-		if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
-			self.add(cache_item.clone())
-		{
-			for item in items {
-				let cache_clone = Arc::clone(&cache);
-				Box::pin(async move {
-					self.get_or_create(&item, connection, cache_clone).await
-				})
+		// NOTE: recursion CAN NOT be used here due to the size of some a11y trees and the size of
+		// async stack frames.
+		let mut stack: VecDeque<AccessiblePrimitive> = vec![key.to_owned()].into();
+		let mut first_ci = None;
+		while let Some(item) = stack.pop_front() {
+			let accessible = AccessibleProxy::builder(connection)
+				.destination(item.sender)?
+				.cache_properties(CacheProperties::No)
+				.path(item.id)?
+				.build()
 				.await?;
+			let start = std::time::Instant::now();
+			let cache_item = accessible_to_cache_item(&accessible).await?;
+			if first_ci.is_none() {
+				first_ci = Some(cache_item.clone());
+			}
+			let end = std::time::Instant::now();
+			let diff = end - start;
+			tracing::debug!("Time to create cache item: {:?}", diff);
+			if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
+				self.add(cache_item)
+			{
+				stack.extend(items);
 			}
 		}
 		// return that same cache item
-		Ok(cache_item)
+		// SAFETY: this is okay because we always have one item in the stack, and guarantee that any
+		// errors along the way to setting the value cause an early return.
+		#[allow(clippy::unwrap_used)]
+		Ok(first_ci.unwrap())
 	}
 
 	/// Clears the cache completely.
-	pub fn clear(&self) -> OdiliaResult<()> {
+	pub fn clear(&self) {
 		self.tree.write().clear();
 		self.id_lookup.clear();
-		Ok(())
 	}
 }
 
