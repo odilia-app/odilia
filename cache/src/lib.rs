@@ -23,10 +23,7 @@ use itertools::Itertools;
 use parking_lot::RwLock;
 use std::{collections::HashMap, fmt::Debug, future::Future, sync::Arc};
 
-use atspi_common::{
-	ClipType, CoordType, EventProperties, Granularity, InterfaceSet, RelationType, Role,
-	StateSet,
-};
+use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
@@ -53,6 +50,74 @@ type CacheKey = AccessiblePrimitive;
 type ThreadSafeCache = Arc<RwLock<Arena<CacheItem>>>;
 type IdLookupTable = Arc<DashMap<CacheKey, NodeId, FxBuildHasher>>;
 
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+pub enum Link {
+	Linked(NodeId),
+	Unlinked(CacheKey),
+}
+
+#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
+#[repr(transparent)]
+pub struct RelationSet(Vec<(RelationType, Vec<Link>)>);
+
+impl RelationSet {
+	/// Turn the `Link` items into `CacheItem`s.
+	///
+	/// This function ignores [`Link::Unlinked`] variants.
+	#[must_use]
+	pub fn unchecked_into_cache_itmes(&self, c: &Cache) -> Vec<(RelationType, Vec<CacheItem>)> {
+		self.0.iter()
+			.map(|(rt, links)| {
+				(
+					*rt,
+					links.iter()
+						.filter_map(|link| match link {
+							Link::Unlinked(_) => None,
+							Link::Linked(nid) => c.get_id(*nid),
+						})
+						.collect::<Vec<CacheItem>>(),
+				)
+			})
+			.collect()
+	}
+	fn try_link_values(&mut self, cache: &Cache) -> Result<(), Vec<AccessiblePrimitive>> {
+		let relations_map = self.0.iter_mut();
+		let link_map = relations_map.flat_map(|(_rt, links)| links);
+		let mut unlinked = Vec::new();
+		for link in link_map {
+			if let Link::Unlinked(ap) = link {
+				if let Some(nid) = cache.id_lookup.get(ap) {
+					*link = Link::Linked(*nid);
+				} else {
+					unlinked.push(ap.clone());
+				}
+			}
+		}
+
+		if unlinked.is_empty() {
+			return Ok(());
+		}
+		Err(unlinked)
+	}
+}
+
+impl From<Vec<(RelationType, Vec<ObjectRef>)>> for RelationSet {
+	fn from(vec: Vec<(RelationType, Vec<ObjectRef>)>) -> Self {
+		vec.into_iter()
+			.map(|(rt, vor)| {
+				(rt, vor.into_iter().map(|a| Link::Unlinked(a.into())).collect())
+			})
+			.collect::<Vec<(RelationType, Vec<Link>)>>()
+			.into()
+	}
+}
+
+impl From<Vec<(RelationType, Vec<Link>)>> for RelationSet {
+	fn from(vec: Vec<(RelationType, Vec<Link>)>) -> RelationSet {
+		RelationSet(vec)
+	}
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
@@ -74,9 +139,16 @@ pub struct CacheItem {
 	pub states: StateSet,
 	/// The text of the accessible
 	pub text: String,
+	/// Description of the item
+	pub description: Option<String>,
+	/// Name of the item
+	pub name: Option<String>,
 	/// The children (ids) of the accessible
 	pub children: Vec<AccessiblePrimitive>,
+	/// The set of relations between this and other nodes in the graph.
+	pub relation_set: RelationSet,
 }
+
 impl CacheItem {
 	/// Creates a `CacheItem` from an [`atspi::Event`] type.
 	/// # Errors
@@ -108,11 +180,16 @@ impl CacheItem {
 		atspi_cache_item: atspi_common::LegacyCacheItem,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let index: i32 = AccessiblePrimitive::from(atspi_cache_item.object.clone())
+		let acc = AccessiblePrimitive::from(atspi_cache_item.object.clone())
 			.into_accessible(connection)
-			.await?
-			.get_index_in_parent()
 			.await?;
+		let index: i32 = acc.get_index_in_parent().await?;
+		let rs = acc.get_relation_set().await?.into();
+		let name = acc.name().await.map(|s| if s.is_empty() { None } else { Some(s) })?;
+		let desc =
+			acc.description()
+				.await
+				.map(|s| if s.is_empty() { None } else { Some(s) })?;
 		Ok(Self {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
@@ -124,6 +201,9 @@ impl CacheItem {
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 			children: atspi_cache_item.children.into_iter().map_into::<_>().collect(),
+			relation_set: rs,
+			name,
+			description: desc,
 		})
 	}
 	/*
@@ -529,7 +609,7 @@ impl CacheExt for Arc<Cache> {
 /// A method of performing I/O side-effects outside the cache itself.
 /// This is made an explicit trait such that we can either:
 ///
-/// 1. Call out to DBus (production), or
+/// 1. Call out to `DBus` (production), or
 /// 2. Use a fixed set of items (testing).
 pub trait CacheSideEffect {
 	/// Lookup a given [`CacheKey`] that was not found in the cache..
@@ -560,7 +640,7 @@ pub struct CacheEffectFixedList {
 impl CacheSideEffect for CacheEffectFixedList {
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
 		Ok(self.items
-			.get(&key)
+			.get(key)
 			.ok_or::<OdiliaError>(CacheError::NoItem.into())?
 			.clone())
 	}
@@ -585,7 +665,7 @@ impl Cache {
 	}
 	/// Add an item via a reference instead of creating the reference.
 	#[tracing::instrument(level = "trace", ret, err)]
-	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
+	pub fn add(&self, mut cache_item: CacheItem) -> OdiliaResult<()> {
 		// Do not create new items when not necessary.
 		if let Some(self_id) = self.id_lookup.get(&cache_item.object) {
 			return Err(CacheError::DuplicateItem(*self_id).into());
@@ -594,6 +674,7 @@ impl Cache {
 		let key = cache_item.object.clone();
 		let parent_key = cache_item.parent.clone();
 		let mut cache = self.tree.write();
+		let unlinked_related_items = cache_item.relation_set.try_link_values(self);
 		let id = cache.new_node(cache_item);
 		self.id_lookup.insert(key, id);
 		// no need to connect to the rest of the graph, because it's the first item.
@@ -601,8 +682,11 @@ impl Cache {
 			return Ok(());
 		}
 		let Some(parent_id) = self.id_lookup.get(&parent_key) else {
-			return Err(CacheError::MoreData.into());
+			return Err(CacheError::MoreData(Vec::from([parent_key])).into());
 		};
+		if let Err(unlinked_related_items) = unlinked_related_items {
+			return Err(CacheError::MoreData(unlinked_related_items).into());
+		}
 		let Some(sibling_index) = maybe_index else {
 			return Ok(());
 		};
@@ -649,6 +733,18 @@ impl Cache {
 	    cache.get(*node_id)
 		}
 	*/
+	/// Get a single item from the cache by ID.
+	///
+	/// This will allow you to get the item without holding any locks to it,
+	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
+	#[must_use]
+	#[tracing::instrument(level = "trace", ret)]
+	pub fn get_id(&self, id: NodeId) -> Option<CacheItem> {
+		let cache = self.tree.read();
+		let ref_item = cache.get(id)?;
+		// clone the reference into an owned value
+		Some(ref_item.get().to_owned())
+	}
 
 	/// Get a single item from the cache.
 	///
@@ -733,7 +829,7 @@ impl Cache {
 		cache: Arc<Cache>,
 	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
-		if let Some(cache_item) = self.get(&key) {
+		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
 		}
 		// otherwise, build a cache item
@@ -748,13 +844,16 @@ impl Cache {
 		let end = std::time::Instant::now();
 		let diff = end - start;
 		tracing::debug!("Time to create cache item: {:?}", diff);
-		let parent_key = cache_item.parent.clone();
-		if let Err(OdiliaError::Cache(CacheError::MoreData)) = self.add(cache_item.clone())
+		if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
+			self.add(cache_item.clone())
 		{
-			Box::pin(async move {
-				self.get_or_create(&parent_key, connection, cache).await
-			})
-			.await?;
+			for item in items {
+				let cache_clone = Arc::clone(&cache);
+				Box::pin(async move {
+					self.get_or_create(&item, connection, cache_clone).await
+				})
+				.await?;
+			}
 		}
 		// return that same cache item
 		Ok(cache_item)
@@ -791,6 +890,15 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_state(),
 		accessible.get_children(),
 	)?;
+	let rs = accessible.get_relation_set().await?.into();
+	let name = accessible
+		.name()
+		.await
+		.map(|s| if s.is_empty() { None } else { Some(s) })?;
+	let desc = accessible
+		.description()
+		.await
+		.map(|s| if s.is_empty() { None } else { Some(s) })?;
 	// if it implements the Text interface
 	let text = match accessible.to_text().await {
 		// get *all* the text
@@ -809,5 +917,8 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		states,
 		text,
 		children: children.into_iter().map_into().collect(),
+		relation_set: rs,
+		name,
+		description: desc,
 	})
 }
