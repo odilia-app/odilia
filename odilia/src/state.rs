@@ -26,7 +26,7 @@ use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
-	errors::{CacheError, OdiliaError},
+	errors::OdiliaError,
 	events::EventType,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	types::TextSelectionArea,
