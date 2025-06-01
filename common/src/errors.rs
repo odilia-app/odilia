@@ -1,8 +1,9 @@
+use crate::cache::AccessiblePrimitive;
 use crate::command::OdiliaCommand;
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
-use std::{error::Error, fmt, str::FromStr};
+use std::{error::Error, fmt, fmt::Debug, fmt::Display, str::FromStr};
 
 #[derive(Debug)]
 pub enum OdiliaError {
@@ -79,7 +80,7 @@ impl From<figment::Error> for ConfigError {
 impl std::fmt::Display for ConfigError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Figment(t) => t.fmt(f),
+			Self::Figment(t) => Display::fmt(t, f),
 			Self::ValueNotFound => f.write_str("Vlaue not found in config file."),
 			Self::PathNotFound => {
 				f.write_str("The path for the config file was not found.")
@@ -99,7 +100,9 @@ pub enum CacheError {
 	/// The cache operation succeeded, but the cache is in an inconsistent state now.
 	/// This usually means that a node has been added to the cache, but its parent was not found; in
 	/// this case, it is left as a disconnected part of the graph.
-	MoreData,
+	///
+	/// The data is the set of keys that need to be cached to keep it in a consistent state.
+	MoreData(Vec<AccessiblePrimitive>),
 	IndexTree(indextree::NodeError),
 }
 
@@ -121,12 +124,15 @@ impl std::fmt::Display for CacheError {
 			Self::NoItem => f.write_str("No item in cache found."),
       Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
       Self::TextBoundsError => f.write_str("The range asked for in a call to a get_string_*_offset function has invalid bounds."),
-      Self::MoreData => f.write_str("The cache requires more data to be in a consistent state."),
+      Self::MoreData(items) => {
+          f.write_str("The cache requires more data to be in a consistent state: {items:?}")?;
+          Debug::fmt(items, f)
+      },
       Self::DuplicateItem(nid) => {
           f.write_str("This item is already in the cache: ")?;
-          nid.fmt(f)
+          Display::fmt(nid, f)
       },
-      Self::IndexTree(err) => err.fmt(f),
+      Self::IndexTree(err) => Display::fmt(err, f),
 		}
 	}
 }
