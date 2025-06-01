@@ -101,7 +101,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(&rt).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async {
-				let _ = cache.clear();
+				cache.clear();
 				add_all(&cache, items);
 			},
 			BatchSize::SmallInput,
@@ -112,7 +112,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(&rt).iter_batched(
 			|| wcag_items.clone(),
 			|items: Vec<CacheItem>| async {
-				let _ = cache.clear();
+				cache.clear();
 				add_all(&cache, items);
 			},
 			BatchSize::SmallInput,
