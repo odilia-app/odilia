@@ -17,7 +17,8 @@ use atspi::{
 	AccessibilityConnection,
 };
 use futures::future::try_join_all;
-use odilia_cache::{Cache, CacheItem};
+use odilia_cache::{accessible_to_cache_item, Cache, CacheItem};
+use odilia_common::errors::{CacheError, OdiliaError};
 use serde_json::to_string;
 use std::{collections::VecDeque, sync::Arc};
 use zbus::{proxy::CacheProperties, Connection};
@@ -43,6 +44,11 @@ impl BuildFromA11yProxy for Cache {
 
 		// If the stack has an `AccessibleProxy`, we take the last.
 		while let Some(ap) = stack.pop_front() {
+			let cache_item = accessible_to_cache_item(&ap).await?;
+			match cache.add(cache_item) {
+				Ok(_) | Err(OdiliaError::Cache(CacheError::MoreData(_))) => {}
+				Err(e) => return Err(Box::new(e)),
+			};
 			// Prevent obects with huge child counts from stalling the program.
 			if ap.child_count().await? > 65536 {
 				continue;
