@@ -18,7 +18,6 @@ Try it out! See if it works for you!
 ## Prerequisites
 
 The MSRV for Odilia is `1.81.0`.
-**At this time, Odilia also requires nightly. This restriction will be lifted in the future.**
 
 You will need to have `speech-dispatcher` installed and running before you can start Odilia.
 To test that speech dispatcher is indeed working properly, try running this command:
