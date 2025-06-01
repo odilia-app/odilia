@@ -2,7 +2,7 @@ use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 use atspi::EventProperties;
 use core::future::Future;
 use core::pin::Pin;
-use odilia_cache::CacheItem;
+use odilia_cache::{Cache, CacheItem};
 use std::sync::Arc;
 
 /// Define a representation for a property type.
@@ -37,7 +37,10 @@ pub trait PropertyType {
 /// }
 /// ```
 pub trait GetProperty<P: PropertyType>: Sized {
-	fn get_property(&self) -> impl Future<Output = Result<EventProp<P>, OdiliaError>> + Send;
+	fn get_property(
+		&self,
+		cache: &Cache,
+	) -> impl Future<Output = Result<EventProp<P>, OdiliaError>> + Send;
 }
 
 impl<E, T> TryFromState<Arc<ScreenReaderState>, E> for EventProp<T>
@@ -53,7 +56,7 @@ where
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let ci = state.get_or_create::<E>(&event).await?;
-			<CacheItem as GetProperty<T>>::get_property(&ci).await
+			<CacheItem as GetProperty<T>>::get_property(&ci, &state.cache).await
 		})
 	}
 }

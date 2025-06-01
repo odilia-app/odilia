@@ -2,7 +2,6 @@ use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 use atspi_common::EventProperties;
 use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
-use odilia_common::cache::AccessiblePrimitive;
 use refinement::Predicate;
 use std::fmt::Debug;
 use std::pin::Pin;

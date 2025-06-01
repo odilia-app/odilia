@@ -1,6 +1,6 @@
 use crate::tower::{EventProp, GetProperty, PropertyType};
 use crate::OdiliaError;
-use odilia_cache::CacheItem;
+use odilia_cache::{Cache, CacheItem};
 
 pub struct Description;
 
@@ -9,10 +9,10 @@ impl PropertyType for Description {
 }
 
 impl GetProperty<Description> for CacheItem {
-	async fn get_property(&self) -> Result<EventProp<Description>, OdiliaError> {
-		self.description()
-			.await
-			.map(|s| if s.is_empty() { None } else { Some(s) })
-			.map(EventProp)
+	async fn get_property(
+		&self,
+		_cache: &Cache,
+	) -> Result<EventProp<Description>, OdiliaError> {
+		Ok(EventProp(self.description.clone()))
 	}
 }
