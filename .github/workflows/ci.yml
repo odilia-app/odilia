@@ -15,6 +15,7 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    needs: [rustfmt,deny,rustdoc]
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
@@ -51,7 +52,7 @@ jobs:
         run: cargo test --workspace --release --features proptest
   multi-platform:
     runs-on: ubuntu-latest
-    needs: [test,deny,nix,coverage,rustdoc,rustfmt,clippy]
+    needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
     if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
@@ -111,6 +112,7 @@ jobs:
           # do not check sources; as this will almost always error due to stale windows' dependencies that we don't need.
           command: check license advisories bans
   clippy:
+    needs: [rustfmt,deny,rustdoc]
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
     steps:
@@ -135,8 +137,9 @@ jobs:
         with:
           toolchain: nightly
           components: clippy
-      - name: Run tests
-        run: cargo clippy --tests --workspace --no-deps -- -D warnings
+      - uses: taiki-e/install-action@cargo-hack
+      - name: Clippy hack
+        run: cargo hack --feature-powerset clippy --benches --examples --tests --workspace --no-deps -- -D warnings
   rustfmt:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
@@ -193,6 +196,7 @@ jobs:
           publish_branch: main
         if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
   coverage:
+    needs: [clippy,test]
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
     steps:
@@ -236,6 +240,7 @@ jobs:
           fail_ci_if_fail: true
 
   nix:
+    needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
     steps:

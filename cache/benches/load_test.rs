@@ -70,7 +70,7 @@ async fn traverse_up(children: Vec<CacheItem>) {
 					break;
 				}
 				Err(e) => {
-					panic!("Odilia error {:?}", e);
+					panic!("Odilia error {e:?}");
 				}
 			};
 			let _root = ROOT_A11Y;
