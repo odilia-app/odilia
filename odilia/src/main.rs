@@ -43,7 +43,7 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, SetState, Speak, TryIntoCommands},
+	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputMethod},
@@ -141,8 +141,6 @@ async fn sigterm_signal_watcher(
 use atspi::events::document::LoadCompleteEvent;
 use atspi::events::object::StateChangedEvent;
 use atspi::events::object::TextCaretMovedEvent;
-use atspi::Granularity;
-use std::cmp::{max, min};
 
 #[tracing::instrument(ret, err)]
 async fn speak(
