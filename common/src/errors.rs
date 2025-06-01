@@ -94,7 +94,26 @@ pub enum CacheError {
 	NoItem,
 	NoLock,
 	TextBoundsError,
+	/// This item is already in the cache.
+	DuplicateItem(indextree::NodeId),
+	/// The cache operation succeeded, but the cache is in an inconsistent state now.
+	/// This usually means that a node has been added to the cache, but its parent was not found; in
+	/// this case, it is left as a disconnected part of the graph.
+	MoreData,
+	IndexTree(indextree::NodeError),
 }
+
+impl From<indextree::NodeError> for CacheError {
+	fn from(ixne: indextree::NodeError) -> Self {
+		CacheError::IndexTree(ixne)
+	}
+}
+impl From<indextree::NodeError> for OdiliaError {
+	fn from(ixne: indextree::NodeError) -> Self {
+		OdiliaError::Cache(ixne.into())
+	}
+}
+
 impl std::fmt::Display for CacheError {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
@@ -102,6 +121,12 @@ impl std::fmt::Display for CacheError {
 			Self::NoItem => f.write_str("No item in cache found."),
       Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
       Self::TextBoundsError => f.write_str("The range asked for in a call to a get_string_*_offset function has invalid bounds."),
+      Self::MoreData => f.write_str("The cache requires more data to be in a consistent state."),
+      Self::DuplicateItem(nid) => {
+          f.write_str("This item is already in the cache: ")?;
+          nid.fmt(f)
+      },
+      Self::IndexTree(err) => err.fmt(f),
 		}
 	}
 }

@@ -37,3 +37,4 @@ xdg.workspace = true
 #zbus-lockstep = { version = "0.5" }
 #zbus-lockstep-macros = { version = "0.5" }
 zvariant = "5.4.0"
+indextree = { version = "4.7.4", default-features = false }

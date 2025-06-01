@@ -1,3 +1,6 @@
+// TODO: replace DashMap with RwLock<HashMap<...>>
+// the deadlocking behaviour is fucking irritating!
+
 #![deny(
 	clippy::all,
 	clippy::pedantic,
@@ -16,11 +19,13 @@ pub use convertable::Convertable;
 mod accessible_ext;
 pub use accessible_ext::AccessibleExt;
 
+use itertools::Itertools;
+use parking_lot::RwLock;
 use std::{
 	collections::HashMap,
 	fmt::Debug,
 	future::Future,
-	sync::{Arc, RwLock, Weak},
+	sync::{Arc, Weak},
 };
 
 use atspi_common::{
@@ -30,6 +35,7 @@ use atspi_common::{
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
+use indextree::{Arena, NodeId};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
@@ -49,8 +55,8 @@ impl AllText for TextProxy<'_> {
 }
 
 type CacheKey = AccessiblePrimitive;
-type InnerCache = DashMap<CacheKey, Arc<RwLock<CacheItem>>, FxBuildHasher>;
-type ThreadSafeCache = Arc<InnerCache>;
+type ThreadSafeCache = Arc<RwLock<Arena<CacheItem>>>;
+type IdLookupTable = Arc<DashMap<CacheKey, NodeId, FxBuildHasher>>;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
@@ -60,7 +66,7 @@ pub struct CacheItem {
 	/// The application (root object(?)      (so)
 	pub app: AccessiblePrimitive,
 	/// The parent object.  (so)
-	pub parent: CacheRef,
+	pub parent: AccessiblePrimitive,
 	/// The accessible index in parent.I
 	pub index: Option<usize>,
 	/// Child count of the accessible.I
@@ -74,29 +80,12 @@ pub struct CacheItem {
 	/// The text of the accessible
 	pub text: String,
 	/// The children (ids) of the accessible
-	pub children: Vec<CacheRef>,
+	pub children: Vec<AccessiblePrimitive>,
 
 	#[serde(skip)]
 	pub cache: Weak<Cache>,
 }
 impl CacheItem {
-	/// Return a *reference* to a parent. This is *much* cheaper than getting the parent element outright via [`Self::parent`].
-	/// # Errors
-	/// This method will return a [`CacheError::NoItem`] if no item is found within the cache.
-	#[tracing::instrument(level = "trace", ret, err)]
-	pub fn parent_ref(&mut self) -> OdiliaResult<Arc<std::sync::RwLock<CacheItem>>> {
-		let parent_ref = Weak::upgrade(&self.parent.item);
-		if let Some(p) = parent_ref {
-			Ok(p)
-		} else {
-			let cache = strong_cache(&self.cache)?;
-			let arc_mut_parent = cache
-				.get_ref(&self.parent.key.clone())
-				.ok_or(CacheError::NoItem)?;
-			self.parent.item = Arc::downgrade(&arc_mut_parent);
-			Ok(arc_mut_parent)
-		}
-	}
 	/// Creates a `CacheItem` from an [`atspi::Event`] type.
 	/// # Errors
 	/// This can fail under three possible conditions:
@@ -133,19 +122,19 @@ impl CacheItem {
 		cache: Weak<Cache>,
 		connection: &zbus::Connection,
 	) -> OdiliaResult<Self> {
-		let children: Vec<CacheRef> =
+		let children: Vec<AccessiblePrimitive> =
 			AccessiblePrimitive::from(atspi_cache_item.object.clone())
 				.into_accessible(connection)
 				.await?
 				.get_children()
 				.await?
 				.into_iter()
-				.map(|child_object_pair| CacheRef::new(child_object_pair.into()))
+				.map_into::<AccessiblePrimitive>()
 				.collect();
 		Ok(Self {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
-			parent: CacheRef::new(atspi_cache_item.parent.into()),
+			parent: atspi_cache_item.parent.into(),
 			index: atspi_cache_item.index.try_into().ok(),
 			children_num: atspi_cache_item.children.try_into().ok(),
 			interfaces: atspi_cache_item.ifaces,
@@ -180,7 +169,7 @@ impl CacheItem {
 		Ok(Self {
 			object: atspi_cache_item.object.into(),
 			app: atspi_cache_item.app.into(),
-			parent: CacheRef::new(atspi_cache_item.parent.into()),
+			parent: atspi_cache_item.parent.into(),
 			index: index.try_into().ok(),
 			children_num: Some(atspi_cache_item.children.len()),
 			interfaces: atspi_cache_item.ifaces,
@@ -188,11 +177,7 @@ impl CacheItem {
 			states: atspi_cache_item.states,
 			text: atspi_cache_item.name,
 			cache,
-			children: atspi_cache_item
-				.children
-				.into_iter()
-				.map(|or| CacheRef::new(or.into()))
-				.collect(),
+			children: atspi_cache_item.children.into_iter().map_into::<_>().collect(),
 		})
 	}
 	// Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
@@ -206,47 +191,9 @@ impl CacheItem {
 		let children = self
 			.children
 			.iter()
-			.map(|child_ref| {
-				child_ref
-					.clone_inner()
-					.or_else(|| derefed_cache.get(&child_ref.key))
-					.ok_or(CacheError::NoItem)
-			})
+			.map(|child_ref| derefed_cache.get(child_ref).ok_or(CacheError::NoItem))
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(children)
-	}
-}
-
-/// A composition of an accessible ID and (possibly) a reference
-/// to its `CacheItem`, if the item has not been dropped from the cache yet.
-/// TODO if desirable, we could make one direction strong references (e.g. have
-/// the parent be an Arc, or have the children be Arcs). Might even be possible to have both.
-/// BUT - is it even desirable to keep an item pinned in an Arc from its
-/// relatives after it has been removed from the cache?
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct CacheRef {
-	pub key: CacheKey,
-	#[serde(skip)]
-	item: Weak<RwLock<CacheItem>>,
-}
-
-impl CacheRef {
-	#[must_use]
-	#[tracing::instrument(level = "trace", skip_all, ret)]
-	pub fn new(key: AccessiblePrimitive) -> Self {
-		Self { key, item: Weak::new() }
-	}
-
-	#[must_use]
-	pub fn clone_inner(&self) -> Option<CacheItem> {
-		Some(self.item.upgrade().as_ref()?.read().ok()?.clone())
-	}
-}
-
-impl From<AccessiblePrimitive> for CacheRef {
-	#[tracing::instrument(level = "trace", ret)]
-	fn from(value: AccessiblePrimitive) -> Self {
-		Self::new(value)
 	}
 }
 
@@ -281,11 +228,11 @@ impl CacheItem {
 	/// # Errors
 	/// - [`CacheError::NoItem`] if application is not in cache
 	pub fn parent(&self) -> Result<Self, OdiliaError> {
-		let parent_item = self
-			.parent
-			.clone_inner()
-			.or_else(|| self.cache.upgrade()?.get(&self.parent.key));
-		parent_item.ok_or(CacheError::NoItem.into())
+		self.cache
+			.upgrade()
+			.ok_or::<OdiliaError>(CacheError::NotAvailable.into())?
+			.get(&self.parent)
+			.ok_or(CacheError::NoItem.into())
 	}
 	/// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
 	/// # Errors
@@ -601,13 +548,17 @@ impl CacheItem {
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
 #[derive(Clone)]
 pub struct Cache {
-	pub by_id: ThreadSafeCache,
+	pub tree: ThreadSafeCache,
+	pub id_lookup: IdLookupTable,
 	pub connection: zbus::Connection,
 }
 
 impl std::fmt::Debug for Cache {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(&format!("Cache {{ by_id: ...{} items..., .. }}", self.by_id.len()))
+		// NOTE: This prints the number of items in the cache, INCLUDING "removed" items, which are not
+		// actually removed, just "marked for removal".
+		let cache = self.tree.read();
+		f.write_str(&format!("Cache {{ tree: ...{} nodes..., .. }}", cache.count()))
 	}
 }
 
@@ -655,51 +606,80 @@ impl Cache {
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(conn: zbus::Connection) -> Self {
 		Self {
-			by_id: Arc::new(DashMap::with_capacity_and_hasher(
+			tree: Arc::new(RwLock::new(Arena::with_capacity(10_000))),
+			id_lookup: Arc::new(DashMap::with_capacity_and_hasher(
 				10_000,
 				FxBuildHasher::default(),
 			)),
 			connection: conn,
 		}
 	}
-	/// add a single new item to the cache. Note that this will empty the bucket
-	/// before inserting the `CacheItem` into the cache (this is so there is
-	/// never two items with the same ID stored in the cache at the same time).
-	/// # Errors
-	/// Fails if the internal call to [`Self::add_ref`] fails.
+	/// Add an item via a reference instead of creating the reference.
 	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add(&self, cache_item: CacheItem) -> OdiliaResult<()> {
-		let id = cache_item.object.clone();
-		self.add_ref(id, &Arc::new(RwLock::new(cache_item)))
-	}
-
-	/// Add an item via a reference instead of creating the reference.
-	/// # Errors
-	/// Can error if [`Cache::populate_references`] errors. The insertion is guarenteed to succeed.
-	#[tracing::instrument(level = "trace", ret, err)]
-	pub fn add_ref(
-		&self,
-		id: CacheKey,
-		cache_item: &Arc<RwLock<CacheItem>>,
-	) -> OdiliaResult<()> {
-		self.by_id.insert(id, Arc::clone(cache_item));
-		Self::populate_references(&self.by_id, cache_item)
+		// Do not create new items when not necessary.
+		if let Some(self_id) = self.id_lookup.get(&cache_item.object) {
+			return Err(CacheError::DuplicateItem(*self_id).into());
+		}
+		let maybe_index = cache_item.index;
+		let key = cache_item.object.clone();
+		let parent_key = cache_item.parent.clone();
+		let mut cache = self.tree.write();
+		let id = cache.new_node(cache_item);
+		self.id_lookup.insert(key, id);
+		// no need to connect to the rest of the graph, because it's the first item.
+		if self.id_lookup.len() == 1 {
+			return Ok(());
+		}
+		let Some(parent_id) = self.id_lookup.get(&parent_key) else {
+			return Err(CacheError::MoreData.into());
+		};
+		let Some(sibling_index) = maybe_index else {
+			return Ok(());
+		};
+		if sibling_index == 0 {
+			parent_id.checked_prepend(id, &mut cache)?;
+		} else if sibling_index == parent_id.children(&cache).count() {
+			parent_id.checked_append(id, &mut cache)?;
+		} else {
+			match parent_id.children(&cache).nth(sibling_index) {
+				Some(left_sibling) => {
+					left_sibling.checked_insert_after(id, &mut cache)?
+				}
+				// TODO: what should this error be called?
+				// This happens when the sibling to attach the node to doesn't exist.
+				// But the parent does!
+				None => return Err(CacheError::NotAvailable.into()),
+			}
+		}
+		Ok(())
 	}
 
 	/// Remove a single cache item. This function can not fail.
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn remove(&self, id: &CacheKey) {
-		self.by_id.remove(id);
+		// if the item is not found in the lookup table, just return.
+		let Some((_key, node_id)) = self.id_lookup.remove(id) else {
+			return;
+		};
+		let mut cache = self.tree.write();
+		// Remove the item from the tree structure.
+		node_id.remove(&mut cache);
 	}
 
-	/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
-	/// You will need to either get a read or a write lock on any item returned from this function.
-	/// It also may return `None` if a value is not matched to the key.
-	#[must_use]
-	#[tracing::instrument(level = "trace", ret)]
-	pub fn get_ref(&self, id: &CacheKey) -> Option<Arc<RwLock<CacheItem>>> {
-		self.by_id.get(id).as_deref().cloned()
-	}
+	/*
+		/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
+		/// You will need to either get a read or a write lock on any item returned from this function.
+		/// It also may return `None` if a value is not matched to the key.
+		#[must_use]
+		#[tracing::instrument(level = "trace", ret)]
+		pub fn get_ref(&self, id: &CacheKey) -> Option<&Node<CacheItem>> {
+			let node_id = self.id_lookup.get(id)?;
+	    let cache = self.tree.read()
+		.expect("Unable to lock RwLock!");
+	    cache.get(*node_id)
+		}
+	*/
 
 	/// Get a single item from the cache.
 	///
@@ -708,7 +688,11 @@ impl Cache {
 	#[must_use]
 	#[tracing::instrument(level = "trace", ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		Some(self.by_id.get(id).as_deref()?.read().ok()?.clone())
+		let cache = self.tree.read();
+		let node_id = self.id_lookup.get(id)?;
+		let ref_item = cache.get(*node_id)?;
+		// clone the reference into an owned value
+		Some(ref_item.get().to_owned())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -722,25 +706,19 @@ impl Cache {
 	/// associated with an id.
 	/// # Errors
 	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
-	#[tracing::instrument(level = "trace", ret, err)]
+	// TODO: add ", err" back to instrumentqation
+	#[tracing::instrument(level = "trace", ret)]
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
-		cache_items
-			.into_iter()
-			.map(|cache_item| {
-				let id = cache_item.object.clone();
-				let arc = Arc::new(RwLock::new(cache_item));
-				self.by_id.insert(id, Arc::clone(&arc));
-				arc
-			})
-			.collect::<Vec<_>>() // Insert all items before populating
-			.into_iter()
-			.try_for_each(|item| Self::populate_references(&self.by_id, &item))
+		for cache_item in cache_items {
+			let _ = self.add(cache_item);
+		}
+		Ok(())
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[tracing::instrument(level = "trace", ret)]
-	pub fn remove_all(&self, ids: &Vec<CacheKey>) {
+	pub fn remove_all(&mut self, ids: &[CacheKey]) {
 		for id in ids {
-			self.by_id.remove(id);
+			self.remove(id);
 		}
 	}
 
@@ -753,22 +731,21 @@ impl Cache {
 	///
 	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
 	#[tracing::instrument(level = "trace", skip(modify), ret, err)]
-	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
+	pub fn modify_item<F>(&mut self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
 	{
-		// I wonder if `get_mut` vs `get` makes any difference here? I suppose
-		// it will just rely on the dashmap write access vs mutex lock access.
-		// Let's default to the fairness of the mutex.
-		let entry = if let Some(i) = self.by_id.get(id) {
-			// Drop the dashmap reference immediately, at the expense of an Arc clone.
-			(*i).clone()
-		} else {
-			tracing::trace!("The cache does not contain the requested item: {:?}", id);
+		let Some(node_id) = self.id_lookup.get(id) else {
+			tracing::trace!("The lookup table does not contian this item: {:?}", id);
 			return Ok(false);
 		};
-		let mut cache_item = entry.write()?;
-		modify(&mut cache_item);
+		let mut cache = self.tree.write();
+		let Some(node) = cache.get_mut(*node_id) else {
+			tracing::trace!("The tree cache does not contain this item: {:?}", node_id);
+			return Ok(false);
+		};
+		let cache_item = node.get_mut();
+		modify(cache_item);
 		Ok(true)
 	}
 
@@ -803,45 +780,10 @@ impl Cache {
 		Ok(cache_item)
 	}
 
-	/// Populate children and parent references given a cache and an `Arc<RwLock<CacheItem>>`.
-	/// This will unlock the `RwLock<_>`, update the references for children and parents, then go to the parent and children and do the same: update the parent for the children, then update the children referneces for the parent.
-	/// # Errors
-	/// If any references, either the ones passed in through the `item_ref` parameter, any children references, or the parent reference are unable to be unlocked, an `Err(_)` variant will be returned.
-	/// Technically it can also fail if the index of the `item_ref` in its parent exceeds `usize` on the given platform, but this is highly improbable.
-	#[tracing::instrument(level = "trace", ret, err)]
-	pub fn populate_references(
-		cache: &ThreadSafeCache,
-		item_ref: &Arc<RwLock<CacheItem>>,
-	) -> Result<(), OdiliaError> {
-		let item_wk_ref = Arc::downgrade(item_ref);
-		let mut item = item_ref.write()?;
-		let item_key = item.object.clone();
-
-		let parent_key = item.parent.key.clone();
-		let parent_ref_opt = cache.get(&parent_key);
-
-		// Update this item's children references
-		for child_ref in &mut item.children {
-			if let Some(child_arc) = cache.get(&child_ref.key).as_ref() {
-				child_ref.item = Arc::downgrade(child_arc);
-				child_arc.write()?.parent.item = Weak::clone(&item_wk_ref);
-			}
-		}
-
-		// TODO: Should there be errors for the non let bindings?
-		if let Some(parent_ref) = parent_ref_opt {
-			item.parent.item = Arc::downgrade(&parent_ref);
-			if let Some(ix) = item.index {
-				if let Some(cache_ref) = parent_ref
-					.write()?
-					.children
-					.get_mut(ix)
-					.filter(|i| i.key == item_key)
-				{
-					cache_ref.item = Weak::clone(&item_wk_ref);
-				}
-			}
-		}
+	/// Clears the cache completely.
+	pub fn clear(&self) -> OdiliaResult<()> {
+		self.tree.write().clear();
+		self.id_lookup.clear();
 		Ok(())
 	}
 }
@@ -882,14 +824,14 @@ pub async fn accessible_to_cache_item(
 	Ok(CacheItem {
 		object: accessible.try_into()?,
 		app: app.into(),
-		parent: CacheRef::new(parent.into()),
+		parent: parent.into(),
 		index: index.try_into().ok(),
 		children_num: children_num.try_into().ok(),
 		interfaces,
 		role,
 		states,
 		text,
-		children: children.into_iter().map(|k| CacheRef::new(k.into())).collect(),
+		children: children.into_iter().map_into().collect(),
 		cache,
 	})
 }
