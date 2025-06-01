@@ -5,10 +5,7 @@ use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criteri
 use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheItem};
 
-use odilia_common::{
-	cache::AccessiblePrimitive,
-	errors::{CacheError, OdiliaError},
-};
+use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
 use tokio::select;
 use tokio_test::block_on;
 
@@ -45,9 +42,10 @@ async fn traverse_up_refs(children: Vec<NodeId>, arena: &Arena<CacheItem>) {
 }
 
 /// Depth first traversal
-fn traverse_depth_first(root: CacheItem) -> Result<(), OdiliaError> {
-	for child in root.get_children()? {
-		traverse_depth_first(child)?;
+fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaError> {
+	let lock = cache.tree.read();
+	for child in root.descendants(&lock) {
+		black_box(child);
 	}
 	Ok(())
 }
@@ -101,18 +99,9 @@ fn cache_benchmark(c: &mut Criterion) {
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				zbus_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
-			},
+			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async {
-				cache.clear();
+				let _ = cache.clear();
 				add_all(&cache, items);
 			},
 			BatchSize::SmallInput,
@@ -121,18 +110,9 @@ fn cache_benchmark(c: &mut Criterion) {
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				wcag_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
-			},
+			|| wcag_items.clone(),
 			|items: Vec<CacheItem>| async {
-				cache.clear();
+				let _ = cache.clear();
 				add_all(&cache, items);
 			},
 			BatchSize::SmallInput,
@@ -142,16 +122,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				zbus_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
-			},
+			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
@@ -159,14 +130,7 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	let (cache, children): (Arc<Cache>, Vec<NodeId>) = rt.block_on(async {
 		let cache = Arc::new(Cache::new(zbus_connection.clone()));
-		let all_items: Vec<CacheItem> = wcag_items
-			.clone()
-			.into_iter()
-			.map(|mut item| {
-				item.cache = Arc::downgrade(&cache);
-				item
-			})
-			.collect();
+		let all_items: Vec<CacheItem> = wcag_items.clone();
 		let _ = cache.add_all(all_items);
 		let read_cache = cache.tree.read();
 		let children = read_cache
@@ -194,11 +158,15 @@ fn cache_benchmark(c: &mut Criterion) {
 	group.bench_function(BenchmarkId::new("traverse_depth_first", "wcag-items"), |b| {
 		b.iter_batched(
 			|| {
-				cache.get(&AccessiblePrimitive {
-					id: "/org/a11y/atspi/accessible/root".to_string(),
-					sender: ":1.30".into(),
-				})
-				.unwrap()
+				(
+					*cache.id_lookup
+						.get(&AccessiblePrimitive {
+							id: ROOT_A11Y.to_string(),
+							sender: ":1.30".into(),
+						})
+						.unwrap(),
+					&cache,
+				)
 			},
 			traverse_depth_first,
 			BatchSize::SmallInput,
