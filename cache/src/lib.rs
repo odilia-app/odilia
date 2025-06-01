@@ -675,6 +675,7 @@ impl Cache {
 		let parent_key = cache_item.parent.clone();
 		let mut cache = self.tree.write();
 		let unlinked_related_items = cache_item.relation_set.try_link_values(self);
+		let children = cache_item.children.clone();
 		let id = cache.new_node(cache_item);
 		self.id_lookup.insert(key, id);
 		// no need to connect to the rest of the graph, because it's the first item.
@@ -699,10 +700,8 @@ impl Cache {
 				Some(left_sibling) => {
 					left_sibling.checked_insert_after(id, &mut cache)?;
 				}
-				// TODO: what should this error be called?
-				// This happens when the sibling to attach the node to doesn't exist.
-				// But the parent does!
-				None => return Err(CacheError::NotAvailable.into()),
+				// TODO: specific child?
+				None => return Err(CacheError::MoreData(children).into()),
 			}
 		}
 		Ok(())
