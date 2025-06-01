@@ -77,7 +77,7 @@ jobs:
       - name: Cross Compile for ${{ matrix.target }}
         uses: houseabsolute/actions-rust-cross@v1
         with:
-          command: build
+          command: test
           target: ${{ matrix.target }}
           args: "--locked --workspace"
           # force use container, otherwise you need host tools when building same-architecture targets
