@@ -4,9 +4,10 @@ use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheItem};
+
+use futures_concurrency::{array::AggregateError, future::RaceOk};
+use futures_lite::future::{block_on, fuse};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
-use tokio::select;
-use tokio_test::block_on;
 
 macro_rules! load_items {
 	($file:expr) => {
@@ -51,13 +52,23 @@ fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaErr
 
 /// Observe throughput of successful reads (`Cache::get`) while writing to cache
 /// (`Cache::add_all`).
-async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items: Vec<CacheItem>) {
+async fn reads_while_writing(
+	cache: Cache,
+	ids: Vec<AccessiblePrimitive>,
+	items: Vec<CacheItem>,
+) -> Result<(), AggregateError<tokio::task::JoinError, 2>> {
+	#[derive(PartialEq)]
+	enum TaskName {
+		Reader,
+		Writer,
+	}
 	let cache_1 = Arc::new(cache);
 	let cache_2 = Arc::clone(&cache_1);
-	let mut write_handle = tokio::spawn(async move {
+	let mut write_handle = fuse(tokio::spawn(async move {
 		let _ = cache_1.add_all(items);
-	});
-	let mut read_handle = tokio::spawn(async move {
+		TaskName::Writer
+	}));
+	let mut read_handle = fuse(tokio::spawn(async move {
 		let mut ids = VecDeque::from(ids);
 		loop {
 			match ids.pop_front() {
@@ -69,16 +80,15 @@ async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items:
 				}
 			}
 		}
-	});
-	let mut write_finished = false;
+		TaskName::Reader
+	}));
 	loop {
-		select! {
-		    // we don't care when the write finishes, keep looping
-		    _ = &mut write_handle, if !write_finished => write_finished = true,
-		    // return as soon as we're done with these reads
-		    _ = &mut read_handle => break
+		let finished = [&mut write_handle, &mut read_handle].race_ok().await?;
+		if finished == TaskName::Reader {
+			break;
 		}
 	}
+	Ok(())
 }
 
 fn cache_benchmark(c: &mut Criterion) {
