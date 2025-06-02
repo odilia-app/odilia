@@ -1775,7 +1775,6 @@ dependencies = [
  "itertools 0.14.0",
  "odilia-common",
  "parking_lot",
- "rand",
  "serde",
  "serde_json",
  "serde_plain",
@@ -2240,7 +2239,7 @@ dependencies = [
 [[package]]
 name = "rdev"
 version = "0.5.3"
-source = "git+https://github.com/TTWNO/rdev2/?branch=odilia-keys-v2#966651c040e32abaddd4a4ab6c903753c858c0fa"
+source = "git+https://github.com/TTWNO/rdev2/?branch=odilia-keys-v2#085a0004be5f9d6f195ce36c4557bd022662c84c"
 dependencies = [
  "cocoa",
  "core-foundation 0.7.0",
