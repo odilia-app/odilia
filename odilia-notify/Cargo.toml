@@ -14,7 +14,7 @@ edition = "2021"
 
 [dependencies]
 futures.workspace=true
-itertools = "0.12.1"
+itertools = "0.14.0"
 serde.workspace=true
 thiserror.workspace = true
 tokio.workspace=true
