@@ -3,3 +3,4 @@ rate=100
 
 [log]
 level="debug"
+logger = { File = "odilia.log" }
