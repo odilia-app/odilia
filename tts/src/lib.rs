@@ -9,6 +9,8 @@
 #![allow(clippy::multiple_crate_versions)]
 
 use async_channel::Receiver;
+use futures::FutureExt as FatExt;
+use futures_lite::FutureExt;
 use smol_cancellation_token::CancellationToken;
 use std::{
 	io::ErrorKind,
@@ -23,6 +25,16 @@ use tokio::{
 	io::{BufReader, BufWriter},
 	net::unix::{OwnedReadHalf, OwnedWriteHalf},
 };
+
+async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
+where
+	F: std::future::Future,
+{
+	token.cancelled()
+		.map(|()| Err(std::io::ErrorKind::TimedOut.into()))
+		.or(f.map(Ok))
+		.await
+}
 
 /// Creates a new async SSIP client which can be sent commends, and can await responses to.
 /// # Errors
@@ -81,33 +93,25 @@ pub async fn handle_ssip_commands(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	std::pin::pin!(&mut requests);
 	loop {
-		tokio::select! {
-				      request_option = requests.recv() => {
-					      if let Ok(request) = request_option {
-		  tracing::debug!(?request, "SSIP command received");
-		  let response = client
-		    .send(request).await?
-		    .receive().await?;
-		  tracing::debug!(?response, "Recieved response from server");
+		let maybe_request = or_cancel(requests.recv(), &shutdown).await;
+		let Ok(request_option) = maybe_request else {
+			tracing::debug!("Saying goodbye message.");
+			client.send(Request::Speak).await?.receive().await?;
+			client.send(Request::SendLines(Vec::from(["Quitting Odilia".to_string()])))
+				.await?
+				.receive()
+				.await?;
+			tracing::debug!("Attempting to quit SSIP.");
+			let response = client.send(Request::Quit).await?.receive().await?;
+			tracing::debug!(?response, "Recieved response from server");
+			tracing::debug!("SSIP command interpreter shutdown completed");
+			break;
+		};
+		if let Ok(request) = request_option {
+			tracing::debug!(?request, "SSIP command received");
+			let response = client.send(request).await?.receive().await?;
+			tracing::debug!(?response, "Recieved response from server");
 		}
-				      }
-				      () = shutdown.cancelled() => {
-		      tracing::debug!("Saying goodbye message.");
-		      client
-			      .send(Request::Speak).await?
-			      .receive().await?;
-		      client
-			      .send(Request::SendLines(Vec::from(["Quitting Odilia".to_string()]))).await?
-			      .receive().await?;
-		      tracing::debug!("Attempting to quit SSIP.");
-		      let response = client
-			.send(Request::Quit).await?
-			.receive().await?;
-		      tracing::debug!(?response, "Recieved response from server");
-					      tracing::debug!("SSIP command interpreter shutdown completed");
-					      break;
-				      }
-			      }
 	}
 	Ok(())
 }

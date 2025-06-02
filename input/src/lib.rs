@@ -13,6 +13,8 @@
 mod proxy;
 
 use async_channel::Sender;
+use futures::future::FutureExt;
+use futures_lite::future::FutureExt as LiteExt;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
@@ -31,6 +33,16 @@ use tokio::{
 	fs,
 	net::{unix::SocketAddr, UnixListener, UnixStream},
 };
+
+async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
+where
+	F: std::future::Future,
+{
+	token.cancelled()
+		.map(|()| Err(std::io::ErrorKind::TimedOut.into()))
+		.or(f.map(Ok))
+		.await
+}
 
 #[tracing::instrument(ret)]
 fn get_log_file_name() -> String {
@@ -144,21 +156,23 @@ pub async fn sr_event_receiver(
 	shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	loop {
-		tokio::select! {
-			    msg = listener.accept() => {
-				match msg {
-				    Ok((socket, address)) => {
-					tracing::debug!("Ok from socket");
-		tokio::spawn(handle_event(socket, address, event_sender.clone(), shutdown.clone()));
-				    },
-				    Err(e) => tracing::error!("accept function failed: {:?}", e),
-				}
-			    }
-			    () = shutdown.cancelled() => {
-				tracing::debug!("Shutting down input socket due to cancellation token");
-				break;
-			    }
+		let maybe_msg = or_cancel(listener.accept(), &shutdown).await;
+		let Ok(msg) = maybe_msg else {
+			tracing::debug!("Shutting down input socket due to cancellation token");
+			break;
+		};
+		match msg {
+			Ok((socket, address)) => {
+				tracing::debug!("Ok from socket");
+				tokio::spawn(handle_event(
+					socket,
+					address,
+					event_sender.clone(),
+					shutdown.clone(),
+				));
 			}
+			Err(e) => tracing::error!("accept function failed: {:?}", e),
+		}
 	}
 	Ok(())
 }
@@ -170,44 +184,47 @@ async fn handle_event(
 	shutdown: CancellationToken,
 ) {
 	loop {
-		tokio::select! {
-			Ok(()) = socket.readable() => {
-			let mut buf = [0; 4096];
-						let bytes = match socket.try_read(&mut buf) {
-						  Ok(0) => {
-			      tracing::debug!("Socket {socket:?} was disconnected!");
-			      break;
-			  },
-			  Ok(b) => b,
-			  Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
-			      continue;
-			  },
-						  Err(e) => {
-						    tracing::error!("Error reading from socket {:#?}", e);
-			    continue;
-						  }
-						};
-			let response = std::str::from_utf8(&buf[..bytes])
-			    .expect("Valid UTF-8");
-						// if valid screen reader event
-						match serde_json::from_str::<ScreenReaderEvent>(response) {
-						  Ok(sre) => {
-						    if let Err(e) = event_sender.send(sre).await {
-						      tracing::error!("Error sending ScreenReaderEvent over socket: {}", e);
-			    } else {
-						      tracing::debug!("Sent SR event");
-			    }
-						  },
-						  Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
-						}
-						tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
-
-		    }
-				    () = shutdown.cancelled() => {
-					tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
-					break;
-				    }
+		let maybe_sock = or_cancel(socket.readable(), &shutdown).await;
+		let Ok(_) = maybe_sock else {
+			tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
+			break;
+		};
+		let mut buf = [0; 4096];
+		let bytes = match socket.try_read(&mut buf) {
+			Ok(0) => {
+				tracing::debug!("Socket {socket:?} was disconnected!");
+				break;
+			}
+			Ok(b) => b,
+			Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
+				continue;
+			}
+			Err(e) => {
+				tracing::error!("Error reading from socket {:#?}", e);
+				continue;
+			}
+		};
+		let response = std::str::from_utf8(&buf[..bytes]).expect("Valid UTF-8");
+		// if valid screen reader event
+		match serde_json::from_str::<ScreenReaderEvent>(response) {
+			Ok(sre) => {
+				if let Err(e) = event_sender.send(sre).await {
+					tracing::error!(
+						"Error sending ScreenReaderEvent over socket: {}",
+						e
+					);
+				} else {
+					tracing::debug!("Sent SR event");
+				}
+			}
+			Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
 		}
+		tracing::debug!(
+			"Socket: {:?} Address: {:?} Response: {}",
+			socket,
+			address,
+			response
+		);
 	}
 }
 
