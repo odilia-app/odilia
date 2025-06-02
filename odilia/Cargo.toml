@@ -69,4 +69,4 @@ lazy_static = "1.4.0"
 tokio-test = "0.4.2"
 
 [features]
-tokio-console = ["dep:console-subscriber"]
+tokio-console = ["dep:console-subscriber", "tracing-subscriber/env-filter"]
