@@ -17,3 +17,5 @@ tracing.workspace = true
 odilia-common.workspace = true
 smol-cancellation-token.workspace = true
 async-channel = { version = "2.3.1", default-features = false }
+futures.workspace = true
+futures-lite = "2.6.0"

@@ -104,17 +104,19 @@ async fn notifications_monitor(
 		.instrument(tracing::info_span!("creating notification listener"))
 		.await?;
 	loop {
-		tokio::select! {
-		    Some(notification) = stream.next() => {
-		      let notification_message =
-			format!("new notification: {}, {}, {}.", notification.app_name, notification.title, notification.body);
-		      state.say(Priority::Important, notification_message).await;
-		    },
-		    () = shutdown.cancelled() => {
-		      tracing::debug!("Shutting down notification task.");
-		      break;
-		    },
-		}
+		let maybe_timeout = or_cancel(stream.next(), &shutdown).await;
+		let Ok(maybe_notification) = maybe_timeout else {
+			tracing::debug!("Shutting down notification task.");
+			break;
+		};
+		let Some(notification) = maybe_notification else {
+			continue;
+		};
+		let notification_message = format!(
+			"new notification: {}, {}, {}.",
+			notification.app_name, notification.title, notification.body
+		);
+		state.say(Priority::Important, notification_message).await;
 	}
 	Ok(())
 }
