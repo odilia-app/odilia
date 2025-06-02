@@ -213,9 +213,9 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atspi"
-version = "0.26.3"
+version = "0.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bc856e0c84fd64c928b9eb5c10981c97f625afca337585511cfb8526e62a2a0"
+checksum = "e595c4a1ad7be9c5514980ae8c6e4810f17e9d24bd7bbc5ad67e7aef4dc1c819"
 dependencies = [
  "atspi-common",
  "atspi-connection",
@@ -224,9 +224,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-common"
-version = "0.10.1"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "11403b6543c08ca237bef2a56791553fc9d2f35818e0cb5a439ef14902f7367f"
+checksum = "9d2b4e5cb03df74eae47d7c47918e109db6ad3c825602f236d060a221f4d23b8"
 dependencies = [
  "enumflags2",
  "serde",
@@ -240,9 +240,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-connection"
-version = "0.10.2"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df7d98a18e361e0c62e976f44167c1d4ef6555ac70c64db38467e645ba0f3520"
+checksum = "832ecc699b7b1e801e49f5dccb4db1472519537498448f944e8cdcfcdd92e6b3"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -252,9 +252,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-proxies"
-version = "0.10.2"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24be28f5c02e529f7d285b5557d52eca32888ddfdba6d76930c66595a3512172"
+checksum = "85b9aef6811420186bed52af0af10fed051ef554b6206edbaffddcfa2dd90e43"
 dependencies = [
  "atspi-common",
  "serde",
@@ -1770,6 +1770,8 @@ dependencies = [
  "criterion",
  "dashmap",
  "futures",
+ "futures-concurrency",
+ "futures-lite",
  "fxhash",
  "indextree",
  "itertools 0.14.0",
@@ -1779,7 +1781,6 @@ dependencies = [
  "serde_json",
  "serde_plain",
  "tokio",
- "tokio-test",
  "tracing",
  "zbus",
 ]
@@ -3419,7 +3420,6 @@ dependencies = [
  "ordered-stream",
  "serde",
  "serde_repr",
- "tokio",
  "tracing",
  "uds_windows",
  "windows-sys 0.59.0",
