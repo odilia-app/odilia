@@ -13,6 +13,6 @@ edition = "2021"
 [dependencies]
 ssip-client-async.workspace = true
 tokio.workspace = true
-tokio-util.workspace=true
 tracing.workspace = true
 odilia-common.workspace = true
+smol-cancellation-token.workspace = true

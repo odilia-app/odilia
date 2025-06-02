@@ -1735,6 +1735,7 @@ dependencies = [
  "odilia-tts",
  "pin-project",
  "refinement",
+ "smol-cancellation-token",
  "ssip",
  "ssip-client-async",
  "tokio",
@@ -1810,9 +1811,9 @@ dependencies = [
  "nix",
  "odilia-common",
  "serde_json",
+ "smol-cancellation-token",
  "sysinfo",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 
@@ -1862,9 +1863,9 @@ name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
  "odilia-common",
+ "smol-cancellation-token",
  "ssip-client-async",
  "tokio",
- "tokio-util",
  "tracing",
 ]
 
@@ -2481,6 +2482,16 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
+
+[[package]]
+name = "smol-cancellation-token"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38bb106a42411e08468d888c344279147c887acb7f33ba6e0aaeda228c90cf8f"
+dependencies = [
+ "event-listener",
+ "pin-project-lite",
+]
 
 [[package]]
 name = "socket2"

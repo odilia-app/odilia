@@ -8,6 +8,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use smol_cancellation_token::CancellationToken;
 use std::{
 	io::ErrorKind,
 	process::{exit, Command, Stdio},
@@ -22,7 +23,6 @@ use tokio::{
 	net::unix::{OwnedReadHalf, OwnedWriteHalf},
 	sync::mpsc::Receiver,
 };
-use tokio_util::sync::CancellationToken;
 
 /// Creates a new async SSIP client which can be sent commends, and can await responses to.
 /// # Errors
