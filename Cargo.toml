@@ -39,7 +39,6 @@ futures-concurrency = { version = "7.6.1", default-features = false }
 futures = { version = "0.3.31", default-features = false, features = ["std"] }
 odilia-common = { version = "0.3.0", path = "./common", features = ["tokio"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
-eyre = { version = "0.6.8", default-features = false }
 nix = { version = "0.30.0", default-features = false, features = ["user"] }
 pin-project = { version = "1.0", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }

@@ -26,7 +26,6 @@ serde.workspace = true
 thiserror.workspace = true
 zbus.workspace = true
 serde_plain.workspace = true
-figment = "0.10.15"
 enum_dispatch = "0.3.13"
 strum = { version = "0.27.1", features = ["derive"] }
 tokio = { workspace = true, optional = true }

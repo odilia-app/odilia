@@ -5,7 +5,6 @@
 
 use std::{env, io};
 
-use eyre::Context;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{prelude::*, EnvFilter};
@@ -13,7 +12,7 @@ use tracing_tree::{time::Uptime, HierarchicalLayer};
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
-pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
+pub fn init(config: &ApplicationConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let env_filter = match env::var("APP_LOG").or_else(|_| env::var("RUST_LOG")) {
 		Ok(s) => EnvFilter::from(s),
 		_ => EnvFilter::from(&config.log.level),
@@ -30,9 +29,8 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
 	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
-			let file = std::fs::File::create(path).with_context(|| {
-				format!("creating log file '{}'", path.display())
-			})?;
+			tracing::info!("creating log file '{}'", path.display());
+			let file = std::fs::File::create(path)?;
 			tree.with_writer(file).boxed()
 		}
 		LoggingKind::Tty => tree.with_writer(io::stdout).with_ansi(true).boxed(),

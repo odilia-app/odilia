@@ -28,8 +28,10 @@ use tokio_util::sync::CancellationToken;
 /// # Errors
 /// There may be errors when trying to send the initial registration command, or when parsing the response.
 #[tracing::instrument(level = "debug", err)]
-pub async fn create_ssip_client(
-) -> eyre::Result<AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>> {
+pub async fn create_ssip_client() -> Result<
+	AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
+	Box<dyn std::error::Error + Send + Sync>,
+> {
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
 	let mut ssip_core =
 		match Builder::default().build().await {
@@ -38,13 +40,11 @@ pub async fn create_ssip_client(
 				if e.kind() == ErrorKind::ConnectionRefused {
 					tracing::debug!("Speech dispatcher is not active. Attempting to spawn it.");
 					Command::new("speech-dispatcher")
-              .arg("--spawn")
-              .stdin(Stdio::null())
-              .stdout(Stdio::null())
-              .stderr(Stdio::null())
-              .spawn()
-              .context("Error running `speech-dispatcher --spawn`; this is a fatal error.")
-			?;
+						.arg("--spawn")
+						.stdin(Stdio::null())
+						.stdout(Stdio::null())
+						.stderr(Stdio::null())
+						.spawn()?;
 					tracing::debug!(
 						"Attempting to connect to speech-dispatcher again!"
 					);
@@ -78,7 +78,7 @@ pub async fn handle_ssip_commands(
 	mut client: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
 	requests: Receiver<Request>,
 	shutdown: CancellationToken,
-) -> eyre::Result<()> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	tokio::pin!(requests);
 	loop {
 		tokio::select! {

@@ -64,7 +64,8 @@ fn get_log_file_name() -> String {
 /// # Errors
 /// - This function will return an error type if the same function is already running. This is checked by looking for a file on disk. If the file exists, this program is probably already running.
 /// - If there is no way to get access to the directory.
-pub async fn setup_input_server() -> eyre::Result<UnixListener> {
+pub async fn setup_input_server() -> Result<UnixListener, Box<dyn std::error::Error + Send + Sync>>
+{
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
 
@@ -92,7 +93,7 @@ pub async fn setup_input_server() -> eyre::Result<UnixListener> {
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
 			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
-				return Err(Report::msg("Server is already running!"));
+				return Err("Server is already running!".into());
 			}
 		}
 	}
@@ -123,7 +124,7 @@ pub async fn setup_input_server() -> eyre::Result<UnixListener> {
 		}
 	}
 
-	let listener = UnixListener::bind(sock_file_path).context("Could not open socket")?;
+	let listener = UnixListener::bind(sock_file_path)?;
 	tracing::debug!("Listener activated!");
 	Ok(listener)
 }
@@ -139,7 +140,7 @@ pub async fn sr_event_receiver(
 	listener: UnixListener,
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown: CancellationToken,
-) -> eyre::Result<()> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	loop {
 		tokio::select! {
 			    msg = listener.accept() => {
