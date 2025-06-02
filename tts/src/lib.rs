@@ -8,6 +8,7 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use async_channel::Receiver;
 use smol_cancellation_token::CancellationToken;
 use std::{
 	io::ErrorKind,
@@ -21,7 +22,6 @@ use ssip_client_async::{
 use tokio::{
 	io::{BufReader, BufWriter},
 	net::unix::{OwnedReadHalf, OwnedWriteHalf},
-	sync::mpsc::Receiver,
 };
 
 /// Creates a new async SSIP client which can be sent commends, and can await responses to.
@@ -83,7 +83,7 @@ pub async fn handle_ssip_commands(
 	loop {
 		tokio::select! {
 				      request_option = requests.recv() => {
-					      if let Some(request) = request_option {
+					      if let Ok(request) = request_option {
 		  tracing::debug!(?request, "SSIP command received");
 		  let response = client
 		    .send(request).await?

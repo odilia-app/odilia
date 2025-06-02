@@ -1716,6 +1716,8 @@ dependencies = [
 name = "odilia"
 version = "0.1.4"
 dependencies = [
+ "async-channel",
+ "async-io",
  "async-signal",
  "atspi",
  "atspi-common",
@@ -1726,6 +1728,7 @@ dependencies = [
  "console-subscriber",
  "derived-deref",
  "futures",
+ "futures-lite",
  "lazy_static",
  "lexopt",
  "odilia-cache",
@@ -1809,6 +1812,7 @@ dependencies = [
 name = "odilia-input"
 version = "0.0.3"
 dependencies = [
+ "async-channel",
  "nix",
  "odilia-common",
  "serde_json",
@@ -1863,6 +1867,7 @@ dependencies = [
 name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
+ "async-channel",
  "odilia-common",
  "smol-cancellation-token",
  "ssip-client-async",
@@ -2698,7 +2703,6 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
- "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "tracing",
