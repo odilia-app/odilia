@@ -3,20 +3,18 @@
 //! Not much here yet, but this will get more complex if we decide to add other layers for error
 //! reporting, tokio-console, etc.
 
-use std::{env, io};
+use std::io;
 
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_subscriber::prelude::*;
 use tracing_tree::{time::Uptime, HierarchicalLayer};
+#[cfg(feature = "tokio-console")]
+use tracing_subscriber::EnvFilter;
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
 pub fn init(config: &ApplicationConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let env_filter = match env::var("APP_LOG").or_else(|_| env::var("RUST_LOG")) {
-		Ok(s) => EnvFilter::from(s),
-		_ => EnvFilter::from(&config.log.level),
-	};
 	let tree = HierarchicalLayer::new(4)
 		.with_bracketed_fields(true)
 		.with_targets(true)
@@ -47,10 +45,6 @@ pub fn init(config: &ApplicationConfig) -> Result<(), Box<dyn std::error::Error 
 	};
 	#[cfg(not(feature = "tokio-console"))]
 	let trace_sub = { tracing_subscriber::Registry::default() };
-	trace_sub
-		.with(env_filter)
-		.with(ErrorLayer::default())
-		.with(final_layer)
-		.init();
+	trace_sub.with(ErrorLayer::default()).with(final_layer).init();
 	Ok(())
 }
