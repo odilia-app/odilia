@@ -18,7 +18,6 @@ atspi-common.workspace = true
 odilia-common.workspace = true
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 serde.workspace = true
-tokio.workspace = true
 tracing.workspace = true
 zbus.workspace = true
 fxhash = "0.2.1"
@@ -27,6 +26,8 @@ indextree = { version = "4.7.4", features = ["rayon", "par_iter", "serde", "dese
 evmap = "10.0.2"
 parking_lot = { version = "0.12.3", default-features = false }
 itertools = "0.14.0"
+futures-concurrency.workspace = true
+futures-lite = { version = "2.6.0", default-features = false }
 
 [dev-dependencies]
 atspi-connection.workspace = true
@@ -34,7 +35,6 @@ criterion = { version = "0.5.1", features = ["async_tokio", "html_reports"] }
 futures.workspace = true
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
-tokio-test = "0.4.2"
 
 [[bench]]
 name = "load_test"

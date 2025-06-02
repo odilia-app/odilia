@@ -523,7 +523,7 @@ impl Cache {
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err)]
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (app, parent, index, children_num, interfaces, role, states, children) = tokio::try_join!(
+	let (app, parent, index, children_num, interfaces, role, states, children) = (
 		accessible.get_application(),
 		accessible.parent(),
 		accessible.get_index_in_parent(),
@@ -532,7 +532,9 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_role(),
 		accessible.get_state(),
 		accessible.get_children(),
-	)?;
+	)
+		.try_join()
+		.await?;
 	let rs = accessible.get_relation_set().await?.into();
 	let name = accessible
 		.name()
