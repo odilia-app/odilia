@@ -69,8 +69,6 @@ send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ss
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-	#[error(transparent)]
-	Figment(#[from] Box<figment::Error>),
 	#[error("Value not found in config file.")]
 	ValueNotFound,
 	#[error("The path for the config file was not found.")]

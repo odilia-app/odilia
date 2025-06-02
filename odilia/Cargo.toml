@@ -35,7 +35,6 @@ atspi-proxies.workspace = true
 atspi-common.workspace = true
 atspi-connection.workspace = true
 circular-queue = "^0.2.6"
-eyre.workspace = true
 futures.workspace = true
 odilia-common.workspace = true
 odilia-cache.workspace = true
@@ -52,10 +51,8 @@ tracing.workspace = true
 xdg.workspace=true
 zbus.workspace = true
 odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
-clap = { version = "4.5.1", features = ["derive"] }
 tokio-util.workspace=true
 toml = "0.8.11"
-figment = { version = "0.10.14", features = ["env", "toml"] }
 tracing-journald = "0.3.0"
 ssip.workspace = true
 pin-project.workspace = true
@@ -64,6 +61,8 @@ refinement = "0.5.0"
 derived-deref = "2.1.0"
 tower-iter = { version = "0.1", path = "../tower-iter/" }
 which = "7.0.2"
+config = { version = "0.15.11", default-features = false, features = ["toml"] }
+lexopt = { version = "0.3.1", default-features = false }
 
 [dev-dependencies]
 lazy_static = "1.4.0"

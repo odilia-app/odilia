@@ -12,7 +12,6 @@ categories = ["accessibility"]
 edition = "2021"
 
 [dependencies]
-eyre.workspace = true
 nix.workspace = true
 odilia-common.workspace = true
 serde_json.workspace = true

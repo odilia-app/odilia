@@ -16,7 +16,6 @@ mod tower;
 
 use std::{
 	fmt::Write,
-	fs,
 	path::PathBuf,
 	process::{exit, Child, Command as ProcCommand},
 	sync::Arc,
@@ -24,14 +23,7 @@ use std::{
 };
 
 use atspi::RelationType;
-use atspi_common::events::{document, object};
-use clap::Parser;
-use eyre::{Report, WrapErr};
-use figment::{
-	providers::{Format, Serialized, Toml},
-	Figment,
-};
-use futures::{future::FutureExt, StreamExt};
+use futures::StreamExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
@@ -59,7 +51,9 @@ use crate::{
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
-fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
+fn try_spawn_input_server(
+	input: &InputMethod,
+) -> Result<Child, Box<dyn std::error::Error + Send + Sync>> {
 	let bin_name = format!(
 		"{}-{}",
 		"odilia-input-server",
@@ -77,7 +71,7 @@ fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
 	)?;
 	let child = match found.next() {
 		None => {
-			return Err(Report::msg(format!("Unable to find {bin_name} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!")));
+			return Err(format!("Unable to find {bin_name} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!").into());
 		}
 		Some(path) => {
 			tracing::info!("Input server path: {:?}", path);
@@ -91,7 +85,7 @@ fn try_spawn_input_server(input: &InputMethod) -> eyre::Result<Child> {
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
 	shutdown: CancellationToken,
-) -> eyre::Result<()> {
+) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
 	let mut stream = listen_to_dbus_notifications()
 		.instrument(tracing::info_span!("creating notification listener"))
 		.await?;
@@ -115,7 +109,7 @@ async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	tracker: TaskTracker,
 	state: Arc<ScreenReaderState>,
-) -> eyre::Result<()> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
 	let mut c = signal(SignalKind::interrupt())?;
 	c.recv().instrument(tracing::debug_span!("Watching for Ctrl+C")).await;
@@ -296,8 +290,8 @@ async fn caret_moved(
 }
 
 #[tokio::main]
-async fn main() -> eyre::Result<()> {
-	let args = Args::parse();
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	let args = Args::from_cli_args()?;
 
 	//initialize the primary token for task cancelation
 	let token = CancellationToken::new();
@@ -363,10 +357,8 @@ async fn main() -> eyre::Result<()> {
 		.input_listener(structural_nav);
 
 	let ssip_event_receiver =
-		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone())
-			.map(|r| r.wrap_err("Could no process SSIP request"));
-	let notification_task = notifications_monitor(Arc::clone(&state), token.clone())
-		.map(|r| r.wrap_err("Could not process signal shutdown."));
+		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone());
+	let notification_task = notifications_monitor(Arc::clone(&state), token.clone());
 	let mut stream = state.atspi.event_stream();
 	// There is a reason we are not reading from the event stream directly.
 	// This `MessageStream` can only store 64 events in its buffer.
@@ -399,21 +391,16 @@ async fn main() -> eyre::Result<()> {
 	tracker.spawn(input_task);
 	tracker.spawn(input_handler);
 	tracker.close();
-	let _ = sigterm_signal_watcher(token, tracker, Arc::clone(&state))
-		.await
-		.wrap_err("can not process interrupt signal");
+	sigterm_signal_watcher(token, tracker, Arc::clone(&state)).await?;
 	Ok(())
 }
 
-fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, eyre::Report> {
+fn load_configuration(
+	cli_overide: Option<PathBuf>,
+) -> Result<ApplicationConfig, Box<dyn std::error::Error + Send + Sync>> {
 	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
 	// If XDG_CONFIG_HOME based configuration wasn't found, create one by combining default values with the system provided ones, if available, for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above
-	let figment = Figment::from(Serialized::defaults(ApplicationConfig::default()));
-	//cli override, if applicable
-	let figment =
-		if let Some(path) = cli_overide { figment.join(Toml::file(path)) } else { figment };
-	//create a config.toml file in `XDG_CONFIG_HOME`, to make it possible for the user to edit the default values, if it doesn't exist already
 	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
 			"unable to find the odilia config directory according to the xdg dirs specification",
 		);
@@ -422,16 +409,23 @@ fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig,
 		.place_config_file("config.toml")
 		.expect("unable to place configuration file. Maybe your system is readonly?");
 
-	let figment = figment
+	let mut config = config::Config::builder()
+		.add_source(config::Config::try_from(&ApplicationConfig::default())?)
+		// env vars
+		.add_source(config::Environment::with_prefix("ODILIA"))
 		//next, the configuration system wide, in /etc/odilia/config.toml
-		.admerge(Toml::file("/etc/odilia/config.toml"))
+		.add_source(config::File::with_name("/etc/odilia/config"))
 		//finally, the xdg configuration
-		.admerge(Toml::file(&config_path));
-	//realise the configuration and freeze it into place
-	let config: ApplicationConfig = figment.extract()?;
-	if !config_path.exists() {
-		let toml = toml::to_string(&config)?;
-		fs::write(&config_path, toml).expect("Unable to create default config file.");
+		.add_source(config::File::with_name(
+			config_path.to_str().expect("Valid UTF-8 path"),
+		));
+	if let Some(path) = cli_overide {
+		// if a path overide was given, use that
+		config = config.add_source(config::File::with_name(
+			path.to_str().expect("Valid UTF-8 path"),
+		));
 	}
-	Ok(config)
+	let fin = config.build()?.try_deserialize()?;
+
+	Ok(fin)
 }

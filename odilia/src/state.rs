@@ -173,17 +173,15 @@ impl ScreenReaderState {
 	pub async fn new(
 		ssip: Sender<SSIPRequest>,
 		config: ApplicationConfig,
-	) -> eyre::Result<ScreenReaderState> {
+	) -> Result<ScreenReaderState, OdiliaError> {
 		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
-			.await
-			.wrap_err("Could not connect to at-spi bus")?;
+			.await?;
 		let dbus = DBusProxy::new(atspi.connection())
 			.instrument(tracing::debug_span!(
 				"creating dbus proxy for accessibility connection"
 			))
-			.await
-			.wrap_err("Failed to create org.freedesktop.DBus proxy")?;
+			.await?;
 
 		tracing::debug!("Reading configuration");
 
