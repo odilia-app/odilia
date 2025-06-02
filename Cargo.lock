@@ -1783,6 +1783,7 @@ dependencies = [
 name = "odilia-common"
 version = "0.3.0"
 dependencies = [
+ "async-channel",
  "atspi",
  "atspi-common",
  "atspi-proxies",
