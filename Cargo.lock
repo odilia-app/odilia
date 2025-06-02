@@ -1716,6 +1716,7 @@ dependencies = [
 name = "odilia"
 version = "0.1.4"
 dependencies = [
+ "async-signal",
  "atspi",
  "atspi-common",
  "atspi-connection",
