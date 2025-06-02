@@ -13,6 +13,9 @@ edition = "2021"
 
 [dependencies]
 async-channel = { version = "2.3.1", default-features = false }
+async-fs = "2.1.2"
+async-io = "2.4.1"
+async-net = "2.0.0"
 futures.workspace = true
 futures-lite = "2.6.0"
 nix.workspace = true

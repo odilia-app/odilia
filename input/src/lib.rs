@@ -13,13 +13,17 @@
 mod proxy;
 
 use async_channel::Sender;
+use async_fs as fs;
+use async_net::unix::{UnixListener, UnixStream};
 use futures::future::FutureExt;
 use futures_lite::future::FutureExt as LiteExt;
+use futures_lite::prelude::*;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
 use std::{
 	env,
+	os::unix::net::SocketAddr,
 	path::Path,
 	process::{exit, id},
 	time::{SystemTime, UNIX_EPOCH},
@@ -29,10 +33,6 @@ use eyre::{Context, Report};
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::{
-	fs,
-	net::{unix::SocketAddr, UnixListener, UnixStream},
-};
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
 where
@@ -178,25 +178,25 @@ pub async fn sr_event_receiver(
 }
 
 async fn handle_event(
-	socket: UnixStream,
+	mut socket: UnixStream,
 	address: SocketAddr,
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown: CancellationToken,
 ) {
 	loop {
-		let maybe_sock = or_cancel(socket.readable(), &shutdown).await;
-		let Ok(_) = maybe_sock else {
+		let mut buf = [0; 4096];
+		let maybe_reader = or_cancel(socket.read(&mut buf), &shutdown).await;
+		let Ok(reader) = maybe_reader else {
 			tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
 			break;
 		};
-		let mut buf = [0; 4096];
-		let bytes = match socket.try_read(&mut buf) {
+		let bytes = match reader {
 			Ok(0) => {
 				tracing::debug!("Socket {socket:?} was disconnected!");
 				break;
 			}
 			Ok(b) => b,
-			Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
+			Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
 				continue;
 			}
 			Err(e) => {
