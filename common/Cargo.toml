@@ -12,8 +12,9 @@ categories = ["accessibility"]
 edition = "2021"
 
 [features]
-default = []
+default = ["async-io"]
 tokio = ["dep:tokio"]
+async-io = ["dep:async-channel"]
 tracing = ["dep:tracing"]
 
 [dependencies]
@@ -34,3 +35,4 @@ ssip = { workspace = true, features = ["dbus"] }
 xdg.workspace = true
 zvariant = "5.4.0"
 indextree = { version = "4.7.4", default-features = false }
+async-channel = { version = "2.3.1", default-features = false, optional = true }

@@ -42,16 +42,16 @@ pub enum SendError {
 }
 
 macro_rules! send_err_impl {
-	($tokio_err:ty, $variant:path) => {
-		#[cfg(feature = "tokio")]
+	($tokio_err:ty, $variant:path, $dep:literal) => {
+		#[cfg(feature = $dep)]
 		impl From<$tokio_err> for OdiliaError {
 			fn from(t_err: $tokio_err) -> OdiliaError {
 				OdiliaError::SendError($variant(t_err.0))
 			}
 		}
 	};
-	($tokio_err:ty, $variant:path, Box) => {
-		#[cfg(feature = "tokio")]
+	($tokio_err:ty, $variant:path, Box, $dep:literal) => {
+		#[cfg(feature = $dep)]
 		impl From<$tokio_err> for OdiliaError {
 			fn from(t_err: $tokio_err) -> OdiliaError {
 				OdiliaError::SendError($variant(Box::new(t_err.0)))
@@ -60,12 +60,25 @@ macro_rules! send_err_impl {
 	};
 }
 
-send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi, Box);
-send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi, Box);
-send_err_impl!(tokio::sync::broadcast::error::SendError<OdiliaCommand>, SendError::Command);
-send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command);
-send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
-send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip);
+send_err_impl!(
+	tokio::sync::broadcast::error::SendError<atspi::Event>,
+	SendError::Atspi,
+	Box,
+	"tokio"
+);
+send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi, Box, "tokio");
+send_err_impl!(
+	tokio::sync::broadcast::error::SendError<OdiliaCommand>,
+	SendError::Command,
+	"tokio"
+);
+send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command, "tokio");
+send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip, "tokio");
+send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip, "tokio");
+
+send_err_impl!(async_channel::SendError<atspi::Event>, SendError::Atspi, Box, "async-io");
+send_err_impl!(async_channel::SendError<OdiliaCommand>, SendError::Command, "async-io");
+send_err_impl!(async_channel::SendError<ssip::Request>, SendError::Ssip, "async-io");
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
