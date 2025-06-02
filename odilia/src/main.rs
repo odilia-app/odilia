@@ -30,6 +30,8 @@ use odilia_common::{
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputMethod},
 };
+
+use async_signal::{Signal, Signals};
 use odilia_notify::listen_to_dbus_notifications;
 use ssip::{Priority, Request as SSIPRequest};
 use smol_cancellation_token::CancellationToken;
@@ -114,8 +116,10 @@ async fn sigterm_signal_watcher(
 	state: Arc<ScreenReaderState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
-	let mut c = signal(SignalKind::interrupt())?;
-	c.recv().instrument(tracing::debug_span!("Watching for Ctrl+C")).await;
+	let mut signals = Signals::new([Signal::Int])?;
+	signals.next()
+		.instrument(tracing::debug_span!("Watching for Ctrl+C"))
+		.await;
 	tracing::debug!("Asking all processes to stop.");
 	(*state.children_pids.lock().expect("Able to lock mutex!"))
 		.iter_mut()
