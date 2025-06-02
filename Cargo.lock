@@ -1728,6 +1728,7 @@ dependencies = [
  "console-subscriber",
  "derived-deref",
  "futures",
+ "futures-concurrency",
  "futures-lite",
  "lazy_static",
  "lexopt",

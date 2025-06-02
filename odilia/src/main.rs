@@ -24,6 +24,7 @@ use std::{
 
 use atspi::RelationType;
 use futures::{FutureExt as FatExt, StreamExt};
+use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
@@ -355,14 +356,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	}
 
 	// Register events
-	tokio::try_join!(
+	(
 		state.register_event::<object::StateChangedEvent>(),
 		state.register_event::<object::TextCaretMovedEvent>(),
 		state.register_event::<object::ChildrenChangedEvent>(),
 		state.register_event::<object::TextChangedEvent>(),
 		state.register_event::<document::LoadCompleteEvent>(),
 		state.add_cache_match_rule(),
-	)?;
+	)
+		.try_join()
+		.await?;
 
 	// load handlers
 	let handlers = Handlers::new(state.clone())
