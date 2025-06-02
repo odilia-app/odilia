@@ -76,10 +76,10 @@ pub async fn create_ssip_client() -> Result<
 #[tracing::instrument(level = "debug", skip_all, err)]
 pub async fn handle_ssip_commands(
 	mut client: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
-	requests: Receiver<Request>,
+	mut requests: Receiver<Request>,
 	shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	tokio::pin!(requests);
+	std::pin::pin!(&mut requests);
 	loop {
 		tokio::select! {
 				      request_option = requests.recv() => {
