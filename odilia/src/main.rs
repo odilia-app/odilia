@@ -32,12 +32,15 @@ use odilia_common::{
 };
 use odilia_notify::listen_to_dbus_notifications;
 use ssip::{Priority, Request as SSIPRequest};
+use smol_cancellation_token::CancellationToken;
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
 	time::timeout,
 };
-use tokio_util::{sync::CancellationToken, task::TaskTracker};
+use tokio_util::task::TaskTracker;
+
+use atspi_common::events::{document, object};
 use tracing::Instrument;
 
 use crate::{
