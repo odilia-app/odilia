@@ -22,4 +22,4 @@ tracing.workspace=true
 zbus.workspace=true
 [dev-dependencies]
 notify-rust = "4.10.0"
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+tracing-subscriber.workspace = true
