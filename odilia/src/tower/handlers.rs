@@ -16,6 +16,7 @@ use tokio::sync::mpsc::Receiver;
 use tower::{util::BoxCloneService, Service, ServiceExt};
 
 use crate::{
+  or_cancel,
 	state::ScreenReaderState,
 	tower::{
 		async_try::AsyncTryFrom,
@@ -57,10 +58,10 @@ impl Handlers {
 			input: ChoiceService::new(),
 		}
 	}
-	pub async fn command_handler(mut self, mut commands: Receiver<Command>) {
+	pub async fn command_handler(mut self, commands: Receiver<Command>) {
 		loop {
 			let maybe_cmd = commands.recv().await;
-			let Some(cmd) = maybe_cmd else {
+			let Ok(cmd) = maybe_cmd else {
 				tracing::error!("Error cmd: {maybe_cmd:?}");
 				continue;
 			};
@@ -75,14 +76,17 @@ impl Handlers {
 		}
 	}
 	#[tracing::instrument(skip_all)]
-	pub async fn atspi_handler<R>(mut self, mut events: R)
-	where
-		R: Stream<Item = Result<Event, AtspiError>> + Unpin,
-	{
-		std::pin::pin!(&mut events);
+	pub async fn atspi_handler(
+		mut self,
+		events: Receiver<Result<Event, AtspiError>>,
+		token: crate::CancellationToken,
+	) {
 		loop {
-			let maybe_ev = events.next().await;
-			let Some(Ok(ev)) = maybe_ev else {
+			let maybe = or_cancel(events.recv(), &token).await;
+			let Ok(maybe_ev) = maybe else {
+				return;
+			};
+			let Ok(Ok(ev)) = maybe_ev else {
 				tracing::error!("Error in processing {maybe_ev:?}");
 				continue;
 			};
@@ -92,11 +96,19 @@ impl Handlers {
 		}
 	}
 	#[tracing::instrument(skip_all)]
-	pub async fn input_handler(mut self, mut events: Receiver<ScreenReaderEvent>) {
+	pub async fn input_handler(
+		mut self,
+		mut events: Receiver<ScreenReaderEvent>,
+		token: crate::CancellationToken,
+	) {
 		std::pin::pin!(&mut events);
 		loop {
-			let maybe_ev = events.recv().await;
-			let Some(ev) = maybe_ev else {
+			let maybe = or_cancel(events.recv(), &token).await;
+			let Ok(maybe_ev) = maybe else {
+				return;
+			};
+			tracing::info!("INPUT: {:?}", maybe_ev);
+			let Ok(ev) = maybe_ev else {
 				tracing::error!("Error in processing {maybe_ev:?}");
 				continue;
 			};

@@ -23,7 +23,8 @@ use std::{
 };
 
 use atspi::RelationType;
-use futures::StreamExt;
+use futures::{FutureExt as FatExt, StreamExt};
+use futures_lite::future::FutureExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
@@ -31,15 +32,12 @@ use odilia_common::{
 	settings::{ApplicationConfig, InputMethod},
 };
 
+use async_channel::bounded;
+use async_io::Timer;
 use async_signal::{Signal, Signals};
 use odilia_notify::listen_to_dbus_notifications;
 use ssip::{Priority, Request as SSIPRequest};
 use smol_cancellation_token::CancellationToken;
-use tokio::{
-	signal::unix::{signal, SignalKind},
-	sync::mpsc,
-	time::timeout,
-};
 use tokio_util::task::TaskTracker;
 
 use atspi_common::events::{document, object};
@@ -53,6 +51,16 @@ use crate::{
 	},
 	tower::{ActiveAppEvent, CacheEvent, EventProp, Handlers, RelationSet},
 };
+
+async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
+where
+	F: std::future::Future,
+{
+	token.cancelled()
+		.map(|()| Err(std::io::ErrorKind::TimedOut.into()))
+		.or(f.map(Ok))
+		.await
+}
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
@@ -115,7 +123,7 @@ async fn sigterm_signal_watcher(
 	tracker: TaskTracker,
 	state: Arc<ScreenReaderState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let timeout_duration = Duration::from_millis(500); //todo: perhaps take this from the configuration file at some point
+	let timeout_duration = Duration::from_secs(5); //todo: perhaps take this from the configuration file at some point
 	let mut signals = Signals::new([Signal::Int])?;
 	signals.next()
 		.instrument(tracing::debug_span!("Watching for Ctrl+C"))
@@ -128,7 +136,15 @@ async fn sigterm_signal_watcher(
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
 	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
-	timeout(timeout_duration, tracker.wait()).await?;
+	//timeout(timeout_duration, tracker.wait()).await?;
+	let timeout = Timer::after(timeout_duration);
+	tracker.wait()
+		.map(|()| Ok::<(), std::io::Error>(()))
+		.or(async move {
+			timeout.await;
+			Err(std::io::ErrorKind::TimedOut.into())
+		})
+		.await?;
 	tracing::debug!("All listeners have stopped.");
 	tracing::debug!("Goodbye, Odilia!");
 	Ok(())
@@ -323,10 +339,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// this is the channel which handles all SSIP commands. If SSIP is not allowed to operate on a separate task, then waiting for the receiving message can block other long-running operations like structural navigation.
 	// Although in the future, this may possibly be resolved through a proper cache, I think it still makes sense to separate SSIP's IO operations to a separate task.
 	//  it is very important that this is *never* full, since it can cause deadlocking if the other task sending the request is working with zbus.
-	let (ssip_req_tx, ssip_req_rx) = mpsc::channel::<ssip_client_async::Request>(128);
-	let (mut ev_tx, ev_rx) =
-		futures::channel::mpsc::channel::<Result<atspi::Event, atspi::AtspiError>>(10_000);
-	let (input_tx, input_rx) = mpsc::channel::<ScreenReaderEvent>(255);
+	let (ssip_req_tx, ssip_req_rx) = bounded::<ssip_client_async::Request>(128);
+	let (ev_tx, ev_rx) = bounded::<Result<atspi::Event, atspi::AtspiError>>(10_000);
+	let (input_tx, input_rx) = bounded::<ScreenReaderEvent>(255);
 	// Initialize state
 	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
@@ -374,20 +389,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// So, we continually poll it here, then receive it on the other end.
 	// Additioanlly, since sending is not async, but simply errors when there is an issue, this will
 	// help us avoid hangs.
+	let token_clone = token.clone();
 	let event_send_task = async move {
 		std::pin::pin!(&mut stream);
-		while let Some(ev) = stream.next().await {
-			if let Err(e) = ev_tx.try_send(ev) {
-				tracing::error!("Error sending event across channel! {e:?}");
+		loop {
+			let maybe = or_cancel(stream.next(), &token_clone).await;
+			let Ok(maybe_ev) = maybe else {
+				return;
+			};
+			if let Some(ev) = maybe_ev {
+				if let Err(e) = ev_tx.try_send(ev) {
+					tracing::error!(
+						"Error sending event across channel! {e:?}"
+					);
+				}
 			}
 		}
 	};
-	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
+	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx, token.clone());
 	let listener = odilia_input::setup_input_server()
 		.await
 		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
 	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
-	let input_handler = handlers.input_handler(input_rx);
+	let input_handler = handlers.input_handler(input_rx, token.clone());
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
 

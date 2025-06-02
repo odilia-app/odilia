@@ -12,6 +12,7 @@
 
 mod proxy;
 
+use async_channel::Sender;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
@@ -29,7 +30,6 @@ use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::{
 	fs,
 	net::{unix::SocketAddr, UnixListener, UnixStream},
-	sync::mpsc::Sender,
 };
 
 #[tracing::instrument(ret)]
