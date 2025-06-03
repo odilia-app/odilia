@@ -204,353 +204,7 @@ impl CacheItem {
 			description: desc,
 		})
 	}
-	/*
-	      // Same as [`AccessibleProxy::get_children`], just offered as a non-async version.
-	      /// Get a `Vec` of children with the same type as `Self`.
-	      /// # Errors
-	      /// 1. Will return an `Err` variant if `self.cache` does not reference an active cache. This should never happen, but it is technically possible.
-	      /// 2. Any children keys' values are not found in the cache itself.
-	      #[tracing::instrument(level = "trace", skip_all, ret, err)]
-	      pub fn get_children(&self) -> OdiliaResult<Vec<Self>> {
-		      let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		      let children = self
-			      .children
-			      .iter()
-			      .map(|child_ref| derefed_cache.get(child_ref).ok_or(CacheError::NoItem))
-			      .collect::<Result<Vec<_>, _>>()?;
-		      Ok(children)
-	      }
-	*/
 }
-
-impl CacheItem {
-	/*
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_application`]
-	      /// # Errors
-	      /// - [`CacheError::NoItem`] if application is not in cache
-	      pub fn get_application(&self) -> Result<Self, OdiliaError> {
-		      let derefed_cache: Arc<Cache> = strong_cache(&self.cache)?;
-		      derefed_cache.get(&self.app).ok_or(CacheError::NoItem.into())
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::parent`]
-	      /// # Errors
-	      /// - [`CacheError::NoItem`] if application is not in cache
-	      pub fn parent(&self) -> Result<Self, OdiliaError> {
-		      self.cache
-			      .upgrade()
-			      .ok_or::<OdiliaError>(CacheError::NotAvailable.into())?
-			      .get(&self.parent)
-			      .ok_or(CacheError::NoItem.into())
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_attributes`]
-	      /// # Errors
-	      /// - If the item is no longer available over the AT-SPI connection.
-	      pub async fn get_attributes(&self) -> Result<HashMap<String, String>, OdiliaError> {
-		      Ok(as_accessible(self).await?.get_attributes().await?)
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::name`]
-	      /// # Errors
-	      /// - If the item is no longer available over the AT-SPI connection.
-	      pub async fn name(&self) -> Result<String, OdiliaError> {
-		      Ok(as_accessible(self).await?.name().await?)
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::locale`]
-	      /// # Errors
-	      /// - If the item is no longer available over the AT-SPI connection.
-	      pub async fn locale(&self) -> Result<String, OdiliaError> {
-		      Ok(as_accessible(self).await?.locale().await?)
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::description`]
-	      /// # Errors
-	      /// - If the item is no longer available over the AT-SPI connection.
-	      pub async fn description(&self) -> Result<String, OdiliaError> {
-		      Ok(as_accessible(self).await?.description().await?)
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_relation_set`]
-	      /// # Errors
-	      /// - If the item is no longer available over the AT-SPI connection.
-	      /// - The items mentioned are not in the cache.
-	      pub async fn get_relation_set(
-		      &self,
-	      ) -> Result<Vec<(RelationType, Vec<Self>)>, OdiliaError> {
-		      let cache = strong_cache(&self.cache)?;
-		      let ipc_rs = as_accessible(self).await?.get_relation_set().await?;
-		      let mut relations = Vec::new();
-		      for (relation, object_pairs) in ipc_rs {
-			      let mut cache_keys = Vec::new();
-			      for object_pair in object_pairs {
-				      let cached = cache.get_ipc(&object_pair.into()).await?;
-				      cache_keys.push(cached);
-			      }
-			      relations.push((relation, cache_keys));
-		      }
-		      Ok(relations)
-	      }
-	      /// See [`atspi_proxies::accessible::AccessibleProxy::get_child_at_index`]
-	      /// # Errors
-	      /// - The items mentioned are not in the cache.
-	      pub fn get_child_at_index(&self, idx: i32) -> Result<Self, OdiliaError> {
-		      self.get_children()?
-			      .get(usize::try_from(idx)?)
-			      .ok_or(CacheError::NoItem.into())
-			      .cloned()
-	      }
-	*/
-}
-
-/*
-impl CacheItem {
-	pub async fn add_selection(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<bool, OdiliaError> {
-		Ok(as_text(self).await?.add_selection(start_offset, end_offset).await?)
-	}
-	pub async fn get_attribute_run(
-		&self,
-		offset: i32,
-		include_defaults: bool,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.get_attribute_run(offset, include_defaults)
-			.await?)
-	}
-	pub async fn get_attribute_value(
-		&self,
-		offset: i32,
-		attribute_name: &str,
-	) -> Result<String, OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.get_attribute_value(offset, attribute_name)
-			.await?)
-	}
-	pub async fn get_text_attributes(
-		&self,
-		offset: i32,
-	) -> Result<(std::collections::HashMap<String, String>, i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_attributes(offset).await?)
-	}
-	pub async fn get_bounded_ranges(
-		&self,
-		x: i32,
-		y: i32,
-		width: i32,
-		height: i32,
-		coord_type: CoordType,
-		x_clip_type: ClipType,
-		y_clip_type: ClipType,
-	) -> Result<Vec<(i32, i32, String, zbus::zvariant::OwnedValue)>, OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.get_bounded_ranges(
-				x,
-				y,
-				width,
-				height,
-				coord_type,
-				x_clip_type,
-				y_clip_type,
-			)
-			.await?)
-	}
-	pub async fn get_character_at_offset(&self, offset: i32) -> Result<i32, OdiliaError> {
-		Ok(as_text(self).await?.get_character_at_offset(offset).await?)
-	}
-	pub async fn get_character_extents(
-		&self,
-		offset: i32,
-		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_character_extents(offset, coord_type).await?)
-	}
-	pub async fn get_default_attribute_set(
-		&self,
-	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
-		Ok(as_text(self).await?.get_default_attribute_set().await?)
-	}
-	pub async fn get_default_attributes(
-		&self,
-	) -> Result<std::collections::HashMap<String, String>, OdiliaError> {
-		Ok(as_text(self).await?.get_default_attributes().await?)
-	}
-	pub async fn get_nselections(&self) -> Result<i32, OdiliaError> {
-		Ok(as_text(self).await?.get_nselections().await?)
-	}
-	pub async fn get_offset_at_point(
-		&self,
-		x: i32,
-		y: i32,
-		coord_type: CoordType,
-	) -> Result<i32, OdiliaError> {
-		Ok(as_text(self).await?.get_offset_at_point(x, y, coord_type).await?)
-	}
-	pub async fn get_range_extents(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		coord_type: CoordType,
-	) -> Result<(i32, i32, i32, i32), OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.get_range_extents(start_offset, end_offset, coord_type)
-			.await?)
-	}
-	pub async fn get_selection(&self, selection_num: i32) -> Result<(i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_selection(selection_num).await?)
-	}
-	pub async fn get_string_at_offset(
-		&self,
-		offset: usize,
-		granularity: Granularity,
-	) -> Result<(String, usize, usize), OdiliaError> {
-		// optimisations that don't call out to DBus.
-		if granularity == Granularity::Paragraph {
-			return Ok((self.text.clone(), 0, self.text.len()));
-		} else if granularity == Granularity::Char {
-			let range = offset..=offset;
-			return Ok((
-				self.text
-					.get(range)
-					.ok_or(CacheError::TextBoundsError)?
-					.to_string(),
-				offset,
-				offset + 1,
-			));
-		} else if granularity == Granularity::Word {
-			return Ok(self
-				.text
-				// [char]
-				.split_whitespace()
-				// [(word, start, end)]
-				.filter_map(|word| {
-					let start = self
-						.text
-						// [(idx, char)]
-						.char_indices()
-						// [(idx, char)]: uses pointer arithmatic to find start index
-						.find(|&(idx, _)| {
-							idx == word.as_ptr() as usize
-								- self.text.as_ptr() as usize
-						})
-						// [idx]
-						.map(|(idx, _)| idx)?;
-					// calculate based on start
-					let end = start + word.len();
-					// if the offset if within bounds
-					if offset >= start && offset <= end {
-						Some((word.to_string(), start, end))
-					} else {
-						None
-					}
-				})
-				// get "all" words that match; there should be only one result
-				.collect::<Vec<_>>()
-				.first()
-				// if there's no matching word (out of bounds)
-				.ok_or_else(|| OdiliaError::Generic("Out of bounds".to_string()))?
-				// clone the reference into a value
-				.clone());
-		}
-		// any other variations, in particular, Granularity::Line, will need to call out to DBus. It's just too complex to calculate, get updates for bounding boxes, etc.
-		// this variation does NOT get a semantic line. It gets a visual line.
-		let dbus_version = as_text(self)
-			.await?
-			.get_string_at_offset(offset.try_into()?, granularity)
-			.await?;
-		Ok((dbus_version.0, dbus_version.1.try_into()?, dbus_version.2.try_into()?))
-	}
-	pub fn get_text(
-		&self,
-		start_offset: usize,
-		end_offset: usize,
-	) -> Result<String, OdiliaError> {
-		self.text
-			.get(start_offset..end_offset)
-			.map(std::borrow::ToOwned::to_owned)
-			.ok_or(OdiliaError::Generic("Type is None, not Some".to_string()))
-	}
-	pub fn get_all_text(&self) -> Result<String, OdiliaError> {
-		let length_of_string = self.character_count();
-		self.get_text(0, length_of_string)
-	}
-	pub async fn get_text_after_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_text_after_offset(offset, type_).await?)
-	}
-	pub async fn get_text_at_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_text_at_offset(offset, type_).await?)
-	}
-	pub async fn get_text_before_offset(
-		&self,
-		offset: i32,
-		type_: u32,
-	) -> Result<(String, i32, i32), OdiliaError> {
-		Ok(as_text(self).await?.get_text_before_offset(offset, type_).await?)
-	}
-	pub async fn remove_selection(&self, selection_num: i32) -> Result<bool, OdiliaError> {
-		Ok(as_text(self).await?.remove_selection(selection_num).await?)
-	}
-	pub async fn scroll_substring_to(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		type_: u32,
-	) -> Result<bool, OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.scroll_substring_to(start_offset, end_offset, type_)
-			.await?)
-	}
-	pub async fn scroll_substring_to_point(
-		&self,
-		start_offset: i32,
-		end_offset: i32,
-		type_: u32,
-		x: i32,
-		y: i32,
-	) -> Result<bool, OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.scroll_substring_to_point(start_offset, end_offset, type_, x, y)
-			.await?)
-	}
-	pub async fn set_caret_offset(&self, offset: i32) -> Result<bool, OdiliaError> {
-		Ok(as_text(self).await?.set_caret_offset(offset).await?)
-	}
-	pub async fn set_selection(
-		&self,
-		selection_num: i32,
-		start_offset: i32,
-		end_offset: i32,
-	) -> Result<bool, OdiliaError> {
-		Ok(as_text(self)
-			.await?
-			.set_selection(selection_num, start_offset, end_offset)
-			.await?)
-	}
-	/// Get the live caret offset from the system
-	/// # Errors
-	/// - Fails of the [`self.object_ref`] referes to an invalid item on the bus
-	/// - An IPC error from `zbus` it detected.
-	pub async fn caret_offset(&self) -> Result<i32, OdiliaError> {
-		Ok(as_text(self).await?.caret_offset().await?)
-	}
-	#[must_use]
-	pub fn character_count(&self) -> usize {
-		self.text.len()
-	}
-}
-*/
 
 /// An internal cache used within Odilia.
 ///
@@ -710,6 +364,7 @@ impl Cache {
 	pub fn remove(&self, id: &CacheKey) {
 		// if the item is not found in the lookup table, just return.
 		let Some((_key, node_id)) = self.id_lookup.remove(id) else {
+			tracing::warn!("Attempted to remove an item that doesn't exist: {id:?}");
 			return;
 		};
 		let mut cache = self.tree.write();
@@ -717,19 +372,6 @@ impl Cache {
 		node_id.remove(&mut cache);
 	}
 
-	/*
-		/// Get a single item from the cache, this only gets a reference to an item, not the item itself.
-		/// You will need to either get a read or a write lock on any item returned from this function.
-		/// It also may return `None` if a value is not matched to the key.
-		#[must_use]
-		#[tracing::instrument(level = "trace", ret)]
-		pub fn get_ref(&self, id: &CacheKey) -> Option<&Node<CacheItem>> {
-			let node_id = self.id_lookup.get(id)?;
-	    let cache = self.tree.read()
-		.expect("Unable to lock RwLock!");
-	    cache.get(*node_id)
-		}
-	*/
 	/// Get a single item from the cache by ID.
 	///
 	/// This will allow you to get the item without holding any locks to it,
@@ -798,12 +440,12 @@ impl Cache {
 		F: FnOnce(&mut CacheItem),
 	{
 		let Some(node_id) = self.id_lookup.get(id) else {
-			tracing::trace!("The lookup table does not contian this item: {:?}", id);
+			tracing::warn!("The lookup table does not contain this item: {:?}", id);
 			return Ok(false);
 		};
 		let mut cache = self.tree.write();
 		let Some(node) = cache.get_mut(*node_id) else {
-			tracing::trace!("The tree cache does not contain this item: {:?}", node_id);
+			tracing::warn!("The tree cache does not contain this item: {:?}", node_id);
 			return Ok(false);
 		};
 		let cache_item = node.get_mut();
@@ -858,8 +500,7 @@ impl Cache {
 		// return that same cache item
 		// SAFETY: this is okay because we always have one item in the stack, and guarantee that any
 		// errors along the way to setting the value cause an early return.
-		#[allow(clippy::unwrap_used)]
-		Ok(first_ci.unwrap())
+		Ok(first_ci.expect("Able to extract first CacheItem!"))
 	}
 
 	/// Clears the cache completely.
