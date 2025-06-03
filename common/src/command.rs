@@ -162,7 +162,11 @@ pub struct Speak(pub String, pub Priority);
 pub struct Focus(pub AccessiblePrimitive);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
-pub struct SetState(pub AccessiblePrimitive, pub State, pub bool);
+pub struct SetState {
+	pub item: AccessiblePrimitive,
+	pub state: State,
+	pub enabled: bool,
+}
 
 macro_rules! impl_command_type {
 	($type:ty, $disc:ident) => {

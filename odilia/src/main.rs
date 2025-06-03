@@ -206,19 +206,23 @@ async fn focused(
 
 #[tracing::instrument(ret)]
 async fn state_set(state_changed: CacheEvent<StateChangedEvent>) -> impl TryIntoCommands {
-	SetState(state_changed.item.object.clone(), state_changed.state, false)
+	SetState {
+		item: state_changed.item.object.clone(),
+		state: state_changed.state,
+		enabled: state_changed.enabled,
+	}
 }
 
 #[tracing::instrument(ret, err)]
 async fn set_state(
-	Command(SetState(item_key, state, tf)): Command<SetState>,
+	Command(SetState { item, state, enabled }): Command<SetState>,
 	Cache(cache): Cache,
 ) -> Result<(), OdiliaError> {
-	cache.modify_item(&item_key, |item| {
-		if tf {
-			item.states.insert(state);
+	cache.modify_item(&item, |it| {
+		if enabled {
+			it.states.insert(state);
 		} else {
-			item.states.remove(state);
+			it.states.remove(state);
 		}
 	})?;
 	Ok(())
