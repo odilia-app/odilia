@@ -144,9 +144,19 @@ pub async fn setup_input_server() -> Result<UnixListener, Box<dyn std::error::Er
 /// Noramlly, the best way to do this is like so:
 ///
 /// ```rust,no_run
-/// use futures_lite::stream::StreamExt;
-/// let stream = sr_event_receiver(UnixListener, Sender<ScreenReaderEvent>, CancellationToken);
-/// stream.for_each(|fut| { tokio::spawn(fut); });
+/// # use futures_lite::stream::StreamExt;
+/// # use smol_cancellation_token::CancellationToken;
+/// # use async_channel::bounded;
+/// # use async_net::unix::UnixListener;
+/// use odilia_input::sr_event_receiver;
+/// // use smol::spawn or tokio::spawn
+/// # fn spawn<F>(_f: F) {}
+/// let listener = UnixListener::bind("/some/path/here")
+///     .expect("Valid listener!");
+/// let (sender, _receiver) = bounded(128);
+/// let ct = CancellationToken::new();
+/// let stream = sr_event_receiver(listener, sender, ct);
+/// stream.for_each(|fut| { spawn(fut); });
 /// ```
 ///
 /// If the cancellation token is trigged, this stream will finish.
