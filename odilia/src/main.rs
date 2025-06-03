@@ -23,18 +23,8 @@ use std::{
 	time::Duration,
 };
 
-use crate::cli::Args;
-use crate::state::AccessibleHistory;
-use crate::state::Command;
-use crate::state::CurrentCaretPos;
-use crate::state::InputEvent;
-use crate::state::LastCaretPos;
-use crate::state::LastFocused;
-use crate::state::ScreenReaderState;
-use crate::state::Speech;
-use crate::tower::Handlers;
-use crate::tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet};
 use atspi::RelationType;
+use atspi_common::events::{document, object};
 use clap::Parser;
 use eyre::{Report, WrapErr};
 use figment::{
@@ -43,24 +33,29 @@ use figment::{
 };
 use futures::{future::FutureExt, StreamExt};
 use odilia_common::{
-	command::{CaretPos, Focus, IntoCommands, OdiliaCommand, Speak, TryIntoCommands},
+	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputMethod},
 };
-
 use odilia_notify::listen_to_dbus_notifications;
-use ssip::Priority;
-use ssip::Request as SSIPRequest;
+use ssip::{Priority, Request as SSIPRequest};
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
 	time::timeout,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-
-use atspi_common::events::{document, object};
 use tracing::Instrument;
+
+use crate::{
+	cli::Args,
+	state::{
+		AccessibleHistory, Cache, Command, CurrentCaretPos, InputEvent, LastCaretPos,
+		LastFocused, ScreenReaderState, Speech,
+	},
+	tower::{ActiveAppEvent, CacheEvent, EventProp, Handlers, RelationSet},
+};
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
@@ -138,10 +133,10 @@ async fn sigterm_signal_watcher(
 	Ok(())
 }
 
-use atspi::events::document::LoadCompleteEvent;
-use atspi::events::object::TextCaretMovedEvent;
-use atspi::Granularity;
-use std::cmp::{max, min};
+use atspi::events::{
+	document::LoadCompleteEvent,
+	object::{StateChangedEvent, TextCaretMovedEvent},
+};
 
 #[tracing::instrument(ret, err)]
 async fn speak(
@@ -159,20 +154,21 @@ async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCo
 	(Priority::Text, "Doc loaded")
 }
 
-use crate::tower::state_changed::{Focused, Unfocused};
+use crate::tower::state_changed::Focused;
 
 #[tracing::instrument(ret)]
 async fn focused(
 	state_changed: CacheEvent<Focused>,
-	EventProp(name): EventProp<Name>,
-	EventProp(description): EventProp<Description>,
 	EventProp(relation_set): EventProp<RelationSet>,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
+	let item = state_changed.item;
 	//does this have a text or a name?
 	// in order for the borrow checker to not scream that we move ownership of item.text, therefore making item partially moved, we only take a reference here, because in truth the only thing that we need to know is if the string is empty, because the extending of the buffer will imply a clone anyway
-	let text = &state_changed.item.text;
+	let text = &item.text;
+	let name = item.name;
+	let description = item.description;
 	if text.is_empty() {
 		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
 		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
@@ -200,19 +196,34 @@ async fn focused(
 		//then just append to the buffer and be done with it
 		utterance_buffer += text;
 	}
-	let role = state_changed.item.role;
+	let role = item.role;
 	//there has to be a space between the accessible name of an object and its role, so insert it now
 	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
-	Ok(vec![
-		Focus(state_changed.item.object).into(),
-		Speak(utterance_buffer, Priority::Text).into(),
-	])
+	Ok(vec![Focus(item.object).into(), Speak(utterance_buffer, Priority::Text).into()])
 }
 
 #[tracing::instrument(ret)]
-async fn unfocused(state_changed: CacheEvent<Unfocused>) -> impl TryIntoCommands {
-	// TODO: set focused state on item to be false
-	Ok::<_, OdiliaError>(())
+async fn state_set(state_changed: CacheEvent<StateChangedEvent>) -> impl TryIntoCommands {
+	SetState {
+		item: state_changed.item.object.clone(),
+		state: state_changed.state,
+		enabled: state_changed.enabled,
+	}
+}
+
+#[tracing::instrument(ret, err)]
+async fn set_state(
+	Command(SetState { item, state, enabled }): Command<SetState>,
+	Cache(cache): Cache,
+) -> Result<(), OdiliaError> {
+	cache.modify_item(&item, |it| {
+		if enabled {
+			it.states.insert(state);
+		} else {
+			it.states.remove(state);
+		}
+	})?;
+	Ok(())
 }
 
 #[tracing::instrument(ret, err)]
@@ -254,31 +265,34 @@ async fn caret_moved(
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
 ) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-	let mut commands: Vec<OdiliaCommand> =
-		vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
+	/*
+	      let mut commands: Vec<OdiliaCommand> =
+		      vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
 
-	if last_focus == caret_moved.item.object {
-		let start = min(caret_moved.inner.position.try_into()?, last_pos);
-		let end = max(caret_moved.inner.position.try_into()?, last_pos);
-		if let Some(text) = caret_moved.item.text.get(start..end) {
-			commands.extend((Priority::Text, text.to_string()).into_commands());
-		} else {
-			return Err(OdiliaError::Generic(format!(
-				"Slide {}..{} could not be created from {}",
-				start, end, caret_moved.item.text
-			)));
-		}
-	} else {
-		let (text, _, _) = caret_moved
-			.item
-			.get_string_at_offset(
-				caret_moved.inner.position.try_into()?,
-				Granularity::Line,
-			)
-			.await?;
-		commands.extend((Priority::Text, text).into_commands());
-	}
-	Ok(commands)
+	      if last_focus == caret_moved.item.object {
+		      let start = min(caret_moved.inner.position.try_into()?, last_pos);
+		      let end = max(caret_moved.inner.position.try_into()?, last_pos);
+		      if let Some(text) = caret_moved.item.text.get(start..end) {
+			      commands.extend((Priority::Text, text.to_string()).into_commands());
+		      } else {
+			      return Err(OdiliaError::Generic(format!(
+				      "Slide {}..{} could not be created from {}",
+				      start, end, caret_moved.item.text
+			      )));
+		      }
+	      } else {
+		      let (text, _, _) = caret_moved
+			      .item
+			      .get_string_at_offset(
+				      caret_moved.inner.position.try_into()?,
+				      Granularity::Line,
+			      )
+			      .await?;
+		      commands.extend((Priority::Text, text).into_commands());
+	      }
+	      Ok(commands)
+	*/
+	Ok(Vec::new())
 }
 
 #[tokio::main]
@@ -339,10 +353,11 @@ async fn main() -> eyre::Result<()> {
 		.command_listener(speak)
 		.command_listener(new_focused_item)
 		.command_listener(new_caret_pos)
+		.command_listener(set_state)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
-		.atspi_listener(unfocused)
+		.atspi_listener(state_set)
 		.input_listener(stop_speech)
 		.input_listener(change_mode)
 		.input_listener(structural_nav);

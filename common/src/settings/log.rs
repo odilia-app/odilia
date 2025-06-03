@@ -1,5 +1,6 @@
-use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+use serde::{Deserialize, Serialize};
 
 ///structure used for all the configurable options related to logging
 #[derive(Debug, Serialize, Deserialize)]

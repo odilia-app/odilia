@@ -1,36 +1,29 @@
 #![allow(dead_code)]
 
-use crate::state::ScreenReaderState;
-use crate::tower::{
-	async_try::AsyncTryFrom,
-	choice::{ChoiceService, ChooserStatic},
-	from_state::TryFromState,
-	service_set::ServiceSet,
-	Handler, ServiceExt as OdiliaServiceExt,
-};
-use atspi::AtspiError;
-use atspi::BusProperties;
-use atspi::Event;
-use atspi::EventProperties;
-use atspi::EventTypeProperties;
-use odilia_common::{
-	errors::OdiliaError, events::EventType, events::ScreenReaderEvent,
-	events::ScreenReaderEventDiscriminants,
-};
-use std::fmt::Debug;
-use std::sync::Arc;
+use std::{fmt::Debug, sync::Arc};
 
+use atspi::{AtspiError, Event, EventProperties, EventTypeProperties};
 use futures::{Stream, StreamExt};
-
-use tower::util::BoxCloneService;
-use tower::Service;
-use tower::ServiceExt;
-
+use odilia_common::{
+	command::{
+		CommandType, OdiliaCommand as Command,
+		OdiliaCommandDiscriminants as CommandDiscriminants, TryIntoCommands,
+	},
+	errors::OdiliaError,
+	events::{EventType, ScreenReaderEvent, ScreenReaderEventDiscriminants},
+};
 use tokio::sync::mpsc::Receiver;
+use tower::{util::BoxCloneService, Service, ServiceExt};
 
-use odilia_common::command::{
-	CommandType, OdiliaCommand as Command, OdiliaCommandDiscriminants as CommandDiscriminants,
-	TryIntoCommands,
+use crate::{
+	state::ScreenReaderState,
+	tower::{
+		async_try::AsyncTryFrom,
+		choice::{ChoiceService, ChooserStatic},
+		from_state::TryFromState,
+		service_set::ServiceSet,
+		Handler, ServiceExt as OdiliaServiceExt,
+	},
 };
 
 type Response = Vec<Command>;
@@ -184,7 +177,7 @@ impl Handlers {
 		<H as Handler<T>>::Future: Send,
 		E: EventTypeProperties
 			+ Debug
-			+ BusProperties
+			+ EventProperties
 			+ TryFrom<Event>
 			+ EventProperties
 			+ ChooserStatic<(&'static str, &'static str)>

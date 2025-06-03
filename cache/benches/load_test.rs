@@ -1,17 +1,10 @@
-use std::{
-	collections::VecDeque,
-	sync::{Arc, RwLock},
-	time::Duration,
-};
+use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
 use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheItem};
-
-use odilia_common::{
-	cache::AccessiblePrimitive,
-	errors::{CacheError, OdiliaError},
-};
+use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
 use tokio::select;
 use tokio_test::block_on;
 
@@ -37,54 +30,21 @@ fn add(cache: &Cache, items: Vec<CacheItem>) {
 
 const ROOT_A11Y: &str = "/org/a11y/atspi/accessible/root";
 
-/// For each child, fetch all of its ancestors via `CacheItem::parent_ref`.
-async fn traverse_up_refs(children: Vec<Arc<RwLock<CacheItem>>>) {
+/// For each child, fetch all of its ancestors via `NodeId::ancestors`.
+async fn traverse_up_refs(children: Vec<NodeId>, arena: &Arena<CacheItem>) {
 	// for each child, try going up to the root
 	for child_ref in children {
-		let mut item_ref = child_ref;
-		loop {
-			let item_ref_copy = Arc::clone(&item_ref);
-			let mut item = item_ref_copy.write().expect("Could not lock item");
-			let _root = ROOT_A11Y;
-			if matches!(&item.object.id, _root) {
-				break;
-			}
-			item_ref = item.parent_ref().expect("Could not get parent reference");
-		}
-	}
-}
-
-/// For each child, fetch all of its ancestors in full (cloned) via
-/// `Accessible::parent`.
-async fn traverse_up(children: Vec<CacheItem>) {
-	// for each child, try going up to the root
-	for child in children {
-		let mut item = child.clone();
-		loop {
-			item = match item.parent() {
-				Ok(item) => item,
-				Err(OdiliaError::Cache(CacheError::NoItem)) => {
-					// Missing item from cache; there's always exactly one.
-					// Perhaps an item pointing to a special root/null node gets
-					// through? Not super important.
-					break;
-				}
-				Err(e) => {
-					panic!("Odilia error {e:?}");
-				}
-			};
-			let _root = ROOT_A11Y;
-			if matches!(item.object.id.clone(), _root) {
-				break;
-			}
-		}
+		child_ref.ancestors(arena).for_each(|anc| {
+			let _ = black_box(anc);
+		});
 	}
 }
 
 /// Depth first traversal
-fn traverse_depth_first(root: CacheItem) -> Result<(), OdiliaError> {
-	for child in root.get_children()? {
-		traverse_depth_first(child)?;
+fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaError> {
+	let lock = cache.tree.read();
+	for child in root.descendants(&lock) {
+		black_box(child);
 	}
 	Ok(())
 }
@@ -103,7 +63,7 @@ async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items:
 			match ids.pop_front() {
 				None => break, // we're done
 				Some(id) => {
-					if cache_2.get(&id).is_none() {
+					if cache_2.id_lookup.get(&id).is_none() {
 						ids.push_back(id);
 					}
 				}
@@ -138,34 +98,22 @@ fn cache_benchmark(c: &mut Criterion) {
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				zbus_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
+			|| zbus_items.clone(),
+			|items: Vec<CacheItem>| async {
+				cache.clear();
+				add_all(&cache, items);
 			},
-			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				wcag_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
+			|| wcag_items.clone(),
+			|items: Vec<CacheItem>| async {
+				cache.clear();
+				add_all(&cache, items);
 			},
-			|items: Vec<CacheItem>| async { add_all(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
@@ -173,61 +121,35 @@ fn cache_benchmark(c: &mut Criterion) {
 	let cache = Arc::new(Cache::new(zbus_connection.clone()));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
-			|| {
-				zbus_items
-					.clone()
-					.into_iter()
-					.map(|mut item| {
-						item.cache = Arc::downgrade(&cache);
-						item
-					})
-					.collect()
-			},
+			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
-	let (cache, children): (Arc<Cache>, Vec<Arc<RwLock<CacheItem>>>) = rt.block_on(async {
+	let (cache, children): (Arc<Cache>, Vec<NodeId>) = rt.block_on(async {
 		let cache = Arc::new(Cache::new(zbus_connection.clone()));
-		let all_items: Vec<CacheItem> = wcag_items
-			.clone()
-			.into_iter()
-			.map(|mut item| {
-				item.cache = Arc::downgrade(&cache);
-				item
-			})
-			.collect();
+		let all_items: Vec<CacheItem> = wcag_items.clone();
 		let _ = cache.add_all(all_items);
-		let children = cache
-			.by_id
+		let read_cache = cache.tree.read();
+		let children = read_cache
 			.iter()
 			.filter_map(|entry| {
-				if entry.read().unwrap().children.is_empty() {
-					Some(Arc::clone(&entry))
+				if entry.first_child().is_none() {
+					read_cache.get_node_id(entry)
 				} else {
 					None
 				}
 			})
 			.collect();
+		drop(read_cache);
 		(cache, children)
 	});
+	let read_cache = cache.tree.read();
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| children.clone(),
-			|cs| async { traverse_up_refs(cs).await },
-			BatchSize::SmallInput,
-		);
-	});
-
-	group.bench_function(BenchmarkId::new("traverse_up", "wcag-items"), |b| {
-		b.to_async(&rt).iter_batched(
-			|| {
-				children.iter()
-					.map(|am| Arc::clone(am).read().unwrap().clone())
-					.collect()
-			},
-			|cs| async { traverse_up(cs).await },
+			|cs| async { traverse_up_refs(cs, &read_cache).await },
 			BatchSize::SmallInput,
 		);
 	});
@@ -235,18 +157,22 @@ fn cache_benchmark(c: &mut Criterion) {
 	group.bench_function(BenchmarkId::new("traverse_depth_first", "wcag-items"), |b| {
 		b.iter_batched(
 			|| {
-				cache.get(&AccessiblePrimitive {
-					id: "/org/a11y/atspi/accessible/root".to_string(),
-					sender: ":1.22".into(),
-				})
-				.unwrap()
+				(
+					*cache.id_lookup
+						.get(&AccessiblePrimitive {
+							id: ROOT_A11Y.to_string(),
+							sender: ":1.30".into(),
+						})
+						.unwrap(),
+					&cache,
+				)
 			},
 			traverse_depth_first,
 			BatchSize::SmallInput,
 		);
 	});
 
-	let all_items = zbus_items.clone();
+	let all_items = wcag_items.clone();
 	for size in [10, 100, 1000] {
 		let sample = all_items[0..size]
 			.iter()

@@ -1,15 +1,15 @@
-use crate::future_ext::MapFutureMultiSet;
 use core::{
 	future::Future,
 	marker::PhantomData,
 	mem::replace,
 	task::{Context, Poll},
 };
-use futures::{future::Flatten, FutureExt, TryFutureExt};
 use std::vec::Vec;
-use tower::util::Oneshot;
-use tower::Service;
-use tower::ServiceExt;
+
+use futures::{future::Flatten, FutureExt, TryFutureExt};
+use tower::{util::Oneshot, Service, ServiceExt};
+
+use crate::future_ext::MapFutureMultiSet;
 
 #[allow(clippy::type_complexity)]
 pub struct IterService<S1, Req, Iter, I, S2, E> {

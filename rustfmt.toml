@@ -20,7 +20,8 @@ hard_tabs = true
 # reorder immports so they are alphabetical
 reorder_imports = true
 # group imports be type: standard, core and alloc, then external, then internal
-#group_imports = "StdExternalCrate"
+group_imports = "StdExternalCrate"
+imports_granularity = "Crate"
 
 # number of spaces per each tab in editors (they may choose to ignore this declaration)
 tab_spaces = 8

@@ -1,15 +1,14 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::cache::AccessiblePrimitive;
-use crate::errors::OdiliaError;
+use std::{array::IntoIter, convert::Infallible, iter::Chain};
+
+use atspi::State;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use ssip::Priority;
-use std::array::IntoIter;
-use std::convert::Infallible;
-use std::iter::Chain;
-
 use strum::{Display, EnumDiscriminants};
+
+use crate::{cache::AccessiblePrimitive, errors::OdiliaError};
 
 pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;
@@ -54,6 +53,12 @@ pub trait IntoCommands {
 }
 
 impl IntoCommands for CaretPos {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self.into()].into_iter()
+	}
+}
+impl IntoCommands for SetState {
 	type Iter = IntoIter<OdiliaCommand, 1>;
 	fn into_commands(self) -> Self::Iter {
 		[self.into()].into_iter()
@@ -156,6 +161,13 @@ pub struct Speak(pub String, pub Priority);
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
 
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct SetState {
+	pub item: AccessiblePrimitive,
+	pub state: State,
+	pub enabled: bool,
+}
+
 macro_rules! impl_command_type {
 	($type:ty, $disc:ident) => {
 		impl CommandType for $type {
@@ -165,6 +177,7 @@ macro_rules! impl_command_type {
 }
 
 impl_command_type!(Focus, Focus);
+impl_command_type!(SetState, SetState);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
 
@@ -175,4 +188,5 @@ pub enum OdiliaCommand {
 	Speak(Speak),
 	Focus(Focus),
 	CaretPos(CaretPos),
+	SetState(SetState),
 }

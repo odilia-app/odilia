@@ -1,10 +1,12 @@
-use crate::command::OdiliaCommand;
+use std::{fmt, fmt::Debug, str::FromStr};
+
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
-use std::{error::Error, fmt, str::FromStr};
 
-#[derive(Debug)]
+use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
+
+#[derive(Debug, thiserror::Error)]
 pub enum OdiliaError {
 	AtspiError(AtspiError),
 	AtspiTypesError(AtspiTypesError),
@@ -15,10 +17,10 @@ pub enum OdiliaError {
 	ZbusFdo(zbus::fdo::Error),
 	Zvariant(zbus::zvariant::Error),
 	SendError(SendError),
-	Cache(CacheError),
-	InfallibleConversion(std::convert::Infallible),
-	ConversionError(std::num::TryFromIntError),
-	Config(ConfigError),
+	Cache(#[from] CacheError),
+	InfallibleConversion(#[from] std::convert::Infallible),
+	ConversionError(#[from] std::num::TryFromIntError),
+	Config(#[from] ConfigError),
 	PoisoningError,
 	Generic(String),
 	Static(&'static str),
@@ -65,71 +67,59 @@ send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Co
 send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
 send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip);
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
-	Figment(Box<figment::Error>),
+	#[error(transparent)]
+	Figment(#[from] Box<figment::Error>),
+	#[error("Value not found in config file.")]
 	ValueNotFound,
+	#[error("The path for the config file was not found.")]
 	PathNotFound,
 }
-impl From<figment::Error> for ConfigError {
-	fn from(t_err: figment::Error) -> Self {
-		Self::Figment(Box::new(t_err))
-	}
-}
-impl std::fmt::Display for ConfigError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Self::Figment(t) => t.fmt(f),
-			Self::ValueNotFound => f.write_str("Vlaue not found in config file."),
-			Self::PathNotFound => {
-				f.write_str("The path for the config file was not found.")
-			}
-		}
-	}
-}
-impl std::error::Error for ConfigError {}
-#[derive(Debug)]
+
+#[derive(Debug, thiserror::Error)]
 pub enum CacheError {
+	#[error("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens.")]
 	NotAvailable,
+	#[error("Item not found in cache.")]
 	NoItem,
+	#[error("It was not possible to get a lock on this item from the cache.")]
 	NoLock,
+	#[error("The range asked for in a call to a get_string_*_offset function has invalid bounds.")]
 	TextBoundsError,
+	/// This item is already in the cache.
+	#[error("The cache requires more data to be in a consistent state: {0:?}")]
+	DuplicateItem(indextree::NodeId),
+	/// The cache operation succeeded, but the cache is in an inconsistent state now.
+	/// This usually means that a node has been added to the cache, but its parent was not found; in
+	/// this case, it is left as a disconnected part of the graph.
+	///
+	/// The data is the set of keys that need to be cached to keep it in a consistent state.
+	#[error("This item is already in the cache: {0:?}")]
+	MoreData(Vec<AccessiblePrimitive>),
+	#[error("Indextree: ")]
+	IndexTree(indextree::NodeError),
 }
-impl std::fmt::Display for CacheError {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			Self::NotAvailable => f.write_str("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."),
-			Self::NoItem => f.write_str("No item in cache found."),
-      Self::NoLock => f.write_str("It was not possible to get a lock on this item from the cache."),
-      Self::TextBoundsError => f.write_str("The range asked for in a call to a get_string_*_offset function has invalid bounds."),
-		}
+
+impl From<indextree::NodeError> for OdiliaError {
+	fn from(itne: indextree::NodeError) -> Self {
+		OdiliaError::Cache(itne.into())
 	}
 }
-impl std::error::Error for CacheError {}
-impl Error for OdiliaError {}
+impl From<indextree::NodeError> for CacheError {
+	fn from(itne: indextree::NodeError) -> Self {
+		CacheError::IndexTree(itne)
+	}
+}
+
 impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 	fn from(_: std::sync::PoisonError<T>) -> Self {
 		Self::PoisoningError
 	}
 }
-impl From<std::num::TryFromIntError> for OdiliaError {
-	fn from(fie: std::num::TryFromIntError) -> Self {
-		Self::ConversionError(fie)
-	}
-}
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {
 		Self::ZbusFdo(spe)
-	}
-}
-impl From<std::convert::Infallible> for OdiliaError {
-	fn from(infallible: std::convert::Infallible) -> Self {
-		Self::InfallibleConversion(infallible)
-	}
-}
-impl From<CacheError> for OdiliaError {
-	fn from(cache_error: CacheError) -> Self {
-		Self::Cache(cache_error)
 	}
 }
 impl From<zbus::Error> for OdiliaError {

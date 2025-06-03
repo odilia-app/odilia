@@ -9,8 +9,7 @@ use eyre::Context;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{prelude::*, EnvFilter};
-use tracing_tree::time::Uptime;
-use tracing_tree::HierarchicalLayer;
+use tracing_tree::{time::Uptime, HierarchicalLayer};
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is

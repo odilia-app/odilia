@@ -4,9 +4,8 @@ pub mod speech;
 
 pub use input::{InputMethod, InputSettings};
 pub use log::LogSettings;
-pub use speech::SpeechSettings;
-
 use serde::{Deserialize, Serialize};
+pub use speech::SpeechSettings;
 
 ///type representing a *read-only* view of the odilia screenreader configuration
 /// this type should only be obtained as a result of parsing odilia's configuration files, as it containes types for each section responsible for controlling various parts of the screenreader

@@ -1,9 +1,11 @@
+use std::sync::mpsc::{sync_channel, Receiver};
+
+use odilia_common::events::*;
+use rdev::{Event, EventType, Key};
+
 use crate::{
 	callback, ComboError, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, SetError, State,
 };
-use odilia_common::events::*;
-use rdev::{Event, EventType, Key};
-use std::sync::mpsc::{sync_channel, Receiver};
 
 pub(crate) trait EventFromEventType {
 	fn from_event_type(event_type: EventType) -> Event {

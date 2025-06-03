@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-
 use zbus::{zvariant::Value, Message};
 
-use crate::action::Action;
-use crate::urgency::Urgency;
-use itertools::Itertools;
+use crate::{action::Action, urgency::Urgency};
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Notification {

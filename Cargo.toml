@@ -31,16 +31,16 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.25.0", default-features = false, features = ["tokio"] }
-atspi-proxies = { version = "0.9.0", default-features = false, features = ["tokio"] }
-atspi-common = { version = "0.9.0", default-features = false, features = ["tokio"] }
-atspi-connection = { version = "0.9.0", default-features = false, features = ["tokio"] }
+atspi = { version = "0.26.3", default-features = false, features = ["tokio"] }
+atspi-proxies = { version = "0.10.2", default-features = false, features = ["tokio"] }
+atspi-common = { version = "0.10.1", default-features = false, features = ["tokio"] }
+atspi-connection = { version = "0.10.2", default-features = false, features = ["tokio"] }
 futures-concurrency = { version = "7.6.1" }
 futures = { version = "0.3.31", default-features = false, features = ["std"] }
 odilia-common = { version = "0.3.0", path = "./common", features = ["tokio"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 eyre = "0.6.8"
-nix = "0.29.0"
+nix = { version = "0.30.0", features = ["user"] }
 pin-project = "1.0"
 serde_json = "1.0"
 serde = { version = "1.0.194", features = ["derive"] }

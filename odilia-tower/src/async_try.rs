@@ -10,6 +10,7 @@ use core::{
 	marker::PhantomData,
 	task::{Context, Poll},
 };
+
 use futures::TryFutureExt;
 #[allow(clippy::module_name_repetitions)]
 use odilia_common::from_state::TryFromState;
@@ -143,9 +144,9 @@ where
 }
 
 use core::pin::Pin;
+
 use futures::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
-use tower::util::Oneshot;
-use tower::ServiceExt;
+use tower::{util::Oneshot, ServiceExt};
 
 /// A version of [`tower::util::future::AndThenFuture`] that is not generic over an un-namable
 /// future type.

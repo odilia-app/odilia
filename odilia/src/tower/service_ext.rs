@@ -1,13 +1,17 @@
-use crate::tower::{
-	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
-	iter_svc::IterService,
-	state_svc::{StateLayer, StateService},
-	sync_try::{TryIntoLayer, TryIntoService},
-	unwrap_svc::{MapResponseIntoService, MapResponseTryIntoCommandsService},
-};
-use crate::TryIntoCommands;
 use std::{convert::Infallible, sync::Arc};
+
 use tower::{Layer, Service};
+
+use crate::{
+	tower::{
+		async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
+		iter_svc::IterService,
+		state_svc::{StateLayer, StateService},
+		sync_try::{TryIntoLayer, TryIntoService},
+		unwrap_svc::{MapResponseIntoService, MapResponseTryIntoCommandsService},
+	},
+	TryIntoCommands,
+};
 
 pub trait ServiceExt<Request>: Service<Request> {
 	fn request_try_from<I, R, Fut1, E>(self) -> TryIntoService<Request, I, Self, R, Fut1>

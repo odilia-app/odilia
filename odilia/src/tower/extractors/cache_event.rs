@@ -1,13 +1,12 @@
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
+use std::{fmt::Debug, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+
 use atspi_common::EventProperties;
 use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
-use odilia_common::cache::AccessiblePrimitive;
 use refinement::Predicate;
-use std::fmt::Debug;
-use std::pin::Pin;
-use std::{future::Future, marker::PhantomData, sync::Arc};
 use zbus::{names::UniqueName, zvariant::ObjectPath};
+
+use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 
 pub type CacheEvent<E> = EventPredicate<E, Always>;
 pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;
@@ -71,17 +70,14 @@ where
 
 impl<E> TryFromState<Arc<ScreenReaderState>, E> for InnerEvent<E>
 where
-	E: EventProperties + Debug + Clone + Send + Unpin + 'static,
+	E: EventProperties + Debug + Clone + Send + Sync + Unpin + 'static,
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let a11y = AccessiblePrimitive::from_event(&event);
-			let proxy = a11y.into_accessible(state.connection()).await?;
-			let cache_item =
-				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
+			let cache_item = state.get_or_create(&event).await?;
 			Ok(InnerEvent::new(event, cache_item))
 		})
 	}
@@ -89,7 +85,7 @@ where
 
 impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for EventPredicate<E, P>
 where
-	E: EventProperties + Debug + Clone + Send + 'static,
+	E: EventProperties + Debug + Clone + Send + Sync + 'static,
 	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
 {
 	type Error = OdiliaError;
@@ -97,10 +93,7 @@ where
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let a11y = AccessiblePrimitive::from_event(&event);
-			let proxy = a11y.into_accessible(state.connection()).await?;
-			let cache_item =
-				state.cache.get_or_create(&proxy, Arc::clone(&state.cache)).await?;
+			let cache_item = state.get_or_create(&event).await?;
 			let cache_event = InnerEvent::new(event.clone(), cache_item);
 			EventPredicate::from_cache_event(cache_event, state).ok_or(
 				OdiliaError::PredicateFailure(format!(
