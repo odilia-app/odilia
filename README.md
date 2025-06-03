@@ -36,6 +36,7 @@ To build odilia, copy paste the following on your command line . The following s
 ```shell
 git clone https://github.com/odilia-app/odilia  && \
 cd odilia && \
+cargo install --path input-server-keyboard && \
 cargo install --path odilia
 ```
 

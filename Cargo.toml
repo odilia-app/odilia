@@ -1,6 +1,6 @@
 [workspace]
 resolver="2"
-default-members = ["odilia", "odilia-notify"]
+default-members = ["odilia"]
 members = [
   "cache",
   "common",
