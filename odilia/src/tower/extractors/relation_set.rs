@@ -14,6 +14,6 @@ impl PropertyType for RelationSet {
 
 impl GetProperty<RelationSet> for CacheItem {
 	async fn get_property(&self, cache: &Cache) -> Result<EventProp<RelationSet>, OdiliaError> {
-		Ok(EventProp(self.relation_set.unchecked_into_cache_itmes(cache)))
+		Ok(EventProp(self.relation_set.unchecked_into_cache_items(cache)))
 	}
 }
