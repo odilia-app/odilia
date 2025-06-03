@@ -14,7 +14,7 @@ edition = "2021"
 ssip-client-async.workspace = true
 tracing = { workspace = true, features = ["attributes"] }
 smol-cancellation-token.workspace = true
-async-channel = { version = "2.3.1", default-features = false }
-futures.workspace = true
-futures-lite = "2.6.0"
-async-net = "2.0.0"
+async-channel.workspace = true
+async-net.workspace = true
+futures-lite.workspace = true
+futures-util.workspace = true

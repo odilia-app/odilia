@@ -1,8 +1,8 @@
+#[cfg(feature = "zbus")]
+use atspi::proxy::{accessible::AccessibleProxy, text::TextProxy};
 use atspi::EventProperties;
 #[cfg(feature = "zbus")]
 use atspi::ObjectRef;
-#[cfg(feature = "zbus")]
-use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "zbus")]
 use zbus::proxy::{Builder as ProxyBuilder, CacheProperties};
