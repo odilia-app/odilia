@@ -16,7 +16,7 @@ async-channel.workspace = true
 async-fs.workspace = true
 async-net.workspace = true
 futures-lite.workspace = true
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["alloc"] }
 nix.workspace = true
 odilia-common.workspace = true
 serde_json.workspace = true
