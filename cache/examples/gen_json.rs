@@ -1,5 +1,5 @@
 //! This example demonstrates how to construct a tree of accessible objects on the accessibility bus.
-//! Additioanlly, it places all the information into the [`odilia_cache::Cache`] struct and uses
+//! Additionally, it places all the information into the [`odilia_cache::Cache`] struct and uses
 //! [`serde`] to output it in its entirety (in JSON format).
 //!
 //! This is then used to run the benchmarks.
