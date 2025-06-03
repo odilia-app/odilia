@@ -3,7 +3,7 @@ use std::{
 	time::SystemTime,
 };
 
-use atspi_common::Role;
+use atspi::Role;
 use odilia_common::events::*;
 use proptest::prelude::*;
 use rdev::{Button, Event, EventType, Key};
