@@ -1768,7 +1768,6 @@ dependencies = [
  "tokio",
  "tokio-test",
  "tokio-util",
- "toml",
  "tower 0.5.2",
  "tower-iter",
  "tracing",
@@ -1837,7 +1836,6 @@ version = "0.0.3"
 dependencies = [
  "async-channel",
  "async-fs",
- "async-io",
  "async-net",
  "futures",
  "futures-lite",
@@ -1846,7 +1844,6 @@ dependencies = [
  "serde_json",
  "smol-cancellation-token",
  "sysinfo",
- "tokio",
  "tracing",
 ]
 
@@ -1896,12 +1893,9 @@ name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
  "async-channel",
- "async-fs",
- "async-io",
  "async-net",
  "futures",
  "futures-lite",
- "odilia-common",
  "smol-cancellation-token",
  "ssip-client-async",
  "tracing",
@@ -2819,15 +2813,8 @@ dependencies = [
  "serde",
  "serde_spanned",
  "toml_datetime",
- "toml_write",
  "winnow",
 ]
-
-[[package]]
-name = "toml_write"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bfb942dfe1d8e29a7ee7fcbde5bd2b9a25fb89aa70caea2eba3bee836ff41076"
 
 [[package]]
 name = "tonic"
