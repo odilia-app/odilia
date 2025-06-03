@@ -63,7 +63,7 @@ zbus = { version = "5.1", default-features = false, features = ["async-io"] }
 zvariant = "5.0"
 zbus_names = "4.0"
 serde_plain = "1.0.1"
-ssip = { version = "0.4", path = "../ssip-client-async/ssip/", default-features = false }
-ssip-client-async = { version = "0.17.0", path = "../ssip-client-async/ssip-client-async/", default-features = false, features = ["async-io"] }
+ssip = { version = "0.4", default-features = false }
+ssip-client-async = { version = "0.17.0", default-features = false, features = ["async-io"] }
 
 xdg = { version = "2.5.2", default-features = false }

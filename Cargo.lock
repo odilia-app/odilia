@@ -2486,6 +2486,8 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "ssip"
 version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1ff83642a89ed3f8266199fbc335e17f85c95ac418d6ae788ccb6243dcc9a519"
 dependencies = [
  "serde",
  "strum_macros",
@@ -2495,6 +2497,8 @@ dependencies = [
 [[package]]
 name = "ssip-client-async"
 version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ac8e1afa81c809cbec25fc81f073895c03316d9246b90835536610ef8b69ca22"
 dependencies = [
  "async-net",
  "dirs",
