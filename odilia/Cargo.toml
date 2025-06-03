@@ -52,7 +52,6 @@ xdg.workspace=true
 zbus.workspace = true
 odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
 tokio-util.workspace=true
-toml = "0.8.11"
 tracing-journald = "0.3.0"
 ssip.workspace = true
 pin-project.workspace = true

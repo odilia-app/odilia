@@ -188,7 +188,6 @@ pub fn sr_event_receiver(
 					}
 					Err(e) => {
 						tracing::error!("accept function failed: {:?}", e);
-						continue;
 					}
 				}
 			}
