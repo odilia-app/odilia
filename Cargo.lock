@@ -1896,12 +1896,14 @@ name = "odilia-tts"
 version = "0.1.4"
 dependencies = [
  "async-channel",
+ "async-fs",
+ "async-io",
+ "async-net",
  "futures",
  "futures-lite",
  "odilia-common",
  "smol-cancellation-token",
  "ssip-client-async",
- "tokio",
  "tracing",
 ]
 
@@ -2548,8 +2550,6 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 [[package]]
 name = "ssip"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1ff83642a89ed3f8266199fbc335e17f85c95ac418d6ae788ccb6243dcc9a519"
 dependencies = [
  "serde",
  "strum_macros",
@@ -2559,14 +2559,13 @@ dependencies = [
 
 [[package]]
 name = "ssip-client-async"
-version = "0.16.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d1e3671cd925284e4fd591c73a5deb77741ee1a762b63af5190290d6887c239"
+version = "0.17.0"
 dependencies = [
+ "async-net",
  "dirs",
+ "futures-lite",
  "log",
  "ssip",
- "tokio",
 ]
 
 [[package]]
