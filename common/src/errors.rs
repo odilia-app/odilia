@@ -17,10 +17,10 @@ pub enum OdiliaError {
 	ZbusFdo(zbus::fdo::Error),
 	Zvariant(zbus::zvariant::Error),
 	SendError(SendError),
-	Cache(CacheError),
-	InfallibleConversion(std::convert::Infallible),
-	ConversionError(std::num::TryFromIntError),
-	Config(ConfigError),
+	Cache(#[from] CacheError),
+	InfallibleConversion(#[from] std::convert::Infallible),
+	ConversionError(#[from] std::num::TryFromIntError),
+	Config(#[from] ConfigError),
 	PoisoningError,
 	Generic(String),
 	Static(&'static str),
@@ -117,24 +117,9 @@ impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 		Self::PoisoningError
 	}
 }
-impl From<std::num::TryFromIntError> for OdiliaError {
-	fn from(fie: std::num::TryFromIntError) -> Self {
-		Self::ConversionError(fie)
-	}
-}
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {
 		Self::ZbusFdo(spe)
-	}
-}
-impl From<std::convert::Infallible> for OdiliaError {
-	fn from(infallible: std::convert::Infallible) -> Self {
-		Self::InfallibleConversion(infallible)
-	}
-}
-impl From<CacheError> for OdiliaError {
-	fn from(cache_error: CacheError) -> Self {
-		Self::Cache(cache_error)
 	}
 }
 impl From<zbus::Error> for OdiliaError {
