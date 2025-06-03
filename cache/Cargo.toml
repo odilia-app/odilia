@@ -23,16 +23,15 @@ zbus.workspace = true
 fxhash = "0.2.1"
 serde_plain.workspace = true
 indextree = { version = "4.7.4", features = ["rayon", "par_iter", "serde", "deser"] }
-evmap = "10.0.2"
 parking_lot = { version = "0.12.3", default-features = false }
 itertools = "0.14.0"
 futures-concurrency.workspace = true
 futures-lite = { version = "2.6.0", default-features = false }
 
 [dev-dependencies]
-atspi-connection.workspace = true
+atspi = { workspace = true, features = ["connection"] }
 criterion = { version = "0.6.0", features = ["async_tokio", "html_reports"] }
-futures-util.workspace = true
+futures-util = { workspace = true, features = ["alloc"] }
 serde_json.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 

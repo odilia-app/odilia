@@ -24,8 +24,8 @@ mod proptests;
 
 use std::{cmp::Ordering, sync::mpsc::SyncSender};
 
+use atspi::Role;
 use odilia_common::{
-	atspi::Role,
 	events::{
 		ChangeMode, Direction, Quit, ScreenReaderEvent as OdiliaEvent, StopSpeech,
 		StructuralNavigation,
