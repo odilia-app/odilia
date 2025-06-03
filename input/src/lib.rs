@@ -12,16 +12,6 @@
 
 mod proxy;
 
-use async_channel::Sender;
-use async_fs as fs;
-use async_net::unix::{UnixListener, UnixStream};
-use futures::future::FutureExt;
-use futures_lite::future::{self, FutureExt as LiteExt};
-use futures_lite::prelude::*;
-use futures_lite::stream;
-use nix::unistd::Uid;
-use odilia_common::events::ScreenReaderEvent;
-use smol_cancellation_token::CancellationToken;
 use std::{
 	env,
 	os::unix::net::SocketAddr,
@@ -30,9 +20,18 @@ use std::{
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-use eyre::{Context, Report};
+use async_channel::Sender;
+use async_fs as fs;
+use async_net::unix::{UnixListener, UnixStream};
+use futures::future::FutureExt;
+use futures_lite::{
+	future::{self, FutureExt as LiteExt},
+	prelude::*,
+	stream,
+};
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
+use smol_cancellation_token::CancellationToken;
 use sysinfo::{ProcessExt, System, SystemExt};
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>

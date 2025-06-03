@@ -2,8 +2,8 @@
 
 use std::{fmt::Debug, sync::Arc};
 
+use async_channel::Receiver;
 use atspi::{AtspiError, Event, EventProperties, EventTypeProperties};
-use futures::{Stream, StreamExt};
 use odilia_common::{
 	command::{
 		CommandType, OdiliaCommand as Command,
@@ -12,11 +12,10 @@ use odilia_common::{
 	errors::OdiliaError,
 	events::{EventType, ScreenReaderEvent, ScreenReaderEventDiscriminants},
 };
-use tokio::sync::mpsc::Receiver;
 use tower::{util::BoxCloneService, Service, ServiceExt};
 
 use crate::{
-  or_cancel,
+	or_cancel,
 	state::ScreenReaderState,
 	tower::{
 		async_try::AsyncTryFrom,

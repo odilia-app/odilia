@@ -22,6 +22,7 @@ pub use accessible_ext::AccessibleExt;
 use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
+use futures_concurrency::future::TryJoin;
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
 use itertools::Itertools;
