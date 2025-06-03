@@ -17,9 +17,9 @@ futures.workspace=true
 itertools = "0.14.0"
 serde.workspace=true
 thiserror.workspace = true
-tokio.workspace=true
 tracing.workspace=true
 zbus.workspace=true
 [dev-dependencies]
 notify-rust = "4.10.0"
 tracing-subscriber = { workspace = true, features = ["fmt"] }
+tokio = { workspace=true, features = ["time"] }
