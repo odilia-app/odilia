@@ -54,7 +54,7 @@ use crate::{
 		AccessibleHistory, Cache, Command, CurrentCaretPos, InputEvent, LastCaretPos,
 		LastFocused, ScreenReaderState, Speech,
 	},
-	tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Handlers, Name, RelationSet},
+	tower::{ActiveAppEvent, CacheEvent, EventProp, Handlers, RelationSet},
 };
 
 /// Try to spawn the `odilia-input-server-*` binary.
@@ -159,15 +159,16 @@ use crate::tower::state_changed::Focused;
 #[tracing::instrument(ret)]
 async fn focused(
 	state_changed: CacheEvent<Focused>,
-	EventProp(name): EventProp<Name>,
-	EventProp(description): EventProp<Description>,
 	EventProp(relation_set): EventProp<RelationSet>,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
+	let item = state_changed.item;
 	//does this have a text or a name?
 	// in order for the borrow checker to not scream that we move ownership of item.text, therefore making item partially moved, we only take a reference here, because in truth the only thing that we need to know is if the string is empty, because the extending of the buffer will imply a clone anyway
-	let text = &state_changed.item.text;
+	let text = &item.text;
+	let name = item.name;
+	let description = item.description;
 	if text.is_empty() {
 		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
 		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
@@ -195,13 +196,10 @@ async fn focused(
 		//then just append to the buffer and be done with it
 		utterance_buffer += text;
 	}
-	let role = state_changed.item.role;
+	let role = item.role;
 	//there has to be a space between the accessible name of an object and its role, so insert it now
 	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
-	Ok(vec![
-		Focus(state_changed.item.object).into(),
-		Speak(utterance_buffer, Priority::Text).into(),
-	])
+	Ok(vec![Focus(item.object).into(), Speak(utterance_buffer, Priority::Text).into()])
 }
 
 #[tracing::instrument(ret)]
