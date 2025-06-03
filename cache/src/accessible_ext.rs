@@ -211,13 +211,17 @@ impl AccessibleExt for AccessibleProxy<'_> {
 			}
 			None => self.get_children_ext().await?,
 		};
-		children.into_iter().for_each(|child| edge_elements.push(child));
+		for child in children {
+			edge_elements.push(child);
+		}
 		let siblings = match backward {
 			Some(false) => self.get_siblings_before().await?,
 			Some(true) => self.get_siblings_after().await?,
 			None => self.get_siblings().await?,
 		};
-		siblings.into_iter().for_each(|sibling| edge_elements.push(sibling));
+		for sibling in siblings {
+			edge_elements.push(sibling);
+		}
 		let parent = self.get_parent_ext().await?;
 		edge_elements.push(parent);
 		Ok(edge_elements)
@@ -233,7 +237,9 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		let mut visited = Vec::new();
 		let mut stack: Vec<AccessibleProxy<'_>> = Vec::new();
 		let edges = self.edges(Some(backward)).await?;
-		edges.into_iter().for_each(|edge| stack.push(edge));
+		for edge in edges {
+			stack.push(edge);
+		}
 		while let Some(item) = stack.pop() {
 			// TODO: properly bubble up error
 			let Ok(identifier) = ObjectRef::try_from(&item) else {
