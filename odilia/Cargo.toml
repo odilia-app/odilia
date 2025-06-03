@@ -38,7 +38,7 @@ circular-queue = "^0.2.6"
 futures.workspace = true
 odilia-common.workspace = true
 odilia-cache.workspace = true
-odilia-input = { path = "../input", version = "0.0.3" }
+odilia-input = { path = "../input", version = "0.3.0" }
 odilia-tts = { path = "../tts", version = "0.1.4" }
 odilia-tower = { path = "../odilia-tower/", version = "0.1.0" }
 ssip-client-async.workspace = true
