@@ -5,12 +5,14 @@ use core::{
 	pin::Pin,
 	task::{Context, Poll},
 };
-use futures::future::{join_all, Either, JoinAll};
-use futures::FutureExt as OtherFutExt;
-use pin_project::pin_project;
 use std::vec::Vec;
-use tower::util::Oneshot;
-use tower::Service;
+
+use futures::{
+	future::{join_all, Either, JoinAll},
+	FutureExt as OtherFutExt,
+};
+use pin_project::pin_project;
+use tower::{util::Oneshot, Service};
 
 use crate::service_multi_iter::ServiceMultiIter;
 

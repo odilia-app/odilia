@@ -11,6 +11,8 @@
 //!    Luuk van der Duim,
 //!    Tait Hoyem
 
+use std::{collections::VecDeque, sync::Arc};
+
 use atspi::{
 	connection::set_session_accessibility,
 	proxy::accessible::{AccessibleProxy, ObjectRefExt},
@@ -20,7 +22,6 @@ use futures::future::try_join_all;
 use odilia_cache::{accessible_to_cache_item, Cache, CacheItem};
 use odilia_common::errors::{CacheError, OdiliaError};
 use serde_json::to_string;
-use std::{collections::VecDeque, sync::Arc};
 use zbus::{proxy::CacheProperties, Connection};
 
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
@@ -29,43 +30,37 @@ const REGISTRY_DEST: &str = "org.a11y.atspi.Registry";
 const REGISTRY_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACCCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 
-trait BuildFromA11yProxy: Sized {
-	async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Self>>;
-}
+async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
+	let connection = ap.inner().connection().clone();
+	// Contains the processed `A11yNode`'s.
+	let cache = Arc::new(Cache::new(connection.clone()));
 
-impl BuildFromA11yProxy for Cache {
-	async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Self>> {
-		let connection = ap.inner().connection().clone();
-		// Contains the processed `A11yNode`'s.
-		let cache = Arc::new(Cache::new(connection.clone()));
+	// Contains the `AccessibleProxy` yet to be processed.
+	let mut stack: VecDeque<AccessibleProxy> = vec![ap].into();
 
-		// Contains the `AccessibleProxy` yet to be processed.
-		let mut stack: VecDeque<AccessibleProxy> = vec![ap].into();
-
-		// If the stack has an `AccessibleProxy`, we take the last.
-		while let Some(ap) = stack.pop_front() {
-			let cache_item = accessible_to_cache_item(&ap).await?;
-			match cache.add(cache_item) {
-				Ok(_) | Err(OdiliaError::Cache(CacheError::MoreData(_))) => {}
-				Err(e) => return Err(Box::new(e)),
-			};
-			// Prevent obects with huge child counts from stalling the program.
-			if ap.child_count().await? > 65536 {
-				continue;
-			}
-
-			let child_objects = ap.get_children().await?;
-			let mut children_proxies = try_join_all(
-				child_objects
-					.into_iter()
-					.map(|child| child.into_accessible_proxy(&connection)),
-			)
-			.await?
-			.into();
-			stack.append(&mut children_proxies);
+	// If the stack has an `AccessibleProxy`, we take the last.
+	while let Some(ap) = stack.pop_front() {
+		let cache_item = accessible_to_cache_item(&ap).await?;
+		match cache.add(cache_item) {
+			Ok(_) | Err(OdiliaError::Cache(CacheError::MoreData(_))) => {}
+			Err(e) => return Err(Box::new(e)),
+		};
+		// Prevent objects with a huge child count from stalling the program.
+		if ap.child_count().await? > 65536 {
+			continue;
 		}
-		Ok(cache)
+
+		let child_objects = ap.get_children().await?;
+		let mut children_proxies = try_join_all(
+			child_objects
+				.into_iter()
+				.map(|child| child.into_accessible_proxy(&connection)),
+		)
+		.await?
+		.into();
+		stack.append(&mut children_proxies);
 	}
+	Ok(cache)
 }
 
 async fn get_registry_accessible<'a>(conn: &Connection) -> Result<AccessibleProxy<'a>> {
@@ -88,7 +83,7 @@ async fn main() -> Result<()> {
 	let conn = a11y.connection();
 	let registry = get_registry_accessible(conn).await?;
 
-	let tree = Cache::from_a11y_proxy(registry).await?;
+	let tree = from_a11y_proxy(registry).await?;
 
 	let read_cache = tree.tree.read();
 	// this makes sure that all parent nodes are listed first in the list

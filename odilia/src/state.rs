@@ -1,18 +1,8 @@
-use std::{fmt::Debug, sync::atomic::AtomicUsize};
-
-use crate::tower::from_state::TryFromState;
-use circular_queue::CircularQueue;
-use eyre::WrapErr;
-use futures::future::err;
-use futures::future::ok;
-use futures::future::Ready;
-use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use std::sync::Mutex;
-use tokio::sync::mpsc::Sender;
-use tracing::{debug, Instrument, Level};
-use zbus::{
-	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
-	MatchRule,
+use std::{
+	fmt,
+	fmt::Debug,
+	process::Child,
+	sync::{atomic::AtomicUsize, Arc, Mutex},
 };
 
 use atspi_common::{
@@ -21,8 +11,10 @@ use atspi_common::{
 };
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
-use odilia_cache::Convertable;
-use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem};
+use circular_queue::CircularQueue;
+use eyre::WrapErr;
+use futures::future::{err, ok, Ready};
+use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
@@ -32,9 +24,15 @@ use odilia_common::{
 	types::TextSelectionArea,
 	Result as OdiliaResult,
 };
-use std::fmt;
-use std::process::Child;
-use std::sync::Arc;
+use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
+use tokio::sync::mpsc::Sender;
+use tracing::{debug, Instrument, Level};
+use zbus::{
+	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
+	MatchRule,
+};
+
+use crate::tower::from_state::TryFromState;
 
 impl Debug for ScreenReaderState {
 	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {

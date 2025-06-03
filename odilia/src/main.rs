@@ -23,18 +23,8 @@ use std::{
 	time::Duration,
 };
 
-use crate::cli::Args;
-use crate::state::Command;
-use crate::state::CurrentCaretPos;
-use crate::state::InputEvent;
-use crate::state::LastCaretPos;
-use crate::state::LastFocused;
-use crate::state::ScreenReaderState;
-use crate::state::Speech;
-use crate::state::{AccessibleHistory, Cache};
-use crate::tower::Handlers;
-use crate::tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Name, RelationSet};
 use atspi::RelationType;
+use atspi_common::events::{document, object};
 use clap::Parser;
 use eyre::{Report, WrapErr};
 use figment::{
@@ -48,19 +38,24 @@ use odilia_common::{
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputMethod},
 };
-
 use odilia_notify::listen_to_dbus_notifications;
-use ssip::Priority;
-use ssip::Request as SSIPRequest;
+use ssip::{Priority, Request as SSIPRequest};
 use tokio::{
 	signal::unix::{signal, SignalKind},
 	sync::mpsc,
 	time::timeout,
 };
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
-
-use atspi_common::events::{document, object};
 use tracing::Instrument;
+
+use crate::{
+	cli::Args,
+	state::{
+		AccessibleHistory, Cache, Command, CurrentCaretPos, InputEvent, LastCaretPos,
+		LastFocused, ScreenReaderState, Speech,
+	},
+	tower::{ActiveAppEvent, CacheEvent, Description, EventProp, Handlers, Name, RelationSet},
+};
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
@@ -138,9 +133,10 @@ async fn sigterm_signal_watcher(
 	Ok(())
 }
 
-use atspi::events::document::LoadCompleteEvent;
-use atspi::events::object::StateChangedEvent;
-use atspi::events::object::TextCaretMovedEvent;
+use atspi::events::{
+	document::LoadCompleteEvent,
+	object::{StateChangedEvent, TextCaretMovedEvent},
+};
 
 #[tracing::instrument(ret, err)]
 async fn speak(

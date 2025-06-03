@@ -1,13 +1,17 @@
-use crate::{
-	callback, tests::EventFromEventType, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, State,
-	ACTIVATION_KEY,
+use std::{
+	sync::mpsc::{Receiver, TryRecvError},
+	time::SystemTime,
 };
+
 use atspi_common::Role;
 use odilia_common::events::*;
 use proptest::prelude::*;
 use rdev::{Button, Event, EventType, Key};
-use std::sync::mpsc::{Receiver, TryRecvError};
-use std::time::SystemTime;
+
+use crate::{
+	callback, tests::EventFromEventType, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, State,
+	ACTIVATION_KEY,
+};
 
 impl ComboSets {
 	/// Create a [`ComboSets`] from an iterator.

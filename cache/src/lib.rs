@@ -11,10 +11,6 @@
 mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
-pub use accessible_ext::AccessibleExt;
-
-use itertools::Itertools;
-use parking_lot::RwLock;
 use std::{
 	collections::{HashMap, VecDeque},
 	fmt::Debug,
@@ -22,16 +18,19 @@ use std::{
 	sync::Arc,
 };
 
+pub use accessible_ext::AccessibleExt;
 use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
 use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
 use dashmap::DashMap;
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
+use itertools::Itertools;
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
+use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use zbus::proxy::CacheProperties;
 

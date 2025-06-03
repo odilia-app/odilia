@@ -1,11 +1,9 @@
-use crate::convertable::Convertable;
-use crate::AccessiblePrimitive;
-use crate::CacheProperties;
-use crate::OdiliaError;
+use std::{collections::HashMap, future::Future};
+
 use atspi_common::{ObjectRef, RelationType, Role};
 use atspi_proxies::accessible::AccessibleProxy;
-use std::collections::HashMap;
-use std::future::Future;
+
+use crate::{convertable::Convertable, AccessiblePrimitive, CacheProperties, OdiliaError};
 
 pub trait AccessibleExt {
 	type Error: std::error::Error;

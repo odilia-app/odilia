@@ -1,9 +1,9 @@
+use atspi_common::Role;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
 use crate::modes::ScreenReaderMode;
-use atspi_common::Role;
 
 #[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
 /// A list of features supported natively by Odilia.

@@ -1,9 +1,15 @@
-use crate::cache::AccessiblePrimitive;
-use crate::command::OdiliaCommand;
+use std::{
+	error::Error,
+	fmt,
+	fmt::{Debug, Display},
+	str::FromStr,
+};
+
 use atspi::AtspiError;
 use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
-use std::{error::Error, fmt, fmt::Debug, fmt::Display, str::FromStr};
+
+use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
 
 #[derive(Debug)]
 pub enum OdiliaError {

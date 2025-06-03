@@ -1,12 +1,14 @@
-use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
 use core::{
 	iter::{repeat, Repeat, Zip},
 	mem::replace,
 	task::{Context, Poll},
 };
-use futures::future::{join_all, JoinAll};
 use std::vec::Vec;
+
+use futures::future::{join_all, JoinAll};
 use tower::Service;
+
+use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
 
 /// Useful for running a set of services with the same signature concurrently.
 /// [`ServiceSet::call`] clones the argument to all the contained services.

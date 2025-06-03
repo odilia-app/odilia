@@ -13,10 +13,6 @@
 	clippy::missing_docs_in_private_items
 )]
 
-use nix::unistd::Uid;
-use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
-use odilia_input_server_keyboard::{callback, ComboSets, State};
-use rdev::grab;
 use std::{
 	env,
 	io::Write,
@@ -25,6 +21,11 @@ use std::{
 	sync::mpsc::{sync_channel, Receiver},
 	thread,
 };
+
+use nix::unistd::Uid;
+use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
+use odilia_input_server_keyboard::{callback, ComboSets, State};
+use rdev::grab;
 
 /// Finds PID and Socket files and returns their respective [`PathBuf`]s.
 /// The first return value is the PID file.

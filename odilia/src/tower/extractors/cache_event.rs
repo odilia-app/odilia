@@ -1,12 +1,12 @@
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
+use std::{fmt::Debug, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+
 use atspi_common::EventProperties;
 use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
 use refinement::Predicate;
-use std::fmt::Debug;
-use std::pin::Pin;
-use std::{future::Future, marker::PhantomData, sync::Arc};
 use zbus::{names::UniqueName, zvariant::ObjectPath};
+
+use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 
 pub type CacheEvent<E> = EventPredicate<E, Always>;
 pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;

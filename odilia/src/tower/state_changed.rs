@@ -1,12 +1,14 @@
+use std::marker::PhantomData;
+
 use atspi_common::{
-	events::object::StateChangedEvent,
-	events::MessageConversion,
-	events::{DBusInterface, DBusMatchRule, DBusMember, DBusProperties, RegistryEventString},
+	events::{
+		object::StateChangedEvent, DBusInterface, DBusMatchRule, DBusMember,
+		DBusProperties, MessageConversion, RegistryEventString,
+	},
 	AtspiError, EventProperties, EventTypeProperties, State as AtspiState,
 };
 use derived_deref::{Deref, DerefMut};
 use refinement::Predicate;
-use std::marker::PhantomData;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 pub type Focused = StateChanged<StateFocused, True>;

@@ -1,8 +1,8 @@
-use futures::StreamExt;
-use odilia_notify::listen_to_dbus_notifications;
 use std::{error::Error, time::Duration};
 
+use futures::StreamExt;
 use notify_rust::Notification;
+use odilia_notify::listen_to_dbus_notifications;
 
 async fn inner() {
 	let mut stream = listen_to_dbus_notifications().await.unwrap();

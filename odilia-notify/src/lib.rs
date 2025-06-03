@@ -1,6 +1,5 @@
 use futures::{Stream, StreamExt};
 use tracing::{debug, info, instrument};
-
 use zbus::{
 	fdo::MonitoringProxy, message::Type as MessageType, Connection, MatchRule, MessageStream,
 };

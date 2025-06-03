@@ -1,16 +1,14 @@
 #![allow(clippy::module_name_repetitions)]
 
-use crate::cache::AccessiblePrimitive;
-use crate::errors::OdiliaError;
+use std::{array::IntoIter, convert::Infallible, iter::Chain};
+
 use atspi::State;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use ssip::Priority;
-use std::array::IntoIter;
-use std::convert::Infallible;
-use std::iter::Chain;
-
 use strum::{Display, EnumDiscriminants};
+
+use crate::{cache::AccessiblePrimitive, errors::OdiliaError};
 
 pub trait TryIntoCommands {
 	type Error: Into<OdiliaError>;

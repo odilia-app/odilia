@@ -1,6 +1,9 @@
-use crate::tower::{EventProp, GetProperty, PropertyType};
-use crate::OdiliaError;
 use odilia_cache::{Cache, CacheItem};
+
+use crate::{
+	tower::{EventProp, GetProperty, PropertyType},
+	OdiliaError,
+};
 
 pub struct Description;
 

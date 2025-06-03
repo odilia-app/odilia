@@ -4,7 +4,6 @@ use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheItem};
-
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
 use tokio::select;
 use tokio_test::block_on;

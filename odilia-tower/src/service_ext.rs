@@ -1,11 +1,12 @@
 //! Allow postfix notation for building services from existing ones.
 
+use tower::{Layer, Service};
+
 use crate::{
 	async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
 	state_svc::{StateLayer, StateService},
 	sync_try::{TryIntoLayer, TryIntoService},
 };
-use tower::{Layer, Service};
 
 /// Use postfix notation on your [`tower::Service`]s to produce nested services.
 pub trait ServiceExt<Request>: Service<Request> {

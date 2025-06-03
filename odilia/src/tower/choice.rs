@@ -1,12 +1,18 @@
+use std::{
+	collections::{btree_map::Entry, BTreeMap},
+	fmt::Debug,
+	marker::PhantomData,
+	task::{Context, Poll},
+};
+
 use atspi::{
 	events::{DBusInterface, DBusMember},
 	Event, EventTypeProperties,
 };
-use futures::future::err;
-use futures::future::Either;
-use futures::future::ErrInto;
-use futures::future::Ready;
-use futures::TryFutureExt;
+use futures::{
+	future::{err, Either, ErrInto, Ready},
+	TryFutureExt,
+};
 use odilia_common::{
 	command::{
 		CommandType, CommandTypeDynamic, OdiliaCommand as Command,
@@ -15,10 +21,6 @@ use odilia_common::{
 	errors::OdiliaError,
 	events::{EventType, EventTypeDynamic, ScreenReaderEvent, ScreenReaderEventDiscriminants},
 };
-use std::collections::{btree_map::Entry, BTreeMap};
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::task::{Context, Poll};
 use tower::Service;
 
 pub trait Chooser<K> {

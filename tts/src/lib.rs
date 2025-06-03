@@ -8,13 +8,14 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
-use eyre::Context;
-use ssip_client_async::{
-	fifo::asynchronous_tokio::Builder, tokio::AsyncClient, ClientName, Request,
-};
 use std::{
 	io::ErrorKind,
 	process::{exit, Command, Stdio},
+};
+
+use eyre::Context;
+use ssip_client_async::{
+	fifo::asynchronous_tokio::Builder, tokio::AsyncClient, ClientName, Request,
 };
 use tokio::{
 	io::{BufReader, BufWriter},

@@ -12,15 +12,16 @@
 
 mod proxy;
 
-use eyre::{Context, Report};
-use nix::unistd::Uid;
-use odilia_common::events::ScreenReaderEvent;
 use std::{
 	env,
 	path::Path,
 	process::{exit, id},
 	time::{SystemTime, UNIX_EPOCH},
 };
+
+use eyre::{Context, Report};
+use nix::unistd::Uid;
+use odilia_common::events::ScreenReaderEvent;
 use sysinfo::{ProcessExt, System, SystemExt};
 use tokio::{
 	fs,

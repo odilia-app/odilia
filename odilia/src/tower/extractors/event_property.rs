@@ -1,9 +1,10 @@
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
-use atspi::EventProperties;
-use core::future::Future;
-use core::pin::Pin;
-use odilia_cache::{Cache, CacheItem};
+use core::{future::Future, pin::Pin};
 use std::sync::Arc;
+
+use atspi::EventProperties;
+use odilia_cache::{Cache, CacheItem};
+
+use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 
 /// Define a representation for a property type.
 /// Often, this differs from the internal representation.

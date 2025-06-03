@@ -1,3 +1,5 @@
+use std::future::Future;
+
 use atspi::Interface;
 use atspi_proxies::{
 	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
@@ -6,10 +8,10 @@ use atspi_proxies::{
 	image::ImageProxy, selection::SelectionProxy, table::TableProxy,
 	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
 };
-use std::future::Future;
 use zbus::{
-	names::InterfaceName, proxy::Builder as ProxyBuilder, proxy::CacheProperties,
-	proxy::Defaults as ProxyDefault, proxy::ProxyImpl, Error, Proxy,
+	names::InterfaceName,
+	proxy::{Builder as ProxyBuilder, CacheProperties, Defaults as ProxyDefault, ProxyImpl},
+	Error, Proxy,
 };
 
 #[allow(clippy::module_name_repetitions)]

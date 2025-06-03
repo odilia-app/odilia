@@ -1,7 +1,10 @@
-use crate::tower::{EventProp, GetProperty, PropertyType};
-use crate::OdiliaError;
 use atspi::RelationType;
 use odilia_cache::{Cache, CacheItem};
+
+use crate::{
+	tower::{EventProp, GetProperty, PropertyType},
+	OdiliaError,
+};
 
 pub struct RelationSet;
 

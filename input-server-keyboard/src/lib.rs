@@ -22,6 +22,8 @@ mod tests;
 #[cfg(all(test, feature = "proptest"))]
 mod proptests;
 
+use std::{cmp::Ordering, sync::mpsc::SyncSender};
+
 use odilia_common::{
 	atspi::Role,
 	events::{
@@ -31,9 +33,6 @@ use odilia_common::{
 	modes::ScreenReaderMode as Mode,
 };
 use rdev::{Event, EventType, Key};
-
-use std::cmp::Ordering;
-use std::sync::mpsc::SyncSender;
 
 /// The fixed activation key for all keybindings.
 pub const ACTIVATION_KEY: Key = Key::CapsLock;
