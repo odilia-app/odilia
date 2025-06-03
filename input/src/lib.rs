@@ -23,12 +23,12 @@ use std::{
 use async_channel::Sender;
 use async_fs as fs;
 use async_net::unix::{UnixListener, UnixStream};
-use futures::future::FutureExt;
 use futures_lite::{
 	future::{self, FutureExt as LiteExt},
 	prelude::*,
 	stream,
 };
+use futures_util::FutureExt;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
@@ -159,7 +159,7 @@ pub fn sr_event_receiver(
 	event_sender_: Sender<ScreenReaderEvent>,
 	shutdown_: CancellationToken,
 ) -> impl Stream<Item = future::Boxed<()>> {
-	let empty = FutureExt::boxed(async {});
+	let empty = async {}.boxed();
 	stream::unfold(empty, move |empty| {
 		let event_sender = event_sender_.clone();
 		let listener = listener_.clone();
@@ -177,12 +177,13 @@ pub fn sr_event_receiver(
 						tracing::debug!("Ok from socket");
 						return Some((
 							empty,
-							FutureExt::boxed(handle_event(
+							handle_event(
 								socket,
 								address,
 								event_sender.clone(),
 								shutdown.clone(),
-							)),
+							)
+							.boxed(),
 						));
 					}
 					Err(e) => {

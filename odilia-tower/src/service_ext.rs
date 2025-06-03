@@ -16,7 +16,7 @@ pub trait ServiceExt<Request>: Service<Request> {
 	/// use assert_matches::assert_matches;
 	/// use odilia_tower::service_ext::ServiceExt;
 	/// use tower::{service_fn, Service};
-	/// use futures::executor::block_on;
+	/// use async_io::block_on;
 	/// use std::num::TryFromIntError;
 	/// // NOTE: the associated error type must implement From<E>, where E is the error in converting
 	/// // from the new input type (in this example, u64) to the inner one (u8).
@@ -58,10 +58,8 @@ pub trait ServiceExt<Request>: Service<Request> {
 	///   async_try::AsyncTryFrom,
 	/// };
 	/// use tower::{service_fn, Service};
-	/// use futures::{
-	///   executor::block_on,
-	///   future::{ready, Ready},
-	/// };
+	/// use async_io::block_on;
+	/// use core::future::{ready, Ready};
 	/// use std::num::TryFromIntError;
 	/// // Used to get around "foreign traits on foreign types" rule.
 	/// #[derive(Debug, PartialEq, Eq)]
@@ -129,7 +127,7 @@ pub trait ServiceExt<Request>: Service<Request> {
 	/// ```
 	/// use odilia_tower::service_ext::ServiceExt;
 	/// use tower::{service_fn, Service};
-	/// use futures::executor::block_on;
+	/// use async_io::block_on;
 	/// use std::{convert::Infallible, sync::Arc};
 	/// // a stand in for some comlpex type, don't actually do this.
 	/// type State = Arc<usize>;

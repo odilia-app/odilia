@@ -18,5 +18,6 @@ tower = { workspace = true, features = ["util"] }
 
 [dev-dependencies]
 assert_matches = "1.5.0"
-futures = { workspace = true, features = ["executor"] }
+async-io.workspace = true
 ssip.workspace = true
+futures-lite.workspace = true

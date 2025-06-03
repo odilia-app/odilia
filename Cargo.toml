@@ -40,7 +40,9 @@ futures = { version = "0.3.31", default-features = false, features = ["std"] }
 futures-lite = { version = "2.6.0", default-features = false }
 futures-util = { version = "0.3.31", default-features = false }
 async-net = { version = "2.0", default-features = false }
+async-io = { version = "2.0", default-features = false }
 async-channel = { version = "2.0", default-features = false }
+async-fs = { version = "2.0", default-features = false }
 odilia-common = { version = "0.3.0", path = "./common", default-features = false }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 nix = { version = "0.30.0", default-features = false, features = ["user"] }
