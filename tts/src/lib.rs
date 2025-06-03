@@ -9,21 +9,16 @@
 #![allow(clippy::multiple_crate_versions)]
 
 use async_channel::Receiver;
+use async_net::unix::UnixStream;
 use futures::FutureExt as FatExt;
-use futures_lite::FutureExt;
+use futures_lite::{io::BufReader, FutureExt};
 use smol_cancellation_token::CancellationToken;
+use ssip_client_async::{
+	async_io::AsyncClient, fifo::asynchronous_async_io::Builder, ClientName, Request,
+};
 use std::{
 	io::ErrorKind,
 	process::{exit, Command, Stdio},
-};
-
-use eyre::Context;
-use ssip_client_async::{
-	fifo::asynchronous_tokio::Builder, tokio::AsyncClient, ClientName, Request,
-};
-use tokio::{
-	io::{BufReader, BufWriter},
-	net::unix::{OwnedReadHalf, OwnedWriteHalf},
 };
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
@@ -40,10 +35,9 @@ where
 /// # Errors
 /// There may be errors when trying to send the initial registration command, or when parsing the response.
 #[tracing::instrument(level = "debug", err)]
-pub async fn create_ssip_client() -> Result<
-	AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
-	Box<dyn std::error::Error + Send + Sync>,
-> {
+pub async fn create_ssip_client(
+) -> Result<AsyncClient<BufReader<UnixStream>, UnixStream>, Box<dyn std::error::Error + Send + Sync>>
+{
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
 	let mut ssip_core =
 		match Builder::default().build().await {
@@ -87,7 +81,7 @@ pub async fn create_ssip_client() -> Result<
 /// Any of these failures will result in this function exiting with an `Err(_)` variant.
 #[tracing::instrument(level = "debug", skip_all, err)]
 pub async fn handle_ssip_commands(
-	mut client: AsyncClient<BufReader<OwnedReadHalf>, BufWriter<OwnedWriteHalf>>,
+	mut client: AsyncClient<BufReader<UnixStream>, UnixStream>,
 	mut requests: Receiver<Request>,
 	shutdown: CancellationToken,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

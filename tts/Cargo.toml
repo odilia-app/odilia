@@ -12,10 +12,12 @@ edition = "2021"
 
 [dependencies]
 ssip-client-async.workspace = true
-tokio.workspace = true
 tracing.workspace = true
 odilia-common.workspace = true
 smol-cancellation-token.workspace = true
 async-channel = { version = "2.3.1", default-features = false }
 futures.workspace = true
 futures-lite = "2.6.0"
+async-io = "2.4.1"
+async-net = "2.0.0"
+async-fs = "2.1.2"
