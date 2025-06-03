@@ -326,8 +326,8 @@ impl ComboSet {
 	/// ```
 	/// use rdev::Key;
 	/// use odilia_input_server_keyboard::{KeySet, ComboSet};
+	/// use atspi::Role;
 	/// use odilia_common::{
-	///   atspi::Role,
 	///   events::{ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech, StructuralNavigation},
 	///   modes::ScreenReaderMode as Mode,
 	/// };
@@ -479,8 +479,8 @@ impl ComboSets {
 	/// ```
 	/// use rdev::Key;
 	/// use odilia_input_server_keyboard::{KeySet, ComboSet, SetError, ComboSets};
+	/// use atspi::Role;
 	/// use odilia_common::{
-	///   atspi::Role,
 	///   events::{ChangeMode, Direction, ScreenReaderEvent as OdiliaEvent, StopSpeech, StructuralNavigation},
 	///   modes::ScreenReaderMode as Mode,
 	/// };
