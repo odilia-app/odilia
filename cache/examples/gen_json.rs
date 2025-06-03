@@ -29,6 +29,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 const REGISTRY_DEST: &str = "org.a11y.atspi.Registry";
 const REGISTRY_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACCCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
+const MAX_CHILDREN: i32 = 65536;
 
 async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
 	let connection = ap.inner().connection().clone();
@@ -46,7 +47,7 @@ async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
 			Err(e) => return Err(Box::new(e)),
 		};
 		// Prevent objects with a huge child count from stalling the program.
-		if ap.child_count().await? > 65536 {
+		if ap.child_count().await? > MAX_CHILDREN {
 			continue;
 		}
 
