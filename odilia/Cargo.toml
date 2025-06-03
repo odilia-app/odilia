@@ -33,7 +33,7 @@ pre-release-replacements = [
 atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
-atspi-connection.workspace = true
+atspi-connection = {workspace = true, features = ["wrappers"] }
 circular-queue = "^0.2.6"
 futures.workspace = true
 odilia-common.workspace = true

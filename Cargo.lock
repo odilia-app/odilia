@@ -238,6 +238,7 @@ name = "atspi"
 version = "0.27.0"
 dependencies = [
  "atspi-common",
+ "atspi-proxies",
 ]
 
 [[package]]
@@ -260,6 +261,7 @@ version = "0.11.0"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
+ "futures-lite",
  "zbus",
 ]
 
@@ -1895,8 +1897,8 @@ version = "0.1.4"
 dependencies = [
  "async-channel",
  "async-net",
- "futures",
  "futures-lite",
+ "futures-util",
  "smol-cancellation-token",
  "ssip-client-async",
  "tracing",

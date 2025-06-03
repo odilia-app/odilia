@@ -13,8 +13,8 @@ edition = "2021"
 
 [features]
 default = ["async-io"]
-tokio = ["dep:tokio", "zbus/tokio"]
-async-io = ["dep:async-channel", "zbus/async-io"]
+tokio = ["dep:tokio", "zbus/tokio", "atspi/proxies"]
+async-io = ["dep:async-channel", "zbus/async-io", "atspi/proxies"]
 tracing = ["dep:tracing"]
 zbus = []
 

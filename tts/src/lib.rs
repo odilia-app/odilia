@@ -15,8 +15,8 @@ use std::{
 
 use async_channel::Receiver;
 use async_net::unix::UnixStream;
-use futures::FutureExt as FatExt;
 use futures_lite::{io::BufReader, FutureExt};
+use futures_util::FutureExt as FatExt;
 use smol_cancellation_token::CancellationToken;
 use ssip_client_async::{
 	async_io::AsyncClient, fifo::asynchronous_async_io::Builder, ClientName, Request,
