@@ -22,7 +22,11 @@ use std::{
 	time::Duration,
 };
 
+use async_channel::bounded;
+use async_io::Timer;
+use async_signal::{Signal, Signals};
 use atspi::RelationType;
+use atspi_common::events::{document, object};
 use futures::FutureExt as FatExt;
 use futures_concurrency::future::TryJoin;
 use futures_lite::{future::FutureExt, stream::StreamExt};
@@ -32,16 +36,10 @@ use odilia_common::{
 	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
 	settings::{ApplicationConfig, InputMethod},
 };
-
-use async_channel::bounded;
-use async_io::Timer;
-use async_signal::{Signal, Signals};
 use odilia_notify::listen_to_dbus_notifications;
-use ssip::{Priority, Request as SSIPRequest};
 use smol_cancellation_token::CancellationToken;
+use ssip::{Priority, Request as SSIPRequest};
 use tokio_util::task::TaskTracker;
-
-use atspi_common::events::{document, object};
 use tracing::Instrument;
 
 use crate::{

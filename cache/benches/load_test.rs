@@ -2,11 +2,10 @@ use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
 use atspi_connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use indextree::{Arena, NodeId};
-use odilia_cache::{Cache, CacheItem};
-
 use futures_concurrency::{array::AggregateError, future::RaceOk};
 use futures_lite::future::{block_on, fuse};
+use indextree::{Arena, NodeId};
+use odilia_cache::{Cache, CacheItem};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
 
 macro_rules! load_items {

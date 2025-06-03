@@ -8,6 +8,11 @@
 )]
 #![allow(clippy::multiple_crate_versions)]
 
+use std::{
+	io::ErrorKind,
+	process::{exit, Command, Stdio},
+};
+
 use async_channel::Receiver;
 use async_net::unix::UnixStream;
 use futures::FutureExt as FatExt;
@@ -15,10 +20,6 @@ use futures_lite::{io::BufReader, FutureExt};
 use smol_cancellation_token::CancellationToken;
 use ssip_client_async::{
 	async_io::AsyncClient, fifo::asynchronous_async_io::Builder, ClientName, Request,
-};
-use std::{
-	io::ErrorKind,
-	process::{exit, Command, Stdio},
 };
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>

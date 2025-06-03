@@ -5,6 +5,7 @@ use std::{
 	sync::{atomic::AtomicUsize, Arc, Mutex},
 };
 
+use async_channel::Sender;
 use atspi_common::{
 	events::{DBusMatchRule, EventProperties, RegistryEventString},
 	Event,
@@ -12,7 +13,6 @@ use atspi_common::{
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use circular_queue::CircularQueue;
-use eyre::WrapErr;
 use futures::future::{err, ok, Ready};
 use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};
 use odilia_common::{
@@ -25,7 +25,6 @@ use odilia_common::{
 	Result as OdiliaResult,
 };
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use tokio::sync::mpsc::Sender;
 use tracing::{debug, Instrument, Level};
 use zbus::{
 	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
