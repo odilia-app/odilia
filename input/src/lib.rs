@@ -16,8 +16,9 @@ use async_channel::Sender;
 use async_fs as fs;
 use async_net::unix::{UnixListener, UnixStream};
 use futures::future::FutureExt;
-use futures_lite::future::FutureExt as LiteExt;
+use futures_lite::future::{self, FutureExt as LiteExt};
 use futures_lite::prelude::*;
+use futures_lite::stream;
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
@@ -143,38 +144,56 @@ pub async fn setup_input_server() -> Result<UnixListener, Box<dyn std::error::Er
 	Ok(listener)
 }
 
-/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
-/// This function will exit upon the expiry of the cancellation token passed in.
-/// # Errors
-/// This function will return an error type if the same function is already running.
-/// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
-/// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
+/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then creates a stream of futures that _need_ to be awaited/spawned by the caller onto the executor.
+/// Noramlly, the best way to do this is like so:
+///
+/// ```rust,no_run
+/// use futures_lite::stream::StreamExt;
+/// let stream = sr_event_receiver(UnixListener, Sender<ScreenReaderEvent>, CancellationToken);
+/// stream.for_each(|fut| { tokio::spawn(fut); });
+/// ```
+///
+/// If the cancellation token is trigged, this stream will finish.
 #[tracing::instrument(skip_all)]
-pub async fn sr_event_receiver(
-	listener: UnixListener,
-	event_sender: Sender<ScreenReaderEvent>,
-	shutdown: CancellationToken,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	loop {
-		let maybe_msg = or_cancel(listener.accept(), &shutdown).await;
-		let Ok(msg) = maybe_msg else {
-			tracing::debug!("Shutting down input socket due to cancellation token");
-			break;
-		};
-		match msg {
-			Ok((socket, address)) => {
-				tracing::debug!("Ok from socket");
-				tokio::spawn(handle_event(
-					socket,
-					address,
-					event_sender.clone(),
-					shutdown.clone(),
-				));
+pub fn sr_event_receiver(
+	listener_: UnixListener,
+	event_sender_: Sender<ScreenReaderEvent>,
+	shutdown_: CancellationToken,
+) -> impl Stream<Item = future::Boxed<()>> {
+	let empty = FutureExt::boxed(async {});
+	stream::unfold(empty, move |empty| {
+		let event_sender = event_sender_.clone();
+		let listener = listener_.clone();
+		let shutdown = shutdown_.clone();
+
+		async move {
+			loop {
+				let maybe_msg = or_cancel(listener.accept(), &shutdown).await;
+				let Ok(msg) = maybe_msg else {
+					tracing::debug!("Shutting down input socket due to cancellation token");
+					return None;
+				};
+				match msg {
+					Ok((socket, address)) => {
+						tracing::debug!("Ok from socket");
+						return Some((
+							empty,
+							FutureExt::boxed(handle_event(
+								socket,
+								address,
+								event_sender.clone(),
+								shutdown.clone(),
+							)),
+						));
+					}
+					Err(e) => {
+						tracing::error!("accept function failed: {:?}", e);
+						continue;
+					}
+				}
 			}
-			Err(e) => tracing::error!("accept function failed: {:?}", e),
 		}
-	}
-	Ok(())
+	})
 }
 
 async fn handle_event(

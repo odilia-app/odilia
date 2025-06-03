@@ -23,9 +23,9 @@ use std::{
 };
 
 use atspi::RelationType;
-use futures::{FutureExt as FatExt, StreamExt};
+use futures::FutureExt as FatExt;
 use futures_concurrency::future::TryJoin;
-use futures_lite::future::FutureExt;
+use futures_lite::{future::FutureExt, stream::StreamExt};
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
@@ -415,7 +415,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let listener = odilia_input::setup_input_server()
 		.await
 		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
-	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone());
+	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone())
+		.for_each(|fut| {
+			tokio::spawn(fut);
+		});
 	let input_handler = handlers.input_handler(input_rx, token.clone());
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
