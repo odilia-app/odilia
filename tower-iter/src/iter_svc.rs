@@ -6,7 +6,7 @@ use core::{
 };
 use std::vec::Vec;
 
-use futures::{future::Flatten, FutureExt, TryFutureExt};
+use futures_util::future::{ErrInto, Flatten, FutureExt, TryFutureExt};
 use tower::{util::Oneshot, Service, ServiceExt};
 
 use crate::future_ext::MapFutureMultiSet;
@@ -52,9 +52,7 @@ where
 	type Response = Vec<<S2::Future as Future>::Output>;
 	type Error = E;
 	//type Future = impl Future<Output = Result<Self::Response, Self::Error>>;
-	type Future = Flatten<
-		MapFutureMultiSet<futures::future::ErrInto<Oneshot<S1, Req>, E>, S2, Iter, I, E>,
-	>;
+	type Future = Flatten<MapFutureMultiSet<ErrInto<Oneshot<S1, Req>, E>, S2, Iter, I, E>>;
 	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
 		let _ = self.inner.poll_ready(cx).map_err(Into::<E>::into)?;
 		self.outer.poll_ready(cx).map_err(Into::into)
@@ -66,7 +64,7 @@ where
 		let inner = replace(&mut self.inner, clone_inner);
 		let fut = inner.oneshot(input).err_into();
 
-		<futures::future::ErrInto<Oneshot<S1, Req>, E> as crate::future_ext::FutureExt<
+		<ErrInto<Oneshot<S1, Req>, E> as crate::future_ext::FutureExt<
 			Result<Iter, E>,
 			E,
 		>>::map_future_multiset::<S2, Iter, I, E>(fut, outer)

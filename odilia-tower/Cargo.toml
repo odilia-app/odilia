@@ -10,11 +10,11 @@ keywords = ["accessibility", "tower"]
 readme = "README.md"
 
 [dependencies]
-futures.workspace = true
-odilia-common.workspace = true
-pin-project.workspace = true 
+futures-util.workspace = true
+odilia-common = { workspace = true, default-features = false }
+pin-project-lite.workspace = true 
 static_assertions = "1.1.0"
-tower.workspace = true
+tower = { workspace = true, features = ["util"] }
 
 [dev-dependencies]
 assert_matches = "1.5.0"
