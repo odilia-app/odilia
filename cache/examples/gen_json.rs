@@ -28,7 +28,7 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 const REGISTRY_DEST: &str = "org.a11y.atspi.Registry";
 const REGISTRY_PATH: &str = "/org/a11y/atspi/accessible/root";
-const ACCCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
+const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 const MAX_CHILDREN: i32 = 65536;
 
 async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
@@ -68,7 +68,7 @@ async fn get_registry_accessible<'a>(conn: &Connection) -> Result<AccessibleProx
 	let registry = AccessibleProxy::builder(conn)
 		.destination(REGISTRY_DEST)?
 		.path(REGISTRY_PATH)?
-		.interface(ACCCESSIBLE_INTERFACE)?
+		.interface(ACCESSIBLE_INTERFACE)?
 		.cache_properties(CacheProperties::No)
 		.build()
 		.await?;
