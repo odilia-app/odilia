@@ -18,7 +18,7 @@ use atspi::{
 	proxy::accessible::{AccessibleProxy, ObjectRefExt},
 	AccessibilityConnection,
 };
-use futures::future::try_join_all;
+use futures_util::future::try_join_all;
 use odilia_cache::{accessible_to_cache_item, Cache, CacheItem};
 use odilia_common::errors::{CacheError, OdiliaError};
 use serde_json::to_string;

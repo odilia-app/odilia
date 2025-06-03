@@ -9,7 +9,7 @@ use atspi::{
 	events::{DBusInterface, DBusMember},
 	Event, EventTypeProperties,
 };
-use futures::{
+use futures_util::{
 	future::{err, Either, ErrInto, Ready},
 	TryFutureExt,
 };

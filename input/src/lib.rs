@@ -24,11 +24,11 @@ use async_channel::Sender;
 use async_fs as fs;
 use async_net::unix::{UnixListener, UnixStream};
 use futures_lite::{
-	future::{self, FutureExt as LiteExt},
-	prelude::*,
-	stream,
+	future::or,
+	stream::{unfold, Stream},
+	AsyncReadExt,
 };
-use futures_util::FutureExt;
+use futures_util::{future::BoxFuture, FutureExt};
 use nix::unistd::Uid;
 use odilia_common::events::ScreenReaderEvent;
 use smol_cancellation_token::CancellationToken;
@@ -38,10 +38,7 @@ async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std:
 where
 	F: std::future::Future,
 {
-	token.cancelled()
-		.map(|()| Err(std::io::ErrorKind::TimedOut.into()))
-		.or(f.map(Ok))
-		.await
+	or(token.cancelled().map(|()| Err(std::io::ErrorKind::TimedOut.into())), f.map(Ok)).await
 }
 
 #[tracing::instrument(ret)]
@@ -158,9 +155,9 @@ pub fn sr_event_receiver(
 	listener_: UnixListener,
 	event_sender_: Sender<ScreenReaderEvent>,
 	shutdown_: CancellationToken,
-) -> impl Stream<Item = future::Boxed<()>> {
+) -> impl Stream<Item = BoxFuture<'static, ()>> {
 	let empty = async {}.boxed();
-	stream::unfold(empty, move |empty| {
+	unfold(empty, move |empty| {
 		let event_sender = event_sender_.clone();
 		let listener = listener_.clone();
 		let shutdown = shutdown_.clone();

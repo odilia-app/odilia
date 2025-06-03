@@ -27,9 +27,9 @@ use async_io::Timer;
 use async_signal::{Signal, Signals};
 use atspi::RelationType;
 use atspi_common::events::{document, object};
-use futures::FutureExt as FatExt;
 use futures_concurrency::future::TryJoin;
 use futures_lite::{future::FutureExt, stream::StreamExt};
+use futures_util::FutureExt as FatExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,

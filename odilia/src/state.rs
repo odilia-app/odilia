@@ -13,7 +13,7 @@ use atspi_common::{
 use atspi_connection::AccessibilityConnection;
 use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use circular_queue::CircularQueue;
-use futures::future::{err, ok, Ready};
+use futures_util::future::{err, ok, Ready};
 use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};
 use odilia_common::{
 	cache::AccessiblePrimitive,

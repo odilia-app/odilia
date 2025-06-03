@@ -1,4 +1,4 @@
-use std::{convert::Infallible, sync::Arc};
+use std::{convert::Infallible, future::Future, sync::Arc};
 
 use tower::{Layer, Service};
 
@@ -19,7 +19,7 @@ pub trait ServiceExt<Request>: Service<Request> {
 		Self: Service<Request, Response = R, Future = Fut1> + Sized,
 		I: TryInto<Request>,
 		E: From<<I as TryInto<Request>>::Error>,
-		Fut1: futures::future::Future<Output = Result<R, E>>,
+		Fut1: Future<Output = Result<R, E>>,
 	{
 		TryIntoLayer::new().layer(self)
 	}
