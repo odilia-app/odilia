@@ -63,7 +63,7 @@ impl RelationSet {
 	///
 	/// This function ignores [`Link::Unlinked`] variants.
 	#[must_use]
-	pub fn unchecked_into_cache_itmes(&self, c: &Cache) -> Vec<(RelationType, Vec<CacheItem>)> {
+	pub fn unchecked_into_cache_items(&self, c: &Cache) -> Vec<(RelationType, Vec<CacheItem>)> {
 		self.0.iter()
 			.map(|(rt, links)| {
 				(
