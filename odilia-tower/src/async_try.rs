@@ -11,7 +11,7 @@ use core::{
 	task::{Context, Poll},
 };
 
-use futures::TryFutureExt;
+use futures_util::TryFutureExt;
 #[allow(clippy::module_name_repetitions)]
 use odilia_common::from_state::TryFromState;
 use static_assertions::const_assert_eq;
@@ -145,17 +145,18 @@ where
 
 use core::pin::Pin;
 
-use futures::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
+use futures_util::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
 use tower::{util::Oneshot, ServiceExt};
 
+pin_project_lite::pin_project! {
 /// A version of [`tower::util::future::AndThenFuture`] that is not generic over an un-namable
 /// future type.
-#[pin_project::pin_project]
-pub struct AndThenCall<F, S, O, E> {
-	#[pin]
-	fut: F,
-	svc: S,
-	_marker: PhantomData<(E, O)>,
+    pub struct AndThenCall<F, S, O, E> {
+      #[pin]
+      fut: F,
+      svc: S,
+      _marker: PhantomData<(E, O)>,
+    }
 }
 impl<F, S, O, E> Future for AndThenCall<F, S, O, E>
 where

@@ -13,7 +13,7 @@ use core::{
 	task::{Context, Poll},
 };
 
-use futures::{future::OkInto, TryFutureExt};
+use futures_util::{future::OkInto, TryFutureExt};
 use odilia_common::command::TryIntoCommands;
 use tower::Service;
 
@@ -114,12 +114,13 @@ where
 
 use core::pin::Pin;
 
-/// Map a future result into return of [`TryIntoCommands::try_into_commands`].
-#[pin_project::pin_project]
-pub struct TryIntoCommandFut<F, Ic, E> {
-	#[pin]
-	f: F,
-	_marker: PhantomData<(Ic, E)>,
+pin_project_lite::pin_project! {
+    /// Map a future result into return of [`TryIntoCommands::try_into_commands`].
+    pub struct TryIntoCommandFut<F, Ic, E> {
+      #[pin]
+      f: F,
+      _marker: PhantomData<(Ic, E)>,
+    }
 }
 impl<F, Ic, E> Future for TryIntoCommandFut<F, Ic, E>
 where
@@ -136,13 +137,14 @@ where
 	}
 }
 
+pin_project_lite::pin_project! {
 /// A future which flattens a future's nested results when the outer result in
 /// [`std::convert::Infallible`].
-#[pin_project::pin_project]
-pub struct FlattenFutResult<F, O, E1> {
-	#[pin]
-	fut: F,
-	_marker: PhantomData<(O, E1)>,
+    pub struct FlattenFutResult<F, O, E1> {
+      #[pin]
+      fut: F,
+      _marker: PhantomData<(O, E1)>,
+    }
 }
 impl<F, O, E1> Future for FlattenFutResult<F, O, E1>
 where
@@ -158,18 +160,19 @@ where
 	}
 }
 
-/// A future which unwraps the future's [`Future::Output`] value if it is a [`Result<T,
-/// Infallible>`] and converts it into `T`.
-///
-/// This is useful in the context of [`tower`] where all services must return `Result<T, E>`, even
-/// if `Err(E)` will never occur.
-/// To ensure safety, this is only possible to use when the `E` parameter is
-/// [`std::convert::Infallible`].
-#[pin_project::pin_project]
-pub struct UnwrapFut<F, O, E> {
-	#[pin]
-	fut: F,
-	_marker: PhantomData<(O, E)>,
+pin_project_lite::pin_project! {
+    /// A future which unwraps the future's [`Future::Output`] value if it is a [`Result<T,
+    /// Infallible>`] and converts it into `T`.
+    ///
+    /// This is useful in the context of [`tower`] where all services must return `Result<T, E>`, even
+    /// if `Err(E)` will never occur.
+    /// To ensure safety, this is only possible to use when the `E` parameter is
+    /// [`std::convert::Infallible`].
+    pub struct UnwrapFut<F, O, E> {
+      #[pin]
+      fut: F,
+      _marker: PhantomData<(O, E)>,
+    }
 }
 impl<F, O, Infallible> Future for UnwrapFut<F, O, Infallible>
 where

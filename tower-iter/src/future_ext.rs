@@ -7,22 +7,20 @@ use core::{
 };
 use std::vec::Vec;
 
-use futures::{
-	future::{join_all, Either, JoinAll},
-	FutureExt as OtherFutExt,
-};
-use pin_project::pin_project;
+use futures_util::future::{join_all, Either, FutureExt as OtherFutExt, JoinAll};
+use pin_project_lite::pin_project;
 use tower::{util::Oneshot, Service};
 
 use crate::service_multi_iter::ServiceMultiIter;
 
-#[pin_project]
-pub struct MapFutureMultiSet<F, S, Lf, Lo, E> {
-	#[pin]
-	inner: F,
-	svc: S,
-	_marker: PhantomData<fn(Lf) -> Lo>,
-	_marker2: PhantomData<fn(S) -> E>,
+pin_project! {
+    pub struct MapFutureMultiSet<F, S, Lf, Lo, E> {
+      #[pin]
+      inner: F,
+      svc: S,
+      _marker: PhantomData<fn(Lf) -> Lo>,
+      _marker2: PhantomData<fn(S) -> E>,
+    }
 }
 impl<F, S, Lf, Lo, E> Future for MapFutureMultiSet<F, S, Lf, Lo, E>
 where
@@ -74,16 +72,17 @@ pub trait FutureExt<O, E>: Future<Output = O> {
 		MapOk { f: self, _marker: PhantomData }
 	}
 }
-#[pin_project]
-pub struct OkJoinAll<F, E, O, Iter, I>
-where
-	I: Future,
-{
-	#[pin]
-	f: F,
-	#[pin]
-	res: Option<JoinAll<I>>,
-	_marker: PhantomData<(O, E, Iter, I)>,
+pin_project! {
+    pub struct OkJoinAll<F, E, O, Iter, I>
+    where
+      I: Future,
+    {
+      #[pin]
+      f: F,
+      #[pin]
+      res: Option<JoinAll<I>>,
+      _marker: PhantomData<(O, E, Iter, I)>,
+    }
 }
 impl<F, E, O, Iter, I> Future for OkJoinAll<F, E, O, Iter, I>
 where
@@ -109,12 +108,14 @@ where
 	}
 }
 
-#[pin_project]
-pub struct MapOk<F, E, O> {
-	#[pin]
-	f: F,
-	_marker: PhantomData<(O, E)>,
+pin_project! {
+    pub struct MapOk<F, E, O> {
+      #[pin]
+      f: F,
+      _marker: PhantomData<(O, E)>,
+    }
 }
+
 impl<F, E, O> Future for MapOk<F, E, O>
 where
 	F: Future<Output = O>,

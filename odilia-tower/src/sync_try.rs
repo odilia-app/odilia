@@ -7,7 +7,7 @@ use core::{
 	task::{Context, Poll},
 };
 
-use futures::future::{err, Either, Ready};
+use futures_util::future::{err, Either, Ready};
 use static_assertions::const_assert_eq;
 use tower::{Layer, Service};
 

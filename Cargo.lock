@@ -236,19 +236,13 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "atspi"
 version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e595c4a1ad7be9c5514980ae8c6e4810f17e9d24bd7bbc5ad67e7aef4dc1c819"
 dependencies = [
  "atspi-common",
- "atspi-connection",
- "atspi-proxies",
 ]
 
 [[package]]
 name = "atspi-common"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d2b4e5cb03df74eae47d7c47918e109db6ad3c825602f236d060a221f4d23b8"
 dependencies = [
  "enumflags2",
  "serde",
@@ -263,20 +257,15 @@ dependencies = [
 [[package]]
 name = "atspi-connection"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "832ecc699b7b1e801e49f5dccb4db1472519537498448f944e8cdcfcdd92e6b3"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
- "futures-lite",
  "zbus",
 ]
 
 [[package]]
 name = "atspi-proxies"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b9aef6811420186bed52af0af10fed051ef554b6206edbaffddcfa2dd90e43"
 dependencies = [
  "atspi-common",
  "serde",
@@ -1824,11 +1813,9 @@ version = "0.3.0"
 dependencies = [
  "async-channel",
  "atspi",
- "atspi-common",
- "atspi-proxies",
  "enum_dispatch",
- "futures",
  "futures-concurrency",
+ "futures-util",
  "indextree",
  "serde",
  "serde_plain",
@@ -1839,6 +1826,7 @@ dependencies = [
  "tracing",
  "xdg",
  "zbus",
+ "zbus_names",
  "zvariant",
 ]
 
@@ -1893,8 +1881,9 @@ version = "0.1.0"
 dependencies = [
  "assert_matches",
  "futures",
+ "futures-util",
  "odilia-common",
- "pin-project",
+ "pin-project-lite",
  "ssip",
  "static_assertions",
  "tower 0.5.2",
@@ -2547,7 +2536,6 @@ dependencies = [
  "serde",
  "strum_macros",
  "thiserror",
- "zvariant",
 ]
 
 [[package]]
@@ -2715,6 +2703,7 @@ dependencies = [
  "libc",
  "mio",
  "pin-project-lite",
+ "signal-hook-registry",
  "socket2",
  "tokio-macros",
  "tracing",
@@ -2873,9 +2862,9 @@ dependencies = [
 name = "tower-iter"
 version = "0.1.0"
 dependencies = [
- "futures",
  "futures-lite",
- "pin-project",
+ "futures-util",
+ "pin-project-lite",
  "tower 0.5.2",
 ]
 
@@ -3436,6 +3425,7 @@ dependencies = [
  "ordered-stream",
  "serde",
  "serde_repr",
+ "tokio",
  "tracing",
  "uds_windows",
  "windows-sys 0.59.0",

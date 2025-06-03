@@ -7,6 +7,7 @@ use core::{
 	task::{Context, Poll},
 };
 
+use pin_project_lite::pin_project;
 use tower::{
 	util::{Oneshot, ReadyOneshot},
 	Service, ServiceExt,
@@ -57,12 +58,14 @@ impl<F, Res, E> ServiceCall<F, Res, E> {
 	}
 }
 
-#[pin_project::pin_project]
-pub struct ServiceCall<F, Res, E> {
-	#[pin]
-	f: F,
-	_marker: PhantomData<Result<Res, E>>,
+pin_project! {
+    pub struct ServiceCall<F, Res, E> {
+      #[pin]
+      f: F,
+      _marker: PhantomData<Result<Res, E>>,
+    }
 }
+
 impl<F, Res, E> Future for ServiceCall<F, Res, E>
 where
 	F: Future<Output = Result<Res, E>>,

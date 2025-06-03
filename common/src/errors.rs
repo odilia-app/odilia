@@ -1,7 +1,6 @@
 use std::{fmt, fmt::Debug, str::FromStr};
 
 use atspi::AtspiError;
-use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
 
 use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
@@ -9,13 +8,12 @@ use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
 #[derive(Debug, thiserror::Error)]
 pub enum OdiliaError {
 	AtspiError(AtspiError),
-	AtspiTypesError(AtspiTypesError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
 	SerdeError(SerdePlainError),
-	Zbus(zbus::Error),
-	ZbusFdo(zbus::fdo::Error),
-	Zvariant(zbus::zvariant::Error),
+	Zbus(String),
+	ZbusFdo(String),
+	Zvariant(String),
 	SendError(SendError),
 	Cache(#[from] CacheError),
 	InfallibleConversion(#[from] std::convert::Infallible),
@@ -128,19 +126,22 @@ impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 		Self::PoisoningError
 	}
 }
+#[cfg(feature = "zbus")]
 impl From<zbus::fdo::Error> for OdiliaError {
 	fn from(spe: zbus::fdo::Error) -> Self {
-		Self::ZbusFdo(spe)
+		Self::ZbusFdo(format!("{spe:?}"))
 	}
 }
+#[cfg(feature = "zbus")]
 impl From<zbus::Error> for OdiliaError {
 	fn from(spe: zbus::Error) -> Self {
-		Self::Zbus(spe)
+		Self::Zbus(format!("{spe:?}"))
 	}
 }
+#[cfg(feature = "zbus")]
 impl From<zbus::zvariant::Error> for OdiliaError {
 	fn from(spe: zbus::zvariant::Error) -> Self {
-		Self::Zvariant(spe)
+		Self::Zvariant(format!("{spe:?}"))
 	}
 }
 impl From<SerdePlainError> for OdiliaError {

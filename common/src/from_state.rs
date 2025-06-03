@@ -2,8 +2,8 @@
 
 use core::future::Future;
 
-use futures::{future::ErrInto, TryFutureExt};
 use futures_concurrency::future::TryJoin;
+use futures_util::future::{ErrInto, TryFutureExt};
 
 use crate::errors::OdiliaError;
 

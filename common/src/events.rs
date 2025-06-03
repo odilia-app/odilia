@@ -1,4 +1,4 @@
-use atspi_common::Role;
+use atspi::Role;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
