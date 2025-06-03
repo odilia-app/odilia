@@ -173,7 +173,7 @@ impl CacheItem {
 	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
 	///
 	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
-	#[tracing::instrument(level = "trace", skip_all, ret, err)]
+	#[tracing::instrument(level = "trace", skip(connection), ret, err)]
 	pub async fn from_atspi_legacy_cache_item(
 		atspi_cache_item: atspi_common::LegacyCacheItem,
 		connection: &zbus::Connection,
@@ -460,7 +460,7 @@ impl Cache {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
-	#[tracing::instrument(level = "debug", ret, err)]
+	#[tracing::instrument(level = "debug", ret, err, skip(connection))]
 	pub async fn get_or_create(
 		&self,
 		key: &AccessiblePrimitive,
