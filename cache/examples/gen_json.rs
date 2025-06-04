@@ -31,7 +31,7 @@ const REGISTRY_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 const MAX_CHILDREN: i32 = 65536;
 
-async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
+async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache<Connection>>> {
 	let connection = ap.inner().connection().clone();
 	// Contains the processed `A11yNode`'s.
 	let cache = Arc::new(Cache::new(connection.clone()));
