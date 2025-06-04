@@ -45,7 +45,7 @@ impl AllText for TextProxy<'_> {
 	}
 }
 
-type CacheKey = AccessiblePrimitive;
+pub type CacheKey = AccessiblePrimitive;
 type ThreadSafeCache = Arc<RwLock<Arena<CacheItem>>>;
 type IdLookupTable = Arc<DashMap<CacheKey, NodeId, FxBuildHasher>>;
 
@@ -64,7 +64,10 @@ impl RelationSet {
 	///
 	/// This function ignores [`Link::Unlinked`] variants.
 	#[must_use]
-	pub fn unchecked_into_cache_items(&self, c: &Cache) -> Vec<(RelationType, Vec<CacheItem>)> {
+	pub fn unchecked_into_cache_items<D: CacheDriver>(
+		&self,
+		c: &Cache<D>,
+	) -> Vec<(RelationType, Vec<CacheItem>)> {
 		self.0.iter()
 			.map(|(rt, links)| {
 				(
@@ -79,7 +82,10 @@ impl RelationSet {
 			})
 			.collect()
 	}
-	fn try_link_values(&mut self, cache: &Cache) -> Result<(), Vec<AccessiblePrimitive>> {
+	fn try_link_values<D: CacheDriver>(
+		&mut self,
+		cache: &Cache<D>,
+	) -> Result<(), Vec<AccessiblePrimitive>> {
 		let relations_map = self.0.iter_mut();
 		let link_map = relations_map.flat_map(|(_rt, links)| links);
 		let mut unlinked = Vec::new();
@@ -157,53 +163,12 @@ impl CacheItem {
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
-	pub async fn from_atspi_event<T: EventProperties, E: CacheSideEffect>(
+	pub async fn from_atspi_event<T: EventProperties, E: CacheDriver>(
 		event: &T,
 		external: &E,
 	) -> OdiliaResult<Self> {
 		let a11y_prim = AccessiblePrimitive::from_event(event);
 		external.lookup_external(&a11y_prim).await
-	}
-	/// Convert an [`atspi::LegacyCacheItem`] into a [`crate::CacheItem`].
-	/// This requires calls to `DBus`, which is quite expensive. Beware calling this too often.
-	/// # Errors
-	/// This function can fail under the following conditions:
-	///
-	/// 1. The [`atspi::CacheItem`] can not be turned into a [`crate::AccessiblePrimitive`]. This should never happen.
-	/// 2. The [`crate::AccessiblePrimitive`] can not be turned into a [`atspi_proxies::accessible::AccessibleProxy`]. This should never happen.
-	/// 3. Getting children from the `AccessibleProxy` fails. This should never happen.
-	///
-	/// The only time these can fail is if the item is removed on the application side before the conversion to `AccessibleProxy`.
-	#[tracing::instrument(level = "trace", skip(connection), ret, err)]
-	pub async fn from_atspi_legacy_cache_item(
-		atspi_cache_item: atspi_common::LegacyCacheItem,
-		connection: &zbus::Connection,
-	) -> OdiliaResult<Self> {
-		let acc = AccessiblePrimitive::from(atspi_cache_item.object.clone())
-			.into_accessible(connection)
-			.await?;
-		let index: i32 = acc.get_index_in_parent().await?;
-		let rs = acc.get_relation_set().await?.into();
-		let name = acc.name().await.map(|s| if s.is_empty() { None } else { Some(s) })?;
-		let desc =
-			acc.description()
-				.await
-				.map(|s| if s.is_empty() { None } else { Some(s) })?;
-		Ok(Self {
-			object: atspi_cache_item.object.into(),
-			app: atspi_cache_item.app.into(),
-			parent: atspi_cache_item.parent.into(),
-			index: index.try_into().ok(),
-			children_num: Some(atspi_cache_item.children.len()),
-			interfaces: atspi_cache_item.ifaces,
-			role: atspi_cache_item.role,
-			states: atspi_cache_item.states,
-			text: atspi_cache_item.name,
-			children: atspi_cache_item.children.into_iter().map_into::<_>().collect(),
-			relation_set: rs,
-			name,
-			description: desc,
-		})
 	}
 }
 
@@ -213,13 +178,13 @@ impl CacheItem {
 /// they are referenced by their IDs. If you are having issues with incorrect or
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
 #[derive(Clone)]
-pub struct Cache {
+pub struct Cache<D: CacheDriver> {
 	pub tree: ThreadSafeCache,
 	pub id_lookup: IdLookupTable,
-	pub connection: zbus::Connection,
+	pub driver: D,
 }
 
-impl std::fmt::Debug for Cache {
+impl<D: CacheDriver> std::fmt::Debug for Cache<D> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		// NOTE: This prints the number of items in the cache, INCLUDING "removed" items, which are not
 		// actually removed, just "marked for removal".
@@ -241,30 +206,16 @@ pub trait CacheExt {
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
 }
 
-impl CacheExt for Arc<Cache> {
-	#[tracing::instrument(level = "trace", ret)]
-	async fn get_ipc(&self, id: &CacheKey) -> Result<CacheItem, OdiliaError> {
-		if let Some(ci) = self.get(id) {
-			return Ok(ci);
-		}
-		let acc = id.clone().into_accessible(&self.connection).await?;
-		accessible_to_cache_item(&acc).await
-	}
-	async fn item_from_event<T: EventProperties + Sync>(
-		&self,
-		ev: &T,
-	) -> OdiliaResult<CacheItem> {
-		let a11y_prim = AccessiblePrimitive::from_event(ev);
-		accessible_to_cache_item(&a11y_prim.into_accessible(&self.connection).await?).await
-	}
-}
-
 /// A method of performing I/O side-effects outside the cache itself.
 /// This is made an explicit trait such that we can either:
 ///
 /// 1. Call out to `DBus` (production), or
 /// 2. Use a fixed set of items (testing).
-pub trait CacheSideEffect {
+/// 3. Panic when called.
+/// etc.
+///
+/// Feel free to implement your own at your convenience.
+pub trait CacheDriver {
 	/// Lookup a given [`CacheKey`] that was not found in the cache..
 	fn lookup_external(
 		&self,
@@ -272,12 +223,10 @@ pub trait CacheSideEffect {
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
 }
 
-pub struct CacheEffectDBus {
-	connection: zbus::Connection,
-}
-impl CacheSideEffect for CacheEffectDBus {
+impl CacheDriver for zbus::Connection {
+	#[tracing::instrument(level = "trace", ret, skip(self))]
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
-		let accessible = AccessibleProxy::builder(&self.connection)
+		let accessible = AccessibleProxy::builder(&self)
 			.destination(key.sender.clone())?
 			.cache_properties(CacheProperties::No)
 			.path(key.id.clone())?
@@ -287,33 +236,28 @@ impl CacheSideEffect for CacheEffectDBus {
 	}
 }
 
-pub struct CacheEffectFixedList {
-	items: HashMap<CacheKey, CacheItem>,
-}
-impl CacheSideEffect for CacheEffectFixedList {
+impl CacheDriver for HashMap<CacheKey, CacheItem> {
+	#[tracing::instrument(level = "trace", ret, skip(self))]
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
-		Ok(self.items
-			.get(key)
-			.ok_or::<OdiliaError>(CacheError::NoItem.into())?
-			.clone())
+		Ok(self.get(key).ok_or::<OdiliaError>(CacheError::NoItem.into())?.clone())
 	}
 }
 
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
 // entries. When adding async methods, take care not to hold these mutexes
 // across .await points.
-impl Cache {
+impl<D: CacheDriver> Cache<D> {
 	/// create a new, fresh cache
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
-	pub fn new(conn: zbus::Connection) -> Self {
+	pub fn new(driver: D) -> Self {
 		Self {
 			tree: Arc::new(RwLock::new(Arena::with_capacity(10_000))),
 			id_lookup: Arc::new(DashMap::with_capacity_and_hasher(
 				10_000,
 				FxBuildHasher::default(),
 			)),
-			connection: conn,
+			driver,
 		}
 	}
 	/// Add an item via a reference instead of creating the reference.
@@ -461,13 +405,8 @@ impl Cache {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
-	#[tracing::instrument(level = "debug", ret, err, skip(connection))]
-	pub async fn get_or_create(
-		&self,
-		key: &AccessiblePrimitive,
-		connection: &zbus::Connection,
-		cache: Arc<Cache>,
-	) -> OdiliaResult<CacheItem> {
+	#[tracing::instrument(level = "debug", ret, err, skip(self))]
+	pub async fn get_or_create(&self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
@@ -478,20 +417,10 @@ impl Cache {
 		let mut stack: VecDeque<AccessiblePrimitive> = vec![key.to_owned()].into();
 		let mut first_ci = None;
 		while let Some(item) = stack.pop_front() {
-			let accessible = AccessibleProxy::builder(connection)
-				.destination(item.sender)?
-				.cache_properties(CacheProperties::No)
-				.path(item.id)?
-				.build()
-				.await?;
-			let start = std::time::Instant::now();
-			let cache_item = accessible_to_cache_item(&accessible).await?;
+			let cache_item = self.driver.lookup_external(&item).await?;
 			if first_ci.is_none() {
 				first_ci = Some(cache_item.clone());
 			}
-			let end = std::time::Instant::now();
-			let diff = end - start;
-			tracing::debug!("Time to create cache item: {:?}", diff);
 			if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
 				self.add(cache_item)
 			{

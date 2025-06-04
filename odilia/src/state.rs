@@ -47,14 +47,14 @@ pub(crate) struct ScreenReaderState {
 	pub previous_caret_position: Arc<AtomicUsize>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
-	pub cache: Arc<InnerCache>,
+	pub cache: Arc<InnerCache<zbus::Connection>>,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
 #[derive(Debug, Clone)]
-pub struct Cache(pub Arc<InnerCache>);
+pub struct Cache(pub Arc<InnerCache<zbus::Connection>>);
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
 	type Error = OdiliaError;
@@ -248,9 +248,7 @@ impl ScreenReaderState {
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
 		let prim = AccessiblePrimitive::from_event(event);
-		self.cache
-			.get_or_create(&prim, self.atspi.connection(), Arc::clone(&self.cache))
-			.await
+		self.cache.get_or_create(&prim).await
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
