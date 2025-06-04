@@ -67,6 +67,8 @@ futures-lite = { version = "2.6.0", default-features = false }
 async-channel = { version = "2.3.1", default-features = false }
 futures-concurrency.workspace = true
 futures-util.workspace = true
+smol = "2.0.2"
+async-executor = { version = "1.13.2", features = ["static"] }
 
 [dev-dependencies]
 lazy_static = "1.4.0"

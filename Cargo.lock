@@ -1685,6 +1685,7 @@ name = "odilia"
 version = "0.1.4"
 dependencies = [
  "async-channel",
+ "async-executor",
  "async-io",
  "async-signal",
  "atspi",
@@ -1708,6 +1709,7 @@ dependencies = [
  "odilia-tts",
  "pin-project",
  "refinement",
+ "smol",
  "smol-cancellation-token",
  "ssip",
  "ssip-client-async",
