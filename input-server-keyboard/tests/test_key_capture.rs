@@ -1,3 +1,5 @@
+#![cfg(feature = "integration_tests")]
+
 use std::{
 	process::Command,
 	sync::mpsc::{sync_channel, Receiver},
