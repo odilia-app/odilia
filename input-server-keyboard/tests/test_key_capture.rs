@@ -18,7 +18,7 @@ const SEQUENCE_OF_KEYS: [&str; 5] = ["key", "58:1", "34:1", "34:0", "58:0"];
 
 fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
 	assert_eq!(
-		rx.recv(),
+		rx.recv_timeout(Duration::from_secs(1)),
 		Ok(StopSpeech.into()),
 		"The even generated from the keyboard state is not the expected one!"
 	);
