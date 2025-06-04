@@ -689,8 +689,8 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "smol",
  "tinytemplate",
- "tokio",
  "walkdir",
 ]
 
@@ -1744,7 +1744,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_plain",
- "tokio",
  "tracing",
  "zbus",
 ]
@@ -2445,6 +2444,23 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
+
+[[package]]
+name = "smol"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a33bd3e260892199c3ccfc487c88b2da2265080acb316cd920da72fdfd7c599f"
+dependencies = [
+ "async-channel",
+ "async-executor",
+ "async-fs",
+ "async-io",
+ "async-lock",
+ "async-net",
+ "async-process",
+ "blocking",
+ "futures-lite",
+]
 
 [[package]]
 name = "smol-cancellation-token"
