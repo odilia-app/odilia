@@ -1,0 +1,1 @@
+CROSS_CONTAINER_UID="1001" CROSS_CONTAINER_GID="993" CROSS_CONTAINER_ENGINE_NO_BUILDKIT=1 CROSS_CONTAINER_OPTS="--group-add keep-groups -v /dev/input:/dev/input:z,dev --tty" cross --verbose test --features integration_tests -p odilia-input-server-keyboard --target aarch64-unknown-linux-gnu -- --nocapture
