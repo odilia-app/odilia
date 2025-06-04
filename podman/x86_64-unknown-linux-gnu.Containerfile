@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/x86_64-unknown-linux-gnu:latest
+FROM ghcr.io/cross-rs/x86_64-unknown-linux-gnu:edge
 
 COPY podman/test-wrapper.sh /entrypoint.sh
 COPY podman/install-deps.sh /deps.sh

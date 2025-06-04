@@ -1146,6 +1146,18 @@ dependencies = [
 
 [[package]]
 name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.9.1",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+]
+
+[[package]]
+name = "nix"
 version = "0.30.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74523f3a35e05aba87a1d978330aef40f67b0304ac79c1c00b294c9830543db6"
@@ -1364,7 +1376,7 @@ dependencies = [
  "async-stream",
  "futures-lite",
  "futures-util",
- "nix",
+ "nix 0.30.1",
  "odilia-common",
  "serde_json",
  "smol-cancellation-token",
@@ -1377,7 +1389,7 @@ name = "odilia-input-server-keyboard"
 version = "0.1.0"
 dependencies = [
  "atspi",
- "nix",
+ "nix 0.30.1",
  "odilia-common",
  "proptest",
  "rdev",
@@ -1739,7 +1751,6 @@ dependencies = [
 [[package]]
 name = "rdev"
 version = "0.5.3"
-source = "git+https://github.com/TTWNO/rdev2/?branch=odilia-keys-v2#085a0004be5f9d6f195ce36c4557bd022662c84c"
 dependencies = [
  "cocoa",
  "core-foundation 0.7.0",
@@ -1749,7 +1760,10 @@ dependencies = [
  "evdev-rs",
  "inotify",
  "lazy_static",
+ "libc",
+ "nix 0.29.0",
  "winapi",
+ "x11",
 ]
 
 [[package]]
@@ -2747,6 +2761,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "x11"
+version = "2.21.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "502da5464ccd04011667b11c435cb992822c2c0dbde1770c988480d312a0db2e"
+dependencies = [
+ "libc",
+ "pkg-config",
+]
+
+[[package]]
 name = "xdg"
 version = "2.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2772,7 +2796,7 @@ dependencies = [
  "futures-core",
  "futures-lite",
  "hex",
- "nix",
+ "nix 0.30.1",
  "ordered-stream",
  "serde",
  "serde_repr",
