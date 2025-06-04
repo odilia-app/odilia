@@ -445,12 +445,12 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	state.add_child_proc(child).expect("Able to add child to process!");
 
 	let joined_tasks = (
-		ex.spawn(ssip_event_receiver),
-		ex.spawn(notification_task),
-		ex.spawn(atspi_handlers_task),
-		ex.spawn(event_send_task),
-		ex.spawn(input_task),
-		ex.spawn(input_handler),
+		ssip_event_receiver,
+		notification_task,
+		atspi_handlers_task,
+		event_send_task,
+		input_task,
+		input_handler,
 	)
 		.join();
 	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state))).detach();
