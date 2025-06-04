@@ -212,7 +212,6 @@ pub trait CacheExt {
 /// 1. Call out to `DBus` (production), or
 /// 2. Use a fixed set of items (testing).
 /// 3. Panic when called.
-/// etc.
 ///
 /// Feel free to implement your own at your convenience.
 pub trait CacheDriver {
@@ -226,7 +225,7 @@ pub trait CacheDriver {
 impl CacheDriver for zbus::Connection {
 	#[tracing::instrument(level = "trace", ret, skip(self))]
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
-		let accessible = AccessibleProxy::builder(&self)
+		let accessible = AccessibleProxy::builder(self)
 			.destination(key.sender.clone())?
 			.cache_properties(CacheProperties::No)
 			.path(key.id.clone())?
@@ -236,7 +235,7 @@ impl CacheDriver for zbus::Connection {
 	}
 }
 
-impl CacheDriver for HashMap<CacheKey, CacheItem> {
+impl<S: std::hash::BuildHasher + Sync> CacheDriver for HashMap<CacheKey, CacheItem, S> {
 	#[tracing::instrument(level = "trace", ret, skip(self))]
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
 		Ok(self.get(key).ok_or::<OdiliaError>(CacheError::NoItem.into())?.clone())
