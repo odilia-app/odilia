@@ -1,12 +1,11 @@
 use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
-use atspi::connection::AccessibilityConnection;
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use futures_concurrency::{array::AggregateError, future::RaceOk};
-use futures_lite::future::{block_on, fuse};
+use futures_lite::future::{fuse, Future};
 use indextree::{Arena, NodeId};
-use odilia_cache::{Cache, CacheItem};
-use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
+use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
+use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
 
 macro_rules! load_items {
 	($file:expr) => {
@@ -14,15 +13,28 @@ macro_rules! load_items {
 	};
 }
 
+pub struct TestDriver;
+
+impl CacheDriver for TestDriver {
+	fn lookup_external(
+		&self,
+		_key: &CacheKey,
+	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send {
+		async {
+			panic!("This driver (NoDriver) should never be called!");
+		}
+	}
+}
+
 /// Load the given items into cache via `Cache::add_all`.
 /// This is different from `add` in that it postpones populating references
 /// until after all items have been added.
-fn add_all(cache: &Cache, items: Vec<CacheItem>) {
+fn add_all(cache: &Cache<TestDriver>, items: Vec<CacheItem>) {
 	let _ = cache.add_all(items);
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
-fn add(cache: &Cache, items: Vec<CacheItem>) {
+fn add(cache: &Cache<TestDriver>, items: Vec<CacheItem>) {
 	for item in items {
 		let _ = cache.add(item);
 	}
@@ -41,7 +53,7 @@ async fn traverse_up_refs(children: Vec<NodeId>, arena: &Arena<CacheItem>) {
 }
 
 /// Depth first traversal
-fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaError> {
+fn traverse_depth_first((root, cache): (NodeId, &Cache<TestDriver>)) -> Result<(), OdiliaError> {
 	let lock = cache.tree.read();
 	for child in root.descendants(&lock) {
 		black_box(child);
@@ -52,7 +64,7 @@ fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaErr
 /// Observe throughput of successful reads (`Cache::get`) while writing to cache
 /// (`Cache::add_all`).
 async fn reads_while_writing(
-	cache: Cache,
+	cache: Cache<TestDriver>,
 	ids: Vec<AccessiblePrimitive>,
 	items: Vec<CacheItem>,
 ) -> Result<(), AggregateError<tokio::task::JoinError, 2>> {
@@ -92,8 +104,6 @@ async fn reads_while_writing(
 
 fn cache_benchmark(c: &mut Criterion) {
 	let rt = tokio::runtime::Runtime::new().unwrap();
-	let a11y = block_on(AccessibilityConnection::new()).unwrap();
-	let zbus_connection = a11y.connection();
 
 	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");
 	let wcag_items: Vec<CacheItem> = load_items!("./wcag_cache_items.json");
@@ -104,7 +114,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		.noise_threshold(0.03) // def 0.01
 		.measurement_time(Duration::from_secs(20));
 
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Cache::new(TestDriver);
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| zbus_items.clone(),
@@ -115,7 +125,7 @@ fn cache_benchmark(c: &mut Criterion) {
 			BatchSize::SmallInput,
 		);
 	});
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| wcag_items.clone(),
@@ -127,7 +137,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
 		b.to_async(&rt).iter_batched(
 			|| zbus_items.clone(),
@@ -136,8 +146,8 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let (cache, children): (Arc<Cache>, Vec<NodeId>) = rt.block_on(async {
-		let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) = rt.block_on(async {
+		let cache = Arc::new(Cache::new(TestDriver));
 		let all_items: Vec<CacheItem> = wcag_items.clone();
 		let _ = cache.add_all(all_items);
 		let read_cache = cache.tree.read();
@@ -190,13 +200,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		group.throughput(criterion::Throughput::Elements(size as u64));
 		group.bench_function(BenchmarkId::new("reads_while_writing", size), |b| {
 			b.to_async(&rt).iter_batched(
-				|| {
-					(
-						Cache::new(zbus_connection.clone()),
-						sample.clone(),
-						all_items.clone(),
-					)
-				},
+				|| (Cache::new(TestDriver), sample.clone(), all_items.clone()),
 				|(cache, ids, items)| async {
 					reads_while_writing(cache, ids, items).await
 				},
