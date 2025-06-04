@@ -23,11 +23,10 @@ use std::{
 };
 
 use async_channel::bounded;
-use async_io::Timer;
 use async_signal::{Signal, Signals};
 use atspi::RelationType;
 use atspi_common::events::{document, object};
-use futures_concurrency::future::TryJoin;
+use futures_concurrency::future::{Join, TryJoin};
 use futures_lite::{future::FutureExt, stream::StreamExt};
 use futures_util::FutureExt as FatExt;
 use odilia_common::{
@@ -39,7 +38,7 @@ use odilia_common::{
 use odilia_notify::listen_to_dbus_notifications;
 use smol_cancellation_token::CancellationToken;
 use ssip::{Priority, Request as SSIPRequest};
-use tokio_util::task::TaskTracker;
+use tokio::task::spawn;
 use tracing::Instrument;
 
 use crate::{
@@ -121,7 +120,6 @@ async fn notifications_monitor(
 #[tracing::instrument]
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
-	tracker: TaskTracker,
 	state: Arc<ScreenReaderState>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let timeout_duration = Duration::from_secs(5); //todo: perhaps take this from the configuration file at some point
@@ -137,17 +135,6 @@ async fn sigterm_signal_watcher(
 	tracing::debug!("cancelling all tokens");
 	token.cancel();
 	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
-	//timeout(timeout_duration, tracker.wait()).await?;
-	let timeout = Timer::after(timeout_duration);
-	tracker.wait()
-		.map(|()| Ok::<(), std::io::Error>(()))
-		.or(async move {
-			timeout.await;
-			Err(std::io::ErrorKind::TimedOut.into())
-		})
-		.await?;
-	tracing::debug!("All listeners have stopped.");
-	tracing::debug!("Goodbye, Odilia!");
 	Ok(())
 }
 
@@ -320,9 +307,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	//initialize the primary token for task cancelation
 	let token = CancellationToken::new();
 
-	//initialize a task tracker, which will allow us to wait for all tasks to finish
-	let tracker = TaskTracker::new();
-
 	//initializing configuration
 	let config = load_configuration(args.config)?;
 	//initialize logging, with the provided config
@@ -415,20 +399,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
 	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone())
 		.for_each(|fut| {
-			tokio::spawn(fut);
+			spawn(fut);
 		});
 	let input_handler = handlers.input_handler(input_rx, token.clone());
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
 
-	tracker.spawn(ssip_event_receiver);
-	tracker.spawn(notification_task);
-	tracker.spawn(atspi_handlers_task);
-	tracker.spawn(event_send_task);
-	tracker.spawn(input_task);
-	tracker.spawn(input_handler);
-	tracker.close();
-	sigterm_signal_watcher(token, tracker, Arc::clone(&state)).await?;
+	let joined_tasks = (
+		spawn(ssip_event_receiver),
+		spawn(notification_task),
+		spawn(atspi_handlers_task),
+		spawn(event_send_task),
+		spawn(input_task),
+		spawn(input_handler),
+	)
+		.join();
+	spawn(sigterm_signal_watcher(token, Arc::clone(&state)));
+	let _ = spawn(Box::pin(async move {
+		let _ = joined_tasks.await;
+		tracing::debug!("All listeners have stopped.");
+		tracing::debug!("Goodbye, Odilia!");
+	}))
+	.await;
+
 	Ok(())
 }
 

@@ -50,7 +50,6 @@ tracing.workspace = true
 xdg.workspace=true
 zbus.workspace = true
 odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
-tokio-util.workspace=true
 tracing-journald = "0.3.0"
 ssip.workspace = true
 pin-project.workspace = true
@@ -63,7 +62,7 @@ config = { version = "0.15.11", default-features = false, features = ["toml"] }
 lexopt = { version = "0.3.1", default-features = false }
 smol-cancellation-token.workspace = true
 async-signal = "0.2.11"
-async-io = "2.4.1"
+async-io.workspace = true
 futures-lite = { version = "2.6.0", default-features = false }
 async-channel = { version = "2.3.1", default-features = false }
 futures-concurrency.workspace = true
@@ -71,7 +70,6 @@ futures-util.workspace = true
 
 [dev-dependencies]
 lazy_static = "1.4.0"
-tokio-test = "0.4.2"
 
 [features]
 tokio-console = ["dep:console-subscriber", "tracing-subscriber/env-filter"]
