@@ -183,7 +183,6 @@ pub fn sr_event_receiver(
 					Ok((socket, address)) => {
 						tracing::debug!("Ok from socket");
 						return Some((
-							empty,
 							handle_event(
 								socket,
 								address,
@@ -191,6 +190,7 @@ pub fn sr_event_receiver(
 								shutdown.clone(),
 							)
 							.boxed(),
+							empty,
 						));
 					}
 					Err(e) => {
