@@ -1,6 +1,9 @@
 use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, async_executor::{SmolExecutor, AsyncExecutor}};
+use criterion::{
+	async_executor::{AsyncExecutor, SmolExecutor},
+	criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
+};
 use futures_concurrency::future::Race;
 use futures_lite::future::{fuse, FutureExt};
 use indextree::{Arena, NodeId};
@@ -74,7 +77,7 @@ async fn reads_while_writing(
 		let _ = cache_1.add_all(items);
 		TaskName::Writer
 	})
-  .boxed();
+	.boxed();
 	let mut read_handle = fuse(async move {
 		let mut ids = VecDeque::from(ids);
 		loop {
@@ -88,7 +91,8 @@ async fn reads_while_writing(
 			}
 		}
 		TaskName::Reader
-	}).boxed();
+	})
+	.boxed();
 	loop {
 		let finished = [&mut write_handle, &mut read_handle].race().await;
 		if finished == TaskName::Reader {
@@ -139,24 +143,25 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) = SmolExecutor.block_on(async {
-		let cache = Arc::new(Cache::new(TestDriver));
-		let all_items: Vec<CacheItem> = wcag_items.clone();
-		let _ = cache.add_all(all_items);
-		let read_cache = cache.tree.read();
-		let children = read_cache
-			.iter()
-			.filter_map(|entry| {
-				if entry.first_child().is_none() {
-					read_cache.get_node_id(entry)
-				} else {
-					None
-				}
-			})
-			.collect();
-		drop(read_cache);
-		(cache, children)
-	});
+	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) =
+		SmolExecutor.block_on(async {
+			let cache = Arc::new(Cache::new(TestDriver));
+			let all_items: Vec<CacheItem> = wcag_items.clone();
+			let _ = cache.add_all(all_items);
+			let read_cache = cache.tree.read();
+			let children = read_cache
+				.iter()
+				.filter_map(|entry| {
+					if entry.first_child().is_none() {
+						read_cache.get_node_id(entry)
+					} else {
+						None
+					}
+				})
+				.collect();
+			drop(read_cache);
+			(cache, children)
+		});
 	let read_cache = cache.tree.read();
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(SmolExecutor).iter_batched(
