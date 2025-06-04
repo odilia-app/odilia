@@ -76,7 +76,7 @@ async fn get_registry_accessible<'a>(conn: &Connection) -> Result<AccessibleProx
 	Ok(registry)
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
 	set_session_accessibility(true).await?;
 	let a11y = AccessibilityConnection::new().await?;
