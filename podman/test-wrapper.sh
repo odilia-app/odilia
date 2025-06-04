@@ -1,7 +1,6 @@
 #!/bin/bash
 set -euo pipefail
 xvfb-run dunst --screen 0 600x400x8 &
-ydotoold &
 
 # Start DBus session and grab env
 #export DBUS_SESSION_BUS_ADDRESS="$(dbus-daemon --session --print-address --fork)"
