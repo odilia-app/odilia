@@ -12,6 +12,7 @@ categories = ["Accessibility"]
 [features]
 default = []
 proptest = []
+integration_tests = []
 
 [dependencies]
 atspi.workspace = true
