@@ -8,8 +8,6 @@ use std::io;
 use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::prelude::*;
-#[cfg(feature = "tokio-console")]
-use tracing_subscriber::EnvFilter;
 use tracing_tree::{time::Uptime, HierarchicalLayer};
 
 /// Initialise the logging stack
@@ -36,14 +34,6 @@ pub fn init(config: &ApplicationConfig) -> Result<(), Box<dyn std::error::Error 
 			.with_syslog_identifier("odilia".to_owned())
 			.boxed(),
 	};
-	#[cfg(feature = "tokio-console")]
-	let trace_sub = {
-		let console_layer = console_subscriber::spawn();
-		tracing_subscriber::Registry::default()
-			.with(EnvFilter::from("tokio=trace,runtime=trace"))
-			.with(console_layer)
-	};
-	#[cfg(not(feature = "tokio-console"))]
 	let trace_sub = { tracing_subscriber::Registry::default() };
 	trace_sub.with(ErrorLayer::default()).with(final_layer).init();
 	Ok(())
