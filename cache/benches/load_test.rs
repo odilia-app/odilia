@@ -2,7 +2,7 @@ use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
 use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use futures_concurrency::{array::AggregateError, future::RaceOk};
-use futures_lite::future::{fuse, Future};
+use futures_lite::future::fuse;
 use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
@@ -16,13 +16,8 @@ macro_rules! load_items {
 pub struct TestDriver;
 
 impl CacheDriver for TestDriver {
-	fn lookup_external(
-		&self,
-		_key: &CacheKey,
-	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send {
-		async {
-			panic!("This driver (NoDriver) should never be called!");
-		}
+	async fn lookup_external(&self, _key: &CacheKey) -> OdiliaResult<CacheItem> {
+		panic!("This driver (NoDriver) should never be called!");
 	}
 }
 
