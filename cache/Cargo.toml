@@ -30,10 +30,9 @@ futures-lite = { version = "2.6.0", default-features = false }
 
 [dev-dependencies]
 atspi = { workspace = true, features = ["connection"] }
-criterion = { version = "0.6.0", features = ["async_tokio", "html_reports"] }
+criterion = { version = "0.6.0", features = ["async_smol", "html_reports"] }
 futures-util = { workspace = true, features = ["alloc"] }
 serde_json.workspace = true
-tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [[bench]]
 name = "load_test"

@@ -1,8 +1,8 @@
 use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
-use futures_concurrency::{array::AggregateError, future::RaceOk};
-use futures_lite::future::fuse;
+use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, async_executor::{SmolExecutor, AsyncExecutor}};
+use futures_concurrency::future::Race;
+use futures_lite::future::{fuse, FutureExt};
 use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
@@ -62,7 +62,7 @@ async fn reads_while_writing(
 	cache: Cache<TestDriver>,
 	ids: Vec<AccessiblePrimitive>,
 	items: Vec<CacheItem>,
-) -> Result<(), AggregateError<tokio::task::JoinError, 2>> {
+) {
 	#[derive(PartialEq)]
 	enum TaskName {
 		Reader,
@@ -70,11 +70,12 @@ async fn reads_while_writing(
 	}
 	let cache_1 = Arc::new(cache);
 	let cache_2 = Arc::clone(&cache_1);
-	let mut write_handle = fuse(tokio::spawn(async move {
+	let mut write_handle = fuse(async move {
 		let _ = cache_1.add_all(items);
 		TaskName::Writer
-	}));
-	let mut read_handle = fuse(tokio::spawn(async move {
+	})
+  .boxed();
+	let mut read_handle = fuse(async move {
 		let mut ids = VecDeque::from(ids);
 		loop {
 			match ids.pop_front() {
@@ -87,19 +88,16 @@ async fn reads_while_writing(
 			}
 		}
 		TaskName::Reader
-	}));
+	}).boxed();
 	loop {
-		let finished = [&mut write_handle, &mut read_handle].race_ok().await?;
+		let finished = [&mut write_handle, &mut read_handle].race().await;
 		if finished == TaskName::Reader {
 			break;
 		}
 	}
-	Ok(())
 }
 
 fn cache_benchmark(c: &mut Criterion) {
-	let rt = tokio::runtime::Runtime::new().unwrap();
-
 	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");
 	let wcag_items: Vec<CacheItem> = load_items!("./wcag_cache_items.json");
 
@@ -111,7 +109,7 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	let cache = Cache::new(TestDriver);
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async {
 				cache.clear();
@@ -122,7 +120,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	});
 	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| wcag_items.clone(),
 			|items: Vec<CacheItem>| async {
 				cache.clear();
@@ -134,14 +132,14 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
-	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) = rt.block_on(async {
+	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) = SmolExecutor.block_on(async {
 		let cache = Arc::new(Cache::new(TestDriver));
 		let all_items: Vec<CacheItem> = wcag_items.clone();
 		let _ = cache.add_all(all_items);
@@ -161,7 +159,7 @@ fn cache_benchmark(c: &mut Criterion) {
 	});
 	let read_cache = cache.tree.read();
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| children.clone(),
 			|cs| async { traverse_up_refs(cs, &read_cache).await },
 			BatchSize::SmallInput,
@@ -187,14 +185,14 @@ fn cache_benchmark(c: &mut Criterion) {
 	});
 
 	let all_items = wcag_items.clone();
-	for size in [10, 100, 1000] {
+	for size in [10, 100, 1000, 3603] {
 		let sample = all_items[0..size]
 			.iter()
 			.map(|item| item.object.clone())
 			.collect::<Vec<_>>();
 		group.throughput(criterion::Throughput::Elements(size as u64));
 		group.bench_function(BenchmarkId::new("reads_while_writing", size), |b| {
-			b.to_async(&rt).iter_batched(
+			b.to_async(SmolExecutor).iter_batched(
 				|| (Cache::new(TestDriver), sample.clone(), all_items.clone()),
 				|(cache, ids, items)| async {
 					reads_while_writing(cache, ids, items).await
