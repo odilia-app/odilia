@@ -15,20 +15,24 @@ mod state;
 mod tower;
 
 use std::{
+	env,
 	fmt::Write,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	process::{exit, Child, Command as ProcCommand},
 	sync::Arc,
 	time::Duration,
 };
 
 use async_channel::bounded;
-use async_signal::{Signal, Signals};
 use async_executor::StaticExecutor;
+use async_signal::{Signal, Signals};
 use atspi::RelationType;
 use atspi_common::events::{document, object};
 use futures_concurrency::future::{Join, TryJoin};
-use futures_lite::{future::{FutureExt, block_on}, stream::StreamExt};
+use futures_lite::{
+	future::{block_on, FutureExt},
+	stream::StreamExt,
+};
 use futures_util::FutureExt as FatExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
@@ -49,6 +53,34 @@ use crate::{
 	},
 	tower::{ActiveAppEvent, CacheEvent, EventProp, Handlers, RelationSet},
 };
+
+fn find_it<P>(exe_name: P) -> Option<PathBuf>
+where
+	P: AsRef<Path>,
+{
+	find_it_in(exe_name, [""].into_iter())
+}
+fn find_it_in<P, I, Item>(exe_name: P, paths: I) -> Option<PathBuf>
+where
+	P: AsRef<Path>,
+	I: Iterator<Item = Item>,
+	Item: Into<std::ffi::OsString>,
+{
+	let os_strings = paths
+		.map(Into::into)
+		.chain([env::var_os("PATH")?])
+		.collect::<Vec<std::ffi::OsString>>();
+	os_strings.iter().find_map(|paths| {
+		env::split_paths(&paths).find_map(|dir| {
+			let full_path = dir.join(&exe_name);
+			if full_path.is_file() {
+				Some(full_path)
+			} else {
+				None
+			}
+		})
+	})
+}
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
 where
@@ -73,14 +105,15 @@ fn try_spawn_input_server(
 			InputMethod::Custom(s) => &s,
 		}
 	);
-	if which::which(&bin_name).is_err() {
+	if find_it(&bin_name).is_none() {
 		tracing::info!("Unable to find {bin_name} in $PATH; trying hardcoded paths.");
 	}
-	let mut found = which::which_in_global(
+	let found = find_it_in(
 		bin_name.clone(),
-		Some("./target/debug/:./target/release/"),
-	)?;
-	let child = match found.next() {
+		["./target/debug/", "./target/release/", "../target/debug/", "../target/release/"]
+			.into_iter(),
+	);
+	let child = match found {
 		None => {
 			return Err(format!("Unable to find {bin_name} in $PATH or any hardcoded paths (for development). This means Odilia is uncontrollable by any mechanism!").into());
 		}
@@ -303,13 +336,11 @@ async fn caret_moved(
 static EXECUTOR: StaticExecutor = StaticExecutor::new();
 
 fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    block_on(
-        EXECUTOR.run(async_main())
-    )
+	block_on(EXECUTOR.run(async_main()))
 }
 
 async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-  let ex = &EXECUTOR;
+	let ex = &EXECUTOR;
 	let args = Args::from_cli_args()?;
 
 	//initialize the primary token for task cancelation
@@ -422,11 +453,10 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		ex.spawn(input_handler),
 	)
 		.join();
-	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state)))
-    .detach();
-let _ = joined_tasks.await;
-tracing::debug!("All listeners have stopped.");
-tracing::debug!("Goodbye, Odilia!");
+	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state))).detach();
+	let _ = joined_tasks.await;
+	tracing::debug!("All listeners have stopped.");
+	tracing::debug!("Goodbye, Odilia!");
 
 	Ok(())
 }
