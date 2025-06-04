@@ -24,10 +24,11 @@ use std::{
 
 use async_channel::bounded;
 use async_signal::{Signal, Signals};
+use async_executor::StaticExecutor;
 use atspi::RelationType;
 use atspi_common::events::{document, object};
 use futures_concurrency::future::{Join, TryJoin};
-use futures_lite::{future::FutureExt, stream::StreamExt};
+use futures_lite::{future::{FutureExt, block_on}, stream::StreamExt};
 use futures_util::FutureExt as FatExt;
 use odilia_common::{
 	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
@@ -38,7 +39,6 @@ use odilia_common::{
 use odilia_notify::listen_to_dbus_notifications;
 use smol_cancellation_token::CancellationToken;
 use ssip::{Priority, Request as SSIPRequest};
-use tokio::task::spawn;
 use tracing::Instrument;
 
 use crate::{
@@ -300,8 +300,16 @@ async fn caret_moved(
 	Ok(Vec::new())
 }
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+static EXECUTOR: StaticExecutor = StaticExecutor::new();
+
+fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    block_on(
+        EXECUTOR.run(async_main())
+    )
+}
+
+async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+  let ex = &EXECUTOR;
 	let args = Args::from_cli_args()?;
 
 	//initialize the primary token for task cancelation
@@ -399,28 +407,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
 	let input_task = odilia_input::sr_event_receiver(listener, input_tx, token.clone())
 		.for_each(|fut| {
-			spawn(fut);
+			ex.spawn(fut).detach();
 		});
 	let input_handler = handlers.input_handler(input_rx, token.clone());
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
 
 	let joined_tasks = (
-		spawn(ssip_event_receiver),
-		spawn(notification_task),
-		spawn(atspi_handlers_task),
-		spawn(event_send_task),
-		spawn(input_task),
-		spawn(input_handler),
+		ex.spawn(ssip_event_receiver),
+		ex.spawn(notification_task),
+		ex.spawn(atspi_handlers_task),
+		ex.spawn(event_send_task),
+		ex.spawn(input_task),
+		ex.spawn(input_handler),
 	)
 		.join();
-	spawn(sigterm_signal_watcher(token, Arc::clone(&state)));
-	let _ = spawn(Box::pin(async move {
-		let _ = joined_tasks.await;
-		tracing::debug!("All listeners have stopped.");
-		tracing::debug!("Goodbye, Odilia!");
-	}))
-	.await;
+	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state)))
+    .detach();
+let _ = joined_tasks.await;
+tracing::debug!("All listeners have stopped.");
+tracing::debug!("Goodbye, Odilia!");
 
 	Ok(())
 }
