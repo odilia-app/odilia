@@ -1,6 +1,6 @@
 use atspi::Granularity;
 use serde::{Deserialize, Serialize};
-use zvariant::OwnedObjectPath;
+use zbus::zvariant::OwnedObjectPath;
 
 pub type Accessible = (String, OwnedObjectPath);
 

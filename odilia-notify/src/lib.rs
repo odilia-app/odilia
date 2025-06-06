@@ -7,8 +7,8 @@ mod action;
 mod notification;
 mod urgency;
 use notification::Notification;
-mod error;
-use error::NotifyError;
+use odilia_common::errors::NotifyError;
+
 #[instrument]
 pub async fn listen_to_dbus_notifications() -> Result<impl Stream<Item = Notification>, NotifyError>
 {

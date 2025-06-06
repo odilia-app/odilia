@@ -1,15 +1,14 @@
-#[cfg(feature = "zbus")]
-use atspi::proxy::{accessible::AccessibleProxy, text::TextProxy};
-use atspi::EventProperties;
-#[cfg(feature = "zbus")]
-use atspi::ObjectRef;
+use atspi::{
+	proxy::{accessible::AccessibleProxy, text::TextProxy},
+	EventProperties, ObjectRef,
+};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "zbus")]
-use zbus::proxy::{Builder as ProxyBuilder, CacheProperties};
-use zbus_names::OwnedUniqueName;
-use zvariant::{ObjectPath, OwnedObjectPath, Type};
+use zbus::{
+	names::OwnedUniqueName,
+	proxy::{Builder as ProxyBuilder, CacheProperties},
+	zvariant::{ObjectPath, OwnedObjectPath, Type},
+};
 
-#[cfg(feature = "zbus")]
 use crate::errors::AccessiblePrimitiveConversionError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type)]
@@ -45,7 +44,6 @@ impl AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[cfg(feature = "zbus")]
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
 	pub async fn into_accessible<'a>(
 		self,
@@ -64,7 +62,6 @@ impl AccessiblePrimitive {
 	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[cfg(feature = "zbus")]
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
 	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
@@ -79,7 +76,6 @@ impl AccessiblePrimitive {
 	}
 }
 
-#[cfg(feature = "zbus")]
 impl From<ObjectRef> for AccessiblePrimitive {
 	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
 		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
@@ -106,7 +102,6 @@ impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
 		AccessiblePrimitive { id: so.1.to_string(), sender: so.0 }
 	}
 }
-#[cfg(feature = "zbus")]
 impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 
@@ -118,7 +113,6 @@ impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
 		Ok(AccessiblePrimitive { sender, id })
 	}
 }
-#[cfg(feature = "zbus")]
 impl TryFrom<AccessibleProxy<'_>> for AccessiblePrimitive {
 	type Error = AccessiblePrimitiveConversionError;
 

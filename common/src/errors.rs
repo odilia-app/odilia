@@ -11,9 +11,9 @@ pub enum OdiliaError {
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
 	SerdeError(SerdePlainError),
-	Zbus(String),
-	ZbusFdo(String),
-	Zvariant(String),
+	Zbus(#[from] zbus::Error),
+	ZbusFdo(#[from] zbus::fdo::Error),
+	Zvariant(#[from] zbus::zvariant::Error),
 	SendError(SendError),
 	Cache(#[from] CacheError),
 	InfallibleConversion(#[from] std::convert::Infallible),
@@ -25,6 +25,7 @@ pub enum OdiliaError {
 	ServiceNotFound(String),
 	PredicateFailure(String),
 	Io(#[from] std::io::Error),
+	Notify(#[from] NotifyError),
 }
 
 impl From<&'static str> for OdiliaError {
@@ -127,24 +128,6 @@ impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 		Self::PoisoningError
 	}
 }
-#[cfg(feature = "zbus")]
-impl From<zbus::fdo::Error> for OdiliaError {
-	fn from(spe: zbus::fdo::Error) -> Self {
-		Self::ZbusFdo(format!("{spe:?}"))
-	}
-}
-#[cfg(feature = "zbus")]
-impl From<zbus::Error> for OdiliaError {
-	fn from(spe: zbus::Error) -> Self {
-		Self::Zbus(format!("{spe:?}"))
-	}
-}
-#[cfg(feature = "zbus")]
-impl From<zbus::zvariant::Error> for OdiliaError {
-	fn from(spe: zbus::zvariant::Error) -> Self {
-		Self::Zvariant(format!("{spe:?}"))
-	}
-}
 impl From<SerdePlainError> for OdiliaError {
 	fn from(spe: SerdePlainError) -> Self {
 		Self::SerdeError(spe)
@@ -211,4 +194,12 @@ pub enum KeyFromStrError {
 pub enum ModeFromStrError {
 	#[error("Mode not found")]
 	ModeNameNotFound,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum NotifyError {
+	#[error("connection or monitor related error")]
+	Dbus(#[from] zbus::Error),
+	#[error("zbus specification defined error")]
+	DbusSpec(#[from] zbus::fdo::Error),
 }

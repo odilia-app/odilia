@@ -7,8 +7,7 @@
 	unsafe_code
 )]
 
-use zbus_names::UniqueName;
-use zvariant::ObjectPath;
+use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 pub mod cache;
 pub mod command;

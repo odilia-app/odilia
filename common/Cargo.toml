@@ -12,21 +12,18 @@ categories = ["accessibility"]
 edition = "2021"
 
 [features]
-default = ["async-io"]
-tokio = ["dep:tokio", "zbus/tokio"]
-async-io = ["dep:async-channel", "zbus/async-io"]
+default = []
 tracing = ["dep:tracing"]
-zbus = ["atspi/proxies", "async-io"]
+async-io = ["dep:async-channel"]
+tokio = ["tokio/sync"]
 
 [dependencies]
-atspi = { workspace = true, default-features = false, features = ["wrappers"] }
+atspi = { workspace = true, default-features = false, features = ["wrappers", "proxies"] }
 futures-concurrency.workspace = true
 futures-util.workspace = true
 serde.workspace = true
 thiserror.workspace = true
-zbus = { workspace = true, optional = true }
-zbus_names.workspace = true
-zvariant.workspace = true
+zbus.workspace = true
 serde_plain.workspace = true
 enum_dispatch = "0.3.13"
 strum = { version = "0.27.1", features = ["derive"] }
