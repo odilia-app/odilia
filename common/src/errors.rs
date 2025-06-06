@@ -24,6 +24,7 @@ pub enum OdiliaError {
 	Static(&'static str),
 	ServiceNotFound(String),
 	PredicateFailure(String),
+	Io(#[from] std::io::Error),
 }
 
 impl From<&'static str> for OdiliaError {

@@ -30,7 +30,7 @@ use futures_lite::{
 };
 use futures_util::{future::BoxFuture, FutureExt};
 use nix::unistd::Uid;
-use odilia_common::events::ScreenReaderEvent;
+use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent};
 use smol_cancellation_token::CancellationToken;
 use sysinfo::{ProcessExt, System, SystemExt};
 
@@ -75,8 +75,7 @@ fn get_log_file_name() -> String {
 /// # Errors
 /// - This function will return an error type if the same function is already running. This is checked by looking for a file on disk. If the file exists, this program is probably already running.
 /// - If there is no way to get access to the directory.
-pub async fn setup_input_server() -> Result<UnixListener, Box<dyn std::error::Error + Send + Sync>>
-{
+pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
 
