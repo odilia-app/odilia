@@ -33,6 +33,11 @@ impl From<&'static str> for OdiliaError {
 		Self::Static(s)
 	}
 }
+impl From<String> for OdiliaError {
+	fn from(s: String) -> OdiliaError {
+		Self::Generic(s)
+	}
+}
 
 #[derive(Debug)]
 pub enum SendError {
