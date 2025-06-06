@@ -59,7 +59,7 @@ where
 	pub fn new() -> Self {
 		ChoiceService { services: BTreeMap::new(), _marker: PhantomData }
 	}
-	pub fn entry(&mut self, k: K) -> Entry<K, S>
+	pub fn entry(&mut self, k: K) -> Entry<'_, K, S>
 	where
 		K: Ord,
 	{
