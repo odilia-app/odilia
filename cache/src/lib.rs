@@ -11,12 +11,7 @@
 mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
-use std::{
-	collections::{HashMap, VecDeque},
-	fmt::Debug,
-	future::Future,
-	sync::Arc,
-};
+use std::{collections::VecDeque, fmt::Debug, future::Future, sync::Arc};
 
 pub use accessible_ext::AccessibleExt;
 use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
@@ -223,7 +218,7 @@ pub trait CacheDriver {
 }
 
 impl CacheDriver for zbus::Connection {
-	#[tracing::instrument(level = "trace", ret, skip(self))]
+	#[tracing::instrument(level = "trace", ret, skip(self), fields(key.item, key.name))]
 	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
 		let accessible = AccessibleProxy::builder(self)
 			.destination(key.sender.clone())?
@@ -232,13 +227,6 @@ impl CacheDriver for zbus::Connection {
 			.build()
 			.await?;
 		accessible_to_cache_item(&accessible).await
-	}
-}
-
-impl<S: std::hash::BuildHasher + Sync> CacheDriver for HashMap<CacheKey, CacheItem, S> {
-	#[tracing::instrument(level = "trace", ret, skip(self))]
-	async fn lookup_external(&self, key: &CacheKey) -> OdiliaResult<CacheItem> {
-		Ok(self.get(key).ok_or::<OdiliaError>(CacheError::NoItem.into())?.clone())
 	}
 }
 
