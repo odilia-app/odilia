@@ -14,6 +14,13 @@ use odilia_common::{
 use odilia_input_server_keyboard::{callback, ComboSets, State};
 use rdev::grab;
 
+/// Arguments to [`ydotool`]:
+///
+/// 1. "key": press keys by keycode
+/// 2. press capslock
+/// 3. press g
+/// 4. release g
+/// 5. release capslock
 const SEQUENCE_OF_KEYS: [&str; 5] = ["key", "58:1", "34:1", "34:0", "58:0"];
 
 fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
