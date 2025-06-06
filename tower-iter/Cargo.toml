@@ -17,4 +17,4 @@ tower = { workspace = true, features = ["util"] }
 [features]
 
 [dev-dependencies]
-futures-lite = { version = "2.6.0", default-features = false, features = ["std"] }
+futures-lite.workspace = true
