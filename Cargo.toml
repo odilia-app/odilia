@@ -42,10 +42,9 @@ async-net = { version = "2.0", default-features = false }
 async-io = { version = "2.0", default-features = false }
 async-channel = { version = "2.0", default-features = false }
 async-fs = { version = "2.0", default-features = false }
-odilia-common = { version = "0.3.0", path = "./common", default-features = false }
+odilia-common = { version = "0.3.0", path = "./common", features = ["async-io"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
 nix = { version = "0.30.0", default-features = false, features = ["user"] }
-pin-project = { version = "1.0", default-features = false }
 pin-project-lite = { version = "0.2.16", default-features = false }
 serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
 serde = { version = "1.0", default-features = false, features = ["derive"] }

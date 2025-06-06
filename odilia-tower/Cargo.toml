@@ -11,7 +11,7 @@ readme = "README.md"
 
 [dependencies]
 futures-util.workspace = true
-odilia-common = { workspace = true, default-features = false }
+odilia-common.workspace = true
 pin-project-lite.workspace = true 
 static_assertions = "1.1.0"
 tower = { workspace = true, features = ["util"] }
