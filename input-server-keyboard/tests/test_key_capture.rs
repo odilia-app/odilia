@@ -27,7 +27,7 @@ fn handle_events_to_socket(rx: Receiver<OdiliaEvent>) {
 	assert_eq!(
 		rx.recv_timeout(Duration::from_secs(1)),
 		Ok(StopSpeech.into()),
-		"The even generated from the keyboard state is not the expected one!"
+		"unexpected event recieved from the keyboard state machine, this is a bug (or your setup is misconfigured)"
 	);
 }
 
