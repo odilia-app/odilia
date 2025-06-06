@@ -15,7 +15,7 @@ categories = ["accessibility"]
 atspi.workspace = true
 atspi-proxies.workspace = true
 atspi-common.workspace = true
-odilia-common = { workspace = true, features = ["async-io"] }
+odilia-common.workspace = true
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 serde.workspace = true
 tracing.workspace = true
@@ -26,7 +26,7 @@ indextree = { version = "4.7.4", features = ["rayon", "par_iter", "serde", "dese
 parking_lot = { version = "0.12.3", default-features = false }
 itertools = "0.14.0"
 futures-concurrency.workspace = true
-futures-lite = { version = "2.6.0", default-features = false }
+futures-lite.workspace = true
 
 [dev-dependencies]
 atspi = { workspace = true, features = ["connection"] }

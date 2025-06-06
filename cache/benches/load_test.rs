@@ -10,12 +10,6 @@ use indextree::{Arena, NodeId};
 use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
 
-macro_rules! load_items {
-	($file:expr) => {
-		::serde_json::from_str(include_str!($file)).unwrap()
-	};
-}
-
 pub struct TestDriver;
 
 impl CacheDriver for TestDriver {
@@ -102,8 +96,11 @@ async fn reads_while_writing(
 }
 
 fn cache_benchmark(c: &mut Criterion) {
-	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");
-	let wcag_items: Vec<CacheItem> = load_items!("./wcag_cache_items.json");
+	let zbus_items: Vec<CacheItem> =
+		serde_json::from_str(include_str!("./zbus_docs_cache_items.json")).unwrap();
+
+	let wcag_items: Vec<CacheItem> =
+		serde_json::from_str(include_str!("./wcag_cache_items.json")).unwrap();
 
 	let mut group = c.benchmark_group("cache");
 	group.sample_size(200) // def 100
