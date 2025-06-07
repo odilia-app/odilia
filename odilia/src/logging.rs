@@ -5,14 +5,17 @@
 
 use std::io;
 
-use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
+use odilia_common::{
+	errors::OdiliaError,
+	settings::{log::LoggingKind, ApplicationConfig},
+};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::prelude::*;
 use tracing_tree::{time::Uptime, HierarchicalLayer};
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
-pub fn init(config: &ApplicationConfig) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub fn init(config: &ApplicationConfig) -> Result<(), OdiliaError> {
 	let tree = HierarchicalLayer::new(4)
 		.with_bracketed_fields(true)
 		.with_targets(true)
