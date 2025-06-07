@@ -341,9 +341,9 @@ impl<D: CacheDriver> Cache<D> {
 	/// Bulk add many items to the cache; only one accessible should ever be
 	/// associated with an id.
 	/// # Errors
-	/// An `Err(_)` variant may be returned if the [`Cache::populate_references`] function fails.
-	// TODO: add ", err" back to instrumentqation
-	#[tracing::instrument(level = "trace", ret)]
+	/// An `Err(_)` variant may returned if the [`RelationSet`] fails to resolve to real IDs in the
+	/// cache.
+	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		for cache_item in cache_items {
 			let _ = self.add(cache_item);

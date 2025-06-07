@@ -41,7 +41,7 @@ impl AccessiblePrimitive {
 		Self { id, sender: sender.as_str().into() }
 	}
 
-	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi::proxy::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
@@ -59,7 +59,7 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi::proxy::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
