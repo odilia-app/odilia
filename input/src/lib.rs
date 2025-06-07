@@ -100,7 +100,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
 			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
-				return Err("Server is already running!".into());
+				return Err("Server is already running".into());
 			}
 		}
 	}
@@ -132,7 +132,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 	}
 
 	let listener = UnixListener::bind(sock_file_path)?;
-	tracing::debug!("Listener activated!");
+	tracing::debug!("Listener activated");
 	Ok(listener)
 }
 
@@ -148,7 +148,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 /// // use smol::spawn or tokio::spawn
 /// # fn spawn<F>(_f: F) {}
 /// let listener = UnixListener::bind("/some/path/here")
-///     .expect("Valid listener!");
+///     .expect("Valid listener");
 /// let (sender, _receiver) = bounded(128);
 /// let ct = CancellationToken::new();
 /// let stream = sr_event_receiver(listener, sender, ct);
@@ -185,7 +185,7 @@ async fn sr_event_receiver_inner(
 ) -> Result<BoxFuture<'static, ()>, ControlFlow<()>> {
 	let maybe_msg = or_cancel(listener.accept(), shutdown).await;
 	let Ok(msg) = maybe_msg else {
-		tracing::debug!("Shutting down input socket due to cancellation token");
+		tracing::debug!("Shutting down listening for new input sockets on '{:?}' due to cancellation token", listener.local_addr());
 		return Err(ControlFlow::Break(()));
 	};
 	match msg {
@@ -216,12 +216,15 @@ async fn handle_event(
 		let mut buf = [0; 4096];
 		let maybe_reader = or_cancel(socket.read(&mut buf), &shutdown).await;
 		let Ok(reader) = maybe_reader else {
-			tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
+			tracing::debug!("Shutting down listening on input socket at path '{:?}' due to cancellation token", socket.local_addr());
 			break;
 		};
 		let bytes = match reader {
 			Ok(0) => {
-				tracing::debug!("Socket {socket:?} was disconnected!");
+				tracing::debug!(
+					"Socket '{:?}' was disconnected",
+					socket.local_addr()
+				);
 				break;
 			}
 			Ok(b) => b,
@@ -229,31 +232,26 @@ async fn handle_event(
 				continue;
 			}
 			Err(e) => {
-				tracing::error!("Error reading from socket {:#?}", e);
+				tracing::error!(error = ?e, "Error reading from socket");
 				continue;
 			}
 		};
 		let response = std::str::from_utf8(&buf[..bytes]).expect("Valid UTF-8");
 		// if valid screen reader event
-		match serde_json::from_str::<ScreenReaderEvent>(response) {
-			Ok(sre) => {
-				if let Err(e) = event_sender.send(sre).await {
-					tracing::error!(
-						"Error sending ScreenReaderEvent over socket: {}",
-						e
-					);
-				} else {
-					tracing::debug!("Sent SR event");
-				}
+
+		let sre = match serde_json::from_str::<ScreenReaderEvent>(response) {
+			Ok(sre) => sre,
+			Err(e) => {
+				tracing::error!(error = ?e, "Invalid odilia event");
+				continue;
 			}
-			Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
+		};
+		if let Err(e) = event_sender.send(sre).await {
+			tracing::error!(error = ?e, "Error sending ScreenReaderEvent over socket");
+		} else {
+			tracing::debug!("Sent SR event");
 		}
-		tracing::debug!(
-			"Socket: {:?} Address: {:?} Response: {}",
-			socket,
-			address,
-			response
-		);
+		tracing::debug!(?address, response,);
 	}
 }
 
