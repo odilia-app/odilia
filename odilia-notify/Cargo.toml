@@ -14,7 +14,6 @@ edition = "2021"
 
 [dependencies]
 futures-lite.workspace=true
-itertools = "0.14.0"
 serde.workspace=true
 thiserror.workspace = true
 tracing.workspace=true

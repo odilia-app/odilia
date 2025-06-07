@@ -20,7 +20,6 @@ use dashmap::DashMap;
 use futures_concurrency::future::TryJoin;
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
-use itertools::Itertools;
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
@@ -478,7 +477,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		role,
 		states,
 		text,
-		children: children.into_iter().map_into().collect(),
+		children: children.into_iter().map(Into::into).collect(),
 		relation_set: rs,
 		name,
 		description: desc,
