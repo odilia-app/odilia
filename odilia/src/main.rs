@@ -94,9 +94,7 @@ where
 
 /// Try to spawn the `odilia-input-server-*` binary.
 #[tracing::instrument]
-fn try_spawn_input_server(
-	input: &InputMethod,
-) -> Result<Child, Box<dyn std::error::Error + Send + Sync>> {
+fn try_spawn_input_server(input: &InputMethod) -> Result<Child, OdiliaError> {
 	let bin_name = format!(
 		"{}-{}",
 		"odilia-input-server",
@@ -129,7 +127,7 @@ fn try_spawn_input_server(
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
 	shutdown: CancellationToken,
-) -> Result<(), Box<dyn std::error::Error + Sync + Send>> {
+) -> Result<(), OdiliaError> {
 	let mut stream = listen_to_dbus_notifications()
 		.instrument(tracing::info_span!("creating notification listener"))
 		.await?;
@@ -154,7 +152,7 @@ async fn notifications_monitor(
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	state: Arc<ScreenReaderState>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<(), OdiliaError> {
 	let timeout_duration = Duration::from_secs(5); //todo: perhaps take this from the configuration file at some point
 	let mut signals = Signals::new([Signal::Int])?;
 	signals.next()
@@ -463,7 +461,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 fn load_configuration(
 	cli_overide: Option<PathBuf>,
-) -> Result<ApplicationConfig, Box<dyn std::error::Error + Send + Sync>> {
+) -> Result<ApplicationConfig, OdiliaError> {
 	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
 	// If XDG_CONFIG_HOME based configuration wasn't found, create one by combining default values with the system provided ones, if available, for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above

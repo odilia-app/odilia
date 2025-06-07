@@ -18,7 +18,7 @@ pub enum OdiliaError {
 	Cache(#[from] CacheError),
 	InfallibleConversion(#[from] std::convert::Infallible),
 	ConversionError(#[from] std::num::TryFromIntError),
-	Config(#[from] ConfigError),
+	Config(#[from] config::ConfigError),
 	PoisoningError,
 	Generic(String),
 	Static(&'static str),
@@ -84,14 +84,6 @@ send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ss
 send_err_impl!(async_channel::SendError<atspi::Event>, SendError::Atspi, Box, "async-io");
 send_err_impl!(async_channel::SendError<OdiliaCommand>, SendError::Command, "async-io");
 send_err_impl!(async_channel::SendError<ssip::Request>, SendError::Ssip, "async-io");
-
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-	#[error("Value not found in config file.")]
-	ValueNotFound,
-	#[error("The path for the config file was not found.")]
-	PathNotFound,
-}
 
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
