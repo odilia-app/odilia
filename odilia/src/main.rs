@@ -159,7 +159,7 @@ async fn sigterm_signal_watcher(
 		.instrument(tracing::debug_span!("Watching for Ctrl+C"))
 		.await;
 	tracing::debug!("Asking all processes to stop.");
-	(*state.children_pids.lock().expect("Able to lock mutex!"))
+	(*state.children_pids.lock().expect("Unable to lock mutex!"))
 		.iter_mut()
 		.try_for_each(Child::kill)
 		.expect("Able to kill child processes");
@@ -487,7 +487,5 @@ fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig,
 			path.to_str().expect("Valid UTF-8 path"),
 		));
 	}
-	let fin = config.build()?.try_deserialize()?;
-
-	Ok(fin)
+	Ok(config.build()?.try_deserialize()?)
 }

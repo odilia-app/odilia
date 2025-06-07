@@ -10,6 +10,7 @@
 
 use std::{
 	io::ErrorKind,
+	pin::pin,
 	process::{exit, Command, Stdio},
 };
 
@@ -85,8 +86,8 @@ pub async fn handle_ssip_commands(
 	mut client: AsyncClient<BufReader<UnixStream>, UnixStream>,
 	mut requests: Receiver<Request>,
 	shutdown: CancellationToken,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	std::pin::pin!(&mut requests);
+) -> Result<(), OdiliaError> {
+	pin!(&mut requests);
 	loop {
 		let maybe_request = or_cancel(requests.recv(), &shutdown).await;
 		let Ok(request_option) = maybe_request else {

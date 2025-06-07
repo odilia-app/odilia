@@ -28,7 +28,6 @@ pub fn init(config: &ApplicationConfig) -> Result<(), OdiliaError> {
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
 	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
-			tracing::info!("creating log file '{}'", path.display());
 			let file = std::fs::File::create(path)?;
 			tree.with_writer(file).boxed()
 		}
