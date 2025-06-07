@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use zbus::{zvariant::Value, Message};
 
@@ -25,9 +24,12 @@ impl TryFrom<Message> for Notification {
 		let body = msg.body();
 		let mb: MessageBody = body.deserialize()?;
 		let (app_name, _, _, title, body, actions, mut options, _) = mb;
-		let actions = actions
-			.iter()
-			.tuples()
+		// even elements
+		let names = actions.iter().step_by(2);
+		// odd elements
+		let methods = actions.iter().skip(1).step_by(2);
+		let actions = names
+			.zip(methods)
 			.map(|(name, method)| Action {
 				name: name.to_string(),
 				method: method.to_string(),

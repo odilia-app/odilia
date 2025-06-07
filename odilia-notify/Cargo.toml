@@ -13,13 +13,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-futures.workspace=true
-itertools = "0.12.1"
+futures-lite.workspace=true
 serde.workspace=true
 thiserror.workspace = true
-tokio.workspace=true
 tracing.workspace=true
 zbus.workspace=true
+odilia-common.workspace=true
 [dev-dependencies]
 notify-rust = "4.10.0"
-tracing-subscriber = { workspace = true, features = ["fmt", "env-filter"] }
+tracing-subscriber = { workspace = true, features = ["fmt"] }
+tokio = { workspace=true, features = ["time"] }

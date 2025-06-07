@@ -12,7 +12,10 @@ edition = "2021"
 
 [dependencies]
 ssip-client-async.workspace = true
-tokio.workspace = true
-tokio-util.workspace=true
-tracing.workspace = true
-eyre.workspace = true
+tracing = { workspace = true, features = ["attributes"] }
+smol-cancellation-token.workspace = true
+async-channel.workspace = true
+async-net.workspace = true
+futures-lite.workspace = true
+futures-util.workspace = true
+odilia-common.workspace = true

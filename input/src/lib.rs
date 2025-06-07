@@ -14,21 +14,29 @@ mod proxy;
 
 use std::{
 	env,
+	ops::ControlFlow,
+	os::unix::net::SocketAddr,
 	path::Path,
 	process::{exit, id},
 	time::{SystemTime, UNIX_EPOCH},
 };
 
-use eyre::{Context, Report};
+use async_channel::Sender;
+use async_fs as fs;
+use async_net::unix::{UnixListener, UnixStream};
+use futures_lite::{future::or, stream::Stream, AsyncReadExt};
+use futures_util::{future::BoxFuture, FutureExt};
 use nix::unistd::Uid;
-use odilia_common::events::ScreenReaderEvent;
+use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent};
+use smol_cancellation_token::CancellationToken;
 use sysinfo::{ProcessExt, System, SystemExt};
-use tokio::{
-	fs,
-	net::{unix::SocketAddr, UnixListener, UnixStream},
-	sync::mpsc::Sender,
-};
-use tokio_util::sync::CancellationToken;
+
+async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
+where
+	F: std::future::Future,
+{
+	or(token.cancelled().map(|()| Err(std::io::ErrorKind::TimedOut.into())), f.map(Ok)).await
+}
 
 #[tracing::instrument(ret)]
 fn get_log_file_name() -> String {
@@ -64,7 +72,7 @@ fn get_log_file_name() -> String {
 /// # Errors
 /// - This function will return an error type if the same function is already running. This is checked by looking for a file on disk. If the file exists, this program is probably already running.
 /// - If there is no way to get access to the directory.
-pub async fn setup_input_server() -> eyre::Result<UnixListener> {
+pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 	let (pid_file_path, sock_file_path) = get_file_paths();
 	let log_file_name = get_log_file_name();
 
@@ -92,7 +100,7 @@ pub async fn setup_input_server() -> eyre::Result<UnixListener> {
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
 			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
-				return Err(Report::msg("Server is already running!"));
+				return Err("Server is already running".into());
 			}
 		}
 	}
@@ -123,88 +131,126 @@ pub async fn setup_input_server() -> eyre::Result<UnixListener> {
 		}
 	}
 
-	let listener = UnixListener::bind(sock_file_path).context("Could not open socket")?;
-	tracing::debug!("Listener activated!");
+	let listener = UnixListener::bind(sock_file_path)?;
+	tracing::debug!("Listener activated");
 	Ok(listener)
 }
 
-/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then sends them over the `event_sender` socket.
-/// This function will exit upon the expiry of the cancellation token passed in.
-/// # Errors
-/// This function will return an error type if the same function is already running.
-/// This is checked by looking for a file on disk. If the file exists, this program is probably already running.
-/// If there is no way to get access to the directory, then this function will call `exit(1)`; TODO: should probably return a result instead.
+/// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then creates a stream of futures that _need_ to be awaited/spawned by the caller onto the executor.
+/// Normally, the best way to do this is like so:
+///
+/// ```rust,no_run
+/// # use futures_lite::stream::StreamExt;
+/// # use smol_cancellation_token::CancellationToken;
+/// # use async_channel::bounded;
+/// # use async_net::unix::UnixListener;
+/// use odilia_input::sr_event_receiver;
+/// // use smol::spawn or tokio::spawn
+/// # fn spawn<F>(_f: F) {}
+/// let listener = UnixListener::bind("/some/path/here")
+///     .expect("Valid listener");
+/// let (sender, _receiver) = bounded(128);
+/// let ct = CancellationToken::new();
+/// // For tokio; for async-io based executors, remember to call .detach()
+/// let stream = sr_event_receiver(listener, sender, ct)
+///     .for_each(|fut| spawn(fut));
+/// ```
+///
+/// If the cancellation token is triggered, this stream will finish.
 #[tracing::instrument(skip_all)]
-pub async fn sr_event_receiver(
+pub fn sr_event_receiver(
 	listener: UnixListener,
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown: CancellationToken,
-) -> eyre::Result<()> {
-	loop {
-		tokio::select! {
-			    msg = listener.accept() => {
-				match msg {
-				    Ok((socket, address)) => {
-					tracing::debug!("Ok from socket");
-		tokio::spawn(handle_event(socket, address, event_sender.clone(), shutdown.clone()));
-				    },
-				    Err(e) => tracing::error!("accept function failed: {:?}", e),
-				}
-			    }
-			    () = shutdown.cancelled() => {
-				tracing::debug!("Shutting down input socket due to cancellation token");
-				break;
-			    }
-			}
+) -> impl Stream<Item = BoxFuture<'static, ()>> {
+	async_stream::stream! {
+	  loop {
+	      match sr_event_receiver_inner(&listener, &event_sender, &shutdown).await {
+		Ok(box_fut) => yield box_fut,
+		Err(ControlFlow::Break(())) => break,
+		Err(ControlFlow::Continue(())) => {},
+	    }
+	  }
 	}
-	Ok(())
+}
+
+/// This contains the logic for [`sr_event_receiver`].
+/// Since formatting doesn't work inside macros, we compute the result here, and send it back up to
+/// be yielded/break the loop.
+async fn sr_event_receiver_inner(
+	listener: &UnixListener,
+	event_sender: &Sender<ScreenReaderEvent>,
+	shutdown: &CancellationToken,
+) -> Result<BoxFuture<'static, ()>, ControlFlow<()>> {
+	let maybe_msg = or_cancel(listener.accept(), shutdown).await;
+	let Ok(msg) = maybe_msg else {
+		tracing::debug!("Shutting down listening for new input sockets on '{:?}' due to cancellation token", listener.local_addr());
+		return Err(ControlFlow::Break(()));
+	};
+	match msg {
+		Ok((socket, address)) => {
+			tracing::debug!("Ok from socket");
+			return Ok(handle_event(
+				socket,
+				address,
+				event_sender.clone(),
+				shutdown.clone(),
+			)
+			.boxed());
+		}
+		Err(e) => {
+			tracing::error!("accept function failed: {:?}", e);
+		}
+	}
+	Err(ControlFlow::Continue(()))
 }
 
 async fn handle_event(
-	socket: UnixStream,
+	mut socket: UnixStream,
 	address: SocketAddr,
 	event_sender: Sender<ScreenReaderEvent>,
 	shutdown: CancellationToken,
 ) {
 	loop {
-		tokio::select! {
-			Ok(()) = socket.readable() => {
-			let mut buf = [0; 4096];
-						let bytes = match socket.try_read(&mut buf) {
-						  Ok(0) => {
-			      tracing::debug!("Socket {socket:?} was disconnected!");
-			      break;
-			  },
-			  Ok(b) => b,
-			  Err(ref e) if e.kind() == tokio::io::ErrorKind::WouldBlock => {
-			      continue;
-			  },
-						  Err(e) => {
-						    tracing::error!("Error reading from socket {:#?}", e);
-			    continue;
-						  }
-						};
-			let response = std::str::from_utf8(&buf[..bytes])
-			    .expect("Valid UTF-8");
-						// if valid screen reader event
-						match serde_json::from_str::<ScreenReaderEvent>(response) {
-						  Ok(sre) => {
-						    if let Err(e) = event_sender.send(sre).await {
-						      tracing::error!("Error sending ScreenReaderEvent over socket: {}", e);
-			    } else {
-						      tracing::debug!("Sent SR event");
-			    }
-						  },
-						  Err(e) => tracing::debug!("Invalid odilia event. {:#?}", e),
-						}
-						tracing::debug!("Socket: {:?} Address: {:?} Response: {}", socket, address, response);
+		let mut buf = [0; 4096];
+		let maybe_reader = or_cancel(socket.read(&mut buf), &shutdown).await;
+		let Ok(reader) = maybe_reader else {
+			tracing::debug!("Shutting down listening on input socket at path '{:?}' due to cancellation token", socket.local_addr());
+			break;
+		};
+		let bytes = match reader {
+			Ok(0) => {
+				tracing::debug!(
+					"Socket '{:?}' was disconnected",
+					socket.local_addr()
+				);
+				break;
+			}
+			Ok(b) => b,
+			Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+				continue;
+			}
+			Err(e) => {
+				tracing::error!(error = ?e, "Error reading from socket");
+				continue;
+			}
+		};
+		let response = std::str::from_utf8(&buf[..bytes]).expect("Valid UTF-8");
+		// if valid screen reader event
 
-		    }
-				    () = shutdown.cancelled() => {
-					tracing::debug!("Shutting down listening on input socket {socket:?} due to cancellation token!");
-					break;
-				    }
+		let sre = match serde_json::from_str::<ScreenReaderEvent>(response) {
+			Ok(sre) => sre,
+			Err(e) => {
+				tracing::error!(error = ?e, "Invalid odilia event");
+				continue;
+			}
+		};
+		if let Err(e) = event_sender.send(sre).await {
+			tracing::error!(error = ?e, "Error sending ScreenReaderEvent over socket");
+		} else {
+			tracing::debug!("Sent SR event");
 		}
+		tracing::debug!(?address, response,);
 	}
 }
 

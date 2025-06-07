@@ -5,15 +5,15 @@ use std::{
 	sync::{atomic::AtomicUsize, Arc, Mutex},
 };
 
-use atspi_common::{
+use async_channel::Sender;
+use atspi::{
+	connection::AccessibilityConnection,
 	events::{DBusMatchRule, EventProperties, RegistryEventString},
+	proxy::{accessible::AccessibleProxy, cache::CacheProxy},
 	Event,
 };
-use atspi_connection::AccessibilityConnection;
-use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use circular_queue::CircularQueue;
-use eyre::WrapErr;
-use futures::future::{err, ok, Ready};
+use futures_util::future::{err, ok, Ready};
 use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};
 use odilia_common::{
 	cache::AccessiblePrimitive,
@@ -25,7 +25,6 @@ use odilia_common::{
 	Result as OdiliaResult,
 };
 use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use tokio::sync::mpsc::Sender;
 use tracing::{debug, Instrument, Level};
 use zbus::{
 	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
@@ -48,14 +47,14 @@ pub(crate) struct ScreenReaderState {
 	pub previous_caret_position: Arc<AtomicUsize>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
-	pub cache: Arc<InnerCache>,
+	pub cache: Arc<InnerCache<zbus::Connection>>,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
 #[derive(Debug, Clone)]
-pub struct Cache(pub Arc<InnerCache>);
+pub struct Cache(pub Arc<InnerCache<zbus::Connection>>);
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
 	type Error = OdiliaError;
@@ -173,17 +172,15 @@ impl ScreenReaderState {
 	pub async fn new(
 		ssip: Sender<SSIPRequest>,
 		config: ApplicationConfig,
-	) -> eyre::Result<ScreenReaderState> {
+	) -> Result<ScreenReaderState, OdiliaError> {
 		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
-			.await
-			.wrap_err("Could not connect to at-spi bus")?;
+			.await?;
 		let dbus = DBusProxy::new(atspi.connection())
 			.instrument(tracing::debug_span!(
 				"creating dbus proxy for accessibility connection"
 			))
-			.await
-			.wrap_err("Failed to create org.freedesktop.DBus proxy")?;
+			.await?;
 
 		tracing::debug!("Reading configuration");
 
@@ -251,9 +248,7 @@ impl ScreenReaderState {
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
 		let prim = AccessiblePrimitive::from_event(event);
-		self.cache
-			.get_or_create(&prim, self.atspi.connection(), Arc::clone(&self.cache))
-			.await
+		self.cache.get_or_create(&prim).await
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.

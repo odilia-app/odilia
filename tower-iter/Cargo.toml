@@ -10,11 +10,11 @@ keywords = ["tower"]
 categories = ["tower"]
 
 [dependencies]
-futures.workspace = true
-pin-project.workspace = true
-tower.workspace = true
+futures-util.workspace = true
+pin-project-lite.workspace = true
+tower = { workspace = true, features = ["util"] }
 
 [features]
 
 [dev-dependencies]
-futures-lite = { version = "2.6.0", default-features = false, features = ["std"] }
+futures-lite.workspace = true

@@ -95,11 +95,12 @@ trait FutureExt2: Future {
 }
 impl<F> FutureExt2 for F where F: Future {}
 
-#[pin_project::pin_project]
-pub struct MapOk<F, E, O> {
-	#[pin]
-	f: F,
-	_marker: PhantomData<(O, E)>,
+pin_project_lite::pin_project! {
+    pub struct MapOk<F, E, O> {
+      #[pin]
+      f: F,
+      _marker: PhantomData<(O, E)>,
+    }
 }
 impl<F, E, O> Future for MapOk<F, E, O>
 where

@@ -1,7 +1,7 @@
 use core::{future::IntoFuture, iter::Zip, marker::PhantomData};
 use std::vec::Vec;
 
-use futures::future::{join_all, JoinAll};
+use futures_util::future::{join_all, JoinAll};
 use tower::Service;
 
 use crate::{call_iter::MapServiceCall, MapMExt};

@@ -1,6 +1,6 @@
 use std::{error::Error, time::Duration};
 
-use futures::StreamExt;
+use futures_lite::StreamExt;
 use notify_rust::Notification;
 use odilia_notify::listen_to_dbus_notifications;
 

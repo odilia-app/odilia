@@ -1,6 +1,6 @@
 use std::{fmt::Debug, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
 
-use atspi_common::EventProperties;
+use atspi::EventProperties;
 use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
 use refinement::Predicate;

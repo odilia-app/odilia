@@ -1,12 +1,14 @@
 use std::future::Future;
 
-use atspi::Interface;
-use atspi_proxies::{
-	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
-	collection::CollectionProxy, component::ComponentProxy, document::DocumentProxy,
-	editable_text::EditableTextProxy, hyperlink::HyperlinkProxy, hypertext::HypertextProxy,
-	image::ImageProxy, selection::SelectionProxy, table::TableProxy,
-	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
+use atspi::{
+	proxy::{
+		accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
+		collection::CollectionProxy, component::ComponentProxy, document::DocumentProxy,
+		editable_text::EditableTextProxy, hyperlink::HyperlinkProxy,
+		hypertext::HypertextProxy, image::ImageProxy, selection::SelectionProxy,
+		table::TableProxy, table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
+	},
+	Interface,
 };
 use zbus::{
 	names::InterfaceName,
@@ -24,7 +26,7 @@ pub trait Convertable<'a> {
 	/// This may fail based on the implementation of.
 	/// Generally, it fails if the accessible item does not implement to accessible interface.
 	/// This shouldn't be possible, but this function may fail for other reasons.
-	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
+	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi::proxy::accessible::AccessibleProxy`].
 	fn to_accessible(
 		&self,
 	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;
@@ -121,49 +123,49 @@ async fn convert_to_new_type<
 impl<'a, T: ProxyImpl<'a> + ProxyDefault + Sync> Convertable<'a> for T {
 	type Error = zbus::Error;
 	/* no guard due to assumption it is always possible */
-	async fn to_accessible(&self) -> zbus::Result<AccessibleProxy> {
+	async fn to_accessible(&self) -> zbus::Result<AccessibleProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_action(&self) -> zbus::Result<ActionProxy> {
+	async fn to_action(&self) -> zbus::Result<ActionProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_application(&self) -> zbus::Result<ApplicationProxy> {
+	async fn to_application(&self) -> zbus::Result<ApplicationProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_collection(&self) -> zbus::Result<CollectionProxy> {
+	async fn to_collection(&self) -> zbus::Result<CollectionProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_component(&self) -> zbus::Result<ComponentProxy> {
+	async fn to_component(&self) -> zbus::Result<ComponentProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_document(&self) -> zbus::Result<DocumentProxy> {
+	async fn to_document(&self) -> zbus::Result<DocumentProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_hypertext(&self) -> zbus::Result<HypertextProxy> {
+	async fn to_hypertext(&self) -> zbus::Result<HypertextProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_hyperlink(&self) -> zbus::Result<HyperlinkProxy> {
+	async fn to_hyperlink(&self) -> zbus::Result<HyperlinkProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_image(&self) -> zbus::Result<ImageProxy> {
+	async fn to_image(&self) -> zbus::Result<ImageProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_selection(&self) -> zbus::Result<SelectionProxy> {
+	async fn to_selection(&self) -> zbus::Result<SelectionProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_table(&self) -> zbus::Result<TableProxy> {
+	async fn to_table(&self) -> zbus::Result<TableProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_table_cell(&self) -> zbus::Result<TableCellProxy> {
+	async fn to_table_cell(&self) -> zbus::Result<TableCellProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_text(&self) -> zbus::Result<TextProxy> {
+	async fn to_text(&self) -> zbus::Result<TextProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_editable_text(&self) -> zbus::Result<EditableTextProxy> {
+	async fn to_editable_text(&self) -> zbus::Result<EditableTextProxy<'_>> {
 		convert_to_new_type(self).await
 	}
-	async fn to_value(&self) -> zbus::Result<ValueProxy> {
+	async fn to_value(&self) -> zbus::Result<ValueProxy<'_>> {
 		convert_to_new_type(self).await
 	}
 }

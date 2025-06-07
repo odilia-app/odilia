@@ -1,28 +1,32 @@
 use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
-use atspi_connection::AccessibilityConnection;
-use criterion::{criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
+use criterion::{
+	async_executor::{AsyncExecutor, SmolExecutor},
+	criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
+};
+use futures_concurrency::future::Race;
+use futures_lite::future::{fuse, FutureExt};
 use indextree::{Arena, NodeId};
-use odilia_cache::{Cache, CacheItem};
-use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError};
-use tokio::select;
-use tokio_test::block_on;
+use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
+use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
 
-macro_rules! load_items {
-	($file:expr) => {
-		::serde_json::from_str(include_str!($file)).unwrap()
-	};
+pub struct TestDriver;
+
+impl CacheDriver for TestDriver {
+	async fn lookup_external(&self, _key: &CacheKey) -> OdiliaResult<CacheItem> {
+		panic!("This driver (NoDriver) should never be called!");
+	}
 }
 
 /// Load the given items into cache via `Cache::add_all`.
 /// This is different from `add` in that it postpones populating references
 /// until after all items have been added.
-fn add_all(cache: &Cache, items: Vec<CacheItem>) {
+fn add_all(cache: &Cache<TestDriver>, items: Vec<CacheItem>) {
 	let _ = cache.add_all(items);
 }
 
 /// Load the given items into cache via repeated `Cache::add`.
-fn add(cache: &Cache, items: Vec<CacheItem>) {
+fn add(cache: &Cache<TestDriver>, items: Vec<CacheItem>) {
 	for item in items {
 		let _ = cache.add(item);
 	}
@@ -41,7 +45,7 @@ async fn traverse_up_refs(children: Vec<NodeId>, arena: &Arena<CacheItem>) {
 }
 
 /// Depth first traversal
-fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaError> {
+fn traverse_depth_first((root, cache): (NodeId, &Cache<TestDriver>)) -> Result<(), OdiliaError> {
 	let lock = cache.tree.read();
 	for child in root.descendants(&lock) {
 		black_box(child);
@@ -51,13 +55,24 @@ fn traverse_depth_first((root, cache): (NodeId, &Cache)) -> Result<(), OdiliaErr
 
 /// Observe throughput of successful reads (`Cache::get`) while writing to cache
 /// (`Cache::add_all`).
-async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items: Vec<CacheItem>) {
+async fn reads_while_writing(
+	cache: Cache<TestDriver>,
+	ids: Vec<AccessiblePrimitive>,
+	items: Vec<CacheItem>,
+) {
+	#[derive(PartialEq)]
+	enum TaskName {
+		Reader,
+		Writer,
+	}
 	let cache_1 = Arc::new(cache);
 	let cache_2 = Arc::clone(&cache_1);
-	let mut write_handle = tokio::spawn(async move {
+	let mut write_handle = fuse(async move {
 		let _ = cache_1.add_all(items);
-	});
-	let mut read_handle = tokio::spawn(async move {
+		TaskName::Writer
+	})
+	.boxed();
+	let mut read_handle = fuse(async move {
 		let mut ids = VecDeque::from(ids);
 		loop {
 			match ids.pop_front() {
@@ -69,25 +84,23 @@ async fn reads_while_writing(cache: Cache, ids: Vec<AccessiblePrimitive>, items:
 				}
 			}
 		}
-	});
-	let mut write_finished = false;
+		TaskName::Reader
+	})
+	.boxed();
 	loop {
-		select! {
-		    // we don't care when the write finishes, keep looping
-		    _ = &mut write_handle, if !write_finished => write_finished = true,
-		    // return as soon as we're done with these reads
-		    _ = &mut read_handle => break
+		let finished = [&mut write_handle, &mut read_handle].race().await;
+		if finished == TaskName::Reader {
+			break;
 		}
 	}
 }
 
 fn cache_benchmark(c: &mut Criterion) {
-	let rt = tokio::runtime::Runtime::new().unwrap();
-	let a11y = block_on(AccessibilityConnection::new()).unwrap();
-	let zbus_connection = a11y.connection();
+	let zbus_items: Vec<CacheItem> =
+		serde_json::from_str(include_str!("./zbus_docs_cache_items.json")).unwrap();
 
-	let zbus_items: Vec<CacheItem> = load_items!("./zbus_docs_cache_items.json");
-	let wcag_items: Vec<CacheItem> = load_items!("./wcag_cache_items.json");
+	let wcag_items: Vec<CacheItem> =
+		serde_json::from_str(include_str!("./wcag_cache_items.json")).unwrap();
 
 	let mut group = c.benchmark_group("cache");
 	group.sample_size(200) // def 100
@@ -95,9 +108,9 @@ fn cache_benchmark(c: &mut Criterion) {
 		.noise_threshold(0.03) // def 0.01
 		.measurement_time(Duration::from_secs(20));
 
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Cache::new(TestDriver);
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async {
 				cache.clear();
@@ -106,9 +119,9 @@ fn cache_benchmark(c: &mut Criterion) {
 			BatchSize::SmallInput,
 		);
 	});
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add_all", "wcag-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| wcag_items.clone(),
 			|items: Vec<CacheItem>| async {
 				cache.clear();
@@ -118,36 +131,37 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let cache = Arc::new(Cache::new(zbus_connection.clone()));
+	let cache = Arc::new(Cache::new(TestDriver));
 	group.bench_function(BenchmarkId::new("add", "zbus-docs"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async { add(&cache, items) },
 			BatchSize::SmallInput,
 		);
 	});
 
-	let (cache, children): (Arc<Cache>, Vec<NodeId>) = rt.block_on(async {
-		let cache = Arc::new(Cache::new(zbus_connection.clone()));
-		let all_items: Vec<CacheItem> = wcag_items.clone();
-		let _ = cache.add_all(all_items);
-		let read_cache = cache.tree.read();
-		let children = read_cache
-			.iter()
-			.filter_map(|entry| {
-				if entry.first_child().is_none() {
-					read_cache.get_node_id(entry)
-				} else {
-					None
-				}
-			})
-			.collect();
-		drop(read_cache);
-		(cache, children)
-	});
+	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) =
+		SmolExecutor.block_on(async {
+			let cache = Arc::new(Cache::new(TestDriver));
+			let all_items: Vec<CacheItem> = wcag_items.clone();
+			let _ = cache.add_all(all_items);
+			let read_cache = cache.tree.read();
+			let children = read_cache
+				.iter()
+				.filter_map(|entry| {
+					if entry.first_child().is_none() {
+						read_cache.get_node_id(entry)
+					} else {
+						None
+					}
+				})
+				.collect();
+			drop(read_cache);
+			(cache, children)
+		});
 	let read_cache = cache.tree.read();
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
-		b.to_async(&rt).iter_batched(
+		b.to_async(SmolExecutor).iter_batched(
 			|| children.clone(),
 			|cs| async { traverse_up_refs(cs, &read_cache).await },
 			BatchSize::SmallInput,
@@ -173,21 +187,15 @@ fn cache_benchmark(c: &mut Criterion) {
 	});
 
 	let all_items = wcag_items.clone();
-	for size in [10, 100, 1000] {
+	for size in [10, 100, 1000, 3603] {
 		let sample = all_items[0..size]
 			.iter()
 			.map(|item| item.object.clone())
 			.collect::<Vec<_>>();
 		group.throughput(criterion::Throughput::Elements(size as u64));
 		group.bench_function(BenchmarkId::new("reads_while_writing", size), |b| {
-			b.to_async(&rt).iter_batched(
-				|| {
-					(
-						Cache::new(zbus_connection.clone()),
-						sample.clone(),
-						all_items.clone(),
-					)
-				},
+			b.to_async(SmolExecutor).iter_batched(
+				|| (Cache::new(TestDriver), sample.clone(), all_items.clone()),
 				|(cache, ids, items)| async {
 					reads_while_writing(cache, ids, items).await
 				},

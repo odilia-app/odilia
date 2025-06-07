@@ -13,25 +13,26 @@ edition = "2021"
 
 [features]
 default = []
-tokio = ["dep:tokio"]
 tracing = ["dep:tracing"]
+async-io = ["dep:async-channel"]
+tokio = ["tokio/sync"]
 
 [dependencies]
 atspi.workspace = true
-atspi-common.workspace = true
-atspi-proxies.workspace = true
-futures.workspace = true
 futures-concurrency.workspace = true
+futures-util.workspace = true
 serde.workspace = true
+config.workspace = true
 thiserror.workspace = true
 zbus.workspace = true
 serde_plain.workspace = true
-figment = "0.10.15"
 enum_dispatch = "0.3.13"
-strum = { version = "0.26.2", features = ["derive"] }
+lexopt.workspace = true
+strum = { version = "0.27.1", features = ["derive"] }
 tokio = { workspace = true, optional = true }
-tracing = { workspace = true, optional = true }
-ssip = { workspace = true, features = ["dbus"] }
+tracing = { workspace = true, optional = true, features = ["attributes"] }
+ssip = { workspace = true, default-features = false, features = ["serde"] }
+ssip-client-async.workspace = true
 xdg.workspace = true
-zvariant = "5.4.0"
 indextree = { version = "4.7.4", default-features = false }
+async-channel = { version = "2.3.1", default-features = false, optional = true }

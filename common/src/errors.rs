@@ -1,7 +1,6 @@
 use std::{fmt, fmt::Debug, str::FromStr};
 
 use atspi::AtspiError;
-use atspi_common::AtspiError as AtspiTypesError;
 use serde_plain::Error as SerdePlainError;
 
 use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
@@ -9,28 +8,36 @@ use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
 #[derive(Debug, thiserror::Error)]
 pub enum OdiliaError {
 	AtspiError(AtspiError),
-	AtspiTypesError(AtspiTypesError),
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
 	NoAttributeError(String),
 	SerdeError(SerdePlainError),
-	Zbus(zbus::Error),
-	ZbusFdo(zbus::fdo::Error),
-	Zvariant(zbus::zvariant::Error),
+	Zbus(#[from] zbus::Error),
+	ZbusFdo(#[from] zbus::fdo::Error),
+	Zvariant(#[from] zbus::zvariant::Error),
 	SendError(SendError),
 	Cache(#[from] CacheError),
 	InfallibleConversion(#[from] std::convert::Infallible),
 	ConversionError(#[from] std::num::TryFromIntError),
-	Config(#[from] ConfigError),
+	Config(#[from] config::ConfigError),
 	PoisoningError,
 	Generic(String),
 	Static(&'static str),
 	ServiceNotFound(String),
 	PredicateFailure(String),
+	Io(#[from] std::io::Error),
+	Notify(#[from] NotifyError),
+	CommandLine(#[from] lexopt::Error),
+	Ssip(#[from] ssip_client_async::ClientError),
 }
 
 impl From<&'static str> for OdiliaError {
 	fn from(s: &'static str) -> OdiliaError {
 		Self::Static(s)
+	}
+}
+impl From<String> for OdiliaError {
+	fn from(s: String) -> OdiliaError {
+		Self::Generic(s)
 	}
 }
 
@@ -42,16 +49,16 @@ pub enum SendError {
 }
 
 macro_rules! send_err_impl {
-	($tokio_err:ty, $variant:path) => {
-		#[cfg(feature = "tokio")]
+	($tokio_err:ty, $variant:path, $dep:literal) => {
+		#[cfg(feature = $dep)]
 		impl From<$tokio_err> for OdiliaError {
 			fn from(t_err: $tokio_err) -> OdiliaError {
 				OdiliaError::SendError($variant(t_err.0))
 			}
 		}
 	};
-	($tokio_err:ty, $variant:path, Box) => {
-		#[cfg(feature = "tokio")]
+	($tokio_err:ty, $variant:path, Box, $dep:literal) => {
+		#[cfg(feature = $dep)]
 		impl From<$tokio_err> for OdiliaError {
 			fn from(t_err: $tokio_err) -> OdiliaError {
 				OdiliaError::SendError($variant(Box::new(t_err.0)))
@@ -60,22 +67,25 @@ macro_rules! send_err_impl {
 	};
 }
 
-send_err_impl!(tokio::sync::broadcast::error::SendError<atspi::Event>, SendError::Atspi, Box);
-send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi, Box);
-send_err_impl!(tokio::sync::broadcast::error::SendError<OdiliaCommand>, SendError::Command);
-send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command);
-send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip);
-send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip);
+send_err_impl!(
+	tokio::sync::broadcast::error::SendError<atspi::Event>,
+	SendError::Atspi,
+	Box,
+	"tokio"
+);
+send_err_impl!(tokio::sync::mpsc::error::SendError<atspi::Event>, SendError::Atspi, Box, "tokio");
+send_err_impl!(
+	tokio::sync::broadcast::error::SendError<OdiliaCommand>,
+	SendError::Command,
+	"tokio"
+);
+send_err_impl!(tokio::sync::mpsc::error::SendError<OdiliaCommand>, SendError::Command, "tokio");
+send_err_impl!(tokio::sync::broadcast::error::SendError<ssip::Request>, SendError::Ssip, "tokio");
+send_err_impl!(tokio::sync::mpsc::error::SendError<ssip::Request>, SendError::Ssip, "tokio");
 
-#[derive(Debug, thiserror::Error)]
-pub enum ConfigError {
-	#[error(transparent)]
-	Figment(#[from] Box<figment::Error>),
-	#[error("Value not found in config file.")]
-	ValueNotFound,
-	#[error("The path for the config file was not found.")]
-	PathNotFound,
-}
+send_err_impl!(async_channel::SendError<atspi::Event>, SendError::Atspi, Box, "async-io");
+send_err_impl!(async_channel::SendError<OdiliaCommand>, SendError::Command, "async-io");
+send_err_impl!(async_channel::SendError<ssip::Request>, SendError::Ssip, "async-io");
 
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
@@ -115,21 +125,6 @@ impl From<indextree::NodeError> for CacheError {
 impl<T> From<std::sync::PoisonError<T>> for OdiliaError {
 	fn from(_: std::sync::PoisonError<T>) -> Self {
 		Self::PoisoningError
-	}
-}
-impl From<zbus::fdo::Error> for OdiliaError {
-	fn from(spe: zbus::fdo::Error) -> Self {
-		Self::ZbusFdo(spe)
-	}
-}
-impl From<zbus::Error> for OdiliaError {
-	fn from(spe: zbus::Error) -> Self {
-		Self::Zbus(spe)
-	}
-}
-impl From<zbus::zvariant::Error> for OdiliaError {
-	fn from(spe: zbus::zvariant::Error) -> Self {
-		Self::Zvariant(spe)
 	}
 }
 impl From<SerdePlainError> for OdiliaError {
@@ -198,4 +193,12 @@ pub enum KeyFromStrError {
 pub enum ModeFromStrError {
 	#[error("Mode not found")]
 	ModeNameNotFound,
+}
+
+#[derive(thiserror::Error, Debug)]
+pub enum NotifyError {
+	#[error("connection or monitor related error")]
+	Dbus(#[from] zbus::Error),
+	#[error("zbus specification defined error")]
+	DbusSpec(#[from] zbus::fdo::Error),
 }

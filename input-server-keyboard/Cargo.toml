@@ -12,8 +12,10 @@ categories = ["Accessibility"]
 [features]
 default = []
 proptest = []
+integration_tests = []
 
 [dependencies]
+atspi.workspace = true
 nix.workspace = true
 odilia-common.workspace = true
 rdev = { version = "0.5.0", features = ["unstable_grab"], git = "https://github.com/TTWNO/rdev2/", branch = "odilia-keys-v2" }
@@ -21,7 +23,6 @@ serde_json.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-atspi-common.workspace = true
 proptest = "1.6.0"
 
 [[bin]]

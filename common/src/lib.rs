@@ -21,5 +21,4 @@ pub mod settings;
 pub mod types;
 
 pub type Accessible = (UniqueName<'static>, ObjectPath<'static>);
-pub use atspi_common as atspi;
 pub use result::OdiliaResult as Result;

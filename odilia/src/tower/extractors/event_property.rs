@@ -40,7 +40,7 @@ pub trait PropertyType {
 pub trait GetProperty<P: PropertyType>: Sized {
 	fn get_property(
 		&self,
-		cache: &Cache,
+		cache: &Cache<zbus::Connection>,
 	) -> impl Future<Output = Result<EventProp<P>, OdiliaError>> + Send;
 }
 

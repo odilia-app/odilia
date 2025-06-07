@@ -3,21 +3,19 @@
 //! Not much here yet, but this will get more complex if we decide to add other layers for error
 //! reporting, tokio-console, etc.
 
-use std::{env, io};
+use std::io;
 
-use eyre::Context;
-use odilia_common::settings::{log::LoggingKind, ApplicationConfig};
+use odilia_common::{
+	errors::OdiliaError,
+	settings::{log::LoggingKind, ApplicationConfig},
+};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{prelude::*, EnvFilter};
+use tracing_subscriber::prelude::*;
 use tracing_tree::{time::Uptime, HierarchicalLayer};
 
 /// Initialise the logging stack
 /// this requires an application configuration structure, so configuration must be initialized before logging is
-pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
-	let env_filter = match env::var("APP_LOG").or_else(|_| env::var("RUST_LOG")) {
-		Ok(s) => EnvFilter::from(s),
-		_ => EnvFilter::from(&config.log.level),
-	};
+pub fn init(config: &ApplicationConfig) -> Result<(), OdiliaError> {
 	let tree = HierarchicalLayer::new(4)
 		.with_bracketed_fields(true)
 		.with_targets(true)
@@ -30,9 +28,7 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 	//this requires boxing because the types returned by this match block would be incompatible otherwise, since we return different layers, or modifications to a layer depending on what we get from the configuration. It is possible to do it otherwise, hopefully, but for now this  would do
 	let final_layer = match &config.log.logger {
 		LoggingKind::File(path) => {
-			let file = std::fs::File::create(path).with_context(|| {
-				format!("creating log file '{}'", path.display())
-			})?;
+			let file = std::fs::File::create(path)?;
 			tree.with_writer(file).boxed()
 		}
 		LoggingKind::Tty => tree.with_writer(io::stdout).with_ansi(true).boxed(),
@@ -40,19 +36,7 @@ pub fn init(config: &ApplicationConfig) -> eyre::Result<()> {
 			.with_syslog_identifier("odilia".to_owned())
 			.boxed(),
 	};
-	#[cfg(feature = "tokio-console")]
-	let trace_sub = {
-		let console_layer = console_subscriber::spawn();
-		tracing_subscriber::Registry::default()
-			.with(EnvFilter::from("tokio=trace,runtime=trace"))
-			.with(console_layer)
-	};
-	#[cfg(not(feature = "tokio-console"))]
 	let trace_sub = { tracing_subscriber::Registry::default() };
-	trace_sub
-		.with(env_filter)
-		.with(ErrorLayer::default())
-		.with(final_layer)
-		.init();
+	trace_sub.with(ErrorLayer::default()).with(final_layer).init();
 	Ok(())
 }

@@ -1,6 +1,6 @@
 [package]
 name = "odilia-input"
-version = "0.0.3"
+version = "0.3.0"
 authors = ["Michael Connor Buchan <mikey@blindcomputing.org>", "Tait Hoyem <tait@tait.tech>", "Alberto Tirla <albertotirla@gmail.com>"]
 description = "Input subsystem for the Odilia screen reader."
 license = "MIT OR Apache-2.0"
@@ -12,11 +12,15 @@ categories = ["accessibility"]
 edition = "2021"
 
 [dependencies]
-eyre.workspace = true
+async-channel.workspace = true
+async-fs.workspace = true
+async-net.workspace = true
+async-stream = "0.3.6"
+futures-lite.workspace = true
+futures-util = { workspace = true, features = ["alloc"] }
 nix.workspace = true
 odilia-common.workspace = true
 serde_json.workspace = true
+smol-cancellation-token.workspace = true
 sysinfo = { version = "0.26.8", default-features = false }
-tokio.workspace = true
-tokio-util.workspace=true
-tracing.workspace = true
+tracing = { workspace = true, features = ["attributes"] }

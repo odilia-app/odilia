@@ -1,13 +1,15 @@
-use atspi::{EventProperties, ObjectRef};
-use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
+use atspi::{
+	proxy::{accessible::AccessibleProxy, text::TextProxy},
+	EventProperties, ObjectRef,
+};
 use serde::{Deserialize, Serialize};
 use zbus::{
 	names::OwnedUniqueName,
 	proxy::{Builder as ProxyBuilder, CacheProperties},
-	zvariant::{OwnedObjectPath, Type},
+	zvariant::{ObjectPath, OwnedObjectPath, Type},
 };
 
-use crate::{errors::AccessiblePrimitiveConversionError, ObjectPath};
+use crate::errors::AccessiblePrimitiveConversionError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -39,7 +41,7 @@ impl AccessiblePrimitive {
 		Self { id, sender: sender.as_str().into() }
 	}
 
-	/// Convert into an [`atspi_proxies::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi::proxy::accessible::AccessibleProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
@@ -57,7 +59,7 @@ impl AccessiblePrimitive {
 			.build()
 			.await
 	}
-	/// Convert into an [`atspi_proxies::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
+	/// Convert into an [`atspi::proxy::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
 	/// # Errors
 	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
 	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]

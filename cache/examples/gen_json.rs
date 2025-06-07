@@ -18,7 +18,7 @@ use atspi::{
 	proxy::accessible::{AccessibleProxy, ObjectRefExt},
 	AccessibilityConnection,
 };
-use futures::future::try_join_all;
+use futures_util::future::try_join_all;
 use odilia_cache::{accessible_to_cache_item, Cache, CacheItem};
 use odilia_common::errors::{CacheError, OdiliaError};
 use serde_json::to_string;
@@ -31,7 +31,7 @@ const REGISTRY_PATH: &str = "/org/a11y/atspi/accessible/root";
 const ACCESSIBLE_INTERFACE: &str = "org.a11y.atspi.Accessible";
 const MAX_CHILDREN: i32 = 65536;
 
-async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache>> {
+async fn from_a11y_proxy(ap: AccessibleProxy<'_>) -> Result<Arc<Cache<Connection>>> {
 	let connection = ap.inner().connection().clone();
 	// Contains the processed `A11yNode`'s.
 	let cache = Arc::new(Cache::new(connection.clone()));
@@ -76,7 +76,7 @@ async fn get_registry_accessible<'a>(conn: &Connection) -> Result<AccessibleProx
 	Ok(registry)
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
 	set_session_accessibility(true).await?;
 	let a11y = AccessibilityConnection::new().await?;
