@@ -17,6 +17,7 @@ use async_channel::Receiver;
 use async_net::unix::UnixStream;
 use futures_lite::{io::BufReader, FutureExt};
 use futures_util::FutureExt as FatExt;
+use odilia_common::errors::OdiliaError;
 use smol_cancellation_token::CancellationToken;
 use ssip_client_async::{
 	async_io::AsyncClient, fifo::asynchronous_async_io::Builder, ClientName, Request,
@@ -37,8 +38,7 @@ where
 /// There may be errors when trying to send the initial registration command, or when parsing the response.
 #[tracing::instrument(level = "debug", err)]
 pub async fn create_ssip_client(
-) -> Result<AsyncClient<BufReader<UnixStream>, UnixStream>, Box<dyn std::error::Error + Send + Sync>>
-{
+) -> Result<AsyncClient<BufReader<UnixStream>, UnixStream>, OdiliaError> {
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
 	let mut ssip_core =
 		match Builder::default().build().await {

@@ -26,6 +26,8 @@ pub enum OdiliaError {
 	PredicateFailure(String),
 	Io(#[from] std::io::Error),
 	Notify(#[from] NotifyError),
+	CommandLine(#[from] lexopt::Error),
+	Ssip(#[from] ssip_client_async::ClientError),
 }
 
 impl From<&'static str> for OdiliaError {

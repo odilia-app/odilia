@@ -18,3 +18,4 @@ async-channel.workspace = true
 async-net.workspace = true
 futures-lite.workspace = true
 futures-util.workspace = true
+odilia-common.workspace = true
