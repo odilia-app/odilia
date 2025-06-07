@@ -333,11 +333,11 @@ async fn caret_moved(
 
 static EXECUTOR: StaticExecutor = StaticExecutor::new();
 
-fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+fn main() -> Result<(), OdiliaError> {
 	block_on(EXECUTOR.run(async_main()))
 }
 
-async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn async_main() -> Result<(), OdiliaError> {
 	let ex = &EXECUTOR;
 	let args = Args::from_cli_args()?;
 
@@ -459,9 +459,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	Ok(())
 }
 
-fn load_configuration(
-	cli_overide: Option<PathBuf>,
-) -> Result<ApplicationConfig, OdiliaError> {
+fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig, OdiliaError> {
 	// In order, do  a configuration file specified via cli, XDG_CONFIG_HOME, the usual location for system wide configuration(/etc/odilia/config.toml)
 	// If XDG_CONFIG_HOME based configuration wasn't found, create one by combining default values with the system provided ones, if available, for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above
