@@ -22,6 +22,7 @@ atspi = { workspace = true, default-features = false, features = ["wrappers", "p
 futures-concurrency.workspace = true
 futures-util.workspace = true
 serde.workspace = true
+config.workspace = true
 thiserror.workspace = true
 zbus.workspace = true
 serde_plain.workspace = true
