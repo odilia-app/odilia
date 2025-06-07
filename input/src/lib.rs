@@ -151,10 +151,9 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 ///     .expect("Valid listener");
 /// let (sender, _receiver) = bounded(128);
 /// let ct = CancellationToken::new();
-/// let stream = sr_event_receiver(listener, sender, ct);
-/// for fut in stream.iter() {
-///     spawn(fut);
-/// }
+/// // For tokio; for async-io based executors, remember to call .detach()
+/// let stream = sr_event_receiver(listener, sender, ct)
+///     .for_each(|fut| spawn(fut));
 /// ```
 ///
 /// If the cancellation token is triggered, this stream will finish.
