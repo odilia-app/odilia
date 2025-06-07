@@ -14,6 +14,7 @@ mod proxy;
 
 use std::{
 	env,
+	ops::ControlFlow,
 	os::unix::net::SocketAddr,
 	path::Path,
 	process::{exit, id},
@@ -23,11 +24,7 @@ use std::{
 use async_channel::Sender;
 use async_fs as fs;
 use async_net::unix::{UnixListener, UnixStream};
-use futures_lite::{
-	future::or,
-	stream::{unfold, Stream},
-	AsyncReadExt,
-};
+use futures_lite::{future::or, stream::Stream, AsyncReadExt};
 use futures_util::{future::BoxFuture, FutureExt};
 use nix::unistd::Uid;
 use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent};
@@ -140,7 +137,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 }
 
 /// Receives [`odilia_common::events::ScreenReaderEvent`] structs, then creates a stream of futures that _need_ to be awaited/spawned by the caller onto the executor.
-/// Noramlly, the best way to do this is like so:
+/// Normally, the best way to do this is like so:
 ///
 /// ```rust,no_run
 /// # use futures_lite::stream::StreamExt;
@@ -155,50 +152,58 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 /// let (sender, _receiver) = bounded(128);
 /// let ct = CancellationToken::new();
 /// let stream = sr_event_receiver(listener, sender, ct);
-/// stream.for_each(|fut| { spawn(fut); });
+/// for fut in stream.iter() {
+///     spawn(fut);
+/// }
 /// ```
 ///
-/// If the cancellation token is trigged, this stream will finish.
+/// If the cancellation token is triggered, this stream will finish.
 #[tracing::instrument(skip_all)]
 pub fn sr_event_receiver(
-	listener_: UnixListener,
-	event_sender_: Sender<ScreenReaderEvent>,
-	shutdown_: CancellationToken,
+	listener: UnixListener,
+	event_sender: Sender<ScreenReaderEvent>,
+	shutdown: CancellationToken,
 ) -> impl Stream<Item = BoxFuture<'static, ()>> {
-	let empty = async {}.boxed();
-	unfold(empty, move |empty| {
-		let event_sender = event_sender_.clone();
-		let listener = listener_.clone();
-		let shutdown = shutdown_.clone();
+	async_stream::stream! {
+	  loop {
+	      match sr_event_receiver_inner(&listener, &event_sender, &shutdown).await {
+		Ok(box_fut) => yield box_fut,
+		Err(ControlFlow::Break(())) => break,
+		Err(ControlFlow::Continue(())) => {},
+	    }
+	  }
+	}
+}
 
-		async move {
-			loop {
-				let maybe_msg = or_cancel(listener.accept(), &shutdown).await;
-				let Ok(msg) = maybe_msg else {
-					tracing::debug!("Shutting down input socket due to cancellation token");
-					return None;
-				};
-				match msg {
-					Ok((socket, address)) => {
-						tracing::debug!("Ok from socket");
-						return Some((
-							handle_event(
-								socket,
-								address,
-								event_sender.clone(),
-								shutdown.clone(),
-							)
-							.boxed(),
-							empty,
-						));
-					}
-					Err(e) => {
-						tracing::error!("accept function failed: {:?}", e);
-					}
-				}
-			}
+/// This contains the logic for [`sr_event_receiver`].
+/// Since formatting doesn't work inside macros, we compute the result here, and send it back up to
+/// be yielded/break the loop.
+async fn sr_event_receiver_inner(
+	listener: &UnixListener,
+	event_sender: &Sender<ScreenReaderEvent>,
+	shutdown: &CancellationToken,
+) -> Result<BoxFuture<'static, ()>, ControlFlow<()>> {
+	let maybe_msg = or_cancel(listener.accept(), shutdown).await;
+	let Ok(msg) = maybe_msg else {
+		tracing::debug!("Shutting down input socket due to cancellation token");
+		return Err(ControlFlow::Break(()));
+	};
+	match msg {
+		Ok((socket, address)) => {
+			tracing::debug!("Ok from socket");
+			return Ok(handle_event(
+				socket,
+				address,
+				event_sender.clone(),
+				shutdown.clone(),
+			)
+			.boxed());
 		}
-	})
+		Err(e) => {
+			tracing::error!("accept function failed: {:?}", e);
+		}
+	}
+	Err(ControlFlow::Continue(()))
 }
 
 async fn handle_event(
