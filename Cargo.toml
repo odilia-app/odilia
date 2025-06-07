@@ -58,6 +58,6 @@ tracing-tree = { version = "^0.4.0", default-features = false }
 zbus = { version = "5.1", default-features = false, features = ["async-io"] }
 serde_plain = "1.0.1"
 ssip = { version = "0.4", default-features = false }
-ssip-client-async = { version = "0.17.0", default-features = false, features = ["async-io"] }
+ssip-client-async = { version = "0.18.0", default-features = false, features = ["async-io"] }
 
 xdg = { version = "2.5.2", default-features = false }
