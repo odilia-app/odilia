@@ -18,7 +18,7 @@ async-io = ["dep:async-channel"]
 tokio = ["tokio/sync"]
 
 [dependencies]
-atspi = { workspace = true, default-features = false, features = ["wrappers", "proxies"] }
+atspi.workspace = true
 futures-concurrency.workspace = true
 futures-util.workspace = true
 serde.workspace = true

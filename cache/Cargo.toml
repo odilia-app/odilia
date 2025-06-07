@@ -13,8 +13,6 @@ categories = ["accessibility"]
 
 [dependencies]
 atspi.workspace = true
-atspi-proxies.workspace = true
-atspi-common.workspace = true
 odilia-common.workspace = true
 dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 serde.workspace = true

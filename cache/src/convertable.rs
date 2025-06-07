@@ -1,12 +1,14 @@
 use std::future::Future;
 
-use atspi::Interface;
-use atspi_proxies::{
-	accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
-	collection::CollectionProxy, component::ComponentProxy, document::DocumentProxy,
-	editable_text::EditableTextProxy, hyperlink::HyperlinkProxy, hypertext::HypertextProxy,
-	image::ImageProxy, selection::SelectionProxy, table::TableProxy,
-	table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
+use atspi::{
+	proxy::{
+		accessible::AccessibleProxy, action::ActionProxy, application::ApplicationProxy,
+		collection::CollectionProxy, component::ComponentProxy, document::DocumentProxy,
+		editable_text::EditableTextProxy, hyperlink::HyperlinkProxy,
+		hypertext::HypertextProxy, image::ImageProxy, selection::SelectionProxy,
+		table::TableProxy, table_cell::TableCellProxy, text::TextProxy, value::ValueProxy,
+	},
+	Interface,
 };
 use zbus::{
 	names::InterfaceName,
@@ -24,7 +26,7 @@ pub trait Convertable<'a> {
 	/// This may fail based on the implementation of.
 	/// Generally, it fails if the accessible item does not implement to accessible interface.
 	/// This shouldn't be possible, but this function may fail for other reasons.
-	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi_proxies::accessible::AccessibleProxy`].
+	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi::proxy::accessible::AccessibleProxy`].
 	fn to_accessible(
 		&self,
 	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;

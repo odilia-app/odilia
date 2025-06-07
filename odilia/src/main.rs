@@ -26,8 +26,10 @@ use std::{
 use async_channel::bounded;
 use async_executor::StaticExecutor;
 use async_signal::{Signal, Signals};
-use atspi::RelationType;
-use atspi_common::events::{document, object};
+use atspi::{
+	events::{document, object},
+	RelationType,
+};
 use futures_concurrency::future::{Join, TryJoin};
 use futures_lite::{
 	future::{block_on, FutureExt},
@@ -352,7 +354,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 	tracing::info!(?config, "this configuration was used to prepair odilia");
 
 	// Make sure applications with dynamic accessibility support do expose their AT-SPI2 interfaces.
-	if let Err(e) = atspi_connection::set_session_accessibility(true)
+	if let Err(e) = atspi::connection::set_session_accessibility(true)
 		.instrument(tracing::info_span!("setting accessibility enabled flag"))
 		.await
 	{

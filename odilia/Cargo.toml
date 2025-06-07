@@ -31,9 +31,6 @@ pre-release-replacements = [
 
 [dependencies]
 atspi.workspace = true
-atspi-proxies.workspace = true
-atspi-common.workspace = true
-atspi-connection = {workspace = true, features = ["wrappers"] }
 circular-queue = "^0.2.6"
 odilia-common.workspace = true
 odilia-cache.workspace = true

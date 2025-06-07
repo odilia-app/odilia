@@ -14,8 +14,10 @@ mod accessible_ext;
 use std::{collections::VecDeque, fmt::Debug, future::Future, sync::Arc};
 
 pub use accessible_ext::AccessibleExt;
-use atspi_common::{EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet};
-use atspi_proxies::{accessible::AccessibleProxy, text::TextProxy};
+use atspi::{
+	proxy::{accessible::AccessibleProxy, text::TextProxy},
+	EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+};
 use dashmap::DashMap;
 use futures_concurrency::future::TryJoin;
 use fxhash::FxBuildHasher;
@@ -118,7 +120,7 @@ impl From<Vec<(RelationType, Vec<Link>)>> for RelationSet {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi_proxies::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
+/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::proxy::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
 pub struct CacheItem {
 	/// The accessible object (within the application)    (so)
 	pub object: AccessiblePrimitive,
@@ -154,7 +156,7 @@ impl CacheItem {
 	/// This can fail under three possible conditions:
 	///
 	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
-	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi_proxies::accessible::AccessibleProxy`].
+	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::proxy::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
 	#[tracing::instrument(level = "trace", skip_all, ret, err)]
 	pub async fn from_atspi_event<T: EventProperties, E: CacheDriver>(
@@ -426,7 +428,7 @@ impl<D: CacheDriver> Cache<D> {
 	}
 }
 
-/// Convert an [`atspi_proxies::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
+/// Convert an [`atspi::proxy::accessible::AccessibleProxy`] into a [`crate::CacheItem`].
 /// This runs a bunch of long-awaiting code and can take quite some time; use this sparingly.
 /// This takes most properties and some function calls through the `AccessibleProxy` structure and generates a new `CacheItem`, which will be written to cache before being sent back.
 ///

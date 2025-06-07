@@ -1310,9 +1310,6 @@ dependencies = [
  "async-executor",
  "async-signal",
  "atspi",
- "atspi-common",
- "atspi-connection",
- "atspi-proxies",
  "circular-queue",
  "config",
  "derived-deref",
@@ -1347,8 +1344,6 @@ name = "odilia-cache"
 version = "0.3.0"
 dependencies = [
  "atspi",
- "atspi-common",
- "atspi-proxies",
  "criterion",
  "dashmap",
  "futures-concurrency",
@@ -1375,7 +1370,6 @@ dependencies = [
  "config",
  "enum_dispatch",
  "futures-concurrency",
- "futures-lite",
  "futures-util",
  "indextree",
  "lexopt",

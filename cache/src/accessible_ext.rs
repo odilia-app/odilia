@@ -1,7 +1,6 @@
 use std::{collections::HashMap, future::Future};
 
-use atspi_common::{ObjectRef, RelationType, Role};
-use atspi_proxies::accessible::AccessibleProxy;
+use atspi::{proxy::accessible::AccessibleProxy, ObjectRef, RelationType, Role};
 
 use crate::{convertable::Convertable, AccessiblePrimitive, CacheProperties, OdiliaError};
 

@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use atspi_common::{
+use atspi::{
 	events::{
 		object::StateChangedEvent, DBusInterface, DBusMatchRule, DBusMember,
 		DBusProperties, MessageConversion, RegistryEventString,

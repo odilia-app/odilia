@@ -6,12 +6,12 @@ use std::{
 };
 
 use async_channel::Sender;
-use atspi_common::{
+use atspi::{
+	connection::AccessibilityConnection,
 	events::{DBusMatchRule, EventProperties, RegistryEventString},
+	proxy::{accessible::AccessibleProxy, cache::CacheProxy},
 	Event,
 };
-use atspi_connection::AccessibilityConnection;
-use atspi_proxies::{accessible::AccessibleProxy, cache::CacheProxy};
 use circular_queue::CircularQueue;
 use futures_util::future::{err, ok, Ready};
 use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};

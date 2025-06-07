@@ -31,10 +31,7 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.27.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common", default-features = false }
-atspi-proxies = { version = "0.11.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common", default-features = false }
-atspi-common = { version = "0.11.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common", default-features = false }
-atspi-connection = { version = "0.11.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common", default-features = false }
+atspi = { version = "0.27.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common" }
 config = { version = "0.15.11", default-features = false, features = ["toml"] }
 futures-concurrency = { version = "7.6.1", default-features = false }
 futures-lite = { version = "2.6.0", default-features = false }
