@@ -158,7 +158,7 @@ impl CacheItem {
 	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
 	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::proxy::accessible::AccessibleProxy`].
 	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
-	#[tracing::instrument(level = "trace", skip_all, ret, err)]
+	#[tracing::instrument(level = "trace", skip_all, ret, err(level = "warn"))]
 	pub async fn from_atspi_event<T: EventProperties, E: CacheDriver>(
 		event: &T,
 		external: &E,
@@ -249,7 +249,12 @@ impl<D: CacheDriver> Cache<D> {
 		}
 	}
 	/// Add an item via a reference instead of creating the reference.
-	#[tracing::instrument(level = "trace", ret, err)]
+	///
+	/// # Errors
+	///
+	/// - Try to add a duplicate item,
+	/// - Try to add an item with partially missing data,
+	#[tracing::instrument(level = "trace", ret, err(level = "warn"))]
 	pub fn add(&self, mut cache_item: CacheItem) -> OdiliaResult<()> {
 		// Do not create new items when not necessary.
 		if let Some(self_id) = self.id_lookup.get(&cache_item.object) {
@@ -276,7 +281,7 @@ impl<D: CacheDriver> Cache<D> {
 		let Some(sibling_index) = maybe_index else {
 			return Ok(());
 		};
-		if sibling_index == 0 {
+		if sibling_index == 0 || children.is_empty() {
 			parent_id.checked_prepend(id, &mut cache)?;
 		} else if sibling_index == parent_id.children(&cache).count() {
 			parent_id.checked_append(id, &mut cache)?;
@@ -293,7 +298,7 @@ impl<D: CacheDriver> Cache<D> {
 	}
 
 	/// Remove a single cache item. This function can not fail.
-	#[tracing::instrument(level = "trace", ret)]
+	#[tracing::instrument(level = "trace", skip(self))]
 	pub fn remove(&self, id: &CacheKey) {
 		// if the item is not found in the lookup table, just return.
 		let Some((_key, node_id)) = self.id_lookup.remove(id) else {
@@ -310,7 +315,7 @@ impl<D: CacheDriver> Cache<D> {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-	#[tracing::instrument(level = "trace", ret)]
+	#[tracing::instrument(level = "trace", skip(self), ret)]
 	pub fn get_id(&self, id: NodeId) -> Option<CacheItem> {
 		let cache = self.tree.read();
 		let ref_item = cache.get(id)?;
@@ -323,7 +328,7 @@ impl<D: CacheDriver> Cache<D> {
 	/// This will allow you to get the item without holding any locks to it,
 	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
 	#[must_use]
-	#[tracing::instrument(level = "trace", ret)]
+	#[tracing::instrument(level = "trace", skip(self), ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
 		let cache = self.tree.read();
 		let node_id = self.id_lookup.get(id)?;
@@ -334,7 +339,7 @@ impl<D: CacheDriver> Cache<D> {
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
 	#[must_use]
-	#[tracing::instrument(level = "trace", ret)]
+	#[tracing::instrument(level = "trace", skip(self), ret)]
 	pub fn get_all(&self, ids: &[CacheKey]) -> Vec<Option<CacheItem>> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
@@ -344,7 +349,7 @@ impl<D: CacheDriver> Cache<D> {
 	/// # Errors
 	/// An `Err(_)` variant may returned if the [`RelationSet`] fails to resolve to real IDs in the
 	/// cache.
-	#[tracing::instrument(level = "trace", ret, err)]
+	#[tracing::instrument(level = "trace", skip(self), ret, err(level = "warn"))]
 	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		for cache_item in cache_items {
 			let _ = self.add(cache_item);
@@ -352,7 +357,7 @@ impl<D: CacheDriver> Cache<D> {
 		Ok(())
 	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
-	#[tracing::instrument(level = "trace", ret)]
+	#[tracing::instrument(level = "trace", ret, skip(self))]
 	pub fn remove_all(&mut self, ids: &[CacheKey]) {
 		for id in ids {
 			self.remove(id);
@@ -367,7 +372,7 @@ impl<D: CacheDriver> Cache<D> {
 	/// # Errors
 	///
 	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
-	#[tracing::instrument(level = "trace", skip(modify), ret, err)]
+	#[tracing::instrument(level = "trace", skip(modify, self), ret, err(level = "warn"))]
 	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
 	where
 		F: FnOnce(&mut CacheItem),
@@ -393,7 +398,11 @@ impl<D: CacheDriver> Cache<D> {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
-	#[tracing::instrument(level = "debug", ret, err, skip(self))]
+	///
+	/// # Panics
+	///
+	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
+	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
 	pub async fn get_or_create(&self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(key) {
@@ -412,6 +421,11 @@ impl<D: CacheDriver> Cache<D> {
 			if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
 				self.add(cache_item)
 			{
+				assert_ne!(
+					items.len(),
+					0,
+					"You can not requiest an empty list of items"
+				);
 				stack.extend(items);
 			}
 		}
@@ -439,7 +453,7 @@ impl<D: CacheDriver> Cache<D> {
 /// 1. The `cache` parameter does not reference an active cache once the `Weak` is upgraded to an `Option<Arc<_>>`.
 /// 2. Any of the function calls on the `accessible` fail.
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
-#[tracing::instrument(level = "trace", ret, err)]
+#[tracing::instrument(level = "trace", ret, err(level = "warn"))]
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
 	let (app, parent, index, children_num, interfaces, role, states, children) = (
 		accessible.get_application(),
@@ -470,7 +484,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		Err(_) => Ok(accessible.name().await?),
 	}?;
 	Ok(CacheItem {
-		object: accessible.try_into()?,
+		object: accessible.into(),
 		app: app.into(),
 		parent: parent.into(),
 		index: index.try_into().ok(),

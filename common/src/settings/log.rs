@@ -1,6 +1,28 @@
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
+use tracing::Level;
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+pub enum LogLevel {
+	Debug,
+	Error,
+	Trace,
+	Info,
+	Warn,
+}
+
+impl From<LogLevel> for Level {
+	fn from(ll: LogLevel) -> Level {
+		match ll {
+			LogLevel::Debug => Level::DEBUG,
+			LogLevel::Error => Level::ERROR,
+			LogLevel::Trace => Level::TRACE,
+			LogLevel::Info => Level::INFO,
+			LogLevel::Warn => Level::WARN,
+		}
+	}
+}
 
 ///structure used for all the configurable options related to logging
 #[derive(Debug, Serialize, Deserialize)]
@@ -10,7 +32,7 @@ pub struct LogSettings {
 	/// see the tracing documentation for more information, in the log filters section
 	/// typical values here include info, warn, debug and trace
 	/// however, one can also include specific modules for which logging should be shown at a different warning level
-	pub level: String,
+	pub level: LogLevel,
 	///the place where odilia should output its logs
 	/// the values possible include tty, file and syslog
 	pub logger: LoggingKind,
@@ -24,7 +46,7 @@ impl Default for LogSettings {
 			.place_state_file("odilia.log")
 			.expect("unable to place log file");
 
-		Self { level: "info".to_owned(), logger: LoggingKind::File(log_path) }
+		Self { level: LogLevel::Error, logger: LoggingKind::File(log_path) }
 	}
 }
 

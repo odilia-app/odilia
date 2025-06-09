@@ -1,7 +1,6 @@
-use std::{fmt::Debug, future::Future, marker::PhantomData, pin::Pin, sync::Arc};
+use std::{fmt::Debug, future::Future, marker::PhantomData, ops::Deref, pin::Pin, sync::Arc};
 
 use atspi::EventProperties;
-use derived_deref::{Deref, DerefMut};
 use odilia_cache::CacheItem;
 use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
@@ -11,12 +10,19 @@ use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 pub type CacheEvent<E> = EventPredicate<E, Always>;
 pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;
 
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Debug, Clone)]
 pub struct InnerEvent<E: EventProperties + Debug> {
-	#[target]
 	pub inner: E,
 	pub item: CacheItem,
 }
+
+impl<E: EventProperties + Debug> Deref for InnerEvent<E> {
+	type Target = E;
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
+}
+
 impl<E> InnerEvent<E>
 where
 	E: EventProperties + Debug,
@@ -26,12 +32,19 @@ where
 	}
 }
 
-#[derive(Debug, Clone, Deref, DerefMut)]
+#[derive(Debug, Clone)]
 pub struct EventPredicate<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> {
-	#[target]
 	pub inner: E,
 	pub item: CacheItem,
 	_marker: PhantomData<P>,
+}
+impl<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> Deref
+	for EventPredicate<E, P>
+{
+	type Target = E;
+	fn deref(&self) -> &Self::Target {
+		&self.inner
+	}
 }
 impl<E, P> EventPredicate<E, P>
 where
@@ -74,7 +87,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
-	#[tracing::instrument(skip(state), ret)]
+	#[tracing::instrument(skip(state), level = "trace", ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let cache_item = state.get_or_create(&event).await?;
@@ -90,7 +103,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
-	#[tracing::instrument(skip(state), ret)]
+	#[tracing::instrument(skip(state), level = "trace", ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let cache_item = state.get_or_create(&event).await?;
