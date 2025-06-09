@@ -2,31 +2,53 @@ use std::{fmt, fmt::Debug, str::FromStr};
 
 use atspi::AtspiError;
 use serde_plain::Error as SerdePlainError;
+use thiserror::Error;
 
 use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Error, Debug)]
 pub enum OdiliaError {
+	#[error("atspi: {0}")]
 	AtspiError(AtspiError),
+	#[error("conversion: {0}")]
 	PrimitiveConversionError(AccessiblePrimitiveConversionError),
+	#[error("No attributes: {0}")]
 	NoAttributeError(String),
+	#[error("Serde: {0}")]
 	SerdeError(SerdePlainError),
+	#[error("zbus: {0}")]
 	Zbus(#[from] zbus::Error),
+	#[error("zbus::fdo: {0}")]
 	ZbusFdo(#[from] zbus::fdo::Error),
+	#[error("zbus::zvariant: {0}")]
 	Zvariant(#[from] zbus::zvariant::Error),
+	#[error("Send: {0}")]
 	SendError(SendError),
+	#[error("Cache: {0}")]
 	Cache(#[from] CacheError),
+	#[error("N/A: {0}")]
 	InfallibleConversion(#[from] std::convert::Infallible),
+	#[error("From int: {0}")]
 	ConversionError(#[from] std::num::TryFromIntError),
+	#[error("Config: {0}")]
 	Config(#[from] config::ConfigError),
+	#[error("Poisoned")]
 	PoisoningError,
+	#[error("Generic: {0}")]
 	Generic(String),
+	#[error("{0}")]
 	Static(&'static str),
+	#[error("Service not found: {0}")]
 	ServiceNotFound(String),
+	#[error("Predicate failure: {0}")]
 	PredicateFailure(String),
+	#[error("I/O:: {0}")]
 	Io(#[from] std::io::Error),
+	#[error("Notify: {0}")]
 	Notify(#[from] NotifyError),
+	#[error("Opts: {0}")]
 	CommandLine(#[from] lexopt::Error),
+	#[error("SSIP: {0}")]
 	Ssip(#[from] ssip_client_async::ClientError),
 }
 
@@ -41,10 +63,13 @@ impl From<String> for OdiliaError {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum SendError {
+	#[error("atspi: {0:?}")]
 	Atspi(Box<atspi::Event>),
+	#[error("command: {0:?}")]
 	Command(OdiliaCommand),
+	#[error("SSIP: {0:?}")]
 	Ssip(ssip::Request),
 }
 
@@ -98,14 +123,14 @@ pub enum CacheError {
 	#[error("The range asked for in a call to a get_string_*_offset function has invalid bounds.")]
 	TextBoundsError,
 	/// This item is already in the cache.
-	#[error("The cache requires more data to be in a consistent state: {0:?}")]
+	#[error("Duplicate: {0}")]
 	DuplicateItem(indextree::NodeId),
 	/// The cache operation succeeded, but the cache is in an inconsistent state now.
 	/// This usually means that a node has been added to the cache, but its parent was not found; in
 	/// this case, it is left as a disconnected part of the graph.
 	///
 	/// The data is the set of keys that need to be cached to keep it in a consistent state.
-	#[error("This item is already in the cache: {0:?}")]
+	#[error("Require {} more items", .0.len())]
 	MoreData(Vec<AccessiblePrimitive>),
 	#[error("Indextree: ")]
 	IndexTree(indextree::NodeError),
@@ -135,11 +160,6 @@ impl From<SerdePlainError> for OdiliaError {
 impl From<AtspiError> for OdiliaError {
 	fn from(err: AtspiError) -> OdiliaError {
 		Self::AtspiError(err)
-	}
-}
-impl fmt::Display for OdiliaError {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{self:?}")
 	}
 }
 

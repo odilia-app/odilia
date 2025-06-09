@@ -1,15 +1,10 @@
-use atspi::{
-	proxy::{accessible::AccessibleProxy, text::TextProxy},
-	EventProperties, ObjectRef,
-};
+use atspi::{proxy::accessible::AccessibleProxy, EventProperties, ObjectRef};
 use serde::{Deserialize, Serialize};
 use zbus::{
 	names::OwnedUniqueName,
 	proxy::{Builder as ProxyBuilder, CacheProperties},
 	zvariant::{ObjectPath, OwnedObjectPath, Type},
 };
-
-use crate::errors::AccessiblePrimitiveConversionError;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
@@ -33,7 +28,6 @@ pub struct AccessiblePrimitive {
 
 impl AccessiblePrimitive {
 	/// Turns any `atspi::event` type into an `AccessiblePrimitive`, the basic type which is used for keys in the cache.
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	pub fn from_event<T: EventProperties>(event: &T) -> Self {
 		let sender = event.sender();
 		let path = event.path();
@@ -49,21 +43,6 @@ impl AccessiblePrimitive {
 		self,
 		conn: &zbus::Connection,
 	) -> zbus::Result<AccessibleProxy<'a>> {
-		let id = self.id;
-		let sender = self.sender.clone();
-		let path: ObjectPath<'a> = id.try_into()?;
-		ProxyBuilder::new(conn)
-			.path(path)?
-			.destination(sender.as_str().to_owned())?
-			.cache_properties(CacheProperties::No)
-			.build()
-			.await
-	}
-	/// Convert into an [`atspi::proxy::text::TextProxy`]. Must be async because the creation of an async proxy requires async itself.
-	/// # Errors
-	/// Will return a [`zbus::Error`] in the case of an invalid destination, path, or failure to create a `Proxy` from those properties.
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
-	pub async fn into_text<'a>(self, conn: &zbus::Connection) -> zbus::Result<TextProxy<'a>> {
 		let id = self.id;
 		let sender = self.sender.clone();
 		let path: ObjectPath<'a> = id.try_into()?;
@@ -90,37 +69,21 @@ impl From<(OwnedUniqueName, OwnedObjectPath)> for AccessiblePrimitive {
 	}
 }
 impl From<(String, OwnedObjectPath)> for AccessiblePrimitive {
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	fn from(so: (String, OwnedObjectPath)) -> AccessiblePrimitive {
 		let accessible_id = so.1;
 		AccessiblePrimitive { id: accessible_id.to_string(), sender: so.0 }
 	}
 }
 impl<'a> From<(String, ObjectPath<'a>)> for AccessiblePrimitive {
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret))]
 	fn from(so: (String, ObjectPath<'a>)) -> AccessiblePrimitive {
 		AccessiblePrimitive { id: so.1.to_string(), sender: so.0 }
 	}
 }
-impl TryFrom<&AccessibleProxy<'_>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
-	fn try_from(accessible: &AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
+impl From<&AccessibleProxy<'_>> for AccessiblePrimitive {
+	fn from(accessible: &AccessibleProxy<'_>) -> AccessiblePrimitive {
 		let accessible = accessible.inner();
 		let sender = accessible.destination().as_str().into();
 		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { sender, id })
-	}
-}
-impl TryFrom<AccessibleProxy<'_>> for AccessiblePrimitive {
-	type Error = AccessiblePrimitiveConversionError;
-
-	#[cfg_attr(feature = "tracing", tracing::instrument(skip_all, level = "trace", ret, err))]
-	fn try_from(accessible: AccessibleProxy<'_>) -> Result<AccessiblePrimitive, Self::Error> {
-		let accessible = accessible.inner();
-		let sender = accessible.destination().as_str().into();
-		let id = accessible.path().as_str().into();
-		Ok(AccessiblePrimitive { sender, id })
+		AccessiblePrimitive { sender, id }
 	}
 }

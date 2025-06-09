@@ -17,6 +17,7 @@ pub mod events;
 pub mod from_state;
 pub mod modes;
 pub mod result;
+#[cfg(feature = "tracing")]
 pub mod settings;
 pub mod types;
 
