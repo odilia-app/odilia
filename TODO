@@ -1,0 +1,10 @@
+- Use simple stale/fresh values in cache.
+- Replace them when you can, otherwise just label stale.
+- When reloading, feel free to grab a whole subtree if needed.
+	- In this case, remove the whole subtree and start from scratch.
+	- Remove to check the `.is_removed()` function.
+- Write some fucking tests.
+- Store current data wrapped in `CacheData<T>` where to get it you have to potentially call out to DBus to get fresh data.
+- Isn't ideal, but it's okay.
+- It will, at minimum, be pretty fresh almost all the time, even if reads do need it.
+- Focus on getting a working screen reader first, and a push-centered achitecture later.
