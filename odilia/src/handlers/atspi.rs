@@ -36,10 +36,10 @@ pub async fn focused(
 	let text = &item.text;
 	let name = item.name;
 	let description = item.description;
-  if text.is_empty() {
+	if text.is_empty() {
 		//then just append to the buffer and be done with it
 		utterance_buffer += text;
-  } else {
+	} else {
 		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
 		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
 		let label = if let Some(n) = name.as_deref() {
