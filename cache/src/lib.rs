@@ -249,6 +249,11 @@ impl<D: CacheDriver> Cache<D> {
 		}
 	}
 	/// Add an item via a reference instead of creating the reference.
+	///
+	/// # Errors
+	///
+	/// - Try to add a duplicate item,
+	/// - Try to add an item with partially missing data,
 	#[tracing::instrument(level = "trace", ret, err(level = "warn"))]
 	pub fn add(&self, mut cache_item: CacheItem) -> OdiliaResult<()> {
 		// Do not create new items when not necessary.
@@ -393,6 +398,10 @@ impl<D: CacheDriver> Cache<D> {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
+	///
+	/// # Panics
+	///
+	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
 	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
 	pub async fn get_or_create(&self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
@@ -475,7 +484,7 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		Err(_) => Ok(accessible.name().await?),
 	}?;
 	Ok(CacheItem {
-		object: accessible.try_into()?,
+		object: accessible.into(),
 		app: app.into(),
 		parent: parent.into(),
 		index: index.try_into().ok(),
