@@ -15,6 +15,7 @@ use std::{collections::VecDeque, fmt::Debug, future::Future, sync::Arc};
 
 pub use accessible_ext::AccessibleExt;
 use atspi::{
+    Event,
 	proxy::{accessible::AccessibleProxy, text::TextProxy},
 	EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
 };
@@ -30,6 +31,56 @@ use odilia_common::{
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use zbus::proxy::CacheProperties;
+use async_channel::{Sender, Receiver};
+use smol_cancellation_token::CancellationToken;
+use futures_util::future::FutureExt;
+use futures_lite::future::FutureExt as LiteExt;
+use futures_lite::stream::StreamExt;
+use std::pin::pin;
+
+async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
+where
+	F: std::future::Future,
+{
+	token.cancelled()
+		.map(|()| Err(std::io::ErrorKind::TimedOut.into()))
+		.or(f.map(Ok))
+		.await
+}
+
+#[derive(Debug)]
+pub enum CacheRequest {
+    Event(Event),
+    Key(CacheKey),
+}
+
+pub async fn cache_handler_task<D: CacheDriver>(
+    mut recv: Receiver<(CacheRequest, Sender<Result<CacheItem, OdiliaError>>)>,
+    shutdown: CancellationToken,
+    cache: Cache<D>
+) {
+  loop {
+      let Ok(maybe_request) = or_cancel(recv.recv(), &shutdown).await else {
+        tracing::info!("Shutting down cache service due to cancellation token!");
+        break;
+      };
+      let (request, response) = match maybe_request {
+          Err(e) => {
+              tracing::error!(error = %e, "Error receiving cache request");
+              continue;
+          },
+          Ok(req) => req,
+      };
+      let maybe_cache_item = match request {
+        CacheRequest::Event(ev) => todo!(),
+        CacheRequest::Key(ref key) => cache.get_or_create(&key).await
+      };
+      match response.send(maybe_cache_item).await {
+        Ok(_) => tracing::trace!("Successful sending cache item back!"),
+        Err(e) => tracing::error!(error = %e, "Error sending cache item back to requester!"),
+      }
+  }
+}
 
 trait AllText {
 	async fn get_all_text(&self) -> Result<String, OdiliaError>;
