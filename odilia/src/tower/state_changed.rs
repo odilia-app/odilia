@@ -7,15 +7,13 @@ use atspi::{
 	},
 	AtspiError, EventProperties, EventTypeProperties, State as AtspiState,
 };
-use derived_deref::{Deref, DerefMut};
 use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 pub type Focused = StateChanged<StateFocused, True>;
 
-#[derive(Debug, Default, Clone, Deref, DerefMut)]
+#[derive(Debug, Default, Clone)]
 pub struct StateChanged<S, E> {
-	#[target]
 	ev: StateChangedEvent,
 	_marker: PhantomData<(S, E)>,
 }
