@@ -32,7 +32,7 @@ pre-release-replacements = [
 [dependencies]
 atspi.workspace = true
 circular-queue = "^0.2.6"
-odilia-common.workspace = true
+odilia-common = { workspace = true, features = ["tracing"] }
 odilia-cache.workspace = true
 odilia-input = { path = "../input", version = "0.3.0" }
 odilia-tts = { path = "../tts", version = "0.1.4" }
