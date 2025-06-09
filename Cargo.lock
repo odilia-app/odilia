@@ -1278,6 +1278,7 @@ dependencies = [
 name = "odilia-cache"
 version = "0.3.0"
 dependencies = [
+ "async-channel",
  "atspi",
  "criterion",
  "dashmap",
@@ -1291,6 +1292,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_plain",
+ "smol-cancellation-token",
  "tokio",
  "tracing",
  "zbus",
