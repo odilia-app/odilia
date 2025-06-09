@@ -46,7 +46,7 @@ impl Default for LogSettings {
 			.place_state_file("odilia.log")
 			.expect("unable to place log file");
 
-		Self { level: LogLevel::Info, logger: LoggingKind::File(log_path) }
+		Self { level: LogLevel::Error, logger: LoggingKind::File(log_path) }
 	}
 }
 
