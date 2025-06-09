@@ -10,13 +10,12 @@
 )]
 
 mod cli;
+mod handlers;
 mod logging;
 mod state;
 mod tower;
-
 use std::{
 	env,
-	fmt::Write,
 	path::{Path, PathBuf},
 	process::{exit, Child, Command as ProcCommand},
 	sync::Arc,
@@ -26,34 +25,32 @@ use std::{
 use async_channel::bounded;
 use async_executor::StaticExecutor;
 use async_signal::{Signal, Signals};
-use atspi::{
-	events::{document, object},
-	RelationType,
-};
+use atspi::events::{document, object};
 use futures_concurrency::future::{Join, TryJoin};
 use futures_lite::{
 	future::{block_on, FutureExt},
 	stream::StreamExt,
 };
 use futures_util::FutureExt as FatExt;
+use handlers::{
+	caret_moved, change_mode, doc_loaded, focused, new_caret_pos, new_focused_item, set_state,
+	speak, state_set, stop_speech, structural_nav,
+};
 use odilia_common::{
-	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
+	command::TryIntoCommands,
 	errors::OdiliaError,
-	events::{ChangeMode, ScreenReaderEvent, StopSpeech, StructuralNavigation},
+	events::ScreenReaderEvent,
 	settings::{ApplicationConfig, InputMethod},
 };
 use odilia_notify::listen_to_dbus_notifications;
 use smol_cancellation_token::CancellationToken;
-use ssip::{Priority, Request as SSIPRequest};
+use ssip::Priority;
 use tracing::Instrument;
 
 use crate::{
 	cli::Args,
-	state::{
-		AccessibleHistory, Cache, Command, CurrentCaretPos, InputEvent, LastCaretPos,
-		LastFocused, ScreenReaderState, Speech,
-	},
-	tower::{ActiveAppEvent, CacheEvent, EventProp, Handlers, RelationSet},
+	state::{InputEvent, ScreenReaderState},
+	tower::Handlers,
 };
 
 fn find_it<P>(exe_name: P) -> Option<PathBuf>
@@ -95,7 +92,7 @@ where
 }
 
 /// Try to spawn the `odilia-input-server-*` binary.
-#[tracing::instrument]
+#[tracing::instrument(skip(input), err)]
 fn try_spawn_input_server(input: &InputMethod) -> Result<Child, OdiliaError> {
 	let bin_name = format!(
 		"{}-{}",
@@ -125,7 +122,7 @@ fn try_spawn_input_server(input: &InputMethod) -> Result<Child, OdiliaError> {
 	Ok(child)
 }
 
-#[tracing::instrument(skip(state, shutdown))]
+#[tracing::instrument(skip_all, err)]
 async fn notifications_monitor(
 	state: Arc<ScreenReaderState>,
 	shutdown: CancellationToken,
@@ -150,7 +147,7 @@ async fn notifications_monitor(
 	}
 	Ok(())
 }
-#[tracing::instrument]
+#[tracing::instrument(skip_all, err)]
 async fn sigterm_signal_watcher(
 	token: CancellationToken,
 	state: Arc<ScreenReaderState>,
@@ -169,168 +166,6 @@ async fn sigterm_signal_watcher(
 	token.cancel();
 	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
 	Ok(())
-}
-
-use atspi::events::{
-	document::LoadCompleteEvent,
-	object::{StateChangedEvent, TextCaretMovedEvent},
-};
-
-#[tracing::instrument(ret, err)]
-async fn speak(
-	Command(Speak(text, priority)): Command<Speak>,
-	Speech(ssip): Speech,
-) -> Result<(), odilia_common::errors::OdiliaError> {
-	ssip.send(SSIPRequest::SetPriority(priority)).await?;
-	ssip.send(SSIPRequest::Speak).await?;
-	ssip.send(SSIPRequest::SendLines(Vec::from([text]))).await?;
-	Ok(())
-}
-
-#[tracing::instrument(ret)]
-async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
-	(Priority::Text, "Doc loaded")
-}
-
-use crate::tower::state_changed::Focused;
-
-#[tracing::instrument(ret)]
-async fn focused(
-	state_changed: CacheEvent<Focused>,
-	EventProp(relation_set): EventProp<RelationSet>,
-) -> impl TryIntoCommands {
-	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
-	let mut utterance_buffer = String::new();
-	let item = state_changed.item;
-	//does this have a text or a name?
-	// in order for the borrow checker to not scream that we move ownership of item.text, therefore making item partially moved, we only take a reference here, because in truth the only thing that we need to know is if the string is empty, because the extending of the buffer will imply a clone anyway
-	let text = &item.text;
-	let name = item.name;
-	let description = item.description;
-	if text.is_empty() {
-		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
-		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
-		let label = if let Some(n) = name.as_deref() {
-			n.to_string()
-		} else if let Some(d) = description.as_deref() {
-			d.to_string()
-		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
-		} else {
-			relation_set
-				.iter()
-				// we only need entries which contain the wanted relationship, only labeled by for now
-				.filter(|elem| elem.0 == RelationType::LabelledBy)
-				.cloned()
-				// we have to remove the first item of the entries, because it's constant now that we filtered by it
-				//furthermore, after doing this, we'd have something like Vec<Vec<Item>>, which is not what we need, we need something like Vec<Item>, so we do both the flattening of the structure and the mapping in one function call
-				.flat_map(|this| this.1)
-				// from a collection of items, to a collection of strings, in this case the text of those labels, because yes, technically there can be more than one
-				.map(|this| this.text)
-				// gather all that into a string, separated by newlines or spaces I think
-				.collect()
-		};
-		utterance_buffer += &label;
-	} else {
-		//then just append to the buffer and be done with it
-		utterance_buffer += text;
-	}
-	let role = item.role;
-	//there has to be a space between the accessible name of an object and its role, so insert it now
-	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
-	Ok(vec![Focus(item.object).into(), Speak(utterance_buffer, Priority::Text).into()])
-}
-
-#[tracing::instrument(ret)]
-async fn state_set(state_changed: CacheEvent<StateChangedEvent>) -> impl TryIntoCommands {
-	SetState {
-		item: state_changed.item.object.clone(),
-		state: state_changed.state,
-		enabled: state_changed.enabled,
-	}
-}
-
-#[tracing::instrument(ret, err)]
-async fn set_state(
-	Command(SetState { item, state, enabled }): Command<SetState>,
-	Cache(cache): Cache,
-) -> Result<(), OdiliaError> {
-	cache.modify_item(&item, |it| {
-		if enabled {
-			it.states.insert(state);
-		} else {
-			it.states.remove(state);
-		}
-	})?;
-	Ok(())
-}
-
-#[tracing::instrument(ret, err)]
-async fn new_focused_item(
-	Command(Focus(new_focus)): Command<Focus>,
-	AccessibleHistory(old_focus): AccessibleHistory,
-) -> Result<(), OdiliaError> {
-	let _ = old_focus.lock()?.push(new_focus);
-	Ok(())
-}
-
-#[tracing::instrument(ret, err)]
-async fn new_caret_pos(
-	Command(CaretPos(new_pos)): Command<CaretPos>,
-	CurrentCaretPos(pos): CurrentCaretPos,
-) -> Result<(), OdiliaError> {
-	pos.store(new_pos, core::sync::atomic::Ordering::Relaxed);
-	Ok(())
-}
-
-#[tracing::instrument(ret)]
-async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoCommands {
-	(Priority::Text, "Stop speech")
-}
-
-#[tracing::instrument(ret)]
-async fn structural_nav(InputEvent(sn): InputEvent<StructuralNavigation>) -> impl TryIntoCommands {
-	(Priority::Text, format!("Navigate to {}, {:?}", sn.1, sn.0))
-}
-
-#[tracing::instrument(ret)]
-async fn change_mode(InputEvent(cm): InputEvent<ChangeMode>) -> impl TryIntoCommands {
-	(Priority::Text, format!("{:?} mode", cm.0))
-}
-
-#[tracing::instrument(ret, err)]
-async fn caret_moved(
-	caret_moved: CacheEvent<TextCaretMovedEvent>,
-	LastCaretPos(last_pos): LastCaretPos,
-	LastFocused(last_focus): LastFocused,
-) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-	/*
-	      let mut commands: Vec<OdiliaCommand> =
-		      vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
-
-	      if last_focus == caret_moved.item.object {
-		      let start = min(caret_moved.inner.position.try_into()?, last_pos);
-		      let end = max(caret_moved.inner.position.try_into()?, last_pos);
-		      if let Some(text) = caret_moved.item.text.get(start..end) {
-			      commands.extend((Priority::Text, text.to_string()).into_commands());
-		      } else {
-			      return Err(OdiliaError::Generic(format!(
-				      "Slide {}..{} could not be created from {}",
-				      start, end, caret_moved.item.text
-			      )));
-		      }
-	      } else {
-		      let (text, _, _) = caret_moved
-			      .item
-			      .get_string_at_offset(
-				      caret_moved.inner.position.try_into()?,
-				      Granularity::Line,
-			      )
-			      .await?;
-		      commands.extend((Priority::Text, text).into_commands());
-	      }
-	      Ok(commands)
-	*/
-	Ok(Vec::new())
 }
 
 static EXECUTOR: StaticExecutor = StaticExecutor::new();
@@ -382,10 +217,9 @@ async fn async_main() -> Result<(), OdiliaError> {
 	(
 		state.register_event::<object::StateChangedEvent>(),
 		state.register_event::<object::TextCaretMovedEvent>(),
-		state.register_event::<object::ChildrenChangedEvent>(),
-		state.register_event::<object::TextChangedEvent>(),
 		state.register_event::<document::LoadCompleteEvent>(),
-		state.add_cache_match_rule(),
+		//TODO: we don't handle these yet!
+		// state.add_cache_match_rule(),
 	)
 		.try_join()
 		.await?;

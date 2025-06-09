@@ -74,7 +74,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
-	#[tracing::instrument(skip(state), ret)]
+	#[tracing::instrument(skip(state), level = "trace", ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let cache_item = state.get_or_create(&event).await?;
@@ -90,7 +90,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
-	#[tracing::instrument(skip(state), ret)]
+	#[tracing::instrument(skip(state), level = "trace", ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
 			let cache_item = state.get_or_create(&event).await?;
