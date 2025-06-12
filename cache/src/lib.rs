@@ -116,6 +116,7 @@ pub async fn cache_handler_task<D: CacheDriver>(
 			tracing::info!("Shutting down cache service due to cancellation token!");
 			break;
 		};
+		tracing::trace!("MR: {maybe_request:?}");
 		let (request, response) = match maybe_request {
 			Err(e) => {
 				tracing::error!(error = %e, "Error receiving cache request");
@@ -123,6 +124,7 @@ pub async fn cache_handler_task<D: CacheDriver>(
 			}
 			Ok(req) => req,
 		};
+		tracing::trace!("REQ: {request:?}");
 		let maybe_cache_item = cache.request(request).await;
 		match response.send(maybe_cache_item).await {
 			Ok(_) => tracing::trace!("Successful sending cache item back!"),
@@ -297,6 +299,11 @@ pub trait CacheDriver {
 		&self,
 		key: &CacheKey,
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
+	fn lookup_relations(
+		&self,
+		key: &CacheKey,
+		ty: RelationType,
+	) -> impl Future<Output = OdiliaResult<Vec<ObjectRef>>> + Send;
 }
 
 impl CacheDriver for zbus::Connection {
@@ -310,10 +317,31 @@ impl CacheDriver for zbus::Connection {
 			.await?;
 		accessible_to_cache_item(&accessible).await
 	}
+	#[tracing::instrument(level = "trace", ret, skip(self), fields(key.item, key.name))]
+	async fn lookup_relations(
+		&self,
+		key: &CacheKey,
+		ty: RelationType,
+	) -> OdiliaResult<Vec<ObjectRef>> {
+		let accessible = AccessibleProxy::builder(self)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			.path(key.id.clone())?
+			.build()
+			.await?;
+		Ok(accessible
+			.get_relation_set()
+			.await?
+			.into_iter()
+			.filter_map(|(rel_ty, vec)| if rel_ty == ty { Some(vec) } else { None })
+			.next()
+			.unwrap_or_default())
+	}
 }
 
-impl<D: CacheDriver> Cache<D> {
+impl<D: CacheDriver + Send> Cache<D> {
 	async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
+		tracing::trace!("REQ: {req:?}");
 		match req {
 			CacheRequest::Item(ref key) => {
 				self.get_or_create(&key)
@@ -338,7 +366,15 @@ impl<D: CacheDriver> Cache<D> {
 				//Ok(CacheResponse::Children(Children(children)))
 			}
 			CacheRequest::Relation(ref key, ty) => {
-				todo!("Relations not implemented!")
+				let rel_ids = self.driver.lookup_relations(key, ty).await?;
+				let rels_fut: Vec<_> = rel_ids
+					.into_iter()
+					.map(|key| async move {
+						(&self).get_or_create(&key.into()).await
+					})
+					.collect();
+				let rels = rels_fut.try_join().await?;
+				Ok(CacheResponse::Relations(Relations(ty, rels)))
 			}
 			CacheRequest::EventHandler(ref key) => {
 				todo!("Event handlers not implemented!")
@@ -417,6 +453,28 @@ impl<D: CacheDriver> Cache<D> {
 		for id in ids {
 			self.remove(id);
 		}
+	}
+
+	pub async fn get_or_create_all(
+		&mut self,
+		keys: Vec<CacheKey>,
+	) -> OdiliaResult<Vec<CacheItem>> {
+		// TODO: separate into new functions:
+		// get_all(Vec<Key>) -> Result<Vec<Item>>
+		// get(Key) -> Result<Item> (like currently with into_cache_item at the bottom of the file)
+		// get_or_create_all, which concurrently finds the cached elements via get_all, and uses `get_all` for the rest.
+		// NOTE: it _can not use_ get_or_create, but rather get_all that just works on a vec of values.
+		// get_or_create which checks the cache for a single item or uses the external lookup
+
+		// these must be separate methods; get_or_create_all` is fundmentallhy not the same operation done in a loop.
+		// it needs to separate the sections of code the require mutable borrowing (get_or_create) with the areas that don't.
+		// so it should find the ones it can (&self) using get, and go get the rest it needs (via as_cache_item(accessibleProxy) for the rest.
+		// The method will still take &mut self, but only to be used at the end where it inserts all the new items into the cache at once instead of trying to chain together many asynchronous calls to get_or_create.
+		let futs: Vec<_> = keys
+			.into_iter()
+			.map(|ck| async { self.get_or_create(&ck).await })
+			.collect();
+		futs.try_join().await
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
