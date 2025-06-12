@@ -15,7 +15,8 @@ use atspi::{
 use circular_queue::CircularQueue;
 use futures_util::future::{err, ok, Ready};
 use odilia_cache::{
-	AccessibleExt, Cache as InnerCache, CacheActor, CacheItem, CacheRequest, Convertable, CacheResponse, Item,
+	AccessibleExt, Cache as InnerCache, CacheActor, CacheItem, CacheRequest, CacheResponse,
+	Convertable, Item,
 };
 use odilia_common::{
 	cache::AccessiblePrimitive,
@@ -243,11 +244,13 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
-		self.cache_actor.request(CacheRequest::Item(event.object_ref().into())).await
-        .map(|cr| match cr {
-            CacheResponse::Item(Item(ci)) => ci,
-            e => panic!("Inappropriate response: {e:?}")
-        })
+		self.cache_actor
+			.request(CacheRequest::Item(event.object_ref().into()))
+			.await
+			.map(|cr| match cr {
+				CacheResponse::Item(Item(ci)) => ci,
+				e => panic!("Inappropriate response: {e:?}"),
+			})
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
@@ -399,9 +402,6 @@ impl ScreenReaderState {
 	}
 }
 
-use std::future::Future;
-use std::pin::Pin;
-
 
 //impl<Cr> TryFromState<Arc<ScreenReaderState>, Cr> for Cr
 //where
@@ -417,4 +417,3 @@ use std::pin::Pin;
 //		})
 //	}
 //}
-

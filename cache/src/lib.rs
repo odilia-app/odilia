@@ -21,32 +21,6 @@ use std::{
 mod relation_set;
 use relation_set::{RelationSet, Relations};
 mod event_handlers;
-pub use event_handlers::{
-    CacheResponse,
-    CacheRequest,
-    Item, Parent, Children,
-    ConstRelationType,
-ControllerFor,
-ControlledBy,
-LabelFor,
-LabelledBy,
-DescribedBy,
-DescriptionFor,
-Details,
-DetailsFor,
-ErrorMessage,
-ErrorFor,
-FlowsTo,
-FlowsFrom,
-Embeds,
-EmbeddedBy,
-PopupFor,
-ParentWindowOf,
-SubwindowOf,
-MemberOf,
-NodeChildOf,
-NodeParentOf,
-};
 use std::pin::pin;
 
 pub use accessible_ext::AccessibleExt;
@@ -56,9 +30,15 @@ use atspi::{
 	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
 };
 use dashmap::DashMap;
+pub use event_handlers::{
+	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
+	DescribedBy, DescriptionFor, Details, DetailsFor, EmbeddedBy, Embeds, ErrorFor,
+	ErrorMessage, FlowsFrom, FlowsTo, Item, LabelFor, LabelledBy, MemberOf, NodeChildOf,
+	NodeParentOf, Parent, ParentWindowOf, PopupFor, SubwindowOf,
+};
 use futures_concurrency::future::TryJoin;
 use futures_lite::{future::FutureExt as LiteExt, stream::StreamExt};
-use futures_util::future::{FutureExt, TryFutureExt, try_join_all};
+use futures_util::future::{try_join_all, FutureExt, TryFutureExt};
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
 use odilia_common::{
@@ -93,11 +73,11 @@ pub struct CacheActor {
 }
 
 impl CacheActor {
-    pub fn new(send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>) -> Self {
-        CacheActor {
-            send
-        }
-    }
+	pub fn new(
+		send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>,
+	) -> Self {
+		CacheActor { send }
+	}
 }
 
 impl fmt::Debug for CacheActor {
@@ -143,7 +123,7 @@ pub async fn cache_handler_task<D: CacheDriver>(
 			}
 			Ok(req) => req,
 		};
-    let maybe_cache_item = cache.request(request).await;
+		let maybe_cache_item = cache.request(request).await;
 		match response.send(maybe_cache_item).await {
 			Ok(_) => tracing::trace!("Successful sending cache item back!"),
 			Err(e) => {
@@ -333,34 +313,38 @@ impl CacheDriver for zbus::Connection {
 }
 
 impl<D: CacheDriver> Cache<D> {
-  async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
+	async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
 		match req {
-      CacheRequest::Item(ref key) => self.get_or_create(&key)
-        .map_ok(|ci| CacheResponse::Item(Item(ci)))
-        .await,
-      CacheRequest::Parent(ref key) => self.get_or_create(&key)
-        .map_ok(|ci| CacheResponse::Parent(Parent(ci)))
-        .await,
-      CacheRequest::Children(ref key) => {
-          let item = self.get_or_create(&key).await?;
-          todo!()
-          //let children_futs: Vec<_> = item.children.iter()
-          //  .map(|ck| FutureExt::boxed(self.get_or_create(&ck)))
-          //  .collect();
-          //let children = children_futs
-          //  .try_join()
-          //  .await?;
-          // todo!()
-          //Ok(CacheResponse::Children(Children(children)))
-      },
-      CacheRequest::Relation(ref key, ty) => {
-        todo!()
-      },
-      CacheRequest::EventHandler(ref key) => {
-          todo!()
-      },
+			CacheRequest::Item(ref key) => {
+				self.get_or_create(&key)
+					.map_ok(|ci| CacheResponse::Item(Item(ci)))
+					.await
+			}
+			CacheRequest::Parent(ref key) => {
+				self.get_or_create(&key)
+					.map_ok(|ci| CacheResponse::Parent(Parent(ci)))
+					.await
+			}
+			CacheRequest::Children(ref key) => {
+				let item = self.get_or_create(&key).await?;
+				todo!()
+				//let children_futs: Vec<_> = item.children.iter()
+				//  .map(|ck| FutureExt::boxed(self.get_or_create(&ck)))
+				//  .collect();
+				//let children = children_futs
+				//  .try_join()
+				//  .await?;
+				// todo!()
+				//Ok(CacheResponse::Children(Children(children)))
+			}
+			CacheRequest::Relation(ref key, ty) => {
+				todo!()
+			}
+			CacheRequest::EventHandler(ref key) => {
+				todo!()
+			}
 		}
-  }
+	}
 }
 
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
@@ -512,14 +496,16 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 	)
 		.try_join()
 		.await?;
-  let text = accessible.to_text().and_then(|text_proxy| {
+	let text = accessible
+		.to_text()
+		.and_then(|text_proxy| {
 			text_proxy
 				.get_all_text()
 				.map_ok(|s| if s.is_empty() { None } else { Some(s) })
 		})
-    .await
-    .ok()
-    .flatten();
+		.await
+		.ok()
+		.flatten();
 	let ci = CacheItem {
 		object: accessible.into(),
 		app: app.into(),

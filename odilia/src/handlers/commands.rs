@@ -1,11 +1,11 @@
 use odilia_common::{
-	command::{CaretPos, Focus, SetState, Speak, TryIntoCommands},
+	command::{CaretPos, Focus, Speak, TryIntoCommands},
 	errors::OdiliaError,
 	events::{StopSpeech, StructuralNavigation},
 };
 use ssip::{Priority, Request};
 
-use crate::state::{AccessibleHistory, Cache, Command, CurrentCaretPos, InputEvent, Speech};
+use crate::state::{AccessibleHistory, Command, CurrentCaretPos, InputEvent, Speech};
 
 #[tracing::instrument(ret, err, level = "debug")]
 pub async fn speak(

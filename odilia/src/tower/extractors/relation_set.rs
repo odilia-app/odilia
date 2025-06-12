@@ -1,5 +1,4 @@
-use atspi::RelationType;
-use odilia_cache::{Cache, CacheItem, ConstRelationType, CacheActor, CacheRequest, CacheResponse};
+use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, ConstRelationType};
 
 use crate::{
 	tower::{EventProp, GetProperty, PropertyType},
@@ -17,15 +16,16 @@ impl<T: ConstRelationType<InnerStore = Vec<CacheItem>>> GetProperty<RelationSet<
 		&self,
 		cache: &CacheActor,
 	) -> Result<EventProp<RelationSet<T>>, OdiliaError> {
-    let resp = cache.request(CacheRequest::Relation(self.object.clone(), T::RELATION_TYPE))
-        .await?;
-    let rel = match resp {
-        CacheResponse::Relations(rel) => rel,
-        e => {
-            tracing::error!("Inappropriate response from cache for `Relation` request: {e:?}");
-            return Err(format!("Inappropriate response from cache for `Realtion` request: {e:?}").into());
-        },
-    };
+		let resp = cache
+			.request(CacheRequest::Relation(self.object.clone(), T::RELATION_TYPE))
+			.await?;
+		let rel = match resp {
+			CacheResponse::Relations(rel) => rel,
+			e => {
+				tracing::error!("Inappropriate response from cache for `Relation` request: {e:?}");
+				return Err(format!("Inappropriate response from cache for `Realtion` request: {e:?}").into());
+			}
+		};
 		Ok(EventProp(rel.1))
 	}
 }

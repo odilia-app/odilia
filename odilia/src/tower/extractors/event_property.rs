@@ -2,7 +2,7 @@ use core::{future::Future, pin::Pin};
 use std::sync::Arc;
 
 use atspi::EventProperties;
-use odilia_cache::{Cache, CacheActor, CacheItem};
+use odilia_cache::{CacheActor, CacheItem};
 
 use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
 
