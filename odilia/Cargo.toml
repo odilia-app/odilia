@@ -58,3 +58,4 @@ futures-concurrency.workspace = true
 futures-util.workspace = true
 async-executor = { version = "1.13.2", features = ["static"] }
 pin-project-lite.workspace = true
+blocking = "1.6.1"

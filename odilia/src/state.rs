@@ -14,7 +14,9 @@ use atspi::{
 };
 use circular_queue::CircularQueue;
 use futures_util::future::{err, ok, Ready};
-use odilia_cache::{AccessibleExt, Cache as InnerCache, CacheItem, Convertable};
+use odilia_cache::{
+	AccessibleExt, Cache as InnerCache, CacheActor, CacheItem, CacheRequest, Convertable, CacheResponse, Item,
+};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
@@ -47,27 +49,20 @@ pub(crate) struct ScreenReaderState {
 	pub previous_caret_position: Arc<AtomicUsize>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
 	pub event_history: Mutex<CircularQueue<Event>>,
-	pub cache: Arc<InnerCache<zbus::Connection>>,
+	pub cache_actor: CacheActor,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
 #[derive(Debug, Clone)]
-pub struct Cache(pub Arc<InnerCache<zbus::Connection>>);
+pub struct Cache(pub CacheActor);
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
 	type Error = OdiliaError;
 	type Future = Ready<Result<Self, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
 		ok(AccessibleHistory(Arc::clone(&state.accessible_history)))
-	}
-}
-impl<C> TryFromState<Arc<ScreenReaderState>, C> for Cache {
-	type Error = OdiliaError;
-	type Future = Ready<Result<Self, Self::Error>>;
-	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
-		ok(Cache(Arc::clone(&state.cache)))
 	}
 }
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
@@ -172,6 +167,7 @@ impl ScreenReaderState {
 	pub async fn new(
 		ssip: Sender<SSIPRequest>,
 		config: ApplicationConfig,
+		cache_actor: CacheActor,
 	) -> Result<ScreenReaderState, OdiliaError> {
 		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
@@ -187,7 +183,7 @@ impl ScreenReaderState {
 		let previous_caret_position = Arc::new(AtomicUsize::new(0));
 		let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
 		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Arc::new(InnerCache::new(atspi.connection().clone()));
+		let cache = Arc::new(Mutex::new(InnerCache::new(atspi.connection().clone())));
 		ssip.send(SSIPRequest::SetPitch(
 			ssip_client_async::ClientScope::Current,
 			config.speech.pitch,
@@ -237,7 +233,7 @@ impl ScreenReaderState {
 			previous_caret_position,
 			accessible_history,
 			event_history,
-			cache,
+			cache_actor,
 			config: Arc::new(config),
 			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
@@ -247,8 +243,11 @@ impl ScreenReaderState {
 		&self,
 		event: &T,
 	) -> OdiliaResult<CacheItem> {
-		let prim = AccessiblePrimitive::from_event(event);
-		self.cache.get_or_create(&prim).await
+		self.cache_actor.request(CacheRequest::Item(event.object_ref().into())).await
+        .map(|cr| match cr {
+            CacheResponse::Item(Item(ci)) => ci,
+            e => panic!("Inappropriate response: {e:?}")
+        })
 	}
 
 	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
@@ -399,3 +398,23 @@ impl ScreenReaderState {
 		Ok(())
 	}
 }
+
+use std::future::Future;
+use std::pin::Pin;
+
+
+//impl<Cr> TryFromState<Arc<ScreenReaderState>, Cr> for Cr
+//where
+//	Cr: RequestExt
+//{
+//	type Error = OdiliaError;
+//	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
+//	#[tracing::instrument(skip(state), level = "trace", ret)]
+//	fn try_from_state(state: Arc<ScreenReaderState>, req: Cr) -> Self::Future {
+//		Box::pin(async move {
+//			let cache_item = state.get_or_create(&event).await?;
+//			Ok(InnerEvent::new(event, cache_item))
+//		})
+//	}
+//}
+

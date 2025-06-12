@@ -18,20 +18,21 @@ pub async fn speak(
 	Ok(())
 }
 
-#[tracing::instrument(ret, err)]
-pub async fn set_state(
-	Command(SetState { item, state, enabled }): Command<SetState>,
-	Cache(cache): Cache,
-) -> Result<(), OdiliaError> {
-	cache.modify_item(&item, |it| {
-		if enabled {
-			it.states.insert(state);
-		} else {
-			it.states.remove(state);
-		}
-	})?;
-	Ok(())
-}
+// TODO: move all cache logic behind the cache
+//#[tracing::instrument(ret, err)]
+//pub async fn set_state(
+//	Command(SetState { item, state, enabled }): Command<SetState>,
+//	Cache(cache): Cache,
+//) -> Result<(), OdiliaError> {
+//	cache.modify_item(&item, |it| {
+//		if enabled {
+//			it.states.insert(state);
+//		} else {
+//			it.states.remove(state);
+//		}
+//	})?;
+//	Ok(())
+//}
 
 #[tracing::instrument(ret, err)]
 pub async fn new_focused_item(

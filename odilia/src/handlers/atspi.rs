@@ -15,8 +15,12 @@ use ssip::Priority;
 
 use crate::{
 	state::{LastCaretPos, LastFocused},
-	tower::{state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, RelationSet},
+	tower::{
+		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp,
+		RelationSet,
+	},
 };
+use odilia_cache::LabelledBy;
 
 #[tracing::instrument(ret)]
 pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
@@ -26,39 +30,28 @@ pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIn
 #[tracing::instrument(ret)]
 pub async fn focused(
 	state_changed: CacheEvent<Focused>,
-	EventProp(relation_set): EventProp<RelationSet>,
+	EventProp(relation_set): EventProp<RelationSet<LabelledBy>>,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
 	let item = state_changed.item;
 	//does this have a text or a name?
 	// in order for the borrow checker to not scream that we move ownership of item.text, therefore making item partially moved, we only take a reference here, because in truth the only thing that we need to know is if the string is empty, because the extending of the buffer will imply a clone anyway
-	let text = &item.text;
-	let name = item.name;
-	let description = item.description;
-	if text.is_empty() {
+	if let Some(text) = item.text {
 		//then just append to the buffer and be done with it
-		utterance_buffer += text;
+		utterance_buffer += &text;
 	} else {
 		//then the label can either be the accessible name, the description, or the relations set, aka labeled by another object
 		//unfortunately, the or_else function of result doesn't accept async cloasures or cloasures with async blocks, so we can't use lazy loading here at the moment. The performance penalty is minimal however, because this should be in cache anyway
-		let label = if let Some(n) = name.as_deref() {
+		let label = if let Some(n) = item.name.as_deref() {
 			n.to_string()
-		} else if let Some(d) = description.as_deref() {
+		} else if let Some(d) = item.description.as_deref() {
 			d.to_string()
 		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
 		} else {
 			relation_set
-				.iter()
-				// we only need entries which contain the wanted relationship, only labeled by for now
-				.filter(|elem| elem.0 == RelationType::LabelledBy)
-				.cloned()
-				// we have to remove the first item of the entries, because it's constant now that we filtered by it
-				//furthermore, after doing this, we'd have something like Vec<Vec<Item>>, which is not what we need, we need something like Vec<Item>, so we do both the flattening of the structure and the mapping in one function call
-				.flat_map(|this| this.1)
-				// from a collection of items, to a collection of strings, in this case the text of those labels, because yes, technically there can be more than one
-				.map(|this| this.text)
-				// gather all that into a string, separated by newlines or spaces I think
+				.into_iter()
+				.flat_map(|this| this.text)
 				.collect()
 		};
 		utterance_buffer += &label;

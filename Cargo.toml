@@ -33,9 +33,9 @@ dependent-version = "upgrade"
 [workspace.dependencies]
 atspi = { version = "0.27.0", git = "https://github.com/odilia-app/atspi", branch = "no-default-features-common" }
 config = { version = "0.15.11", default-features = false, features = ["toml"] }
-futures-concurrency = { version = "7.6.1", default-features = false }
+futures-concurrency = { version = "7.6.1", path = "../futures-concurrency", default-features = false }
 futures-lite = { version = "2.6.0", default-features = false }
-futures-util = { version = "0.3.31", default-features = false }
+futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
 async-net = { version = "2.0", default-features = false }
 async-io = { version = "2.0", default-features = false }
 async-channel = { version = "2.0", default-features = false }
