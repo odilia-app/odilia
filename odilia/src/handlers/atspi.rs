@@ -1,12 +1,10 @@
 use std::fmt::Write;
 
-use atspi::{
-	events::{
+use atspi::events::{
 		document::LoadCompleteEvent,
 		object::{StateChangedEvent, TextCaretMovedEvent},
-	},
-	RelationType,
-};
+	};
+use odilia_cache::LabelledBy;
 use odilia_common::{
 	command::{Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
@@ -15,12 +13,8 @@ use ssip::Priority;
 
 use crate::{
 	state::{LastCaretPos, LastFocused},
-	tower::{
-		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp,
-		RelationSet,
-	},
+	tower::{state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, RelationSet},
 };
-use odilia_cache::LabelledBy;
 
 #[tracing::instrument(ret)]
 pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
@@ -49,10 +43,7 @@ pub async fn focused(
 			d.to_string()
 		//otherwise, if this is empty too, we try to use the relations set to find the element labeling this one
 		} else {
-			relation_set
-				.into_iter()
-				.flat_map(|this| this.text)
-				.collect()
+			relation_set.into_iter().filter_map(|this| this.text).collect()
 		};
 		utterance_buffer += &label;
 	}
