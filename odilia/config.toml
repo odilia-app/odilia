@@ -2,5 +2,6 @@
 rate=100
 
 [log]
-level="debug"
-logger = { File = "odilia.log" }
+level="Trace"
+#logger = { File = "odilia.log" }
+logger = "Tty"
