@@ -814,8 +814,6 @@ dependencies = [
 [[package]]
 name = "futures-concurrency"
 version = "7.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0eb68017df91f2e477ed4bea586c59eaecaa47ed885a770d0444e21e62572cd2"
 dependencies = [
  "futures-buffered",
  "futures-core",
@@ -1248,6 +1246,7 @@ dependencies = [
  "async-executor",
  "async-signal",
  "atspi",
+ "blocking",
  "circular-queue",
  "config",
  "futures-concurrency",
@@ -1293,6 +1292,7 @@ dependencies = [
  "serde_json",
  "serde_plain",
  "smol-cancellation-token",
+ "static_assertions",
  "tokio",
  "tracing",
  "zbus",

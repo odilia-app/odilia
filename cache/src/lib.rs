@@ -11,16 +11,54 @@
 mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
-use std::{collections::VecDeque, fmt::Debug, future::Future, sync::Arc};
+use std::{
+	collections::{HashMap, VecDeque},
+	fmt,
+	fmt::Debug,
+	future::Future,
+	sync::Arc,
+};
+mod relation_set;
+use relation_set::{RelationSet, Relations};
+mod event_handlers;
+pub use event_handlers::{
+    CacheResponse,
+    CacheRequest,
+    Item, Parent, Children,
+    ConstRelationType,
+ControllerFor,
+ControlledBy,
+LabelFor,
+LabelledBy,
+DescribedBy,
+DescriptionFor,
+Details,
+DetailsFor,
+ErrorMessage,
+ErrorFor,
+FlowsTo,
+FlowsFrom,
+Embeds,
+EmbeddedBy,
+PopupFor,
+ParentWindowOf,
+SubwindowOf,
+MemberOf,
+NodeChildOf,
+NodeParentOf,
+};
+use std::pin::pin;
 
 pub use accessible_ext::AccessibleExt;
+use async_channel::{Receiver, Sender};
 use atspi::{
-    Event,
 	proxy::{accessible::AccessibleProxy, text::TextProxy},
-	EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
 };
 use dashmap::DashMap;
 use futures_concurrency::future::TryJoin;
+use futures_lite::{future::FutureExt as LiteExt, stream::StreamExt};
+use futures_util::future::{FutureExt, TryFutureExt, try_join_all};
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
 use odilia_common::{
@@ -30,13 +68,8 @@ use odilia_common::{
 };
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
-use zbus::proxy::CacheProperties;
-use async_channel::{Sender, Receiver};
 use smol_cancellation_token::CancellationToken;
-use futures_util::future::FutureExt;
-use futures_lite::future::FutureExt as LiteExt;
-use futures_lite::stream::StreamExt;
-use std::pin::pin;
+use zbus::proxy::CacheProperties;
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
 where
@@ -48,45 +81,83 @@ where
 		.await
 }
 
-#[derive(Debug)]
-pub enum CacheRequest {
-    Event(Event),
-    Key(CacheKey),
+use async_channel::bounded;
+
+/// A method of interacting with the cache.
+/// All requests on the cache side are processed in synchronous FIFO order.
+///
+/// You may clone this item for cheap in order to share across threads or tasks.
+#[derive(Clone)]
+pub struct CacheActor {
+	send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>,
 }
+
+impl CacheActor {
+    pub fn new(send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>) -> Self {
+        CacheActor {
+            send
+        }
+    }
+}
+
+impl fmt::Debug for CacheActor {
+	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+		fmt.debug_struct("CacheActor").finish_non_exhaustive()
+	}
+}
+
+impl From<Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>> for CacheActor {
+	fn from(send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>) -> Self {
+		CacheActor { send }
+	}
+}
+impl CacheActor {
+	pub async fn request(&self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
+		let (reply, recv) = bounded(1);
+		self.send
+			.send((req, reply))
+			.await
+			.expect("Unable to send a message on the channel; this is bad!");
+		recv.recv().await.expect("Unable to get response from channel!")
+	}
+}
+
+pub type ActorRequest = (CacheRequest, Sender<Result<CacheResponse, OdiliaError>>);
+pub type ActorSend = Sender<ActorRequest>;
+pub type ActorRecv = Receiver<ActorRequest>;
 
 pub async fn cache_handler_task<D: CacheDriver>(
-    mut recv: Receiver<(CacheRequest, Sender<Result<CacheItem, OdiliaError>>)>,
-    shutdown: CancellationToken,
-    cache: Cache<D>
+	mut recv: ActorRecv,
+	shutdown: CancellationToken,
+	mut cache: Cache<D>,
 ) {
-  loop {
-      let Ok(maybe_request) = or_cancel(recv.recv(), &shutdown).await else {
-        tracing::info!("Shutting down cache service due to cancellation token!");
-        break;
-      };
-      let (request, response) = match maybe_request {
-          Err(e) => {
-              tracing::error!(error = %e, "Error receiving cache request");
-              continue;
-          },
-          Ok(req) => req,
-      };
-      let maybe_cache_item = match request {
-        CacheRequest::Event(ev) => todo!(),
-        CacheRequest::Key(ref key) => cache.get_or_create(&key).await
-      };
-      match response.send(maybe_cache_item).await {
-        Ok(_) => tracing::trace!("Successful sending cache item back!"),
-        Err(e) => tracing::error!(error = %e, "Error sending cache item back to requester!"),
-      }
-  }
+	loop {
+		let Ok(maybe_request) = or_cancel(recv.recv(), &shutdown).await else {
+			tracing::info!("Shutting down cache service due to cancellation token!");
+			break;
+		};
+		let (request, response) = match maybe_request {
+			Err(e) => {
+				tracing::error!(error = %e, "Error receiving cache request");
+				continue;
+			}
+			Ok(req) => req,
+		};
+    let maybe_cache_item = cache.request(request).await;
+		match response.send(maybe_cache_item).await {
+			Ok(_) => tracing::trace!("Successful sending cache item back!"),
+			Err(e) => {
+				tracing::error!(error = %e, "Error sending cache item back to requester!")
+			}
+		}
+	}
 }
 
-trait AllText {
-	async fn get_all_text(&self) -> Result<String, OdiliaError>;
+pub trait AllText {
+	async fn get_all_text(self) -> Result<String, zbus::Error>;
 }
 impl AllText for TextProxy<'_> {
-	async fn get_all_text(&self) -> Result<String, OdiliaError> {
+	async fn get_all_text(self) -> Result<String, zbus::Error> {
 		let length_of_string = self.character_count().await?;
 		Ok(self.get_text(0, length_of_string).await?)
 	}
@@ -96,79 +167,61 @@ pub type CacheKey = AccessiblePrimitive;
 type ThreadSafeCache = Arc<RwLock<Arena<CacheItem>>>;
 type IdLookupTable = Arc<DashMap<CacheKey, NodeId, FxBuildHasher>>;
 
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-pub enum Link {
-	Linked(NodeId),
-	Unlinked(CacheKey),
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum Field<T> {
+	Fresh(T),
+	Stale,
 }
-
-#[derive(Clone, Eq, PartialEq, Debug, Serialize, Deserialize)]
-#[repr(transparent)]
-pub struct RelationSet(Vec<(RelationType, Vec<Link>)>);
-
-impl RelationSet {
-	/// Turn the `Link` items into `CacheItem`s.
-	///
-	/// This function ignores [`Link::Unlinked`] variants.
-	#[must_use]
-	pub fn unchecked_into_cache_items<D: CacheDriver>(
-		&self,
-		c: &Cache<D>,
-	) -> Vec<(RelationType, Vec<CacheItem>)> {
-		self.0.iter()
-			.map(|(rt, links)| {
-				(
-					*rt,
-					links.iter()
-						.filter_map(|link| match link {
-							Link::Unlinked(_) => None,
-							Link::Linked(nid) => c.get_id(*nid),
-						})
-						.collect::<Vec<CacheItem>>(),
-				)
-			})
-			.collect()
-	}
-	fn try_link_values<D: CacheDriver>(
-		&mut self,
-		cache: &Cache<D>,
-	) -> Result<(), Vec<AccessiblePrimitive>> {
-		let relations_map = self.0.iter_mut();
-		let link_map = relations_map.flat_map(|(_rt, links)| links);
-		let mut unlinked = Vec::new();
-		for link in link_map {
-			if let Link::Unlinked(ap) = link {
-				if let Some(nid) = cache.id_lookup.get(ap) {
-					*link = Link::Linked(*nid);
-				} else {
-					unlinked.push(ap.clone());
-				}
+impl<T> Field<T> {
+	fn unwrap(self) -> T {
+		match self {
+			Field::Fresh(t) => t,
+			Field::Stale => {
+				panic!("Attempted to unwrap a stale piece of state!");
 			}
 		}
+	}
+}
 
-		if unlinked.is_empty() {
-			return Ok(());
+impl<T> Field<T> {
+	fn is_fresh(&self) -> bool {
+		match self {
+			Field::Fresh(_) => true,
+			Field::Stale => false,
 		}
-		Err(unlinked)
 	}
 }
 
-impl From<Vec<(RelationType, Vec<ObjectRef>)>> for RelationSet {
-	fn from(vec: Vec<(RelationType, Vec<ObjectRef>)>) -> Self {
-		vec.into_iter()
-			.map(|(rt, vor)| {
-				(rt, vor.into_iter().map(|a| Link::Unlinked(a.into())).collect())
-			})
-			.collect::<Vec<(RelationType, Vec<Link>)>>()
-			.into()
+impl<T> Field<T>
+where
+	T: FieldExt + Clone,
+{
+	/// Get the item, or go get it from DBus.
+	/// This should only fail if there is some sort of extrme circumstance.
+	async fn get_or_replace<D: CacheDriver>(
+		&mut self,
+		key: &CacheKey,
+		cache: &mut D,
+	) -> Result<T, OdiliaError> {
+		match self {
+			Field::Fresh(t) => Ok(t.clone()),
+			Field::Stale => {
+				let new_t = T::get_field::<D>(key, cache).await?;
+				*self = Field::Fresh(new_t.clone());
+				Ok(new_t)
+			}
+		}
 	}
 }
 
-impl From<Vec<(RelationType, Vec<Link>)>> for RelationSet {
-	fn from(vec: Vec<(RelationType, Vec<Link>)>) -> RelationSet {
-		RelationSet(vec)
-	}
+trait FieldExt: Sized {
+	async fn get_field<D: CacheDriver>(
+		key: &CacheKey,
+		cache: &mut D,
+	) -> Result<Self, OdiliaError>;
 }
+
+type NewCache = HashMap<CacheKey, CacheItem, FxBuildHasher>;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::proxy::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
@@ -189,16 +242,17 @@ pub struct CacheItem {
 	pub role: Role,
 	/// The states applicable to the accessible.  au
 	pub states: StateSet,
-	/// The text of the accessible
-	pub text: String,
-	/// Description of the item
-	pub description: Option<String>,
-	/// Name of the item
-	pub name: Option<String>,
 	/// The children (ids) of the accessible
 	pub children: Vec<AccessiblePrimitive>,
-	/// The set of relations between this and other nodes in the graph.
-	pub relation_set: RelationSet,
+	/// The human-readable short name of the item. `None` if string is empty.
+	pub name: Option<String>,
+	/// The human-readable longer name (description) of the item. `None` if string is empty.
+	pub description: Option<String>,
+	/// The help-text of the item. `None` if string is empty.
+	pub help_text: Option<String>,
+	/// The actual, internal text of the item; this will be `None` if either the text interface isn't
+	/// implemented, or if the response contains an empty string: "".
+	pub text: Option<String>,
 }
 
 impl CacheItem {
@@ -226,17 +280,13 @@ impl CacheItem {
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
 #[derive(Clone)]
 pub struct Cache<D: CacheDriver> {
-	pub tree: ThreadSafeCache,
-	pub id_lookup: IdLookupTable,
+	pub tree: NewCache,
 	pub driver: D,
 }
 
 impl<D: CacheDriver> std::fmt::Debug for Cache<D> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		// NOTE: This prints the number of items in the cache, INCLUDING "removed" items, which are not
-		// actually removed, just "marked for removal".
-		let cache = self.tree.read();
-		f.write_str(&format!("Cache {{ tree: ...{} nodes..., .. }}", cache.count()))
+		f.write_str(&format!("Cache {{ tree: ...{} nodes..., .. }}", self.tree.len()))
 	}
 }
 
@@ -282,6 +332,37 @@ impl CacheDriver for zbus::Connection {
 	}
 }
 
+impl<D: CacheDriver> Cache<D> {
+  async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
+		match req {
+      CacheRequest::Item(ref key) => self.get_or_create(&key)
+        .map_ok(|ci| CacheResponse::Item(Item(ci)))
+        .await,
+      CacheRequest::Parent(ref key) => self.get_or_create(&key)
+        .map_ok(|ci| CacheResponse::Parent(Parent(ci)))
+        .await,
+      CacheRequest::Children(ref key) => {
+          let item = self.get_or_create(&key).await?;
+          todo!()
+          //let children_futs: Vec<_> = item.children.iter()
+          //  .map(|ck| FutureExt::boxed(self.get_or_create(&ck)))
+          //  .collect();
+          //let children = children_futs
+          //  .try_join()
+          //  .await?;
+          // todo!()
+          //Ok(CacheResponse::Children(Children(children)))
+      },
+      CacheRequest::Relation(ref key, ty) => {
+        todo!()
+      },
+      CacheRequest::EventHandler(ref key) => {
+          todo!()
+      },
+		}
+  }
+}
+
 // N.B.: we are using std RwLockes internally here, within the cache hashmap
 // entries. When adding async methods, take care not to hold these mutexes
 // across .await points.
@@ -290,88 +371,29 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
-		Self {
-			tree: Arc::new(RwLock::new(Arena::with_capacity(10_000))),
-			id_lookup: Arc::new(DashMap::with_capacity_and_hasher(
-				10_000,
-				FxBuildHasher::default(),
-			)),
-			driver,
-		}
+		Self { tree: HashMap::with_hasher(FxBuildHasher::default()), driver }
 	}
 	/// Add an item via a reference instead of creating the reference.
 	///
 	/// # Errors
 	///
-	/// - Try to add a duplicate item,
 	/// - Try to add an item with partially missing data,
-	#[tracing::instrument(level = "trace", ret, err(level = "warn"))]
-	pub fn add(&self, mut cache_item: CacheItem) -> OdiliaResult<()> {
+	#[tracing::instrument(level = "trace")]
+	pub fn add(&mut self, mut cache_item: CacheItem) {
 		// Do not create new items when not necessary.
-		if let Some(self_id) = self.id_lookup.get(&cache_item.object) {
-			return Err(CacheError::DuplicateItem(*self_id).into());
-		}
-		let maybe_index = cache_item.index;
 		let key = cache_item.object.clone();
-		let parent_key = cache_item.parent.clone();
-		let mut cache = self.tree.write();
-		let unlinked_related_items = cache_item.relation_set.try_link_values(self);
-		let children = cache_item.children.clone();
-		let id = cache.new_node(cache_item);
-		self.id_lookup.insert(key, id);
-		// no need to connect to the rest of the graph, because it's the first item.
-		if self.id_lookup.len() == 1 {
-			return Ok(());
-		}
-		let Some(parent_id) = self.id_lookup.get(&parent_key) else {
-			return Err(CacheError::MoreData(Vec::from([parent_key])).into());
-		};
-		if let Err(unlinked_related_items) = unlinked_related_items {
-			return Err(CacheError::MoreData(unlinked_related_items).into());
-		}
-		let Some(sibling_index) = maybe_index else {
-			return Ok(());
-		};
-		if sibling_index == 0 || children.is_empty() {
-			parent_id.checked_prepend(id, &mut cache)?;
-		} else if sibling_index == parent_id.children(&cache).count() {
-			parent_id.checked_append(id, &mut cache)?;
-		} else {
-			match parent_id.children(&cache).nth(sibling_index) {
-				Some(left_sibling) => {
-					left_sibling.checked_insert_after(id, &mut cache)?;
-				}
-				// TODO: specific child?
-				None => return Err(CacheError::MoreData(children).into()),
-			}
-		}
-		Ok(())
+		self.tree
+			.entry(key.clone())
+			.and_modify(|ci| *ci = cache_item.clone())
+			.or_insert(cache_item);
 	}
 
 	/// Remove a single cache item. This function can not fail.
 	#[tracing::instrument(level = "trace", skip(self))]
-	pub fn remove(&self, id: &CacheKey) {
-		// if the item is not found in the lookup table, just return.
-		let Some((_key, node_id)) = self.id_lookup.remove(id) else {
+	pub fn remove(&mut self, id: &CacheKey) {
+		if self.tree.remove(id).is_none() {
 			tracing::warn!("Attempted to remove an item that doesn't exist: {id:?}");
-			return;
 		};
-		let mut cache = self.tree.write();
-		// Remove the item from the tree structure.
-		node_id.remove(&mut cache);
-	}
-
-	/// Get a single item from the cache by ID.
-	///
-	/// This will allow you to get the item without holding any locks to it,
-	/// at the cost of (1) a clone and (2) no guarantees that the data is kept up-to-date.
-	#[must_use]
-	#[tracing::instrument(level = "trace", skip(self), ret)]
-	pub fn get_id(&self, id: NodeId) -> Option<CacheItem> {
-		let cache = self.tree.read();
-		let ref_item = cache.get(id)?;
-		// clone the reference into an owned value
-		Some(ref_item.get().to_owned())
 	}
 
 	/// Get a single item from the cache.
@@ -381,11 +403,9 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "trace", skip(self), ret)]
 	pub fn get(&self, id: &CacheKey) -> Option<CacheItem> {
-		let cache = self.tree.read();
-		let node_id = self.id_lookup.get(id)?;
-		let ref_item = cache.get(*node_id)?;
+		let ref_item = self.tree.get(id)?;
 		// clone the reference into an owned value
-		Some(ref_item.get().to_owned())
+		Some(ref_item.clone())
 	}
 
 	/// get a many items from the cache; this only creates one read handle (note that this will copy all data you would like to access)
@@ -401,9 +421,9 @@ impl<D: CacheDriver> Cache<D> {
 	/// An `Err(_)` variant may returned if the [`RelationSet`] fails to resolve to real IDs in the
 	/// cache.
 	#[tracing::instrument(level = "trace", skip(self), ret, err(level = "warn"))]
-	pub fn add_all(&self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
+	pub fn add_all(&mut self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
 		for cache_item in cache_items {
-			let _ = self.add(cache_item);
+			self.add(cache_item);
 		}
 		Ok(())
 	}
@@ -413,33 +433,6 @@ impl<D: CacheDriver> Cache<D> {
 		for id in ids {
 			self.remove(id);
 		}
-	}
-
-	/// Edit a mutable `CacheItem`. Returns true if the update was successful.
-	///
-	/// Note: an exclusive lock for the given cache item will be placed for the
-	/// entire length of the passed function, so try to avoid any compute in it.
-	///
-	/// # Errors
-	///
-	/// An [`odilia_common::errors::OdiliaError::PoisoningError`] may be returned if a write lock can not be acquired on the `CacheItem` being modified.
-	#[tracing::instrument(level = "trace", skip(modify, self), ret, err(level = "warn"))]
-	pub fn modify_item<F>(&self, id: &CacheKey, modify: F) -> OdiliaResult<bool>
-	where
-		F: FnOnce(&mut CacheItem),
-	{
-		let Some(node_id) = self.id_lookup.get(id) else {
-			tracing::warn!("The lookup table does not contain this item: {:?}", id);
-			return Ok(false);
-		};
-		let mut cache = self.tree.write();
-		let Some(node) = cache.get_mut(*node_id) else {
-			tracing::warn!("The tree cache does not contain this item: {:?}", node_id);
-			return Ok(false);
-		};
-		let cache_item = node.get_mut();
-		modify(cache_item);
-		Ok(true)
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
@@ -454,42 +447,22 @@ impl<D: CacheDriver> Cache<D> {
 	///
 	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
 	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
-	pub async fn get_or_create(&self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create(
+		&mut self,
+		key: &AccessiblePrimitive,
+	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
 		}
-		// otherwise, build a cache item
-		// NOTE: recursion CAN NOT be used here due to the size of some a11y trees and the size of
-		// async stack frames.
-		let mut stack: VecDeque<AccessiblePrimitive> = vec![key.to_owned()].into();
-		let mut first_ci = None;
-		while let Some(item) = stack.pop_front() {
-			let cache_item = self.driver.lookup_external(&item).await?;
-			if first_ci.is_none() {
-				first_ci = Some(cache_item.clone());
-			}
-			if let Err(OdiliaError::Cache(CacheError::MoreData(items))) =
-				self.add(cache_item)
-			{
-				assert_ne!(
-					items.len(),
-					0,
-					"You can not requiest an empty list of items"
-				);
-				stack.extend(items);
-			}
-		}
-		// return that same cache item
-		// SAFETY: this is okay because we always have one item in the stack, and guarantee that any
-		// errors along the way to setting the value cause an early return.
-		Ok(first_ci.expect("Able to extract first CacheItem!"))
+		let cache_item = self.driver.lookup_external(&key).await?;
+		self.tree.insert(key.clone(), cache_item.clone());
+		Ok(cache_item)
 	}
 
 	/// Clears the cache completely.
-	pub fn clear(&self) {
-		self.tree.write().clear();
-		self.id_lookup.clear();
+	pub fn clear(&mut self) {
+		self.tree.clear();
 	}
 }
 
@@ -506,7 +479,19 @@ impl<D: CacheDriver> Cache<D> {
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err(level = "warn"))]
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (app, parent, index, children_num, interfaces, role, states, children) = (
+	let (
+		app,
+		parent,
+		index,
+		children_num,
+		interfaces,
+		role,
+		states,
+		children,
+		name,
+		description,
+		help_text,
+	) = (
 		accessible.get_application(),
 		accessible.parent(),
 		accessible.get_index_in_parent(),
@@ -515,26 +500,27 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_role(),
 		accessible.get_state(),
 		accessible.get_children(),
+		accessible
+			.name()
+			.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+		accessible
+			.description()
+			.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+		accessible
+			.help_text()
+			.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
 	)
 		.try_join()
 		.await?;
-	let rs = accessible.get_relation_set().await?.into();
-	let name = accessible
-		.name()
-		.await
-		.map(|s| if s.is_empty() { None } else { Some(s) })?;
-	let desc = accessible
-		.description()
-		.await
-		.map(|s| if s.is_empty() { None } else { Some(s) })?;
-	// if it implements the Text interface
-	let text = match accessible.to_text().await {
-		// get *all* the text
-		Ok(text_iface) => text_iface.get_all_text().await,
-		// otherwise, use the name instaed
-		Err(_) => Ok(accessible.name().await?),
-	}?;
-	Ok(CacheItem {
+  let text = accessible.to_text().and_then(|text_proxy| {
+			text_proxy
+				.get_all_text()
+				.map_ok(|s| if s.is_empty() { None } else { Some(s) })
+		})
+    .await
+    .ok()
+    .flatten();
+	let ci = CacheItem {
 		object: accessible.into(),
 		app: app.into(),
 		parent: parent.into(),
@@ -543,10 +529,11 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		interfaces,
 		role,
 		states,
-		text,
 		children: children.into_iter().map(Into::into).collect(),
-		relation_set: rs,
 		name,
-		description: desc,
-	})
+		description,
+		help_text,
+		text,
+	};
+	Ok(ci)
 }

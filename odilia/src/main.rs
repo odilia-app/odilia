@@ -33,14 +33,17 @@ use futures_lite::{
 };
 use futures_util::FutureExt as FatExt;
 use handlers::{
-	caret_moved, change_mode, doc_loaded, focused, new_caret_pos, new_focused_item, set_state,
-	speak, state_set, stop_speech, structural_nav,
+	caret_moved, change_mode, doc_loaded, focused, new_caret_pos, new_focused_item, speak,
+	state_set, stop_speech, structural_nav,
 };
 use odilia_common::{
 	command::TryIntoCommands,
 	errors::OdiliaError,
 	events::ScreenReaderEvent,
 	settings::{ApplicationConfig, InputMethod},
+};
+use odilia_cache::{
+    Cache, CacheActor, cache_handler_task,
 };
 use odilia_notify::listen_to_dbus_notifications;
 use smol_cancellation_token::CancellationToken;
@@ -202,7 +205,10 @@ async fn async_main() -> Result<(), OdiliaError> {
 	let (ev_tx, ev_rx) = bounded::<Result<atspi::Event, atspi::AtspiError>>(10_000);
 	let (input_tx, input_rx) = bounded::<ScreenReaderEvent>(255);
 	// Initialize state
-	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config).await?);
+  // lots of space for caching just in case...
+  let (cache_tx, cache_rx) = bounded(4096);
+  let cache = CacheActor::new(cache_tx);
+	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config, cache).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
 
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
@@ -229,7 +235,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 		.command_listener(speak)
 		.command_listener(new_focused_item)
 		.command_listener(new_caret_pos)
-		.command_listener(set_state)
+		//.command_listener(set_state)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
@@ -278,6 +284,10 @@ async fn async_main() -> Result<(), OdiliaError> {
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
 
+  let cache = Cache::new(state.connection().clone());
+  let ct = token.clone();
+  let cache_handler = blocking::unblock(|| block_on(cache_handler_task(cache_rx, ct, cache)));
+
 	let joined_tasks = (
 		ssip_event_receiver,
 		notification_task,
@@ -285,6 +295,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 		event_send_task,
 		input_task,
 		input_handler,
+    cache_handler,
 	)
 		.join();
 	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state))).detach();
