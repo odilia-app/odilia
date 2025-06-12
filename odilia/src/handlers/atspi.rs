@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use atspi::events::{
-		document::LoadCompleteEvent,
-		object::{StateChangedEvent, TextCaretMovedEvent},
-	};
+	document::LoadCompleteEvent,
+	object::{StateChangedEvent, TextCaretMovedEvent},
+};
 use odilia_cache::LabelledBy;
 use odilia_common::{
 	command::{Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
