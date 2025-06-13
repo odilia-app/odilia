@@ -3,10 +3,16 @@ use std::{
 	ops::{Deref, DerefMut},
 };
 
-use atspi::Event;
+use atspi::{
+	events::object::{Property, PropertyChangeEvent, StateChangedEvent},
+	Event,
+};
 use static_assertions::assert_impl_all;
 
-use crate::{CacheItem, CacheKey, OdiliaError, RelationSet, RelationType, Relations};
+use crate::{
+	Cache, CacheDriver, CacheItem, CacheKey, Future, OdiliaError, RelationSet, RelationType,
+	Relations,
+};
 
 pub trait ConstRelationType {
 	const RELATION_TYPE: RelationType;
@@ -118,3 +124,72 @@ impl_relation!(NodeParentOf, RelationType::NodeParentOf);
 //assert_impl_all!(Item: RequestExt);
 //assert_impl_all!(Application: RequestExt);
 //assert_impl_all!(Relations: RequestExt);
+
+/// Implemented for all events which modify items in the cache in some way.
+pub trait EventHandler {
+	/// How does this event affect the cache.
+	/// It might remove links between cache items, remove them completely, add new ones, interact the the [`CacheDriver`] directly.
+	/// The only thing that is required by implementers of this function is that the cache remains in some generally consistent state;
+	/// for example, if you are removing a child from its parent, you must remove the relationship on both sides.
+	///
+	/// Generally this should be implemented by those that understand the invariants of the accessibility tree.
+	fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> impl Future<Output = Result<(), OdiliaError>> + Send;
+}
+
+impl EventHandler for PropertyChangeEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<(), OdiliaError> {
+		let key = self.item.into();
+		cache.get_or_create(&key).await?;
+		let mut item = cache
+			.tree
+			.get_mut(&key)
+			// NOTE: this is okay because we just placed the item in the cache on the line above.
+			.unwrap();
+		match self.value {
+			Property::Role(role) => {
+				item.role = role;
+			}
+			Property::Name(name) => {
+				item.name = Some(name);
+			}
+			Property::Description(description) => {
+				item.description = Some(description);
+			}
+			Property::Parent(parent) => {
+				// TODO: does a separate event come in adding the current item to its children?
+				item.parent = parent.into();
+			}
+			prop => {
+				tracing::error!("Unable to process property vvariant {prop:?}");
+			}
+		}
+		Ok(())
+	}
+}
+
+impl EventHandler for StateChangedEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<(), OdiliaError> {
+		let key = self.item.into();
+		cache.get_or_create(&key).await?;
+		let mut item = cache
+			.tree
+			.get_mut(&key)
+			// NOTE: this is okay because we just placed the item in the cache on the line above.
+			.unwrap();
+		if self.enabled {
+			item.states.insert(self.state);
+		} else {
+			item.states.remove(self.state);
+		}
+		Ok(())
+	}
+}

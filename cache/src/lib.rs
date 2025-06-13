@@ -38,7 +38,7 @@ pub use event_handlers::{
 };
 use futures_concurrency::future::TryJoin;
 use futures_lite::{future::FutureExt as LiteExt, stream::StreamExt};
-use futures_util::future::{try_join_all, FutureExt, TryFutureExt};
+use futures_util::future::{ok, try_join_all, Either, FutureExt, TryFutureExt};
 use fxhash::FxBuildHasher;
 use indextree::{Arena, NodeId};
 use odilia_common::{
@@ -49,6 +49,7 @@ use odilia_common::{
 use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use smol_cancellation_token::CancellationToken;
+use static_assertions::assert_impl_all;
 use zbus::proxy::CacheProperties;
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
@@ -266,6 +267,8 @@ pub struct Cache<D: CacheDriver> {
 	pub driver: D,
 }
 
+assert_impl_all!(Cache<zbus::Connection>: Send);
+
 impl<D: CacheDriver> std::fmt::Debug for Cache<D> {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.write_str(&format!("Cache {{ tree: ...{} nodes..., .. }}", self.tree.len()))
@@ -303,7 +306,7 @@ pub trait CacheDriver {
 		&self,
 		key: &CacheKey,
 		ty: RelationType,
-	) -> impl Future<Output = OdiliaResult<Vec<ObjectRef>>> + Send;
+	) -> impl Future<Output = OdiliaResult<Vec<CacheKey>>> + Send;
 }
 
 impl CacheDriver for zbus::Connection {
@@ -322,7 +325,7 @@ impl CacheDriver for zbus::Connection {
 		&self,
 		key: &CacheKey,
 		ty: RelationType,
-	) -> OdiliaResult<Vec<ObjectRef>> {
+	) -> OdiliaResult<Vec<CacheKey>> {
 		let accessible = AccessibleProxy::builder(self)
 			.destination(key.sender.clone())?
 			.cache_properties(CacheProperties::No)
@@ -334,12 +337,20 @@ impl CacheDriver for zbus::Connection {
 			.await?
 			.into_iter()
 			.filter_map(|(rel_ty, vec)| if rel_ty == ty { Some(vec) } else { None })
+			.map(|vec| {
+				vec.into_iter()
+					.map(Into::<CacheKey>::into)
+					.collect::<Vec<CacheKey>>()
+			})
 			.next()
 			.unwrap_or_default())
 	}
 }
 
-impl<D: CacheDriver + Send> Cache<D> {
+impl<D: CacheDriver> Cache<D> {
+	async fn handle_event(&mut self, ev: Event) -> Result<CacheItem, OdiliaError> {
+		todo!()
+	}
 	async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
 		tracing::trace!("REQ: {req:?}");
 		match req {
@@ -354,31 +365,31 @@ impl<D: CacheDriver + Send> Cache<D> {
 					.await
 			}
 			CacheRequest::Children(ref key) => {
-				let item = self.get_or_create(&key).await?;
-				todo!("Children ref not implemented!")
-				//let children_futs: Vec<_> = item.children.iter()
-				//  .map(|ck| FutureExt::boxed(self.get_or_create(&ck)))
-				//  .collect();
-				//let children = children_futs
-				//  .try_join()
-				//  .await?;
-				// todo!()
-				//Ok(CacheResponse::Children(Children(children)))
+				let children_vec = self
+					.get_or_create(&key)
+					.await?
+					.children
+					.into_iter()
+					.map(Into::into)
+					.collect();
+				let children = self.get_or_create_all(children_vec).await?;
+				Ok(CacheResponse::Children(Children(children)))
 			}
 			CacheRequest::Relation(ref key, ty) => {
-				let rel_ids = self.driver.lookup_relations(key, ty).await?;
-				let rels_fut: Vec<_> = rel_ids
+				let rel_ids = self
+					.driver
+					.lookup_relations(key, ty)
+					.await?
 					.into_iter()
-					.map(|key| async move {
-						(&self).get_or_create(&key.into()).await
-					})
+					.map(Into::into)
 					.collect();
-				let rels = rels_fut.try_join().await?;
+				let rels = self.get_or_create_all(rel_ids).await?;
 				Ok(CacheResponse::Relations(Relations(ty, rels)))
 			}
-			CacheRequest::EventHandler(ref key) => {
-				todo!("Event handlers not implemented!")
-			}
+			CacheRequest::EventHandler(event) => self
+				.handle_event(event)
+				.await
+				.map(|item| CacheResponse::Item(Item(item))),
 		}
 	}
 }
@@ -392,20 +403,6 @@ impl<D: CacheDriver> Cache<D> {
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
 		Self { tree: HashMap::with_hasher(FxBuildHasher::default()), driver }
-	}
-	/// Add an item via a reference instead of creating the reference.
-	///
-	/// # Errors
-	///
-	/// - Try to add an item with partially missing data,
-	#[tracing::instrument(level = "trace")]
-	pub fn add(&mut self, mut cache_item: CacheItem) {
-		// Do not create new items when not necessary.
-		let key = cache_item.object.clone();
-		self.tree
-			.entry(key.clone())
-			.and_modify(|ci| *ci = cache_item.clone())
-			.or_insert(cache_item);
 	}
 
 	/// Remove a single cache item. This function can not fail.
@@ -435,18 +432,6 @@ impl<D: CacheDriver> Cache<D> {
 		ids.iter().map(|id| self.get(id)).collect()
 	}
 
-	/// Bulk add many items to the cache; only one accessible should ever be
-	/// associated with an id.
-	/// # Errors
-	/// An `Err(_)` variant may returned if the [`RelationSet`] fails to resolve to real IDs in the
-	/// cache.
-	#[tracing::instrument(level = "trace", skip(self), ret, err(level = "warn"))]
-	pub fn add_all(&mut self, cache_items: Vec<CacheItem>) -> OdiliaResult<()> {
-		for cache_item in cache_items {
-			self.add(cache_item);
-		}
-		Ok(())
-	}
 	/// Bulk remove all ids in the cache; this only refreshes the cache after removing all items.
 	#[tracing::instrument(level = "trace", ret, skip(self))]
 	pub fn remove_all(&mut self, ids: &[CacheKey]) {
@@ -455,26 +440,32 @@ impl<D: CacheDriver> Cache<D> {
 		}
 	}
 
+	fn add(&mut self, ci: CacheItem) -> CacheItem {
+		self.tree.insert(ci.object.clone(), ci.clone());
+		ci
+	}
+	fn add_all(&mut self, cis: Vec<CacheItem>) -> Vec<CacheItem> {
+		let clone = cis.clone();
+		for ci in cis.into_iter() {
+			self.add(ci);
+		}
+		clone
+	}
+
 	pub async fn get_or_create_all(
 		&mut self,
 		keys: Vec<CacheKey>,
 	) -> OdiliaResult<Vec<CacheItem>> {
-		// TODO: separate into new functions:
-		// get_all(Vec<Key>) -> Result<Vec<Item>>
-		// get(Key) -> Result<Item> (like currently with into_cache_item at the bottom of the file)
-		// get_or_create_all, which concurrently finds the cached elements via get_all, and uses `get_all` for the rest.
-		// NOTE: it _can not use_ get_or_create, but rather get_all that just works on a vec of values.
-		// get_or_create which checks the cache for a single item or uses the external lookup
-
-		// these must be separate methods; get_or_create_all` is fundmentallhy not the same operation done in a loop.
-		// it needs to separate the sections of code the require mutable borrowing (get_or_create) with the areas that don't.
-		// so it should find the ones it can (&self) using get, and go get the rest it needs (via as_cache_item(accessibleProxy) for the rest.
-		// The method will still take &mut self, but only to be used at the end where it inserts all the new items into the cache at once instead of trying to chain together many asynchronous calls to get_or_create.
-		let futs: Vec<_> = keys
-			.into_iter()
-			.map(|ck| async { self.get_or_create(&ck).await })
-			.collect();
-		futs.try_join().await
+		let items: Vec<CacheItem> = keys
+			.iter()
+			.map(|key| match self.tree.get(&key) {
+				Some(cache_item) => Either::Left(ok(cache_item.clone())),
+				None => Either::Right(self.driver.lookup_external(&key)),
+			})
+			.collect::<Vec<_>>()
+			.try_join()
+			.await?;
+		Ok(self.add_all(items))
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
