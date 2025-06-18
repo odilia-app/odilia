@@ -239,13 +239,26 @@ impl ScreenReaderState {
 			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
 	}
+
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
-	pub async fn get_or_create<T: EventProperties>(
+	/// Should always be called after [`cache_from_event`].
+	pub async fn get_or_create<E: EventProperties>(
 		&self,
-		event: &T,
+		event: &E,
 	) -> OdiliaResult<CacheItem> {
 		self.cache_actor
 			.request(CacheRequest::Item(event.object_ref().into()))
+			.await
+			.map(|cr| match cr {
+				CacheResponse::Item(Item(ci)) => ci,
+				e => panic!("Inappropriate response: {e:?}"),
+			})
+	}
+
+	#[tracing::instrument(skip_all, level = "debug", ret, err)]
+	pub async fn cache_from_event(&self, event: Event) -> OdiliaResult<CacheItem> {
+		self.cache_actor
+			.request(CacheRequest::EventHandler(event))
 			.await
 			.map(|cr| match cr {
 				CacheResponse::Item(Item(ci)) => ci,
