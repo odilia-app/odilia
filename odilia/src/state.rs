@@ -9,30 +9,21 @@ use async_channel::Sender;
 use atspi::{
 	connection::AccessibilityConnection,
 	events::{DBusMatchRule, EventProperties, RegistryEventString},
-	proxy::{accessible::AccessibleProxy, cache::CacheProxy},
 	Event,
 };
 use circular_queue::CircularQueue;
 use futures_util::future::{err, ok, Ready};
-use odilia_cache::{
-	AccessibleExt, Cache as InnerCache, CacheActor, CacheItem, CacheRequest, CacheResponse,
-	Convertable, Item,
-};
+use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, Item};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::OdiliaError,
 	events::EventType,
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
-	types::TextSelectionArea,
 	Result as OdiliaResult,
 };
-use ssip_client_async::{MessageScope, Priority, PunctuationMode, Request as SSIPRequest};
-use tracing::{debug, Instrument, Level};
-use zbus::{
-	fdo::DBusProxy, message::Type as MessageType, names::BusName, zvariant::ObjectPath,
-	MatchRule,
-};
+use ssip_client_async::{Priority, PunctuationMode, Request as SSIPRequest};
+use tracing::{Instrument, Level};
 
 use crate::tower::from_state::TryFromState;
 
@@ -43,21 +34,17 @@ impl Debug for ScreenReaderState {
 }
 
 #[allow(clippy::module_name_repetitions)]
-pub(crate) struct ScreenReaderState {
+pub struct ScreenReaderState {
 	pub atspi: AccessibilityConnection,
-	pub dbus: DBusProxy<'static>,
 	pub ssip: Sender<SSIPRequest>,
 	pub previous_caret_position: Arc<AtomicUsize>,
 	pub accessible_history: Arc<Mutex<CircularQueue<AccessiblePrimitive>>>,
-	pub event_history: Mutex<CircularQueue<Event>>,
 	pub cache_actor: CacheActor,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
-#[derive(Debug, Clone)]
-pub struct Cache(pub CacheActor);
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for AccessibleHistory {
 	type Error = OdiliaError;
@@ -173,18 +160,11 @@ impl ScreenReaderState {
 		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
 			.await?;
-		let dbus = DBusProxy::new(atspi.connection())
-			.instrument(tracing::debug_span!(
-				"creating dbus proxy for accessibility connection"
-			))
-			.await?;
 
 		tracing::debug!("Reading configuration");
 
 		let previous_caret_position = Arc::new(AtomicUsize::new(0));
 		let accessible_history = Arc::new(Mutex::new(CircularQueue::with_capacity(16)));
-		let event_history = Mutex::new(CircularQueue::with_capacity(16));
-		let cache = Arc::new(Mutex::new(InnerCache::new(atspi.connection().clone())));
 		ssip.send(SSIPRequest::SetPitch(
 			ssip_client_async::ClientScope::Current,
 			config.speech.pitch,
@@ -229,11 +209,9 @@ impl ScreenReaderState {
 		.await?;
 		Ok(Self {
 			atspi,
-			dbus,
 			ssip,
 			previous_caret_position,
 			accessible_history,
-			event_history,
 			cache_actor,
 			config: Arc::new(config),
 			children_pids: Arc::new(Mutex::new(Vec::new())),
@@ -258,7 +236,7 @@ impl ScreenReaderState {
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
 	pub async fn cache_from_event(&self, event: Event) -> OdiliaResult<CacheItem> {
 		self.cache_actor
-			.request(CacheRequest::EventHandler(event))
+			.request(CacheRequest::EventHandler(Box::new(event)))
 			.await
 			.map(|cr| match cr {
 				CacheResponse::Item(Item(ci)) => ci,
@@ -266,55 +244,6 @@ impl ScreenReaderState {
 			})
 	}
 
-	// TODO: use cache; this will uplift performance MASSIVELY, also TODO: use this function instad of manually generating speech every time.
-	#[allow(dead_code)]
-	pub async fn generate_speech_string(
-		&self,
-		acc: AccessibleProxy<'_>,
-		select: TextSelectionArea,
-	) -> OdiliaResult<String> {
-		let acc_text = acc.to_text().await?;
-		let _acc_hyper = acc.to_hyperlink().await?;
-		//let _full_text = acc_text.get_text_ext().await?;
-		let (mut text_selection, start, end) = match select {
-			TextSelectionArea::Granular(granular) => {
-				acc_text.get_string_at_offset(granular.index, granular.granularity)
-					.await?
-			}
-			TextSelectionArea::Index(indexed) => (
-				acc_text.get_text(indexed.start, indexed.end).await?,
-				indexed.start,
-				indexed.end,
-			),
-		};
-		// TODO: Use streaming filters, or create custom function
-		let children = acc.get_children_ext().await?;
-		let mut children_in_range = Vec::new();
-		for child in children {
-			let child_hyper = child.to_hyperlink().await?;
-			let index = child_hyper.start_index().await?;
-			if index >= start && index <= end {
-				children_in_range.push(child);
-			}
-		}
-		for child in children_in_range {
-			let child_hyper = child.to_hyperlink().await?;
-			let child_start = usize::try_from(child_hyper.start_index().await?)?;
-			let child_end = usize::try_from(child_hyper.end_index().await?)?;
-			let child_text = format!(
-				"{}, {}",
-				child.name().await?,
-				child.get_role_name().await?
-			);
-			text_selection.replace_range(
-				child_start + (usize::try_from(start)?)
-					..child_end + (usize::try_from(start)?),
-				&child_text,
-			);
-		}
-		// TODO: add logic for punctuation
-		Ok(text_selection)
-	}
 	#[tracing::instrument(skip_all, err)]
 	pub async fn register_event<E: RegistryEventString + DBusMatchRule>(
 		&self,
@@ -331,10 +260,6 @@ impl ScreenReaderState {
 
 	pub fn connection(&self) -> &zbus::Connection {
 		self.atspi.connection()
-	}
-	#[tracing::instrument(skip(self))]
-	pub async fn stop_speech(&self) -> bool {
-		self.ssip.send(SSIPRequest::Cancel(MessageScope::All)).await.is_ok()
 	}
 	#[tracing::instrument(name = "closing speech dispatcher connection", skip(self))]
 	pub async fn close_speech(&self) -> bool {
@@ -362,51 +287,11 @@ impl ScreenReaderState {
 		true
 	}
 
-	#[allow(dead_code)]
-	pub fn event_history_item(&self, index: usize) -> Option<Event> {
-		let history = self.event_history.lock().ok()?;
-		history.iter().nth(index).cloned()
-	}
-
-	pub fn event_history_update(&self, event: Event) {
-		if let Ok(mut history) = self.event_history.lock() {
-			history.push(event);
-		}
-	}
-
 	pub fn history_item(&self, index: usize) -> Option<AccessiblePrimitive> {
 		let history = self.accessible_history.lock().ok()?;
 		history.iter().nth(index).cloned()
 	}
 
-	/// Adds a new accessible to the history. We only store 16 previous accessibles, but theoretically, it should be lower.
-	pub fn update_accessible(&self, new_a11y: AccessiblePrimitive) {
-		if let Ok(mut history) = self.accessible_history.lock() {
-			history.push(new_a11y);
-		}
-	}
-	pub async fn build_cache<'a, T>(&self, dest: T) -> OdiliaResult<CacheProxy<'a>>
-	where
-		T: std::fmt::Display,
-		T: TryInto<BusName<'a>>,
-		<T as TryInto<BusName<'a>>>::Error: Into<zbus::Error>,
-	{
-		debug!("CACHE SENDER: {dest}");
-		Ok(CacheProxy::builder(self.connection())
-			.destination(dest)?
-			.path(ObjectPath::from_static_str("/org/a11y/atspi/cache")?)?
-			.build()
-			.await?)
-	}
-	#[tracing::instrument(skip_all, err)]
-	pub async fn add_cache_match_rule(&self) -> OdiliaResult<()> {
-		let cache_rule = MatchRule::builder()
-			.msg_type(MessageType::Signal)
-			.interface("org.a11y.atspi.Cache")?
-			.build();
-		self.dbus.add_match_rule(cache_rule).await?;
-		Ok(())
-	}
 	#[tracing::instrument(skip_all, err)]
 	pub fn add_child_proc(&self, child: Child) -> OdiliaResult<()> {
 		let mut children = self.children_pids.lock()?;

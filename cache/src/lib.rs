@@ -11,17 +11,10 @@
 mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
-use std::{
-	collections::{HashMap, VecDeque},
-	fmt,
-	fmt::Debug,
-	future::Future,
-	sync::Arc,
-};
+use std::{collections::HashMap, fmt, fmt::Debug, future::Future};
 mod relation_set;
-use relation_set::{RelationSet, Relations};
+pub use relation_set::{RelationSet, Relations};
 mod event_handlers;
-use std::pin::pin;
 
 pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
@@ -29,7 +22,6 @@ use atspi::{
 	proxy::{accessible::AccessibleProxy, text::TextProxy},
 	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
 };
-use dashmap::DashMap;
 pub use event_handlers::{
 	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
 	DescribedBy, DescriptionFor, Details, DetailsFor, EmbeddedBy, Embeds, ErrorFor,
@@ -37,16 +29,14 @@ pub use event_handlers::{
 	NodeChildOf, NodeParentOf, Parent, ParentWindowOf, PopupFor, SubwindowOf,
 };
 use futures_concurrency::future::TryJoin;
-use futures_lite::{future::FutureExt as LiteExt, stream::StreamExt};
-use futures_util::future::{ok, try_join_all, Either, FutureExt, TryFutureExt};
+use futures_lite::future::FutureExt as LiteExt;
+use futures_util::future::{ok, Either, FutureExt, TryFutureExt};
 use fxhash::FxBuildHasher;
-use indextree::{Arena, NodeId};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
-use parking_lot::RwLock;
 use serde::{Deserialize, Serialize};
 use smol_cancellation_token::CancellationToken;
 use static_assertions::assert_impl_all;
@@ -74,6 +64,7 @@ pub struct CacheActor {
 }
 
 impl CacheActor {
+	#[must_use]
 	pub fn new(
 		send: Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>,
 	) -> Self {
@@ -93,6 +84,15 @@ impl From<Sender<(CacheRequest, Sender<Result<CacheResponse, OdiliaError>>)>> fo
 	}
 }
 impl CacheActor {
+	/// Request the [`CacheRequest`] from the cache.
+	///
+	/// # Errors
+	///
+	/// The possible errors are outlined in [`CacheError`].
+	///
+	/// # Panics
+	///
+	/// If the receiver for the response is dropped.
 	pub async fn request(&self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
 		let (reply, recv) = bounded(1);
 		self.send
@@ -108,7 +108,7 @@ pub type ActorSend = Sender<ActorRequest>;
 pub type ActorRecv = Receiver<ActorRequest>;
 
 pub async fn cache_handler_task<D: CacheDriver + Send>(
-	mut recv: ActorRecv,
+	recv: ActorRecv,
 	shutdown: CancellationToken,
 	mut cache: Cache<D>,
 ) {
@@ -128,82 +128,25 @@ pub async fn cache_handler_task<D: CacheDriver + Send>(
 		tracing::trace!("REQ: {request:?}");
 		let maybe_cache_item = cache.request(request).await;
 		match response.send(maybe_cache_item).await {
-			Ok(_) => tracing::trace!("Successful sending cache item back!"),
+			Ok(()) => tracing::trace!("Successful sending cache item back!"),
 			Err(e) => {
-				tracing::error!(error = %e, "Error sending cache item back to requester!")
+				tracing::error!(error = %e, "Error sending cache item back to requester!");
 			}
 		}
 	}
 }
 
-pub trait AllText {
+trait AllText {
 	async fn get_all_text(self) -> Result<String, zbus::Error>;
 }
 impl AllText for TextProxy<'_> {
 	async fn get_all_text(self) -> Result<String, zbus::Error> {
 		let length_of_string = self.character_count().await?;
-		Ok(self.get_text(0, length_of_string).await?)
+		self.get_text(0, length_of_string).await
 	}
 }
 
 pub type CacheKey = AccessiblePrimitive;
-type ThreadSafeCache = Arc<RwLock<Arena<CacheItem>>>;
-type IdLookupTable = Arc<DashMap<CacheKey, NodeId, FxBuildHasher>>;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-enum Field<T> {
-	Fresh(T),
-	Stale,
-}
-impl<T> Field<T> {
-	fn unwrap(self) -> T {
-		match self {
-			Field::Fresh(t) => t,
-			Field::Stale => {
-				panic!("Attempted to unwrap a stale piece of state!");
-			}
-		}
-	}
-}
-
-impl<T> Field<T> {
-	fn is_fresh(&self) -> bool {
-		match self {
-			Field::Fresh(_) => true,
-			Field::Stale => false,
-		}
-	}
-}
-
-impl<T> Field<T>
-where
-	T: FieldExt + Clone,
-{
-	/// Get the item, or go get it from DBus.
-	/// This should only fail if there is some sort of extrme circumstance.
-	async fn get_or_replace<D: CacheDriver>(
-		&mut self,
-		key: &CacheKey,
-		cache: &mut D,
-	) -> Result<T, OdiliaError> {
-		match self {
-			Field::Fresh(t) => Ok(t.clone()),
-			Field::Stale => {
-				let new_t = T::get_field::<D>(key, cache).await?;
-				*self = Field::Fresh(new_t.clone());
-				Ok(new_t)
-			}
-		}
-	}
-}
-
-trait FieldExt: Sized {
-	async fn get_field<D: CacheDriver>(
-		key: &CacheKey,
-		cache: &mut D,
-	) -> Result<Self, OdiliaError>;
-}
-
 type NewCache = HashMap<CacheKey, CacheItem, FxBuildHasher>;
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -355,39 +298,27 @@ impl<D: CacheDriver + Send> Cache<D> {
 		tracing::trace!("REQ: {req:?}");
 		match req {
 			CacheRequest::Item(ref key) => {
-				self.get_or_create(&key)
+				self.get_or_create(key)
 					.map_ok(|ci| CacheResponse::Item(Item(ci)))
 					.await
 			}
 			CacheRequest::Parent(ref key) => {
-				self.get_or_create(&key)
+				self.get_or_create(key)
 					.map_ok(|ci| CacheResponse::Parent(Parent(ci)))
 					.await
 			}
 			CacheRequest::Children(ref key) => {
-				let children_vec = self
-					.get_or_create(&key)
-					.await?
-					.children
-					.into_iter()
-					.map(Into::into)
-					.collect();
+				let children_vec = self.get_or_create(key).await?.children;
 				let children = self.get_or_create_all(children_vec).await?;
 				Ok(CacheResponse::Children(Children(children)))
 			}
 			CacheRequest::Relation(ref key, ty) => {
-				let rel_ids = self
-					.driver
-					.lookup_relations(key, ty)
-					.await?
-					.into_iter()
-					.map(Into::into)
-					.collect();
+				let rel_ids = self.driver.lookup_relations(key, ty).await?;
 				let rels = self.get_or_create_all(rel_ids).await?;
 				Ok(CacheResponse::Relations(Relations(ty, rels)))
 			}
 			CacheRequest::EventHandler(event) => self
-				.handle_event(event)
+				.handle_event(*event)
 				.await
 				.map(|item| CacheResponse::Item(Item(item))),
 		}
@@ -448,7 +379,7 @@ impl<D: CacheDriver> Cache<D> {
 	}
 	fn add_all(&mut self, cis: Vec<CacheItem>) -> Vec<CacheItem> {
 		let clone = cis.clone();
-		for ci in cis.into_iter() {
+		for ci in cis {
 			self.add(ci);
 		}
 		clone
@@ -457,9 +388,9 @@ impl<D: CacheDriver> Cache<D> {
 	async fn get_or_create_all(&mut self, keys: Vec<CacheKey>) -> OdiliaResult<Vec<CacheItem>> {
 		let items: Vec<CacheItem> = keys
 			.iter()
-			.map(|key| match self.tree.get(&key) {
+			.map(|key| match self.tree.get(key) {
 				Some(cache_item) => Either::Left(ok(cache_item.clone())),
-				None => Either::Right(self.driver.lookup_external(&key)),
+				None => Either::Right(self.driver.lookup_external(key)),
 			})
 			.collect::<Vec<_>>()
 			.try_join()
@@ -469,6 +400,10 @@ impl<D: CacheDriver> Cache<D> {
 
 	/// Modify the given item with closure [`F`] if it was already contained in the cache.
 	/// Otherwise, fetch a new item over the [`CacheDriver`].
+	///
+	/// # Errors
+	///
+	/// See: [`get_or_create`]
 	pub async fn modify_if_not_new<F>(
 		&mut self,
 		key: &AccessiblePrimitive,
@@ -478,11 +413,11 @@ impl<D: CacheDriver> Cache<D> {
 		F: FnOnce(&mut CacheItem),
 	{
 		// if the item already exists in the cache, modify it
-		if let Some(mut cache_item) = self.tree.get_mut(key) {
+		if let Some(cache_item) = self.tree.get_mut(key) {
 			f(cache_item);
 			return Ok(cache_item.clone());
 		}
-		let cache_item = self.driver.lookup_external(&key).await?;
+		let cache_item = self.driver.lookup_external(key).await?;
 		self.tree.insert(key.clone(), cache_item.clone());
 		Ok(cache_item)
 	}
@@ -504,7 +439,7 @@ impl<D: CacheDriver> Cache<D> {
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
 		}
-		let cache_item = self.driver.lookup_external(&key).await?;
+		let cache_item = self.driver.lookup_external(key).await?;
 		self.tree.insert(key.clone(), cache_item.clone());
 		Ok(cache_item)
 	}
@@ -528,19 +463,7 @@ impl<D: CacheDriver> Cache<D> {
 /// 3. Any `(String, OwnedObjectPath) -> AccessiblePrimitive` conversions fail. This *should* never happen, but technically it is possible.
 #[tracing::instrument(level = "trace", ret, err(level = "warn"))]
 pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> OdiliaResult<CacheItem> {
-	let (
-		app,
-		parent,
-		index,
-		children_num,
-		interfaces,
-		role,
-		states,
-		children,
-		name,
-		description,
-		help_text,
-	) = (
+	let props = (
 		accessible.get_application(),
 		accessible.parent(),
 		accessible.get_index_in_parent(),
@@ -549,6 +472,9 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible.get_role(),
 		accessible.get_state(),
 		accessible.get_children(),
+	)
+		.try_join();
+	let maps = (
 		accessible
 			.name()
 			.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
@@ -558,19 +484,26 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible
 			.help_text()
 			.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+		accessible
+			.to_text()
+			.and_then(|text_proxy| {
+				text_proxy.get_all_text().map_ok(|s| {
+					if s.is_empty() {
+						None
+					} else {
+						Some(s)
+					}
+				})
+			})
+			.unwrap_or_else(|_| None)
+			.map(Ok),
 	)
-		.try_join()
-		.await?;
-	let text = accessible
-		.to_text()
-		.and_then(|text_proxy| {
-			text_proxy
-				.get_all_text()
-				.map_ok(|s| if s.is_empty() { None } else { Some(s) })
-		})
-		.await
-		.ok()
-		.flatten();
+		.try_join();
+	let (
+		(app, parent, index, children_num, interfaces, role, states, children),
+		(name, description, help_text, text),
+	) = (props, maps).try_join().await?;
+
 	let ci = CacheItem {
 		object: accessible.into(),
 		app: app.into(),
