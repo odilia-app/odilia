@@ -5,7 +5,7 @@ use atspi::{
 		object::StateChangedEvent, DBusInterface, DBusMatchRule, DBusMember,
 		DBusProperties, MessageConversion, RegistryEventString,
 	},
-	AtspiError, EventProperties, EventTypeProperties, State as AtspiState,
+	AtspiError, Event, EventProperties, EventTypeProperties, State as AtspiState,
 };
 use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
@@ -16,6 +16,11 @@ pub type Focused = StateChanged<StateFocused, True>;
 pub struct StateChanged<S, E> {
 	ev: StateChangedEvent,
 	_marker: PhantomData<(S, E)>,
+}
+impl<S, E> From<StateChanged<S, E>> for Event {
+	fn from(sc: StateChanged<S, E>) -> Event {
+		sc.ev.into()
+	}
 }
 impl<S, E> EventProperties for StateChanged<S, E> {
 	fn sender(&self) -> UniqueName<'_> {
