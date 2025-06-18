@@ -1,4 +1,7 @@
-use std::fmt::Write;
+use std::{
+	cmp::{max, min},
+	fmt::Write,
+};
 
 use atspi::events::{
 	document::LoadCompleteEvent,
@@ -6,7 +9,7 @@ use atspi::events::{
 };
 use odilia_cache::LabelledBy;
 use odilia_common::{
-	command::{Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
+	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
 	errors::OdiliaError,
 };
 use ssip::Priority;
@@ -68,32 +71,32 @@ pub async fn caret_moved(
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
 ) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-	/*
-	      let mut commands: Vec<OdiliaCommand> =
-		      vec![CaretPos(caret_moved.inner.position.try_into()?).into()];
-
-	      if last_focus == caret_moved.item.object {
-		      let start = min(caret_moved.inner.position.try_into()?, last_pos);
-		      let end = max(caret_moved.inner.position.try_into()?, last_pos);
-		      if let Some(text) = caret_moved.item.text.get(start..end) {
-			      commands.extend((Priority::Text, text.to_string()).into_commands());
-		      } else {
-			      return Err(OdiliaError::Generic(format!(
-				      "Slide {}..{} could not be created from {}",
-				      start, end, caret_moved.item.text
-			      )));
-		      }
-	      } else {
-		      let (text, _, _) = caret_moved
-			      .item
-			      .get_string_at_offset(
-				      caret_moved.inner.position.try_into()?,
-				      Granularity::Line,
-			      )
-			      .await?;
-		      commands.extend((Priority::Text, text).into_commands());
-	      }
-	      Ok(commands)
-	*/
-	Ok(Vec::new())
+	let new_caret_pos = CaretPos(caret_moved.position as usize).into();
+	let new_focus = Focus(caret_moved.inner.item.clone().into()).into();
+	if let Some(ref text) = caret_moved.item.text {
+		if last_focus == caret_moved.item.object {
+			let min = min(caret_moved.position as usize, last_pos);
+			let max = max(caret_moved.position as usize, last_pos);
+			if let Some(text_slice) = text.get(min..max) {
+				Ok(vec![
+					new_focus,
+					new_caret_pos,
+					Speak(text_slice.to_string(), Priority::Text).into(),
+				])
+			} else {
+				tracing::error!(
+					"Can't read the text {text} at indecies {min}..{max}"
+				);
+				Ok(vec![new_focus, new_caret_pos])
+			}
+		} else {
+			Ok(vec![
+				new_focus,
+				new_caret_pos,
+				Speak(text.to_string(), Priority::Text).into(),
+			])
+		}
+	} else {
+		Ok(vec![new_focus, new_caret_pos])
+	}
 }
