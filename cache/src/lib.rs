@@ -33,8 +33,8 @@ use dashmap::DashMap;
 pub use event_handlers::{
 	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
 	DescribedBy, DescriptionFor, Details, DetailsFor, EmbeddedBy, Embeds, ErrorFor,
-	ErrorMessage, FlowsFrom, FlowsTo, Item, LabelFor, LabelledBy, MemberOf, NodeChildOf,
-	NodeParentOf, Parent, ParentWindowOf, PopupFor, SubwindowOf,
+	ErrorMessage, EventHandler, FlowsFrom, FlowsTo, Item, LabelFor, LabelledBy, MemberOf,
+	NodeChildOf, NodeParentOf, Parent, ParentWindowOf, PopupFor, SubwindowOf,
 };
 use futures_concurrency::future::TryJoin;
 use futures_lite::{future::FutureExt as LiteExt, stream::StreamExt};
@@ -107,7 +107,7 @@ pub type ActorRequest = (CacheRequest, Sender<Result<CacheResponse, OdiliaError>
 pub type ActorSend = Sender<ActorRequest>;
 pub type ActorRecv = Receiver<ActorRequest>;
 
-pub async fn cache_handler_task<D: CacheDriver>(
+pub async fn cache_handler_task<D: CacheDriver + Send>(
 	mut recv: ActorRecv,
 	shutdown: CancellationToken,
 	mut cache: Cache<D>,
@@ -347,9 +347,9 @@ impl CacheDriver for zbus::Connection {
 	}
 }
 
-impl<D: CacheDriver> Cache<D> {
+impl<D: CacheDriver + Send> Cache<D> {
 	async fn handle_event(&mut self, ev: Event) -> Result<CacheItem, OdiliaError> {
-		todo!()
+		ev.handle_event(self).await
 	}
 	async fn request(&mut self, req: CacheRequest) -> Result<CacheResponse, OdiliaError> {
 		tracing::trace!("REQ: {req:?}");
@@ -407,10 +407,12 @@ impl<D: CacheDriver> Cache<D> {
 
 	/// Remove a single cache item. This function can not fail.
 	#[tracing::instrument(level = "trace", skip(self))]
-	pub fn remove(&mut self, id: &CacheKey) {
-		if self.tree.remove(id).is_none() {
+	pub fn remove(&mut self, id: &CacheKey) -> Option<CacheItem> {
+		let Some(item) = self.tree.remove(id) else {
 			tracing::warn!("Attempted to remove an item that doesn't exist: {id:?}");
+			return None;
 		};
+		Some(item)
 	}
 
 	/// Get a single item from the cache.
@@ -452,10 +454,7 @@ impl<D: CacheDriver> Cache<D> {
 		clone
 	}
 
-	pub async fn get_or_create_all(
-		&mut self,
-		keys: Vec<CacheKey>,
-	) -> OdiliaResult<Vec<CacheItem>> {
+	async fn get_or_create_all(&mut self, keys: Vec<CacheKey>) -> OdiliaResult<Vec<CacheItem>> {
 		let items: Vec<CacheItem> = keys
 			.iter()
 			.map(|key| match self.tree.get(&key) {
@@ -466,6 +465,26 @@ impl<D: CacheDriver> Cache<D> {
 			.try_join()
 			.await?;
 		Ok(self.add_all(items))
+	}
+
+	/// Modify the given item with closure [`F`] if it was already contained in the cache.
+	/// Otherwise, fetch a new item over the [`CacheDriver`].
+	pub async fn modify_if_not_new<F>(
+		&mut self,
+		key: &AccessiblePrimitive,
+		f: F,
+	) -> OdiliaResult<CacheItem>
+	where
+		F: FnOnce(&mut CacheItem),
+	{
+		// if the item already exists in the cache, modify it
+		if let Some(mut cache_item) = self.tree.get_mut(key) {
+			f(cache_item);
+			return Ok(cache_item.clone());
+		}
+		let cache_item = self.driver.lookup_external(&key).await?;
+		self.tree.insert(key.clone(), cache_item.clone());
+		Ok(cache_item)
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
@@ -480,10 +499,7 @@ impl<D: CacheDriver> Cache<D> {
 	///
 	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
 	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
-	pub async fn get_or_create(
-		&mut self,
-		key: &AccessiblePrimitive,
-	) -> OdiliaResult<CacheItem> {
+	async fn get_or_create(&mut self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
