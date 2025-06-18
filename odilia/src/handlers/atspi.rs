@@ -81,6 +81,9 @@ pub async fn caret_moved(
 		if last_focus == caret_moved.item.object {
 			let min = min(pos, last_pos);
 			let max = max(pos, last_pos);
+			if min == 0 && max == 0 {
+				return Ok(vec![new_focus, new_caret_pos]);
+			}
 			if let Some(text_slice) = text.get(min..max) {
 				Ok(vec![
 					new_focus,
