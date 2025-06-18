@@ -1,7 +1,7 @@
 use std::{fmt::Debug, future::Future, marker::PhantomData, ops::Deref, pin::Pin, sync::Arc};
 
-use atspi::EventProperties;
-use odilia_cache::CacheItem;
+use atspi::{Event, EventProperties};
+use odilia_cache::{Cache, CacheDriver, CacheItem, EventHandler};
 use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
@@ -38,6 +38,7 @@ pub struct EventPredicate<E: EventProperties + Debug, P: Predicate<(E, Arc<Scree
 	pub item: CacheItem,
 	_marker: PhantomData<P>,
 }
+
 impl<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> Deref
 	for EventPredicate<E, P>
 {
@@ -81,24 +82,9 @@ where
 	}
 }
 
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for InnerEvent<E>
-where
-	E: EventProperties + Debug + Clone + Send + Sync + Unpin + 'static,
-{
-	type Error = OdiliaError;
-	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
-	#[tracing::instrument(skip(state), level = "trace", ret)]
-	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
-		Box::pin(async move {
-			let cache_item = state.get_or_create(&event).await?;
-			Ok(InnerEvent::new(event, cache_item))
-		})
-	}
-}
-
 impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for EventPredicate<E, P>
 where
-	E: EventProperties + Debug + Clone + Send + Sync + 'static,
+	E: EventProperties + Into<Event> + Debug + Clone + Send + Sync + 'static,
 	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
 {
 	type Error = OdiliaError;
@@ -106,7 +92,8 @@ where
 	#[tracing::instrument(skip(state), level = "trace", ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let cache_item = state.get_or_create(&event).await?;
+			let event_any: Event = event.clone().into();
+			let cache_item = state.cache_from_event(event_any).await?;
 			let cache_event = InnerEvent::new(event.clone(), cache_item);
 			EventPredicate::from_cache_event(cache_event, state).ok_or(
 				OdiliaError::PredicateFailure(format!(
@@ -129,5 +116,15 @@ where
 	}
 	fn sender(&self) -> UniqueName<'_> {
 		self.inner.sender()
+	}
+}
+
+impl<E, P> From<EventPredicate<E, P>> for Event
+where
+	E: Into<Event> + Debug + EventProperties,
+	P: Predicate<(E, Arc<ScreenReaderState>)>,
+{
+	fn from(pred: EventPredicate<E, P>) -> Self {
+		pred.inner.into()
 	}
 }
