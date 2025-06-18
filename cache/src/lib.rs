@@ -373,11 +373,11 @@ impl<D: CacheDriver> Cache<D> {
 		}
 	}
 
-	fn add(&mut self, ci: CacheItem) -> CacheItem {
+	pub fn add(&mut self, ci: CacheItem) -> CacheItem {
 		self.tree.insert(ci.object.clone(), ci.clone());
 		ci
 	}
-	fn add_all(&mut self, cis: Vec<CacheItem>) -> Vec<CacheItem> {
+	pub fn add_all(&mut self, cis: Vec<CacheItem>) -> Vec<CacheItem> {
 		let clone = cis.clone();
 		for ci in cis {
 			self.add(ci);

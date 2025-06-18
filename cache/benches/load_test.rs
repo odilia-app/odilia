@@ -1,20 +1,31 @@
 use std::{collections::VecDeque, hint::black_box, sync::Arc, time::Duration};
 
+use async_channel::bounded;
+use atspi::RelationType;
 use criterion::{
 	async_executor::{AsyncExecutor, SmolExecutor},
 	criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
 };
 use futures_concurrency::future::Race;
 use futures_lite::future::{fuse, FutureExt};
-use indextree::{Arena, NodeId};
-use odilia_cache::{Cache, CacheDriver, CacheItem, CacheKey};
+use odilia_cache::{
+	cache_handler_task, Cache, CacheActor, CacheDriver, CacheItem, CacheKey, CacheRequest,
+};
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
+use smol_cancellation_token::CancellationToken;
 
 pub struct TestDriver;
 
 impl CacheDriver for TestDriver {
 	async fn lookup_external(&self, _key: &CacheKey) -> OdiliaResult<CacheItem> {
-		panic!("This driver (NoDriver) should never be called!");
+		panic!("This driver (TestDriver) should never be called!");
+	}
+	async fn lookup_relations(
+		&self,
+		_key: &CacheKey,
+		_rel: RelationType,
+	) -> OdiliaResult<Vec<CacheKey>> {
+		panic!("This driver (TestDriver) should never be called!");
 	}
 }
 
@@ -35,20 +46,25 @@ fn add(cache: &Cache<TestDriver>, items: Vec<CacheItem>) {
 const ROOT_A11Y: &str = "/org/a11y/atspi/accessible/root";
 
 /// For each child, fetch all of its ancestors via `NodeId::ancestors`.
-async fn traverse_up_refs(children: Vec<NodeId>, arena: &Arena<CacheItem>) {
-	// for each child, try going up to the root
+async fn traverse_up_refs(children: Vec<CacheKey>, cache: &Cache<TestDriver>) {
 	for child_ref in children {
-		child_ref.ancestors(arena).for_each(|anc| {
-			let _ = black_box(anc);
-		});
+		let mut item_ref = child_ref;
+		loop {
+			let item = cache.get(&item_ref).unwrap();
+			let _root = ROOT_A11Y;
+			if matches!(&item.object.id, _root) {
+				break;
+			}
+			item_ref = item.parent;
+		}
 	}
 }
 
 /// Depth first traversal
-fn traverse_depth_first((root, cache): (NodeId, &Cache<TestDriver>)) -> Result<(), OdiliaError> {
-	let lock = cache.tree.read();
-	for child in root.descendants(&lock) {
-		black_box(child);
+fn traverse_depth_first((root, cache): (CacheItem, &Cache<TestDriver>)) -> Result<(), OdiliaError> {
+	for child_id in root.children {
+		let child = cache.get(&child_id).unwrap();
+		traverse_depth_first((child, cache))?;
 	}
 	Ok(())
 }
@@ -64,9 +80,18 @@ async fn reads_while_writing(
 	enum TaskName {
 		Reader,
 		Writer,
+		Actor,
 	}
-	let cache_1 = Arc::new(cache);
-	let cache_2 = Arc::clone(&cache_1);
+	let (tx, rx) = bounded(1024);
+	let actor = CacheActor::new(tx);
+	let cache_1 = actor.clone();
+	let cache_2 = actor.clone();
+	let token = CancellationToken::new();
+	let actor_handle = fuse(async move {
+		cache_handler_task(rx, token.clone(), cache).await;
+		TaskName::Actor
+	})
+	.boxed();
 	let mut write_handle = fuse(async move {
 		let _ = cache_1.add_all(items);
 		TaskName::Writer
@@ -78,7 +103,11 @@ async fn reads_while_writing(
 			match ids.pop_front() {
 				None => break, // we're done
 				Some(id) => {
-					if cache_2.id_lookup.get(&id).is_none() {
+					if cache_2
+						.request(CacheRequest::Item(id.into()))
+						.await
+						.is_err()
+					{
 						ids.push_back(id);
 					}
 				}
@@ -88,8 +117,12 @@ async fn reads_while_writing(
 	})
 	.boxed();
 	loop {
-		let finished = [&mut write_handle, &mut read_handle].race().await;
+		let finished =
+			[&mut write_handle, &mut read_handle, &mut actor_handle].race().await;
 		if finished == TaskName::Reader {
+			token.cancel();
+		}
+		if finished == TaskName::Actor {
 			break;
 		}
 	}
@@ -140,30 +173,28 @@ fn cache_benchmark(c: &mut Criterion) {
 		);
 	});
 
-	let (cache, children): (Arc<Cache<TestDriver>>, Vec<NodeId>) =
+	let (cache, children): (Arc<Cache<TestDriver>>, Vec<CacheKey>) =
 		SmolExecutor.block_on(async {
 			let cache = Arc::new(Cache::new(TestDriver));
 			let all_items: Vec<CacheItem> = wcag_items.clone();
 			let _ = cache.add_all(all_items);
-			let read_cache = cache.tree.read();
-			let children = read_cache
+			let children = cache
+				.tree
 				.iter()
 				.filter_map(|entry| {
-					if entry.first_child().is_none() {
-						read_cache.get_node_id(entry)
+					if entry.1.children.is_empty() {
+						Some(*entry.0)
 					} else {
 						None
 					}
 				})
 				.collect();
-			drop(read_cache);
 			(cache, children)
 		});
-	let read_cache = cache.tree.read();
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(SmolExecutor).iter_batched(
 			|| children.clone(),
-			|cs| async { traverse_up_refs(cs, &read_cache).await },
+			|cs| async { traverse_up_refs(cs, &cache).await },
 			BatchSize::SmallInput,
 		);
 	});
@@ -172,12 +203,11 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.iter_batched(
 			|| {
 				(
-					*cache.id_lookup
-						.get(&AccessiblePrimitive {
-							id: ROOT_A11Y.to_string(),
-							sender: ":1.30".into(),
-						})
-						.unwrap(),
+					cache.get(&AccessiblePrimitive {
+						id: ROOT_A11Y.to_string(),
+						sender: ":1.30".into(),
+					})
+					.unwrap(),
 					&cache,
 				)
 			},
