@@ -1,7 +1,7 @@
 use std::{fmt::Debug, future::Future, marker::PhantomData, ops::Deref, pin::Pin, sync::Arc};
 
 use atspi::{Event, EventProperties};
-use odilia_cache::{Cache, CacheDriver, CacheItem, EventHandler};
+use odilia_cache::CacheItem;
 use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 

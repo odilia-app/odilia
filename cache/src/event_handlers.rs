@@ -1,7 +1,4 @@
-use std::{
-	marker::PhantomData,
-	ops::{Bound, Deref, DerefMut},
-};
+use std::ops::{Deref, DerefMut};
 
 use atspi::{
 	events::{
@@ -22,11 +19,11 @@ use atspi::{
 			TextChangedEvent, TextSelectionChangedEvent, VisibleDataChangedEvent,
 		},
 		terminal::{
-			self, ApplicationChangedEvent, CharWidthChangedEvent,
-			ColumnCountChangedEvent, LineChangedEvent, LineCountChangedEvent,
+			ApplicationChangedEvent, CharWidthChangedEvent, ColumnCountChangedEvent,
+			LineChangedEvent, LineCountChangedEvent,
 		},
 		window::{
-			self, ActivateEvent, CloseEvent, CreateEvent, DeactivateEvent,
+			ActivateEvent, CloseEvent, CreateEvent, DeactivateEvent,
 			DesktopCreateEvent, DesktopDestroyEvent, DestroyEvent, LowerEvent,
 			MaximizeEvent, MinimizeEvent, MoveEvent, RaiseEvent, ReparentEvent,
 			ResizeEvent, RestoreEvent, RestyleEvent, ShadeEvent, UUshadeEvent,
@@ -36,19 +33,16 @@ use atspi::{
 	DocumentEvents, KeyboardEvents, MouseEvents, Operation, State, TerminalEvents,
 	WindowEvents,
 };
-use static_assertions::assert_impl_all;
 
 use crate::{
-	Cache, CacheDriver, CacheError, CacheItem, CacheKey, Future, OdiliaError, RelationSet,
-	RelationType, Relations,
+	Cache, CacheDriver, CacheError, CacheItem, CacheKey, Future, OdiliaError, RelationType,
+	Relations,
 };
 
 pub trait ConstRelationType {
 	const RELATION_TYPE: RelationType;
 	type InnerStore;
 }
-
-pub struct Relationships<T: ConstRelationType>(pub T::InnerStore);
 
 //pub struct Relations<T: ConstRelationType>(Vec<CacheItem>, T);
 //impl<T: ConstRelationType> Deref for Relations<T> {
@@ -106,7 +100,7 @@ pub enum CacheRequest {
 	Parent(CacheKey),
 	Children(CacheKey),
 	Relation(CacheKey, RelationType),
-	EventHandler(Event),
+	EventHandler(Box<Event>),
 }
 
 #[derive(Debug)]
@@ -174,7 +168,7 @@ impl EventHandler for PropertyChangeEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		cache.modify_if_not_new(&key, |mut item| {
+		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
 			match self.value {
 				Property::Role(role) => {
 					item.role = role;
@@ -206,7 +200,7 @@ impl EventHandler for StateChangedEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		cache.modify_if_not_new(&key, |mut item| {
+		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
 			if self.enabled {
 				item.states.insert(self.state);
 			} else {
@@ -222,15 +216,20 @@ impl EventHandler for TextChangedEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		let start = self.start_pos as usize;
-		let len = self.length as usize;
-		let end = start + len;
-		cache.modify_if_not_new(&key, |mut item| {
+		let start = self
+			.start_pos
+			.try_into()
+			.expect("Positive index for text insertion/deletion");
+		let len: usize = self
+			.length
+			.try_into()
+			.expect("Positive length for text insertion/deletion");
+		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
         match (self.operation, item.text.as_mut()) {
-            (Operation::Insert, Some(mut text)) => {
+            (Operation::Insert, Some(text)) => {
                 text.insert_str(start, self.text.as_str());
             },
-            (Operation::Delete, Some(mut text)) => {
+            (Operation::Delete, Some(text)) => {
                 text.drain(start..(start+len));
             },
             (Operation::Insert, None) => {
@@ -250,8 +249,11 @@ impl EventHandler for ChildrenChangedEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		let index = self.index_in_parent as usize;
-		cache.modify_if_not_new(&key, |mut cache_item| match self.operation {
+		let index = self
+			.index_in_parent
+			.try_into()
+			.expect("Positive index for child insertion/deletion");
+		cache.modify_if_not_new(&key, |cache_item: &mut CacheItem| match self.operation {
 			Operation::Insert => {
 				cache_item.children.insert(index, self.child.into());
 			}
@@ -334,7 +336,7 @@ impl EventHandler for FocusEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		cache.modify_if_not_new(&key, |mut item| {
+		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
 			item.states.insert(State::Focused);
 		})
 		.await
@@ -371,6 +373,7 @@ impl EventHandler for LegacyAddAccessibleEvent {
 }
 
 impl EventHandler for Event {
+	#[allow(clippy::too_many_lines)]
 	async fn handle_event<D: CacheDriver + Send>(
 		self,
 		cache: &mut Cache<D>,

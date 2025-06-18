@@ -820,6 +820,8 @@ dependencies = [
 [[package]]
 name = "futures-concurrency"
 version = "7.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0eb68017df91f2e477ed4bea586c59eaecaa47ed885a770d0444e21e62572cd2"
 dependencies = [
  "fixedbitset",
  "futures-buffered",

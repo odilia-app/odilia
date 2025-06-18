@@ -71,12 +71,16 @@ pub async fn caret_moved(
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
 ) -> Result<Vec<OdiliaCommand>, OdiliaError> {
-	let new_caret_pos = CaretPos(caret_moved.position as usize).into();
+	let pos = caret_moved
+		.position
+		.try_into()
+		.expect("Positive starting position for text insertion/deletion");
+	let new_caret_pos = CaretPos(pos).into();
 	let new_focus = Focus(caret_moved.inner.item.clone().into()).into();
 	if let Some(ref text) = caret_moved.item.text {
 		if last_focus == caret_moved.item.object {
-			let min = min(caret_moved.position as usize, last_pos);
-			let max = max(caret_moved.position as usize, last_pos);
+			let min = min(pos, last_pos);
+			let max = max(pos, last_pos);
 			if let Some(text_slice) = text.get(min..max) {
 				Ok(vec![
 					new_focus,

@@ -39,13 +39,6 @@ pub struct LogSettings {
 }
 impl Default for LogSettings {
 	fn default() -> Self {
-		let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-			"unable to find the odilia config directory according to the xdg dirs specification",
-		);
-		let log_path = xdg_dirs
-			.place_state_file("odilia.log")
-			.expect("unable to place log file");
-
 		Self { level: LogLevel::Trace, logger: LoggingKind::Tty }
 	}
 }
