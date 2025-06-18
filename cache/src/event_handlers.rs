@@ -1,17 +1,46 @@
 use std::{
 	marker::PhantomData,
-	ops::{Deref, DerefMut},
+	ops::{Bound, Deref, DerefMut},
 };
 
 use atspi::{
-	events::object::{Property, PropertyChangeEvent, StateChangedEvent},
-	Event,
+	events::{
+		cache::{AddAccessibleEvent, LegacyAddAccessibleEvent, RemoveAccessibleEvent},
+		document::{
+			self, ContentChangedEvent, LoadCompleteEvent, LoadStoppedEvent,
+			PageChangedEvent, ReloadEvent,
+		},
+		focus::FocusEvent,
+		keyboard::ModifiersEvent,
+		mouse::{AbsEvent, ButtonEvent, RelEvent},
+		object::{
+			ActiveDescendantChangedEvent, AnnouncementEvent, AttributesChangedEvent,
+			BoundsChangedEvent, ChildrenChangedEvent, ColumnDeletedEvent,
+			ColumnInsertedEvent, ColumnReorderedEvent, ModelChangedEvent, Property,
+			PropertyChangeEvent, RowDeletedEvent, RowInsertedEvent, RowReorderedEvent,
+			StateChangedEvent, TextAttributesChangedEvent, TextCaretMovedEvent,
+			TextChangedEvent, TextSelectionChangedEvent, VisibleDataChangedEvent,
+		},
+		terminal::{
+			self, ApplicationChangedEvent, CharWidthChangedEvent,
+			ColumnCountChangedEvent, LineChangedEvent, LineCountChangedEvent,
+		},
+		window::{
+			self, ActivateEvent, CloseEvent, CreateEvent, DeactivateEvent,
+			DesktopCreateEvent, DesktopDestroyEvent, DestroyEvent, LowerEvent,
+			MaximizeEvent, MinimizeEvent, MoveEvent, RaiseEvent, ReparentEvent,
+			ResizeEvent, RestoreEvent, RestyleEvent, ShadeEvent, UUshadeEvent,
+		},
+		CacheEvents, Event, ObjectEvents,
+	},
+	DocumentEvents, KeyboardEvents, MouseEvents, Operation, State, TerminalEvents,
+	WindowEvents,
 };
 use static_assertions::assert_impl_all;
 
 use crate::{
-	Cache, CacheDriver, CacheItem, CacheKey, Future, OdiliaError, RelationSet, RelationType,
-	Relations,
+	Cache, CacheDriver, CacheError, CacheItem, CacheKey, Future, OdiliaError, RelationSet,
+	RelationType, Relations,
 };
 
 pub trait ConstRelationType {
@@ -136,40 +165,38 @@ pub trait EventHandler {
 	fn handle_event<D: CacheDriver + Send>(
 		self,
 		cache: &mut Cache<D>,
-	) -> impl Future<Output = Result<(), OdiliaError>> + Send;
+	) -> impl Future<Output = Result<CacheItem, OdiliaError>> + Send;
 }
 
 impl EventHandler for PropertyChangeEvent {
 	async fn handle_event<D: CacheDriver + Send>(
 		self,
 		cache: &mut Cache<D>,
-	) -> Result<(), OdiliaError> {
+	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		cache.get_or_create(&key).await?;
-		let mut item = cache
-			.tree
-			.get_mut(&key)
-			// NOTE: this is okay because we just placed the item in the cache on the line above.
-			.unwrap();
-		match self.value {
-			Property::Role(role) => {
-				item.role = role;
+		cache.modify_if_not_new(&key, |mut item| {
+			match self.value {
+				Property::Role(role) => {
+					item.role = role;
+				}
+				Property::Name(name) => {
+					item.name = Some(name);
+				}
+				Property::Description(description) => {
+					item.description = Some(description);
+				}
+				Property::Parent(parent) => {
+					// TODO: does a separate event come in adding the current item to its children?
+					item.parent = parent.into();
+				}
+				prop => {
+					tracing::error!(
+						"Unable to process property vvariant {prop:?}"
+					);
+				}
 			}
-			Property::Name(name) => {
-				item.name = Some(name);
-			}
-			Property::Description(description) => {
-				item.description = Some(description);
-			}
-			Property::Parent(parent) => {
-				// TODO: does a separate event come in adding the current item to its children?
-				item.parent = parent.into();
-			}
-			prop => {
-				tracing::error!("Unable to process property vvariant {prop:?}");
-			}
-		}
-		Ok(())
+		})
+		.await
 	}
 }
 
@@ -177,19 +204,332 @@ impl EventHandler for StateChangedEvent {
 	async fn handle_event<D: CacheDriver + Send>(
 		self,
 		cache: &mut Cache<D>,
-	) -> Result<(), OdiliaError> {
+	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		cache.get_or_create(&key).await?;
-		let mut item = cache
-			.tree
-			.get_mut(&key)
-			// NOTE: this is okay because we just placed the item in the cache on the line above.
-			.unwrap();
-		if self.enabled {
-			item.states.insert(self.state);
-		} else {
-			item.states.remove(self.state);
+		cache.modify_if_not_new(&key, |mut item| {
+			if self.enabled {
+				item.states.insert(self.state);
+			} else {
+				item.states.remove(self.state);
+			}
+		})
+		.await
+	}
+}
+impl EventHandler for TextChangedEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.item.into();
+		let start = self.start_pos as usize;
+		let len = self.length as usize;
+		let end = start + len;
+		cache.modify_if_not_new(&key, |mut item| {
+        match (self.operation, item.text.as_mut()) {
+            (Operation::Insert, Some(mut text)) => {
+                text.insert_str(start, self.text.as_str());
+            },
+            (Operation::Delete, Some(mut text)) => {
+                text.drain(start..(start+len));
+            },
+            (Operation::Insert, None) => {
+                tracing::error!("AT-SPI requested an insertion of text at index > 0, but there is currently no text to insert into!");
+                item.text = Some(self.text);
+            },
+            (Operation::Delete, None) => {
+                tracing::error!("AT-SPI requested us to delete text from an item with no text in it!");
+            },
+        }
+    }).await
+	}
+}
+impl EventHandler for ChildrenChangedEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.item.into();
+		let index = self.index_in_parent as usize;
+		cache.modify_if_not_new(&key, |mut cache_item| match self.operation {
+			Operation::Insert => {
+				cache_item.children.insert(index, self.child.into());
+			}
+			Operation::Delete => {
+				cache_item.children.remove(index);
+			}
+		})
+		.await
+	}
+}
+
+macro_rules! impl_empty_event_handler {
+	($event:ty) => {
+		impl EventHandler for $event {
+			async fn handle_event<D: CacheDriver + Send>(
+				self,
+				cache: &mut Cache<D>,
+			) -> Result<CacheItem, OdiliaError> {
+				let key = self.item.into();
+				cache.get_or_create(&key).await
+			}
 		}
-		Ok(())
+	};
+}
+
+impl_empty_event_handler!(AttributesChangedEvent);
+impl_empty_event_handler!(BoundsChangedEvent);
+impl_empty_event_handler!(VisibleDataChangedEvent);
+impl_empty_event_handler!(TextCaretMovedEvent);
+impl_empty_event_handler!(TextAttributesChangedEvent);
+impl_empty_event_handler!(RowInsertedEvent);
+impl_empty_event_handler!(RowDeletedEvent);
+impl_empty_event_handler!(RowReorderedEvent);
+impl_empty_event_handler!(ColumnInsertedEvent);
+impl_empty_event_handler!(ColumnDeletedEvent);
+impl_empty_event_handler!(ColumnReorderedEvent);
+impl_empty_event_handler!(ModelChangedEvent);
+impl_empty_event_handler!(ActiveDescendantChangedEvent);
+impl_empty_event_handler!(AnnouncementEvent);
+impl_empty_event_handler!(TextSelectionChangedEvent);
+impl_empty_event_handler!(LoadCompleteEvent);
+impl_empty_event_handler!(ReloadEvent);
+impl_empty_event_handler!(LoadStoppedEvent);
+impl_empty_event_handler!(ContentChangedEvent);
+impl_empty_event_handler!(document::AttributesChangedEvent);
+impl_empty_event_handler!(PageChangedEvent);
+impl_empty_event_handler!(MinimizeEvent);
+impl_empty_event_handler!(MaximizeEvent);
+impl_empty_event_handler!(RestoreEvent);
+impl_empty_event_handler!(CloseEvent);
+impl_empty_event_handler!(CreateEvent);
+impl_empty_event_handler!(ReparentEvent);
+impl_empty_event_handler!(DesktopCreateEvent);
+impl_empty_event_handler!(DesktopDestroyEvent);
+impl_empty_event_handler!(DestroyEvent);
+impl_empty_event_handler!(ActivateEvent);
+impl_empty_event_handler!(DeactivateEvent);
+impl_empty_event_handler!(RaiseEvent);
+impl_empty_event_handler!(LowerEvent);
+impl_empty_event_handler!(MoveEvent);
+impl_empty_event_handler!(ResizeEvent);
+impl_empty_event_handler!(ShadeEvent);
+impl_empty_event_handler!(UUshadeEvent);
+impl_empty_event_handler!(RestyleEvent);
+impl_empty_event_handler!(LineChangedEvent);
+impl_empty_event_handler!(ColumnCountChangedEvent);
+impl_empty_event_handler!(LineCountChangedEvent);
+impl_empty_event_handler!(CharWidthChangedEvent);
+impl_empty_event_handler!(ApplicationChangedEvent);
+impl_empty_event_handler!(AbsEvent);
+impl_empty_event_handler!(RelEvent);
+impl_empty_event_handler!(ButtonEvent);
+impl_empty_event_handler!(ModifiersEvent);
+
+/// Implemented for applications which emit the legacy [`FocusEvent`] event type.
+/// This uses the same implementation as the [`StateChangedEvent`] [`EventHandler`] impl for the `Focused` state set to true.
+impl EventHandler for FocusEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.item.into();
+		cache.modify_if_not_new(&key, |mut item| {
+			item.states.insert(State::Focused);
+		})
+		.await
+	}
+}
+
+impl EventHandler for AddAccessibleEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.node_added.object.into();
+		cache.get_or_create(&key).await
+	}
+}
+impl EventHandler for RemoveAccessibleEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.item.into();
+		let item = cache.remove(&key);
+		item.ok_or(CacheError::NoItem.into())
+	}
+}
+impl EventHandler for LegacyAddAccessibleEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key = self.node_added.object.into();
+		cache.get_or_create(&key).await
+	}
+}
+
+impl EventHandler for Event {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		match self {
+			Event::Object(ObjectEvents::PropertyChange(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::StateChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::TextChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::AttributesChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::BoundsChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::VisibleDataChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::TextCaretMoved(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::TextAttributesChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::RowInserted(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::RowDeleted(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::RowReordered(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::ColumnInserted(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::ColumnDeleted(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::ColumnReordered(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::ModelChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::ActiveDescendantChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::Announcement(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Object(ObjectEvents::TextSelectionChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Cache(CacheEvents::Add(event)) => event.handle_event(cache).await,
+			Event::Cache(CacheEvents::LegacyAdd(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Cache(CacheEvents::Remove(event)) => event.handle_event(cache).await,
+			Event::Document(DocumentEvents::LoadComplete(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Document(DocumentEvents::Reload(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Document(DocumentEvents::LoadStopped(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Document(DocumentEvents::ContentChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Document(DocumentEvents::AttributesChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Document(DocumentEvents::PageChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Minimize(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Maximize(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Restore(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Close(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Create(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Reparent(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::DesktopCreate(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::DesktopDestroy(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Destroy(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Activate(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Deactivate(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Raise(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Lower(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Move(event)) => event.handle_event(cache).await,
+			Event::Window(WindowEvents::Resize(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Shade(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::UUshade(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Window(WindowEvents::Restyle(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Terminal(TerminalEvents::LineChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Terminal(TerminalEvents::ColumnCountChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Terminal(TerminalEvents::LineCountChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Terminal(TerminalEvents::ApplicationChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Terminal(TerminalEvents::CharWidthChanged(event)) => {
+				event.handle_event(cache).await
+			}
+			Event::Mouse(MouseEvents::Abs(event)) => event.handle_event(cache).await,
+			Event::Mouse(MouseEvents::Rel(event)) => event.handle_event(cache).await,
+			Event::Mouse(MouseEvents::Button(event)) => event.handle_event(cache).await,
+			Event::Keyboard(KeyboardEvents::Modifiers(event)) => {
+				event.handle_event(cache).await
+			}
+			ev => {
+				tracing::error!("Unable to handle event: {ev:?}");
+				Err(OdiliaError::Generic(format!("Unable to handle event: {ev:?}")))
+			}
+		}
 	}
 }
