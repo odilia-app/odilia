@@ -2,10 +2,12 @@ use std::{fmt::Debug, future::Future, marker::PhantomData, ops::Deref, pin::Pin,
 
 use atspi::{Event, EventProperties};
 use odilia_cache::CacheItem;
-use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
+use crate::{
+	tower::{from_state::TryFromState, Predicate},
+	OdiliaError, ScreenReaderState,
+};
 
 pub type CacheEvent<E> = EventPredicate<E, Always>;
 pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;

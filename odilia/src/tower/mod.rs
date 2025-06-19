@@ -11,6 +11,8 @@ pub mod state_changed;
 pub use handler::Handler;
 pub use odilia_tower::{state_svc, sync_try, unwrap_svc};
 pub use service_ext::ServiceExt;
+mod predicate;
+use predicate::Predicate;
 
 pub mod handlers;
 pub use handlers::*;
