@@ -3,9 +3,12 @@ use std::{
 	fmt::Write,
 };
 
-use atspi::events::{
-	document::LoadCompleteEvent,
-	object::{StateChangedEvent, TextCaretMovedEvent},
+use atspi::{
+	events::{
+		document::LoadCompleteEvent,
+		object::{StateChangedEvent, TextCaretMovedEvent},
+	},
+	Role,
 };
 use odilia_cache::LabelledBy;
 use odilia_common::{
@@ -16,7 +19,9 @@ use ssip::Priority;
 
 use crate::{
 	state::{LastCaretPos, LastFocused},
-	tower::{state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, RelationSet},
+	tower::{
+		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, RelationSet, Subtree,
+	},
 };
 
 #[tracing::instrument(ret)]
@@ -28,6 +33,7 @@ pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIn
 pub async fn focused(
 	state_changed: CacheEvent<Focused>,
 	EventProp(relation_set): EventProp<RelationSet<LabelledBy>>,
+	EventProp(subtree): EventProp<Subtree>,
 ) -> impl TryIntoCommands {
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
@@ -51,6 +57,16 @@ pub async fn focused(
 		utterance_buffer += &label;
 	}
 	let role = item.role;
+	// This lets us read Fractal messages.
+	// But we don't know what the general method should be.
+	if role == Role::ListItem {
+		// skip root element (`item`)
+		for child in subtree.iter().skip(1) {
+			if let Some(txt) = &child.text {
+				let _ = write!(utterance_buffer, "{txt}");
+			}
+		}
+	}
 	//there has to be a space between the accessible name of an object and its role, so insert it now
 	write!(utterance_buffer, " {}", role.name()).expect("Able to write to string");
 	Ok(vec![Focus(item.object).into(), Speak(utterance_buffer, Priority::Text).into()])
