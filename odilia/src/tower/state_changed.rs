@@ -7,8 +7,9 @@ use atspi::{
 	},
 	AtspiError, Event, EventProperties, EventTypeProperties, State as AtspiState,
 };
-use refinement::Predicate;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
+
+use crate::tower::Predicate;
 
 pub type Focused = StateChanged<StateFocused, True>;
 

@@ -46,7 +46,6 @@ zbus.workspace = true
 odilia-notify = { version = "0.1.0", path = "../odilia-notify" }
 tracing-journald = "0.3.0"
 ssip.workspace = true
-refinement = "0.5.0"
 tower-iter = { version = "0.1", path = "../tower-iter/" }
 config.workspace = true
 smol-cancellation-token.workspace = true
