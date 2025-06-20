@@ -84,7 +84,7 @@ jobs:
       - name: check user
         run: echo $USER
       - name: add group
-        run: sudo usermod -aG input root
+        run: sudo usermod -aG input runner
       - name: check groups
         run: groups
       - name: Cross Compile for ${{ matrix.target }}
