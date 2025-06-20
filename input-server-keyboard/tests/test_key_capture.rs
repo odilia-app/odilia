@@ -47,7 +47,6 @@ fn test_key_capture() {
 		// This will block.
 		if let Err(error) = grab(callback, state) {
 			panic!("Error grabbing keyboard: {error:?}");
-			tracing::error!("Error grabbing keyboard: {error:?}");
 		}
 	});
 	thread::sleep(Duration::from_millis(1000));
