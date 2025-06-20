@@ -216,7 +216,7 @@ impl EventHandler for TextChangedEvent {
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
 		let key = self.item.into();
-		let start = self
+		let start: usize = self
 			.start_pos
 			.try_into()
 			.expect("Positive index for text insertion/deletion");
@@ -227,10 +227,21 @@ impl EventHandler for TextChangedEvent {
 		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
         match (self.operation, item.text.as_mut()) {
             (Operation::Insert, Some(text)) => {
-                text.insert_str(start, self.text.as_str());
+                let (before,after): (Vec<(usize, char)>, Vec<(usize, char)>) = text.char_indices()
+                    .partition(|(i,_c)| *i < start);
+                let new_text = before
+                    .into_iter()
+                    .map(|(_i,c)| c)
+                    .chain(self.text.chars())
+                    .chain(after.into_iter().map(|(i,c)| c))
+                    .collect::<String>();
+                *text = new_text;
             },
             (Operation::Delete, Some(text)) => {
-                text.drain(start..(start+len));
+                let new_text = text.char_indices()
+                    .filter_map(|(i,c)| if i < start || i >= start+len { Some(c) } else { None })
+                    .collect::<String>();
+                *text = new_text;
             },
             (Operation::Insert, None) => {
                 tracing::error!("AT-SPI requested an insertion of text at index > 0, but there is currently no text to insert into!");

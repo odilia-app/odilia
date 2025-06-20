@@ -81,45 +81,47 @@ pub async fn state_set(state_changed: CacheEvent<StateChangedEvent>) -> impl Try
 	}
 }
 
-#[tracing::instrument(ret, err)]
+#[tracing::instrument(ret)]
+pub async fn caret_moved_update_state(
+	caret_moved: CacheEvent<TextCaretMovedEvent>,
+) -> impl TryIntoCommands {
+	[
+		CaretPos(
+			caret_moved
+				.position
+				.try_into()
+				.expect("Positive starting position for text insertion/deletion"),
+		)
+		.into(),
+		Focus(caret_moved.inner.item.clone().into()).into(),
+	]
+}
+
+#[tracing::instrument(ret)]
 pub async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
-) -> Result<Vec<OdiliaCommand>, OdiliaError> {
+) -> Option<OdiliaCommand> {
 	let pos = caret_moved
 		.position
 		.try_into()
 		.expect("Positive starting position for text insertion/deletion");
-	let new_caret_pos = CaretPos(pos).into();
-	let new_focus = Focus(caret_moved.inner.item.clone().into()).into();
 	if let Some(ref text) = caret_moved.item.text {
+		println!("TEXT: {text}");
 		if last_focus == caret_moved.item.object {
 			let min = min(pos, last_pos);
 			let max = max(pos, last_pos);
 			if min == 0 && max == 0 {
-				return Ok(vec![new_focus, new_caret_pos]);
+				return None;
 			}
-			if let Some(text_slice) = text.get(min..max) {
-				Ok(vec![
-					new_focus,
-					new_caret_pos,
-					Speak(text_slice.to_string(), Priority::Text).into(),
-				])
-			} else {
-				tracing::error!(
-					"Can't read the text {text} at indecies {min}..{max}"
-				);
-				Ok(vec![new_focus, new_caret_pos])
+			let text_slice = text.chars().skip(min).take(max - min).collect::<String>();
+			if !text_slice.is_empty() {
+				return Some(Speak(text_slice, Priority::Text).into());
 			}
 		} else {
-			Ok(vec![
-				new_focus,
-				new_caret_pos,
-				Speak(text.to_string(), Priority::Text).into(),
-			])
+			return Some(Speak(text.to_string(), Priority::Text).into());
 		}
-	} else {
-		Ok(vec![new_focus, new_caret_pos])
 	}
+	None
 }
