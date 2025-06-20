@@ -33,8 +33,8 @@ use futures_lite::{
 };
 use futures_util::FutureExt as FatExt;
 use handlers::{
-	caret_moved, change_mode, doc_loaded, focused, new_caret_pos, new_focused_item, speak,
-	state_set, stop_speech, structural_nav,
+	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, new_caret_pos,
+	new_focused_item, speak, state_set, stop_speech, structural_nav,
 };
 use odilia_cache::{cache_handler_task, Cache, CacheActor};
 use odilia_common::{
@@ -235,6 +235,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 		.command_listener(new_caret_pos)
 		//.command_listener(set_state)
 		.atspi_listener(doc_loaded)
+		.atspi_listener(caret_moved_update_state)
 		.atspi_listener(caret_moved)
 		.atspi_listener(focused)
 		.atspi_listener(state_set)
