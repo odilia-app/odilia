@@ -249,6 +249,10 @@ impl<D: CacheDriver> Cache<D> {
 		}
 	}
 	/// Add an item via a reference instead of creating the reference.
+	///
+	/// # Errors
+	///
+	/// TODO
 	#[tracing::instrument(level = "trace", ret, err)]
 	pub fn add(&self, mut cache_item: CacheItem) -> OdiliaResult<()> {
 		// Do not create new items when not necessary.
@@ -393,6 +397,10 @@ impl<D: CacheDriver> Cache<D> {
 	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
 	/// 2. The [`Self::add`] function fails.
 	/// 3. The [`accessible_to_cache_item`] function fails.
+	///
+	/// # Panics
+	///
+	/// TODO
 	#[tracing::instrument(level = "debug", ret, err, skip(self))]
 	pub async fn get_or_create(&self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
