@@ -46,10 +46,10 @@ fn test_key_capture() {
 	let _ = thread::spawn(move || {
 		// This will block.
 		if let Err(error) = grab(callback, state) {
-			tracing::error!("Error grabbing keyboard: {error:?}");
+			panic!("Error grabbing keyboard: {error:?}");
 		}
 	});
-	thread::sleep(Duration::from_millis(500));
+	thread::sleep(Duration::from_millis(1000));
 	let _cmd = Command::new("ydotool")
 		.args(SEQUENCE_OF_KEYS)
 		.output()
