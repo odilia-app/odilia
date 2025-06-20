@@ -78,15 +78,9 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: try perms
-        run: sudo chmod 660 /dev/uinput && sudo chown root:input /dev/uinput
+        run: sudo chmod 660 /dev/uinput && sudo chown root:users /dev/uinput
       - name: check perms
         run: ls -alh /dev/input* && ls -alh /dev/uinput
-      - name: check user
-        run: echo $USER
-      - name: add group
-        run: sudo usermod -aG input runner
-      - name: check groups
-        run: groups
       - name: Cross Compile for ${{ matrix.target }}
         uses: houseabsolute/actions-rust-cross@v1
         with:
