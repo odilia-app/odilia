@@ -50,7 +50,7 @@ fn test_key_capture() {
 			tracing::error!("Error grabbing keyboard: {error:?}");
 		}
 	});
-	thread::sleep(Duration::from_millis(500));
+	thread::sleep(Duration::from_millis(1000));
 	let _cmd = Command::new("ydotool")
 		.args(SEQUENCE_OF_KEYS)
 		.output()
