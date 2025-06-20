@@ -78,7 +78,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: try perms
-        run: ls -alh /dev/input && ls -alh /dev/uinput
+        run: ls -alh /dev/input && ls -alh /dev/uinput && chmod 660 /dev/uinput
       - name: Cross Compile for ${{ matrix.target }}
         uses: houseabsolute/actions-rust-cross@v1
         with:
