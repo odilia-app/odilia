@@ -36,3 +36,4 @@ ssip-client-async.workspace = true
 xdg.workspace = true
 indextree = { version = "4.7.4", default-features = false }
 async-channel = { version = "2.3.1", default-features = false, optional = true }
+either = { version = "1.15.0", default-features = false }

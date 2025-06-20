@@ -3,6 +3,7 @@
 use std::{array::IntoIter, convert::Infallible, iter::Chain};
 
 use atspi::State;
+use either::Either;
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use ssip::Priority;
@@ -70,6 +71,18 @@ impl IntoCommands for Focus {
 		[self.into()].into_iter()
 	}
 }
+impl IntoCommands for Speak {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self.into()].into_iter()
+	}
+}
+impl IntoCommands for OdiliaCommand {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self].into_iter()
+	}
+}
 impl IntoCommands for (Priority, &str) {
 	type Iter = IntoIter<OdiliaCommand, 1>;
 	fn into_commands(self) -> Self::Iter {
@@ -93,6 +106,16 @@ impl<const N: usize> IntoCommands for [OdiliaCommand; N] {
 	type Iter = IntoIter<OdiliaCommand, N>;
 	fn into_commands(self) -> Self::Iter {
 		self.into_iter()
+	}
+}
+
+impl<T: IntoCommands> IntoCommands for Option<T> {
+	type Iter = Either<T::Iter, IntoIter<OdiliaCommand, 0>>;
+	fn into_commands(self) -> Self::Iter {
+		match self {
+			Some(cmds) => Either::Left(cmds.into_commands()),
+			None => Either::Right([].into_iter()),
+		}
 	}
 }
 

@@ -965,10 +965,6 @@ name = "indextree"
 version = "4.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb9e21e48c85fa6643a38caca564645a3bbc9211edf506fc8ed690c7e7b4d3c7"
-dependencies = [
- "rayon",
- "serde",
-]
 
 [[package]]
 name = "inotify"
@@ -1295,7 +1291,6 @@ dependencies = [
  "futures-lite",
  "futures-util",
  "fxhash",
- "indextree",
  "odilia-common",
  "parking_lot",
  "serde",
@@ -1315,6 +1310,7 @@ dependencies = [
  "async-channel",
  "atspi",
  "config",
+ "either",
  "enum_dispatch",
  "futures-concurrency",
  "futures-util",
