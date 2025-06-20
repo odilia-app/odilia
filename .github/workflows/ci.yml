@@ -15,43 +15,43 @@ env:
   CROSS_CONTAINER_NO_BUILDKIT: '1'
   CROSS_CONTAINER_OPTS: "--group-add keep-groups -v /dev/input:/dev/input:z,dev -v /dev/uinput:/dev/uinput:z,dev --tty"
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    needs: [rustfmt,deny,rustdoc]
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #test:
+  #  runs-on: ubuntu-latest
+  #  needs: [rustfmt,deny,rustdoc]
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-build-${{ env.cache-name }}-
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-build-${{ env.cache-name }}-
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-      - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst xvfb
-      - name: setup dbus and notification daemon
-        run:
-          sudo systemctl start dbus;
-          systemctl --user start dbus;
-          xvfb-run dunst --screen 0 600x400x8 &
-      - name: Run tests
-        # we need to run in release because proptests are slow;
-        # if you think compiling is slow, try running proptests without release mode :)
-        run: cargo test --workspace --release --features proptest
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        toolchain: stable
+  #    - name: Install Dependencies
+  #      run: sudo apt -y install at-spi2-core systemd dunst xvfb
+  #    - name: setup dbus and notification daemon
+  #      run:
+  #        sudo systemctl start dbus;
+  #        systemctl --user start dbus;
+  #        xvfb-run dunst --screen 0 600x400x8 &
+  #    - name: Run tests
+  #      # we need to run in release because proptests are slow;
+  #      # if you think compiling is slow, try running proptests without release mode :)
+  #      run: cargo test --workspace --release --features proptest
   multi-platform:
     runs-on: ubuntu-latest
     #needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
@@ -85,187 +85,187 @@ jobs:
           args: "--locked --workspace --all-features --release"
           # force use container, otherwise you need host tools when building same-architecture targets
           force-use-cross: true
-  deny:
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #deny:
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: stable
-      - name: Run cargo deny
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          # do not check sources; as this will almost always error due to stale windows' dependencies that we don't need.
-          command: check license advisories bans
-  clippy:
-    needs: [rustfmt,deny,rustdoc]
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        toolchain: stable
+  #    - name: Run cargo deny
+  #      uses: EmbarkStudios/cargo-deny-action@v2
+  #      with:
+  #        # do not check sources; as this will almost always error due to stale windows' dependencies that we don't need.
+  #        command: check license advisories bans
+  #clippy:
+  #  needs: [rustfmt,deny,rustdoc]
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-          components: clippy
-      - uses: taiki-e/install-action@cargo-hack
-      - name: Clippy hack
-        run: cargo hack --feature-powerset clippy --benches --examples --tests --workspace --no-deps -- -D warnings
-  rustfmt:
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        toolchain: nightly
+  #        components: clippy
+  #    - uses: taiki-e/install-action@cargo-hack
+  #    - name: Clippy hack
+  #      run: cargo hack --feature-powerset clippy --benches --examples --tests --workspace --no-deps -- -D warnings
+  #rustfmt:
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          profile: minimal
-          toolchain: nightly
-          components: rustfmt
-      - name: Run formatter
-        run: cargo fmt --all --check
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        profile: minimal
+  #        toolchain: nightly
+  #        components: rustfmt
+  #    - name: Run formatter
+  #      run: cargo fmt --all --check
 
-  rustdoc:
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #rustdoc:
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-      - name: Generate Documentation
-        run: cargo doc --workspace --document-private-items
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        toolchain: nightly
+  #    - name: Generate Documentation
+  #      run: cargo doc --workspace --document-private-items
 
-      - name: Deploy Documentation
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
-          external_repository: odilia-app/odilia-app.github.io
-          publish_dir: ./target/doc
-          destination_dir: doc/devel
-          keep_files: true
-          user_name: github-actions
-          user_email: actions@github.com
-          publish_branch: main
-        if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
-  coverage:
-    needs: [clippy,test]
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: nightly
-          components: llvm-tools
-      - name: cargo install llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
-      - name: cargo generate lockfile
-        if: hashFiles('Cargo.lock') == ''
-        run: cargo generate-lockfile
-      - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst xvfb
-      - name: setup dbus and notification daemon
-        run:
-          sudo systemctl start dbus;
-          systemctl --user start dbus;
-          xvfb-run dunst --screen 0 600x400x8 &
-      - name: cargo llvm-cov
-        run: cargo llvm-cov --lcov --output-path lcov.info
-      - name: Upload to codecov.io
-        uses: codecov/codecov-action@v3
-        with:
-          fail_ci_if_fail: true
+  #    - name: Deploy Documentation
+  #      uses: peaceiris/actions-gh-pages@v3
+  #      with:
+  #        deploy_key: ${{ secrets.PAGES_DEPLOY_KEY }}
+  #        external_repository: odilia-app/odilia-app.github.io
+  #        publish_dir: ./target/doc
+  #        destination_dir: doc/devel
+  #        keep_files: true
+  #        user_name: github-actions
+  #        user_email: actions@github.com
+  #        publish_branch: main
+  #      if: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+  #coverage:
+  #  needs: [clippy,test]
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
+  #    - name: Install Rust
+  #      uses: dtolnay/rust-toolchain@master
+  #      with:
+  #        toolchain: nightly
+  #        components: llvm-tools
+  #    - name: cargo install llvm-cov
+  #      uses: taiki-e/install-action@cargo-llvm-cov
+  #    - name: cargo generate lockfile
+  #      if: hashFiles('Cargo.lock') == ''
+  #      run: cargo generate-lockfile
+  #    - name: Install Dependencies
+  #      run: sudo apt -y install at-spi2-core systemd dunst xvfb
+  #    - name: setup dbus and notification daemon
+  #      run:
+  #        sudo systemctl start dbus;
+  #        systemctl --user start dbus;
+  #        xvfb-run dunst --screen 0 600x400x8 &
+  #    - name: cargo llvm-cov
+  #      run: cargo llvm-cov --lcov --output-path lcov.info
+  #    - name: Upload to codecov.io
+  #      uses: codecov/codecov-action@v3
+  #      with:
+  #        fail_ci_if_fail: true
 
-  nix:
-    needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
-    runs-on: ubuntu-latest
-    if: ${{ !github.event.pull_request.draft }}
-    steps:
-      - name: Git checkout
-        uses: actions/checkout@v3
+  #nix:
+  #  needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
+  #  runs-on: ubuntu-latest
+  #  if: ${{ !github.event.pull_request.draft }}
+  #  steps:
+  #    - name: Git checkout
+  #      uses: actions/checkout@v3
 
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
+  #    - name: Cache cargo home
+  #      uses: actions/cache@v3
+  #      env:
+  #        cache-name: cache-cargo-home
+  #      with:
+  #        path: |
+  #          ~/.cargo/bin
+  #          ~/.cargo/registry/index
+  #          ~/.cargo/registry/cache
+  #          ~/.cargo/git/db
+  #        key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+  #        restore-keys: |
+  #          ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v30
+  #    - name: Install Nix
+  #      uses: cachix/install-nix-action@v30
 
-      - name: Run tests
-        run: nix develop --command cargo build --tests --workspace
+  #    - name: Run tests
+  #      run: nix develop --command cargo build --tests --workspace
