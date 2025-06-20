@@ -20,7 +20,6 @@ tracing.workspace = true
 zbus.workspace = true
 fxhash = "0.2.1"
 serde_plain.workspace = true
-indextree = { version = "4.7.4", default-features = false, features = ["rayon", "par_iter", "serde", "deser"] }
 parking_lot = { version = "0.12.3", default-features = false }
 futures-concurrency.workspace = true
 futures-lite.workspace = true
