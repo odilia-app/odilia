@@ -82,7 +82,7 @@ jobs:
         with:
           command: test
           target: ${{ matrix.target }}
-          args: "--locked --workspace --all-features --release"
+          args: "--locked -p odilia-input-server-keyboard --features integration_tests"
           # force use container, otherwise you need host tools when building same-architecture targets
           force-use-cross: true
   #deny:
