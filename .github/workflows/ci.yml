@@ -78,7 +78,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: try perms
-        run: sudo chmod 660 /dev/uinput && sudo chwon root:input /dev/uinput
+        run: sudo chmod 660 /dev/uinput && sudo chown root:input /dev/uinput
       - name: check perms
         run: ls -alh /dev/input* && ls -alh /dev/uinput
       - name: check groups
