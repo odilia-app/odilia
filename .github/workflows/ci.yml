@@ -79,6 +79,8 @@ jobs:
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
       - name: try perms
         run: sudo chmod 660 /dev/uinput && sudo chown root:users /dev/uinput
+      - name: try perms2
+        run: sudo chmod -R 660 /dev/uinput/ && sudo chown root:users -R /dev/input/
       - name: check perms
         run: ls -alh /dev/input* && ls -alh /dev/uinput
       - name: Cross Compile for ${{ matrix.target }}
