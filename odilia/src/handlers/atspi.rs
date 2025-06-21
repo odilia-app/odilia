@@ -35,6 +35,8 @@ pub async fn focused(
 	EventProp(relation_set): EventProp<RelationSet<LabelledBy>>,
 	EventProp(subtree): EventProp<Subtree>,
 ) -> impl TryIntoCommands {
+	println!("ROOT: {:?}", state_changed);
+	println!("TREE: {}", subtree.len());
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
 	let item = state_changed.item;
@@ -61,7 +63,7 @@ pub async fn focused(
 	// But we don't know what the general method should be.
 	if role == Role::ListItem {
 		// skip root element (`item`)
-		for child in subtree.iter().skip(1) {
+		for child in subtree.values().skip(1) {
 			if let Some(txt) = &child.text {
 				let _ = write!(utterance_buffer, "{txt}");
 			}

@@ -49,6 +49,7 @@ where
 	CacheItem: GetProperty<T>,
 	T: PropertyType,
 	E: EventProperties + Send + Sync + 'static,
+  atspi::Event: From<E>,
 {
 	type Error = OdiliaError;
 	type Future = Pin<
@@ -56,7 +57,7 @@ where
 	>;
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let ci = state.get_or_create::<E>(&event).await?;
+			let ci = state.get_or_create::<E>(event).await?;
 			<CacheItem as GetProperty<T>>::get_property(&ci, &state.cache_actor).await
 		})
 	}

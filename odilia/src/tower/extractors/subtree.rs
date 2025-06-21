@@ -1,6 +1,6 @@
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
-use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse};
+use odilia_cache::{CacheActor, CacheItem, CacheKey, CacheRequest, CacheResponse};
 
 use crate::{
 	tower::{EventProp, GetProperty, PropertyType},
@@ -14,7 +14,7 @@ use crate::{
 pub struct Subtree;
 
 impl PropertyType for Subtree {
-	type Type = Vec<CacheItem>;
+	type Type = BTreeMap<CacheKey, CacheItem>;
 }
 
 impl GetProperty<Subtree> for CacheItem {
@@ -22,11 +22,11 @@ impl GetProperty<Subtree> for CacheItem {
 		&self,
 		cache: &CacheActor,
 	) -> Result<EventProp<Subtree>, OdiliaError> {
-		let mut subtree = vec![];
+		let mut subtree = BTreeMap::new();
 		let mut stack = VecDeque::new();
 		stack.push_front(self.clone());
 		while let Some(item) = stack.pop_front() {
-			subtree.push(item.clone());
+			subtree.insert(item.object.clone(), item.clone());
 			let resp =
 				cache.request(CacheRequest::Children(item.object.clone())).await?;
 			let chs = match resp {
@@ -38,7 +38,8 @@ impl GetProperty<Subtree> for CacheItem {
 			};
 			for ch in chs.0 {
 				// Only allow one copy of any circular reference.
-				if subtree.iter().any(|i| ch.object == i.object) {
+				let key = ch.object.clone().into();
+				if subtree.get(&key).is_some() {
 					continue;
 				}
 				stack.push_front(ch);
