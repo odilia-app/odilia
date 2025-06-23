@@ -31,11 +31,11 @@ pre-release-hook = ["cargo", "fmt"]
 dependent-version = "upgrade"
 
 [workspace.dependencies]
-atspi = { version = "0.27.0", git = "https://github.com/odilia-app/atspi", branch = "main" }
+atspi = { version = "0.27.0" }
 config = { version = "0.15.11", default-features = false, features = ["toml"] }
 futures-concurrency = { version = "7.6.1", default-features = false, features = ["alloc"] }
 futures-lite = { version = "2.6.0", default-features = false }
-futures-util = { version = "0.3.31", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3.31", default-features = false, features = ["alloc", "async-await-macro"] }
 async-net = { version = "2.0", default-features = false }
 async-io = { version = "2.0", default-features = false }
 async-channel = { version = "2.0", default-features = false }
@@ -51,7 +51,7 @@ thiserror = { version = "2.0", default-features = false, features = ["std"] }
 tokio = { version = "^1.22.0", default-features = false, features = ["macros", "rt"] }
 smol-cancellation-token = { version = "0.1", default-features = false }
 tower = { version = "0.5.2", default-features = false }
-tracing = { version = "^0.1.37", default-features = false }
+tracing = { version = "^0.1.37", default-features = false, features = ["release_max_level_off"] }
 tracing-subscriber = { version = "0.3.16", default-features = false, features = ["ansi"] }
 zbus = { version = "5.1", default-features = false, features = ["async-io"] }
 serde_plain = "1.0.1"
