@@ -220,11 +220,10 @@ impl ScreenReaderState {
 
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
 	/// Should always be called after [`cache_from_event`].
-	pub async fn get_or_create<E: EventProperties>(
-		&self,
-		event: E,
-	) -> OdiliaResult<CacheItem> 
-  where Event: From<E> {
+	pub async fn get_or_create<E: EventProperties>(&self, event: E) -> OdiliaResult<CacheItem>
+	where
+		Event: From<E>,
+	{
 		self.cache_actor
 			.request(CacheRequest::Item(event.object_ref().into()))
 			.await

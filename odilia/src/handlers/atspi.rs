@@ -20,7 +20,8 @@ use ssip::Priority;
 use crate::{
 	state::{LastCaretPos, LastFocused},
 	tower::{
-		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, RelationSet, Subtree,
+		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, NonContainerEvent,
+		RelationSet, Subtree,
 	},
 };
 
@@ -31,7 +32,7 @@ pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIn
 
 #[tracing::instrument(ret)]
 pub async fn focused(
-	state_changed: CacheEvent<Focused>,
+	state_changed: NonContainerEvent<Focused>,
 	EventProp(relation_set): EventProp<RelationSet<LabelledBy>>,
 	EventProp(subtree): EventProp<Subtree>,
 ) -> impl TryIntoCommands {
