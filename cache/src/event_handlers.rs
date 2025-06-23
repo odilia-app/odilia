@@ -233,7 +233,7 @@ impl EventHandler for TextChangedEvent {
                     .into_iter()
                     .map(|(_i,c)| c)
                     .chain(self.text.chars())
-                    .chain(after.into_iter().map(|(i,c)| c))
+                    .chain(after.into_iter().map(|(_i,c)| c))
                     .collect::<String>();
                 *text = new_text;
             },
@@ -254,6 +254,18 @@ impl EventHandler for TextChangedEvent {
     }).await
 	}
 }
+
+// Pre-fetches the entire application's worth of data upon load complete.
+impl EventHandler for LoadCompleteEvent {
+	async fn handle_event<D: CacheDriver + Send>(
+		self,
+		cache: &mut Cache<D>,
+	) -> Result<CacheItem, OdiliaError> {
+		let key: CacheKey = self.item.into();
+		cache.prefetch_app(&key).await
+	}
+}
+
 impl EventHandler for ChildrenChangedEvent {
 	async fn handle_event<D: CacheDriver + Send>(
 		self,
@@ -305,7 +317,6 @@ impl_empty_event_handler!(ModelChangedEvent);
 impl_empty_event_handler!(ActiveDescendantChangedEvent);
 impl_empty_event_handler!(AnnouncementEvent);
 impl_empty_event_handler!(TextSelectionChangedEvent);
-impl_empty_event_handler!(LoadCompleteEvent);
 impl_empty_event_handler!(ReloadEvent);
 impl_empty_event_handler!(LoadStoppedEvent);
 impl_empty_event_handler!(ContentChangedEvent);
@@ -359,8 +370,7 @@ impl EventHandler for AddAccessibleEvent {
 		self,
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
-		let key = self.node_added.object.into();
-		cache.get_or_create(&key).await
+		cache.get_or_create_from_cache_item(self.node_added).await
 	}
 }
 impl EventHandler for RemoveAccessibleEvent {
@@ -378,8 +388,7 @@ impl EventHandler for LegacyAddAccessibleEvent {
 		self,
 		cache: &mut Cache<D>,
 	) -> Result<CacheItem, OdiliaError> {
-		let key = self.node_added.object.into();
-		cache.get_or_create(&key).await
+		cache.get_or_create_from_legacy_cache_item(self.node_added).await
 	}
 }
 

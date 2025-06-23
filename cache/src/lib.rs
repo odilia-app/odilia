@@ -19,7 +19,7 @@ mod event_handlers;
 pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
 use atspi::{
-	proxy::{accessible::AccessibleProxy, text::TextProxy},
+	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
 };
 pub use event_handlers::{
@@ -147,7 +147,35 @@ impl AllText for TextProxy<'_> {
 }
 
 pub type CacheKey = AccessiblePrimitive;
-type NewCache = HashMap<CacheKey, CacheItem, FxBuildHasher>;
+struct NewCache(HashMap<String, HashMap<String, CacheItem, FxBuildHasher>, FxBuildHasher>);
+
+impl NewCache {
+	fn has_app(&self, key: &CacheKey) -> bool {
+		self.0.keys().any(|k| *k == key.sender)
+	}
+	fn get(&self, key: &CacheKey) -> Option<&CacheItem> {
+		self.0.get(&key.sender)?.get(&key.id)
+	}
+	fn get_mut(&mut self, key: &CacheKey) -> Option<&mut CacheItem> {
+		self.0.get_mut(&key.sender)?.get_mut(&key.id)
+	}
+	fn insert(&mut self, key: CacheKey, cache_item: CacheItem) {
+		self.0.entry(key.sender)
+			.or_default()
+			// Above we go from Map<Map<...>> to Map<...>
+			.entry(key.id)
+			.or_insert(cache_item);
+	}
+	fn remove(&mut self, key: &CacheKey) -> Option<CacheItem> {
+		let Some(app_cache) = self.0.get_mut(&key.sender) else {
+			return None;
+		};
+		app_cache.remove(&key.id)
+	}
+	fn len(&self) -> usize {
+		self.0.values().map(|map| map.len()).sum()
+	}
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 /// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::proxy::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
@@ -181,32 +209,13 @@ pub struct CacheItem {
 	pub text: Option<String>,
 }
 
-impl CacheItem {
-	/// Creates a `CacheItem` from an [`atspi::Event`] type.
-	/// # Errors
-	/// This can fail under three possible conditions:
-	///
-	/// 1. We are unable to convert information from the event into an [`AccessiblePrimitive`] hashmap key. This should never happen.
-	/// 2. We are unable to convert the [`AccessiblePrimitive`] to an [`atspi::proxy::accessible::AccessibleProxy`].
-	/// 3. The `accessible_to_cache_item` function fails for any reason. This also shouldn't happen.
-	#[tracing::instrument(level = "trace", skip_all, ret, err(level = "warn"))]
-	pub async fn from_atspi_event<T: EventProperties, E: CacheDriver>(
-		event: &T,
-		external: &E,
-	) -> OdiliaResult<Self> {
-		let a11y_prim = AccessiblePrimitive::from_event(event);
-		external.lookup_external(&a11y_prim).await
-	}
-}
-
 /// An internal cache used within Odilia.
 ///
 /// This contains (mostly) all accessibles in the entire accessibility tree, and
 /// they are referenced by their IDs. If you are having issues with incorrect or
 /// invalid accessibles trying to be accessed, this is code is probably the issue.
-#[derive(Clone)]
 pub struct Cache<D: CacheDriver> {
-	pub tree: NewCache,
+	tree: NewCache,
 	pub driver: D,
 }
 
@@ -245,11 +254,33 @@ pub trait CacheDriver {
 		&self,
 		key: &CacheKey,
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
+	/// Bulk query an application based on the [`CacheKey.sender`] field.
+	fn lookup_bulk(
+		&self,
+		key: &CacheKey,
+	) -> impl Future<Output = OdiliaResult<Vec<CacheItem>>> + Send;
+	/// A seperate method from [`lookup_external`] for getting relation sets.
+	/// This is separate because it can have rather large results and should only be called when
+	/// absolutely necessary.
 	fn lookup_relations(
 		&self,
 		key: &CacheKey,
 		ty: RelationType,
 	) -> impl Future<Output = OdiliaResult<Vec<CacheKey>>> + Send;
+	/// A separate method from [`lookup_external`] for converting an [`atspi::CacheItem`] into a
+	/// [`CacheItem`].
+	/// This will call out to `DBus` for the remaining details.
+	fn lookup_from_cache_item(
+		&self,
+		cache_item: atspi::CacheItem,
+	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
+	/// A separate method from [`lookup_external`] for converting an [`atspi::LegacyCacheItem`] into a
+	/// [`CacheItem`].
+	/// This will call out to `DBus` for the remaining details.
+	fn lookup_from_legacy_cache_item(
+		&self,
+		cache_item: atspi::LegacyCacheItem,
+	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
 }
 
 impl CacheDriver for zbus::Connection {
@@ -262,6 +293,25 @@ impl CacheDriver for zbus::Connection {
 			.build()
 			.await?;
 		accessible_to_cache_item(&accessible).await
+	}
+	#[tracing::instrument(level = "trace", ret, skip(self), fields(key.item, key.name))]
+	async fn lookup_bulk(&self, key: &CacheKey) -> OdiliaResult<Vec<CacheItem>> {
+		let cache = CacheProxy::builder(self)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			// the fixed path to the cache object
+			.path("/org/a11y/atspi/cache")?
+			.build()
+			.await?;
+		tracing::error!("NAME: {}", cache.inner().destination());
+		tracing::error!("TRY TO GET CACHE ITEM!");
+		let maybe_items = cache.get_items().await;
+		tracing::error!("ITEMS: {maybe_items:?}");
+		let futs: Vec<_> = maybe_items?
+			.into_iter()
+			.map(|atspi_ci| self.lookup_from_cache_item(atspi_ci))
+			.collect();
+		futs.try_join().await
 	}
 	#[tracing::instrument(level = "trace", ret, skip(self), fields(key.item, key.name))]
 	async fn lookup_relations(
@@ -287,6 +337,113 @@ impl CacheDriver for zbus::Connection {
 			})
 			.next()
 			.unwrap_or_default())
+	}
+	async fn lookup_from_cache_item(
+		&self,
+		cache_item: atspi::CacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let key: CacheKey = cache_item.object.clone().into();
+		tracing::trace!("DST: {key:?}");
+		let accessible = AccessibleProxy::builder(self)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			.path(key.id.clone())?
+			.build()
+			.await?;
+		let (description, help_text, text, children) = (
+			accessible
+				.description()
+				.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+			accessible
+				.help_text()
+				.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+			accessible
+				.to_text()
+				.and_then(|text_proxy| {
+					text_proxy.get_all_text().map_ok(|s| {
+						if s.is_empty() {
+							None
+						} else {
+							Some(s)
+						}
+					})
+				})
+				.unwrap_or_else(|_| None)
+				.map(Ok),
+			accessible.get_children(),
+		)
+			.try_join()
+			.await?;
+		Ok(CacheItem {
+			app: cache_item.app.into(),
+			object: cache_item.object.into(),
+			parent: cache_item.parent.into(),
+			states: cache_item.states,
+			role: cache_item.role,
+			interfaces: cache_item.ifaces,
+			children: children.into_iter().map(|val| val.into()).collect(),
+			index: cache_item.index.try_into().ok(),
+			name: if cache_item.short_name.is_empty() {
+				None
+			} else {
+				Some(cache_item.short_name)
+			},
+			description,
+			help_text,
+			text,
+			children_num: cache_item.children.try_into().ok(),
+		})
+	}
+	async fn lookup_from_legacy_cache_item(
+		&self,
+		cache_item: atspi::LegacyCacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let key: CacheKey = cache_item.object.clone().into();
+		let accessible = AccessibleProxy::builder(self)
+			.destination(key.sender.clone())?
+			.cache_properties(CacheProperties::No)
+			.path(key.id.clone())?
+			.build()
+			.await?;
+		let (description, help_text, text, index) = (
+			accessible
+				.description()
+				.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+			accessible
+				.help_text()
+				.map_ok(|s| if s.is_empty() { None } else { Some(s) }),
+			accessible
+				.to_text()
+				.and_then(|text_proxy| {
+					text_proxy.get_all_text().map_ok(|s| {
+						if s.is_empty() {
+							None
+						} else {
+							Some(s)
+						}
+					})
+				})
+				.unwrap_or_else(|_| None)
+				.map(Ok),
+			accessible.get_index_in_parent(),
+		)
+			.try_join()
+			.await?;
+		Ok(CacheItem {
+			app: cache_item.app.into(),
+			object: cache_item.object.into(),
+			parent: cache_item.parent.into(),
+			states: cache_item.states,
+			role: cache_item.role,
+			interfaces: cache_item.ifaces,
+			children_num: Some(cache_item.children.len()),
+			children: cache_item.children.into_iter().map(|val| val.into()).collect(),
+			index: index.try_into().ok(),
+			name: if cache_item.name.is_empty() { None } else { Some(cache_item.name) },
+			description,
+			help_text,
+			text,
+		})
 	}
 }
 
@@ -333,7 +490,7 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
-		Self { tree: HashMap::with_hasher(FxBuildHasher::default()), driver }
+		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher::default())), driver }
 	}
 
 	/// Remove a single cache item. This function can not fail.
@@ -385,17 +542,29 @@ impl<D: CacheDriver> Cache<D> {
 		clone
 	}
 
+	async fn prefetch_app(&mut self, key: &CacheKey) -> OdiliaResult<CacheItem> {
+		let items = self.driver.lookup_bulk(&key).await?;
+		for item in items {
+			self.tree.insert(key.clone(), item);
+		}
+		// this should always succeed since we just bulk added
+		return self.get(key).ok_or(CacheError::NoItem.into());
+	}
+
 	async fn get_or_create_all(&mut self, keys: Vec<CacheKey>) -> OdiliaResult<Vec<CacheItem>> {
-		let items: Vec<CacheItem> = keys
-			.iter()
-			.map(|key| match self.tree.get(key) {
-				Some(cache_item) => Either::Left(ok(cache_item.clone())),
-				None => Either::Right(self.driver.lookup_external(key)),
-			})
-			.collect::<Vec<_>>()
-			.try_join()
-			.await?;
-		Ok(self.add_all(items))
+		let mut found = vec![];
+		let mut not_found = vec![];
+		for key in keys {
+			match self.tree.get(&key) {
+				Some(cache_item) => found.push(cache_item.clone()),
+				None => not_found.push(key),
+			}
+		}
+		for key in not_found {
+			let item = self.get_or_create(&key).await?;
+			found.push(item);
+		}
+		Ok(self.add_all(found))
 	}
 
 	/// Modify the given item with closure [`F`] if it was already contained in the cache.
@@ -417,9 +586,7 @@ impl<D: CacheDriver> Cache<D> {
 			f(cache_item);
 			return Ok(cache_item.clone());
 		}
-		let cache_item = self.driver.lookup_external(key).await?;
-		self.tree.insert(key.clone(), cache_item.clone());
-		Ok(cache_item)
+		self.get_or_create(key).await
 	}
 
 	/// Get a single item from the cache (note that this copies some integers to a new struct).
@@ -439,14 +606,72 @@ impl<D: CacheDriver> Cache<D> {
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);
 		}
+		// if the item's app has never had an item added to cache, bulk query it
+		if !self.tree.has_app(key) {
+			return self.prefetch_app(key).await;
+		}
 		let cache_item = self.driver.lookup_external(key).await?;
 		self.tree.insert(key.clone(), cache_item.clone());
 		Ok(cache_item)
 	}
 
-	/// Clears the cache completely.
-	pub fn clear(&mut self) {
-		self.tree.clear();
+	/// Same as [`get_or_create`] but starts with an initial [`atspi::CacheItem`].
+	/// # Errors
+	/// The function will return an error if:
+	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
+	/// 2. The [`Self::add`] function fails.
+	/// 3. The [`accessible_to_cache_item`] function fails.
+	///
+	/// # Panics
+	///
+	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
+	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
+	async fn get_or_create_from_cache_item(
+		&mut self,
+		ci: atspi::CacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let key = ci.object.clone().into();
+		// if the item already exists in the cache, return it
+		if let Some(cache_item) = self.get(&key) {
+			return Ok(cache_item);
+		}
+		let cache_item = self.driver.lookup_from_cache_item(ci).await?;
+		self.tree.insert(key, cache_item.clone());
+		Ok(cache_item)
+	}
+
+	/// Same as [`get_or_create`] but starts with an initial [`atspi::LegacyCacheItem`].
+	/// # Errors
+	/// The function will return an error if:
+	/// 1. The `accessible` can not be turned into an `AccessiblePrimitive`. This should never happen, but is technically possible.
+	/// 2. The [`Self::add`] function fails.
+	/// 3. The [`accessible_to_cache_item`] function fails.
+	///
+	/// # Panics
+	///
+	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
+	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
+	async fn get_or_create_from_legacy_cache_item(
+		&mut self,
+		ci: atspi::LegacyCacheItem,
+	) -> OdiliaResult<CacheItem> {
+		let key = ci.object.clone().into();
+		// if the item already exists in the cache, return it
+		if let Some(cache_item) = self.get(&key) {
+			return Ok(cache_item);
+		}
+		let cache_item = self.driver.lookup_from_legacy_cache_item(ci).await?;
+		self.tree.insert(key, cache_item.clone());
+		Ok(cache_item)
+	}
+
+	/// Actively pre-propulates the cache in advance of running the application.
+	/// This should be done during initialization in order to avoid large reads while running Odilia.
+	///
+	/// This finds every running application, uses the [`CacheProxy::get_items`] method, and stores
+	/// the entirety of the responses in the cache.
+	pub async fn prepopulate(&mut self) -> OdiliaResult<()> {
+		todo!()
 	}
 }
 
