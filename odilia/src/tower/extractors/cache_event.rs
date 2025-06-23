@@ -5,11 +5,12 @@ use odilia_cache::CacheItem;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 use crate::{
-	tower::{from_state::TryFromState, Predicate},
+	tower::{from_state::TryFromState, predicate::CONTAINER_ROLES, Predicate},
 	OdiliaError, ScreenReaderState,
 };
 
 pub type CacheEvent<E> = EventPredicate<E, Always>;
+pub type NonContainerEvent<E> = EventPredicate<E, NotContainer>;
 pub type ActiveAppEvent<E> = EventPredicate<E, ActiveApplication>;
 
 #[derive(Debug, Clone)]
@@ -18,12 +19,12 @@ pub struct InnerEvent<E: EventProperties + Debug> {
 	pub item: CacheItem,
 }
 
-impl<E: EventProperties + Debug> Deref for InnerEvent<E> {
-	type Target = E;
-	fn deref(&self) -> &Self::Target {
-		&self.inner
-	}
-}
+//impl<E: EventProperties + Debug> Deref for InnerEvent<E> {
+//	type Target = E;
+//	fn deref(&self) -> &Self::Target {
+//		&self.inner
+//	}
+//}
 
 impl<E> InnerEvent<E>
 where
@@ -35,13 +36,16 @@ where
 }
 
 #[derive(Debug, Clone)]
-pub struct EventPredicate<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> {
+pub struct EventPredicate<
+	E: EventProperties + Debug,
+	P: Predicate<(CacheItem, Arc<ScreenReaderState>)>,
+> {
 	pub inner: E,
 	pub item: CacheItem,
 	_marker: PhantomData<P>,
 }
 
-impl<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> Deref
+impl<E: EventProperties + Debug, P: Predicate<(CacheItem, Arc<ScreenReaderState>)>> Deref
 	for EventPredicate<E, P>
 {
 	type Target = E;
@@ -52,10 +56,10 @@ impl<E: EventProperties + Debug, P: Predicate<(E, Arc<ScreenReaderState>)>> Dere
 impl<E, P> EventPredicate<E, P>
 where
 	E: EventProperties + Debug + Clone,
-	P: Predicate<(E, Arc<ScreenReaderState>)>,
+	P: Predicate<(CacheItem, Arc<ScreenReaderState>)>,
 {
 	pub fn from_cache_event(ce: InnerEvent<E>, state: Arc<ScreenReaderState>) -> Option<Self> {
-		if P::test(&(ce.inner.clone(), state)) {
+		if P::test(&(ce.item.clone(), state)) {
 			return Some(Self { inner: ce.inner, item: ce.item, _marker: PhantomData });
 		}
 		None
@@ -63,24 +67,29 @@ where
 }
 
 #[derive(Debug)]
+pub struct NotContainer;
+impl Predicate<(CacheItem, Arc<ScreenReaderState>)> for NotContainer {
+	fn test((ci, _): &(CacheItem, Arc<ScreenReaderState>)) -> bool {
+		!CONTAINER_ROLES.contains(&ci.role)
+	}
+}
+
+#[derive(Debug)]
 pub struct Always;
-impl<E> Predicate<(E, Arc<ScreenReaderState>)> for Always {
-	fn test(_: &(E, Arc<ScreenReaderState>)) -> bool {
+impl Predicate<(CacheItem, Arc<ScreenReaderState>)> for Always {
+	fn test(_: &(CacheItem, Arc<ScreenReaderState>)) -> bool {
 		true
 	}
 }
 
 #[derive(Debug)]
 pub struct ActiveApplication;
-impl<E> Predicate<(E, Arc<ScreenReaderState>)> for ActiveApplication
-where
-	E: EventProperties,
-{
-	fn test((ev, state): &(E, Arc<ScreenReaderState>)) -> bool {
+impl Predicate<(CacheItem, Arc<ScreenReaderState>)> for ActiveApplication {
+	fn test((ci, state): &(CacheItem, Arc<ScreenReaderState>)) -> bool {
 		let Some(last_focused) = state.history_item(0) else {
 			return false;
 		};
-		last_focused == ev.object_ref().into()
+		last_focused == ci.app
 	}
 }
 
@@ -102,7 +111,7 @@ where
 impl<E, P> TryFromState<Arc<ScreenReaderState>, E> for EventPredicate<E, P>
 where
 	E: EventProperties + Into<Event> + Debug + Clone + Send + Sync + 'static,
-	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
+	P: Predicate<(CacheItem, Arc<ScreenReaderState>)> + Debug,
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>> + Send + 'static>>;
@@ -126,7 +135,7 @@ where
 impl<E, P> EventProperties for EventPredicate<E, P>
 where
 	E: EventProperties + Debug,
-	P: Predicate<(E, Arc<ScreenReaderState>)>,
+	P: Predicate<(CacheItem, Arc<ScreenReaderState>)>,
 {
 	fn path(&self) -> ObjectPath<'_> {
 		self.inner.path()
@@ -139,7 +148,7 @@ where
 impl<E, P> From<EventPredicate<E, P>> for Event
 where
 	E: Into<Event> + Debug + EventProperties,
-	P: Predicate<(E, Arc<ScreenReaderState>)>,
+	P: Predicate<(CacheItem, Arc<ScreenReaderState>)>,
 {
 	fn from(pred: EventPredicate<E, P>) -> Self {
 		pred.inner.into()

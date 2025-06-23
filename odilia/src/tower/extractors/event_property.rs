@@ -49,7 +49,7 @@ where
 	CacheItem: GetProperty<T>,
 	T: PropertyType,
 	E: EventProperties + Send + Sync + 'static,
-  atspi::Event: From<E>,
+	atspi::Event: From<E>,
 {
 	type Error = OdiliaError;
 	type Future = Pin<
