@@ -4,7 +4,5 @@ mod event_property;
 pub use event_property::{EventProp, GetProperty, PropertyType};
 mod relation_set;
 pub use relation_set::RelationSet;
-mod children;
-pub use children::Children;
 mod subtree;
 pub use subtree::Subtree;

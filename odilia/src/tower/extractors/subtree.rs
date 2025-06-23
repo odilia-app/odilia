@@ -38,8 +38,8 @@ impl GetProperty<Subtree> for CacheItem {
 			};
 			for ch in chs.0 {
 				// Only allow one copy of any circular reference.
-				let key = ch.object.clone().into();
-				if subtree.get(&key).is_some() {
+				let key = ch.object.clone();
+				if subtree.contains_key(&key) {
 					continue;
 				}
 				stack.push_front(ch);

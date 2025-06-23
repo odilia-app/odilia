@@ -33,10 +33,9 @@ where
 		if P::test(&req) {
 			Either::Left(self.inner.call(req))
 		} else {
-			Either::Right(err(OdiliaError::PredicateFailure(format!(
-				"{}",
-				type_name::<P>()
-			))))
+			Either::Right(err(OdiliaError::PredicateFailure(
+				type_name::<P>().to_string(),
+			)))
 		}
 	}
 }

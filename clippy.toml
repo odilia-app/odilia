@@ -1,1 +1,7 @@
-allowed-duplicate-crates = ["windows-sys", "wasi", "rustix", "regex-syntax", "regex-automata", "linux-raw-sys", "thiserror-impl", "thiserror", "nu-ansi-term", "hashbrown", "getrandom", "event-listener", "async-channel", "fixedbitset", "strum", "strum_macros"]
+allowed-duplicate-crates = [
+  # this is needed to avoid clippy telling usthat a series of windows crates have different versions.
+  # since Odilia does not support windows (but zbus does), it causes a lot of transitive dependencies to be calculated in the graph, even if we do not use them.
+	"windows-sys", "windows-targets", "windows_aarch64_gnullvm", "windows_aarch64_msvc", "windows_i686_gnu", "windows_i686_gnullvm", "windows_i686_msvc", "windows_x86_64_gnu", "windows_x86_64_gnullvm", "windows_x86_64_msvc",
+  # this is due to tracing using a very old version of the `regex` crate.
+	"regex-syntax", "regex-automata",
+]

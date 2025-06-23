@@ -227,7 +227,8 @@ impl EventHandler for TextChangedEvent {
 		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
         match (self.operation, item.text.as_mut()) {
             (Operation::Insert, Some(text)) => {
-                let (before,after): (Vec<(usize, char)>, Vec<(usize, char)>) = text.char_indices()
+                type CharIndex = (usize, char);
+                let (before,after): (Vec<CharIndex>, Vec<CharIndex>) = text.char_indices()
                     .partition(|(i,_c)| *i < start);
                 let new_text = before
                     .into_iter()

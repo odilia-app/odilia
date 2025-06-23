@@ -11,10 +11,7 @@ use atspi::{
 	Role,
 };
 use odilia_cache::LabelledBy;
-use odilia_common::{
-	command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands},
-	errors::OdiliaError,
-};
+use odilia_common::command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands};
 use ssip::Priority;
 
 use crate::{
@@ -36,8 +33,6 @@ pub async fn focused(
 	EventProp(relation_set): EventProp<RelationSet<LabelledBy>>,
 	EventProp(subtree): EventProp<Subtree>,
 ) -> impl TryIntoCommands {
-	println!("ROOT: {:?}", state_changed);
-	println!("TREE: {}", subtree.len());
 	//because the current command implementation doesn't allow for multiple speak commands without interrupting the previous utterance, this is more or less an accumulating buffer for that utterance
 	let mut utterance_buffer = String::new();
 	let item = state_changed.item;
@@ -111,7 +106,6 @@ pub async fn caret_moved(
 		.try_into()
 		.expect("Positive starting position for text insertion/deletion");
 	if let Some(ref text) = caret_moved.item.text {
-		println!("TEXT: {text}");
 		if last_focus == caret_moved.item.object {
 			let min = min(pos, last_pos);
 			let max = max(pos, last_pos);

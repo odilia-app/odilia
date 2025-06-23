@@ -6,7 +6,7 @@ use zbus::{
 	zvariant::{ObjectPath, OwnedObjectPath, Type},
 };
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Type, Ord, PartialOrd)]
 /// A struct which represents the bare minimum of an accessible for purposes of caching.
 /// This makes some *possibly eronious* assumptions about what the sender is.
 pub struct AccessiblePrimitive {

@@ -30,7 +30,7 @@ pub use event_handlers::{
 };
 use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt as LiteExt;
-use futures_util::future::{ok, Either, FutureExt, TryFutureExt};
+use futures_util::future::{FutureExt, TryFutureExt};
 use fxhash::FxBuildHasher;
 use odilia_common::{
 	cache::AccessiblePrimitive,
@@ -167,13 +167,10 @@ impl NewCache {
 			.or_insert(cache_item);
 	}
 	fn remove(&mut self, key: &CacheKey) -> Option<CacheItem> {
-		let Some(app_cache) = self.0.get_mut(&key.sender) else {
-			return None;
-		};
-		app_cache.remove(&key.id)
+		self.0.get_mut(&key.sender)?.remove(&key.id)
 	}
 	fn len(&self) -> usize {
-		self.0.values().map(|map| map.len()).sum()
+		self.0.values().map(HashMap::len).sum()
 	}
 }
 
@@ -381,7 +378,7 @@ impl CacheDriver for zbus::Connection {
 			states: cache_item.states,
 			role: cache_item.role,
 			interfaces: cache_item.ifaces,
-			children: children.into_iter().map(|val| val.into()).collect(),
+			children: children.into_iter().map(Into::into).collect(),
 			index: cache_item.index.try_into().ok(),
 			name: if cache_item.short_name.is_empty() {
 				None
@@ -437,7 +434,7 @@ impl CacheDriver for zbus::Connection {
 			role: cache_item.role,
 			interfaces: cache_item.ifaces,
 			children_num: Some(cache_item.children.len()),
-			children: cache_item.children.into_iter().map(|val| val.into()).collect(),
+			children: cache_item.children.into_iter().map(Into::into).collect(),
 			index: index.try_into().ok(),
 			name: if cache_item.name.is_empty() { None } else { Some(cache_item.name) },
 			description,
@@ -543,12 +540,12 @@ impl<D: CacheDriver> Cache<D> {
 	}
 
 	async fn prefetch_app(&mut self, key: &CacheKey) -> OdiliaResult<CacheItem> {
-		let items = self.driver.lookup_bulk(&key).await?;
+		let items = self.driver.lookup_bulk(key).await?;
 		for item in items {
 			self.tree.insert(key.clone(), item);
 		}
 		// this should always succeed since we just bulk added
-		return self.get(key).ok_or(CacheError::NoItem.into());
+		self.get(key).ok_or(CacheError::NoItem.into())
 	}
 
 	async fn get_or_create_all(&mut self, keys: Vec<CacheKey>) -> OdiliaResult<Vec<CacheItem>> {
@@ -663,15 +660,6 @@ impl<D: CacheDriver> Cache<D> {
 		let cache_item = self.driver.lookup_from_legacy_cache_item(ci).await?;
 		self.tree.insert(key, cache_item.clone());
 		Ok(cache_item)
-	}
-
-	/// Actively pre-propulates the cache in advance of running the application.
-	/// This should be done during initialization in order to avoid large reads while running Odilia.
-	///
-	/// This finds every running application, uses the [`CacheProxy::get_items`] method, and stores
-	/// the entirety of the responses in the cache.
-	pub async fn prepopulate(&mut self) -> OdiliaResult<()> {
-		todo!()
 	}
 }
 
