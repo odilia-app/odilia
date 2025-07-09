@@ -73,7 +73,7 @@ where
 	E: EventProperties + Debug + Clone + Send + Sync + Unpin + 'static,
 {
 	type Error = OdiliaError;
-	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
+	type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>> + Send + 'static>>;
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
@@ -89,7 +89,7 @@ where
 	P: Predicate<(E, Arc<ScreenReaderState>)> + Debug,
 {
 	type Error = OdiliaError;
-	type Future = Pin<Box<(dyn Future<Output = Result<Self, Self::Error>> + Send + 'static)>>;
+	type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>> + Send + 'static>>;
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {

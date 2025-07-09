@@ -52,7 +52,7 @@ where
 {
 	type Error = OdiliaError;
 	type Future = Pin<
-		Box<(dyn Future<Output = Result<EventProp<T>, Self::Error>> + Send + 'static)>,
+		Box<dyn Future<Output = Result<EventProp<T>, Self::Error>> + Send + 'static>,
 	>;
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
