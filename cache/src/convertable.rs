@@ -29,13 +29,13 @@ pub trait Convertable<'a> {
 	/// For example, to convert a [`zbus::Proxy`] into a [`AccessibleProxy`], it may fail to create the new [`atspi::proxy::accessible::AccessibleProxy`].
 	fn to_accessible(
 		&self,
-	) -> impl Future<Output = Result<AccessibleProxy, Self::Error>> + Send;
+	) -> impl Future<Output = Result<AccessibleProxy<'_>, Self::Error>> + Send;
 	/// Creates an [`ActionProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// Generally, it fails if the accessible item does not implement to action interface.
-	fn to_action(&self) -> impl Future<Output = Result<ActionProxy, Self::Error>> + Send;
+	fn to_action(&self) -> impl Future<Output = Result<ActionProxy<'_>, Self::Error>> + Send;
 
 	/// Creates an [`ApplicationProxy`] from the existing accessible item.
 	/// # Errors
@@ -44,7 +44,7 @@ pub trait Convertable<'a> {
 	/// Generally, it fails if the accessible item does not implement to application interface.
 	fn to_application(
 		&self,
-	) -> impl Future<Output = Result<ApplicationProxy, Self::Error>> + Send;
+	) -> impl Future<Output = Result<ApplicationProxy<'_>, Self::Error>> + Send;
 
 	/// Creates an [`CollectionProxy`] from the existing accessible item.
 	/// # Errors
@@ -53,27 +53,38 @@ pub trait Convertable<'a> {
 	/// it fails if the accessible item does not implement to collection interface.
 	fn to_collection(
 		&self,
-	) -> impl Future<Output = Result<CollectionProxy, Self::Error>> + Send;
+	) -> impl Future<Output = Result<CollectionProxy<'_>, Self::Error>> + Send;
 
 	/// Creates an [`ComponentProxy`] from the existing accessible item.
 	/// # Errors
 	///
 	/// This may fail based on the implementation.
 	/// it fails if the accessible item does not implement to component interface.
-	fn to_component(&self) -> impl Future<Output = Result<ComponentProxy, Self::Error>> + Send;
-	fn to_document(&self) -> impl Future<Output = Result<DocumentProxy, Self::Error>> + Send;
-	fn to_hypertext(&self) -> impl Future<Output = Result<HypertextProxy, Self::Error>> + Send;
-	fn to_hyperlink(&self) -> impl Future<Output = Result<HyperlinkProxy, Self::Error>> + Send;
-	fn to_image(&self) -> impl Future<Output = Result<ImageProxy, Self::Error>> + Send;
-	fn to_selection(&self) -> impl Future<Output = Result<SelectionProxy, Self::Error>> + Send;
-	fn to_table(&self) -> impl Future<Output = Result<TableProxy, Self::Error>> + Send;
-	fn to_table_cell(&self)
-		-> impl Future<Output = Result<TableCellProxy, Self::Error>> + Send;
-	fn to_text(&self) -> impl Future<Output = Result<TextProxy, Self::Error>> + Send;
+	fn to_component(
+		&self,
+	) -> impl Future<Output = Result<ComponentProxy<'_>, Self::Error>> + Send;
+	fn to_document(
+		&self,
+	) -> impl Future<Output = Result<DocumentProxy<'_>, Self::Error>> + Send;
+	fn to_hypertext(
+		&self,
+	) -> impl Future<Output = Result<HypertextProxy<'_>, Self::Error>> + Send;
+	fn to_hyperlink(
+		&self,
+	) -> impl Future<Output = Result<HyperlinkProxy<'_>, Self::Error>> + Send;
+	fn to_image(&self) -> impl Future<Output = Result<ImageProxy<'_>, Self::Error>> + Send;
+	fn to_selection(
+		&self,
+	) -> impl Future<Output = Result<SelectionProxy<'_>, Self::Error>> + Send;
+	fn to_table(&self) -> impl Future<Output = Result<TableProxy<'_>, Self::Error>> + Send;
+	fn to_table_cell(
+		&self,
+	) -> impl Future<Output = Result<TableCellProxy<'_>, Self::Error>> + Send;
+	fn to_text(&self) -> impl Future<Output = Result<TextProxy<'_>, Self::Error>> + Send;
 	fn to_editable_text(
 		&self,
-	) -> impl Future<Output = Result<EditableTextProxy, Self::Error>> + Send;
-	fn to_value(&self) -> impl Future<Output = Result<ValueProxy, Self::Error>> + Send;
+	) -> impl Future<Output = Result<EditableTextProxy<'_>, Self::Error>> + Send;
+	fn to_value(&self) -> impl Future<Output = Result<ValueProxy<'_>, Self::Error>> + Send;
 }
 
 #[inline]
