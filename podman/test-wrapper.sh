@@ -12,6 +12,8 @@ export RUST_BACKTRACE=1
 groups
 cat /etc/passwd | grep '^[a-z0-9: -]\+' --color -o
 #su nobody -c 'chmod 660 /dev/uinput'
+chmod 777 /dev/uinput
+chmod -R 777 /dev/input/*
 ls -alh /dev/input*
 ls -alh /dev/uinput*
 #su root -c 'chown -R 0:0 /dev/'
