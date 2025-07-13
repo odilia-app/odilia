@@ -1,43 +1,7 @@
-use std::{
-	any::type_name,
-	marker::PhantomData,
-	task::{Context, Poll},
-};
-
 use atspi::Role;
-use futures_util::future::{err, Either, Ready};
-use tower::Service;
-
-use crate::OdiliaError;
 
 pub trait Predicate<T> {
 	fn test(x: &T) -> bool;
-}
-pub struct PredicateService<S, P, T> {
-	inner: S,
-	predicate: P,
-	_marker: PhantomData<T>,
-}
-impl<S, P, T> Service<T> for PredicateService<S, P, T>
-where
-	S: Service<T, Error = OdiliaError>,
-	P: Predicate<T>,
-{
-	type Future = Either<S::Future, Ready<Result<S::Response, OdiliaError>>>;
-	type Error = S::Error;
-	type Response = S::Response;
-	fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
-		self.inner.poll_ready(cx)
-	}
-	fn call(&mut self, req: T) -> Self::Future {
-		if P::test(&req) {
-			Either::Left(self.inner.call(req))
-		} else {
-			Either::Right(err(OdiliaError::PredicateFailure(
-				type_name::<P>().to_string(),
-			)))
-		}
-	}
 }
 
 /// List of all "container roles".

@@ -95,14 +95,14 @@ impl Predicate<(CacheItem, Arc<ScreenReaderState>)> for ActiveApplication {
 
 impl<E> TryFromState<Arc<ScreenReaderState>, E> for InnerEvent<E>
 where
-	E: EventProperties + Debug + Clone + Send + Sync + Unpin + 'static,
+	E: EventProperties + Into<Event> + Debug + Clone + Send + Sync + Unpin + 'static,
 {
 	type Error = OdiliaError;
 	type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>> + Send + 'static>>;
 	#[tracing::instrument(skip(state), ret)]
 	fn try_from_state(state: Arc<ScreenReaderState>, event: E) -> Self::Future {
 		Box::pin(async move {
-			let cache_item = state.get_or_create(&event).await?;
+			let cache_item = state.cache_from_event(event.clone().into()).await?;
 			Ok(InnerEvent::new(event, cache_item))
 		})
 	}

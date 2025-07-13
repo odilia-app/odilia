@@ -8,7 +8,7 @@ use std::{
 use async_channel::Sender;
 use atspi::{
 	connection::AccessibilityConnection,
-	events::{DBusMatchRule, EventProperties, RegistryEventString},
+	events::{DBusMatchRule, RegistryEventString},
 	Event,
 };
 use circular_queue::CircularQueue;
@@ -216,21 +216,6 @@ impl ScreenReaderState {
 			config: Arc::new(config),
 			children_pids: Arc::new(Mutex::new(Vec::new())),
 		})
-	}
-
-	#[tracing::instrument(skip_all, level = "debug", ret, err)]
-	/// Should always be called after [`cache_from_event`].
-	pub async fn get_or_create<E: EventProperties>(&self, event: E) -> OdiliaResult<CacheItem>
-	where
-		Event: From<E>,
-	{
-		self.cache_actor
-			.request(CacheRequest::Item(event.object_ref().into()))
-			.await
-			.map(|cr| match cr {
-				CacheResponse::Item(Item(ci)) => ci,
-				e => panic!("Inappropriate response: {e:?}"),
-			})
 	}
 
 	#[tracing::instrument(skip_all, level = "debug", ret, err)]
