@@ -12,6 +12,7 @@ use odilia_cache::{
 	cache_handler_task, Cache, CacheActor, CacheDriver, CacheItem, CacheKey, CacheRequest,
 };
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
+use smol::spawn;
 use smol_cancellation_token::CancellationToken;
 
 pub struct TestDriver;
@@ -41,20 +42,6 @@ impl CacheDriver for TestDriver {
 		_cache_item: atspi::LegacyCacheItem,
 	) -> OdiliaResult<CacheItem> {
 		panic!("This driver (TestDriver) should never be called!");
-	}
-}
-
-/// Load the given items into cache via `Cache::add_all`.
-/// This is different from `add` in that it postpones populating references
-/// until after all items have been added.
-fn add_all(cache: &mut Cache<TestDriver>, items: Vec<CacheItem>) {
-	let _ = cache.add_all(items);
-}
-
-/// Load the given items into cache via repeated `Cache::add`.
-fn add(cache: &mut Cache<TestDriver>, items: Vec<CacheItem>) {
-	for item in items {
-		let _ = cache.add(item);
 	}
 }
 
@@ -121,7 +108,7 @@ async fn reads_while_writing(
 				None => break, // we're done
 				Some(id) => {
 					if cache_2
-						.request(CacheRequest::Item(id.clone().into()))
+						.request(CacheRequest::Item(id.clone()))
 						.await
 						.is_err()
 					{
@@ -165,16 +152,15 @@ fn cache_benchmark(c: &mut Criterion) {
 	let token = CancellationToken::new();
 	let token_clone = token.clone();
 	let cache = Cache::new(TestDriver);
-	let mut actor_handle = fuse(async move {
+	spawn(async move {
 		cache_handler_task(rx, token_clone, cache).await;
-		TaskName::Actor
 	})
-	.boxed();
+	.detach();
 	group.bench_function(BenchmarkId::new("add_all", "zbus-docs"), |b| {
 		b.to_async(SmolExecutor).iter_batched(
 			|| zbus_items.clone(),
 			|items: Vec<CacheItem>| async {
-				actor.request(CacheRequest::AddAll(items)).await;
+				let _ = cache_1.request(CacheRequest::AddAll(items)).await;
 			},
 			BatchSize::SmallInput,
 		);
@@ -183,7 +169,7 @@ fn cache_benchmark(c: &mut Criterion) {
 		b.to_async(SmolExecutor).iter_batched(
 			|| wcag_items.clone(),
 			|items: Vec<CacheItem>| async {
-				actor.request(CacheRequest::AddAll(items)).await;
+				let _ = cache_2.request(CacheRequest::AddAll(items)).await;
 			},
 			BatchSize::SmallInput,
 		);
@@ -191,7 +177,7 @@ fn cache_benchmark(c: &mut Criterion) {
 
 	let (cache, children): (Arc<Cache<TestDriver>>, Vec<CacheKey>) =
 		SmolExecutor.block_on(async {
-			let cache = Arc::new(Cache::new(TestDriver));
+			let mut cache = Cache::new(TestDriver);
 			let all_items: Vec<CacheItem> = wcag_items.clone();
 			let _ = cache.add_all(all_items);
 			let children = cache
@@ -206,7 +192,7 @@ fn cache_benchmark(c: &mut Criterion) {
 					}
 				})
 				.collect();
-			(cache, children)
+			(Arc::new(cache), children)
 		});
 	group.bench_function(BenchmarkId::new("traverse_up_refs", "wcag-items"), |b| {
 		b.to_async(SmolExecutor).iter_batched(
