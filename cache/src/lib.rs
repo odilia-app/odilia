@@ -475,7 +475,16 @@ impl<D: CacheDriver + Send> Cache<D> {
 				.handle_event(*event)
 				.await
 				.map(|item| CacheResponse::Item(Item(item))),
+			CacheRequest::AddAll(items) => {
+				let _ = self.add_all(items);
+				Ok(CacheResponse::AddAll)
+			}
 		}
+	}
+	pub fn tree(
+		&self,
+	) -> &HashMap<String, HashMap<String, CacheItem, FxBuildHasher>, FxBuildHasher> {
+		&self.tree.0
 	}
 }
 
@@ -660,6 +669,10 @@ impl<D: CacheDriver> Cache<D> {
 		let cache_item = self.driver.lookup_from_legacy_cache_item(ci).await?;
 		self.tree.insert(key, cache_item.clone());
 		Ok(cache_item)
+	}
+
+	pub fn clear(&mut self) {
+		self.tree.0.clear();
 	}
 }
 

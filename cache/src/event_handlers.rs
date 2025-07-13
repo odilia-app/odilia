@@ -101,6 +101,9 @@ pub enum CacheRequest {
 	Children(CacheKey),
 	Relation(CacheKey, RelationType),
 	EventHandler(Box<Event>),
+	/// A request to add bulk items to the cache.
+	/// Only used for testing.
+	AddAll(Vec<CacheItem>),
 }
 
 #[derive(Debug)]
@@ -109,6 +112,9 @@ pub enum CacheResponse {
 	Parent(Parent),
 	Children(Children),
 	Relations(Relations),
+	/// A response that adding items to the cache succeeeded.
+	/// Only used for testing.
+	AddAll,
 }
 
 macro_rules! impl_relation {
