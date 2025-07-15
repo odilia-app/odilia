@@ -15,7 +15,6 @@ edition = "2021"
 [dependencies]
 futures-lite.workspace=true
 serde.workspace=true
-thiserror.workspace = true
 tracing.workspace=true
 zbus.workspace=true
 odilia-common.workspace=true
