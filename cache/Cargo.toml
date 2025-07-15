@@ -14,13 +14,11 @@ categories = ["accessibility"]
 [dependencies]
 atspi.workspace = true
 odilia-common.workspace = true
-dashmap = { version = "7.0.0-rc2", features = ["serde"] }
 serde.workspace = true
 tracing.workspace = true
 zbus.workspace = true
 fxhash = "0.2.1"
 serde_plain.workspace = true
-parking_lot = { version = "0.12.3", default-features = false }
 futures-concurrency.workspace = true
 futures-lite.workspace = true
 async-channel.workspace = true

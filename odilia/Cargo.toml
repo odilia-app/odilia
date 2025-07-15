@@ -52,7 +52,7 @@ smol-cancellation-token.workspace = true
 lexopt.workspace = true
 async-signal = "0.2.11"
 futures-lite.workspace = true
-async-channel = { version = "2.3.1", default-features = false }
+async-channel.workspace = true
 futures-concurrency.workspace = true
 futures-util.workspace = true
 async-executor = { version = "1.13.2", features = ["static"] }

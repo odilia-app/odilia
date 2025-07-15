@@ -266,3 +266,16 @@ jobs:
 
       - name: Run tests
         run: nix develop --command cargo build --tests --workspace
+  correct-minimum-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Git checkout
+        uses: actions/checkout@v3
+      - name: Install nightly toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+      - name: Generate lockfile with minimal direct versions
+        # Create a lockfile with minimal direct versions for reproducible builds.
+        # See advisory: https://blog.rust-lang.org/2023/08/29/committing-lockfiles/
+        run: cargo +nightly generate-lockfile -Z direct-minimal-versions
