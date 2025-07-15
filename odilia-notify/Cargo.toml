@@ -20,6 +20,6 @@ tracing.workspace=true
 zbus.workspace=true
 odilia-common.workspace=true
 [dev-dependencies]
-notify-rust = "4.10.0"
+notify-rust = "4.11.7"
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 tokio = { workspace=true, features = ["time"] }
