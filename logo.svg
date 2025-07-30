@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg width="1000" height="1000" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<g id="background">
+		<rect x="0" y="0" width="1000" height="1000" fill="white"/>
+	</g>
+	<!-- The Latin text "visum caecis": "sight to the blind" 
+	  The word "visum" follows the path of the upper eye lid.
+		The word "caecis" is upside down following the bottom eye lid.
+
+		The dot above the letter i is hidden, and instead the reflection off the lense of the eye is the dot.
+	-->
+	<g id="text">
+		<text stroke="black" fill="black" font-family="monospace" font-size="125" font-weight="bold">
+			<textPath xlink:href="#top-lid" id="blind"><tspan dy="-20" dx="40">visum</tspan></textPath>
+			<textPath xlink:href="#bottom-lid" id="sight"><tspan dx="-20" dy="80">caecis</tspan></textPath>
+		</text>
+	</g>
+	<g id="eye">
+		<circle id="lense" cx="600" cy="250" r="50" fill="black"/>
+		<circle id="inner-lense" cx="600" cy="275" r="10" fill="white"/>
+		<path id="top-lid" d="M 300 260 Q 490 85 700 260" stroke="black" fill="transparent" stroke-width="15"/>
+		<path id="bottom-lid" d="M 300 260 Q 490 360 700 260" stroke="black" fill="transparent" stroke-width="15"/>
+	</g>
+</svg>
