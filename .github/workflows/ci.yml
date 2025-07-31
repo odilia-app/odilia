@@ -246,24 +246,8 @@ jobs:
     steps:
       - name: Git checkout
         uses: actions/checkout@v3
-
-      - name: Cache cargo home
-        uses: actions/cache@v3
-        env:
-          cache-name: cache-cargo-home
-        with:
-          path: |
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            ~/.cargo/git/db
-          key: ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-x86_64-unknown-linux-gnu-build-${{ env.cache-name }}-
-
       - name: Install Nix
         uses: cachix/install-nix-action@v30
-
       - name: Run tests
         run: nix develop --command cargo build --tests --workspace
   correct-minimum-versions:
