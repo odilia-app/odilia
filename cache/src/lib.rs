@@ -32,6 +32,7 @@ use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt as LiteExt;
 use futures_util::future::{FutureExt, TryFutureExt};
 use fxhash::FxBuildHasher;
+pub use odilia_common::cache::CacheItem;
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
@@ -172,38 +173,6 @@ impl NewCache {
 	fn len(&self) -> usize {
 		self.0.values().map(HashMap::len).sum()
 	}
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-/// A struct representing an accessible. To get any information from the cache other than the stored information like role, interfaces, and states, you will need to instantiate an [`atspi::proxy::accessible::AccessibleProxy`] or other `*Proxy` type from atspi to query further info.
-pub struct CacheItem {
-	/// The accessible object (within the application)    (so)
-	pub object: AccessiblePrimitive,
-	/// The application (root object(?)      (so)
-	pub app: AccessiblePrimitive,
-	/// The parent object.  (so)
-	pub parent: AccessiblePrimitive,
-	/// The accessible index in parent.I
-	pub index: Option<usize>,
-	/// Child count of the accessible.I
-	pub children_num: Option<usize>,
-	/// The exposed interface(s) set
-	pub interfaces: InterfaceSet,
-	/// Accessible role. u
-	pub role: Role,
-	/// The states applicable to the accessible.  au
-	pub states: StateSet,
-	/// The children (ids) of the accessible
-	pub children: Vec<AccessiblePrimitive>,
-	/// The human-readable short name of the item. `None` if string is empty.
-	pub name: Option<String>,
-	/// The human-readable longer name (description) of the item. `None` if string is empty.
-	pub description: Option<String>,
-	/// The help-text of the item. `None` if string is empty.
-	pub help_text: Option<String>,
-	/// The actual, internal text of the item; this will be `None` if either the text interface isn't
-	/// implemented, or if the response contains an empty string: "".
-	pub text: Option<String>,
 }
 
 /// An internal cache used within Odilia.

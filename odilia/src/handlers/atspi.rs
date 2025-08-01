@@ -1,5 +1,6 @@
 use std::{
 	cmp::{max, min},
+	collections::VecDeque,
 	fmt::Write,
 };
 
@@ -18,9 +19,11 @@ use crate::{
 	state::{LastCaretPos, LastFocused},
 	tower::{
 		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, NonContainerEvent,
-		RelationSet, Subtree,
+		PropertyType, RelationSet, Subtree,
 	},
 };
+
+const OBJECT_REPLACEMENT_CHARACTER: char = '\u{FFFC}';
 
 #[tracing::instrument(ret)]
 pub async fn doc_loaded(loaded: ActiveAppEvent<LoadCompleteEvent>) -> impl TryIntoCommands {
@@ -95,11 +98,78 @@ pub async fn caret_moved_update_state(
 	]
 }
 
+/// Resolve the hypertext of the current item with its children (and recursively until finished)
+/// The `subtree` should contain all items in the sub tree, starting with the lement that contains
+/// hypertext with object replacement characters, followed by all other elements
+///
+/// TODO: for now, in order for this function to work correctly, some additional, spec-aditional contracts
+/// must be upheld:
+///
+/// - The number of object replacement characters in the text (U+FFFC) must be equal to the number of children
+/// of the element. This function will return [`TextError::InvalidHyperlinkText`] with the string
+/// and the number of children if this occurs.
+/// - The children must all implement the `org.a11y.atspi.Text` interface. If this fails to uphold,
+/// then the [`TextError::NonTextChildren`] with the parent and children respectively will be
+/// reported.
+fn resolve_hypertext(
+	root: odilia_cache::CacheItem,
+	mut subtree: <Subtree as PropertyType>::Type,
+	range: Option<(usize, usize)>,
+) -> Result<String, crate::OdiliaError> {
+	// if the object doesn't have any text, then return a blank string
+	let Some(text) = root.text else {
+		return Ok("".to_string());
+	};
+	println!("TRY: {text}");
+	let ch_num = root
+		.children_num
+		.expect("Root element must have a number of children, even if it's 0");
+	let mut children: Vec<_> =
+		subtree.iter().filter(|(_, ci)| ci.parent == root.object).collect();
+	children.sort_by_key(|(_, ci)| ci.index);
+	children.reverse();
+	println!("T-CH: {children:?}");
+	let new_str: String = text
+		.char_indices()
+		.filter_map(|(i, c)| {
+			if let Some((start, end)) = range {
+				if i >= start && i < end {
+					Some(c)
+				} else {
+					None
+				}
+			} else {
+				Some(c)
+			}
+		})
+		.inspect(|c| print!("T:{}", u32::from(*c)))
+		// NOTE: the unicode "replacement character" U+FFFD _IS NOT_
+		// the "object replacement character" U+FFFC
+		.map(|c| {
+			if c == OBJECT_REPLACEMENT_CHARACTER {
+				let (_, ch) = children.pop().expect("A child!");
+				let text = ch.text.clone().expect("Text child!");
+				text + " " + &ch.role.to_string()
+			} else {
+				c.to_string()
+			}
+		})
+		// why can't I collect multiple strings?
+		.reduce(|start, add| {
+			println!("TEXT: {}", start.clone() + &add);
+			start + &add
+		})
+		.into_iter()
+		.collect();
+	Ok(new_str)
+}
+
 #[tracing::instrument(ret)]
 pub async fn caret_moved(
 	caret_moved: CacheEvent<TextCaretMovedEvent>,
 	LastCaretPos(last_pos): LastCaretPos,
 	LastFocused(last_focus): LastFocused,
+	EventProp(subtree): EventProp<Subtree>,
 ) -> Option<OdiliaCommand> {
 	let pos = caret_moved
 		.position
@@ -112,12 +182,15 @@ pub async fn caret_moved(
 			if min == 0 && max == 0 {
 				return None;
 			}
-			let text_slice = text.chars().skip(min).take(max - min).collect::<String>();
+			let text_slice =
+				resolve_hypertext(caret_moved.item, subtree, Some((min, max)))
+					.ok()?;
 			if !text_slice.is_empty() {
 				return Some(Speak(text_slice, Priority::Text).into());
 			}
 		} else {
-			return Some(Speak(text.to_string(), Priority::Text).into());
+			let text2 = resolve_hypertext(caret_moved.item, subtree, None).ok()?;
+			return Some(Speak(text2, Priority::Text).into());
 		}
 	}
 	None
