@@ -1,11 +1,14 @@
-use odilia_common::{
-	command::{CaretPos, Focus, Speak, TryIntoCommands},
-	errors::OdiliaError,
-	events::{StopSpeech, StructuralNavigation},
-};
-use ssip::{Priority, Request};
+use std::{process::Child, time::Duration};
 
-use crate::state::{AccessibleHistory, Command, CurrentCaretPos, InputEvent, Speech};
+use odilia_common::{
+	command::{CaretPos, Focus, Quit, Speak},
+	errors::OdiliaError,
+};
+use ssip::Request;
+
+use crate::state::{
+	AccessibleHistory, ChildrenPids, Command, CurrentCaretPos, ShutdownToken, Speech,
+};
 
 #[tracing::instrument(ret, err, level = "debug")]
 pub async fn speak(
@@ -53,13 +56,20 @@ pub async fn new_caret_pos(
 }
 
 #[tracing::instrument(ret)]
-pub async fn stop_speech(InputEvent(_): InputEvent<StopSpeech>) -> impl TryIntoCommands {
-	(Priority::Text, "Stop speech")
-}
-
-#[tracing::instrument(ret)]
-pub async fn structural_nav(
-	InputEvent(sn): InputEvent<StructuralNavigation>,
-) -> impl TryIntoCommands {
-	(Priority::Text, format!("Navigate to {}, {:?}", sn.1, sn.0))
+pub async fn quit_cmd(
+	Command(Quit): Command<Quit>,
+	ShutdownToken(token): ShutdownToken,
+	ChildrenPids(pids): ChildrenPids,
+) -> Result<(), OdiliaError> {
+	let timeout_duration = Duration::from_secs(5); //todo: perhaps take this from the configuration file at some point
+	tracing::debug!("Asking all processes to stop.");
+	pids.lock()
+		.expect("Unable to lock mutex!")
+		.iter_mut()
+		.try_for_each(Child::kill)
+		.expect("Unable to kill child processes");
+	tracing::debug!("cancelling all tokens");
+	token.cancel();
+	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
+	Ok(())
 }
