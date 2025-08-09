@@ -5,6 +5,7 @@ use std::{
 	task::{Context, Poll},
 };
 
+use async_signal::Signal;
 use atspi::{
 	events::{DBusInterface, DBusMember},
 	Event, EventTypeProperties,
@@ -65,6 +66,9 @@ where
 	{
 		self.services.entry(k)
 	}
+	pub fn keys(&self) -> impl Iterator<Item = &K> {
+		self.services.keys()
+	}
 }
 
 impl<K, S, Req> Service<Req> for ChoiceService<K, S, Req>
@@ -121,6 +125,14 @@ where
 {
 	fn identifier() -> ScreenReaderEventDiscriminants {
 		E::ETYPE
+	}
+}
+
+// stub impl, since Signal is an i32 internally it implements all the methods we need, no need it
+// change its identifier to another, simpler type
+impl Chooser<Signal> for Signal {
+	fn identifier(&self) -> Signal {
+		*self
 	}
 }
 
