@@ -18,7 +18,7 @@ use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::OdiliaError,
-	events::EventType,
+	events::{EventType, ScreenReaderEvent},
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	Result as OdiliaResult,
 };
@@ -67,6 +67,8 @@ impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
 #[derive(Debug, Clone)]
 pub struct LastFocused(pub AccessiblePrimitive);
 #[derive(Debug, Clone)]
+pub struct NavigateTo(pub AccessiblePrimitive);
+#[derive(Debug, Clone)]
 pub struct ChildrenPids(pub Arc<Mutex<Vec<Child>>>);
 #[derive(Debug, Clone)]
 pub struct ShutdownToken(pub CancellationToken);
@@ -98,6 +100,26 @@ where
 	type Future = Ready<Result<InputEvent<E>, Self::Error>>;
 	fn try_from_state(_state: Arc<ScreenReaderState>, i_ev: E) -> Self::Future {
 		ok(InputEvent(i_ev))
+	}
+}
+impl<E> TryFromState<Arc<ScreenReaderState>, E> for NavigateTo
+where
+	E: EventType + Clone + Debug,
+	ScreenReaderEvent: From<E>,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<NavigateTo, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, i_ev: E) -> Self::Future {
+		let ScreenReaderEvent::Navigate(nav) = i_ev.clone().into() else {
+			return err(format!(
+				"Invalid type of input event ({:?}) for extractor {:?}",
+				i_ev,
+				std::any::type_name::<NavigateTo>()
+			)
+			.into());
+		};
+		// TODO: go get the right item via cache
+		todo!()
 	}
 }
 

@@ -24,11 +24,11 @@ mod proptests;
 
 use std::{cmp::Ordering, sync::mpsc::SyncSender};
 
-use atspi::Role;
+use atspi::{MatchType, ObjectMatchRule, Role};
 use odilia_common::{
 	events::{
-		ChangeMode, Direction, Quit, ScreenReaderEvent as OdiliaEvent, StopSpeech,
-		StructuralNavigation,
+		ChangeMode, Direction, Navigate, Quit, ScreenReaderEvent as OdiliaEvent,
+		StopSpeech, StructuralNavigation,
 	},
 	modes::ScreenReaderMode as Mode,
 };
@@ -605,6 +605,40 @@ impl IntoIterator for ComboSets {
 	}
 }
 
+/// The containing roles.
+pub const SEMANTIC_ROLES: [Role; 30] = [
+	Role::Frame,
+	Role::DocumentFrame,
+	Role::DocumentWeb,
+	Role::Dialog,
+	Role::Alert,
+	Role::Panel,
+	Role::ScrollPane,
+	Role::LayeredPane,
+	Role::Viewport,
+	Role::Filler,
+	Role::Section,
+	Role::Form,
+	Role::Grouping,
+	Role::PageTabList,
+	Role::ToolBar,
+	Role::ToolTip,
+	Role::MenuBar,
+	Role::Menu,
+	Role::List,
+	Role::Table,
+	Role::Tree,
+	Role::TreeTable,
+	Role::Table,
+	Role::Canvas,
+	Role::DocumentFrame,
+	Role::Application,
+	Role::DesktopFrame,
+	Role::Footnote,
+	Role::Article,
+	Role::Landmark,
+];
+
 impl Default for ComboSets {
 	fn default() -> Self {
 		ComboSets::try_from([
@@ -630,6 +664,34 @@ impl Default for ComboSets {
 			(
 				Some(Mode::Browse),
 				ComboSet::try_from([
+					(
+						[Key::LeftArrow].try_into().unwrap(),
+						Navigate(
+							Direction::Backward,
+							ObjectMatchRule::builder()
+								.roles(
+									&SEMANTIC_ROLES,
+									MatchType::Any,
+								)
+								.invert(true)
+								.build(),
+						)
+						.into(),
+					),
+					(
+						[Key::RightArrow].try_into().unwrap(),
+						Navigate(
+							Direction::Forward,
+							ObjectMatchRule::builder()
+								.roles(
+									&SEMANTIC_ROLES,
+									MatchType::Any,
+								)
+								.invert(true)
+								.build(),
+						)
+						.into(),
+					),
 					(
 						[Key::KeyT].try_into().unwrap(),
 						StructuralNavigation(

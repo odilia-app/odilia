@@ -1,6 +1,6 @@
 use odilia_common::{
 	command::{Quit as QuitCommand, TryIntoCommands},
-	events::{ChangeMode, Quit, StopSpeech, StructuralNavigation},
+	events::{ChangeMode, Navigate, Quit, StopSpeech, StructuralNavigation},
 };
 use ssip::Priority;
 
@@ -26,4 +26,9 @@ pub async fn structural_nav(
 	InputEvent(sn): InputEvent<StructuralNavigation>,
 ) -> impl TryIntoCommands {
 	(Priority::Text, format!("Navigate to {}, {:?}", sn.1, sn.0))
+}
+
+#[tracing::instrument(ret)]
+pub async fn navigate(InputEvent(nav): InputEvent<Navigate>) {
+	todo!()
 }
