@@ -53,6 +53,12 @@ pub trait IntoCommands {
 	fn into_commands(self) -> Self::Iter;
 }
 
+impl IntoCommands for Quit {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self.into()].into_iter()
+	}
+}
 impl IntoCommands for CaretPos {
 	type Iter = IntoIter<OdiliaCommand, 1>;
 	fn into_commands(self) -> Self::Iter {
@@ -176,6 +182,9 @@ impl<T: CommandType> CommandTypeDynamic for T {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Quit;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CaretPos(pub usize);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -203,6 +212,7 @@ impl_command_type!(Focus, Focus);
 impl_command_type!(SetState, SetState);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
+impl_command_type!(Quit, Quit);
 
 #[derive(Debug, Clone, EnumDiscriminants, Serialize, Deserialize, Eq, PartialEq)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
@@ -212,4 +222,5 @@ pub enum OdiliaCommand {
 	Focus(Focus),
 	CaretPos(CaretPos),
 	SetState(SetState),
+	Quit(Quit),
 }
