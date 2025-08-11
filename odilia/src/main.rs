@@ -32,9 +32,9 @@ use futures_lite::{
 };
 use futures_util::FutureExt as FatExt;
 use handlers::{
-	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, new_caret_pos,
-	new_focused_item, quit_cmd, quit_input, sigint_quit, sigusr1_reload_config, speak,
-	state_set, stop_speech, structural_nav,
+	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, move_focus,
+	navigate, new_caret_pos, new_focused_item, quit_cmd, quit_input, sigint_quit,
+	sigusr1_reload_config, speak, state_set, stop_speech, structural_nav,
 };
 use odilia_cache::{cache_handler_task, Cache, CacheActor};
 use odilia_common::{
@@ -211,6 +211,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 	let handlers = Handlers::new(state.clone(), token.clone())
 		.command_listener(speak)
 		.command_listener(new_focused_item)
+		.command_listener(move_focus)
 		.command_listener(new_caret_pos)
 		.command_listener(new_caret_pos)
 		.command_listener(quit_cmd)
@@ -224,6 +225,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 		.input_listener(change_mode)
 		.input_listener(quit_input)
 		.input_listener(structural_nav)
+		.input_listener(navigate)
 		.signal_listener(sigint_quit)
 		.signal_listener(sigusr1_reload_config);
 
