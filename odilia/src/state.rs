@@ -12,13 +12,14 @@ use atspi::{
 	Event,
 };
 use circular_queue::CircularQueue;
-use futures_util::future::{err, ok, Ready};
-use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, Item};
+use futures_lite::future::Boxed;
+use futures_util::future::{err, ok, Ready, TryFutureExt};
+use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, FoundItem, Item};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::OdiliaError,
-	events::{EventType, ScreenReaderEvent},
+	events::{EventType, Navigate},
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	Result as OdiliaResult,
 };
@@ -67,7 +68,9 @@ impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
 #[derive(Debug, Clone)]
 pub struct LastFocused(pub AccessiblePrimitive);
 #[derive(Debug, Clone)]
-pub struct NavigateTo(pub AccessiblePrimitive);
+pub struct Connection(pub zbus::Connection);
+#[derive(Debug, Clone)]
+pub struct NavigateTo(pub Option<CacheItem>);
 #[derive(Debug, Clone)]
 pub struct ChildrenPids(pub Arc<Mutex<Vec<Child>>>);
 #[derive(Debug, Clone)]
@@ -102,24 +105,36 @@ where
 		ok(InputEvent(i_ev))
 	}
 }
-impl<E> TryFromState<Arc<ScreenReaderState>, E> for NavigateTo
-where
-	E: EventType + Clone + Debug,
-	ScreenReaderEvent: From<E>,
-{
+impl TryFromState<Arc<ScreenReaderState>, Navigate> for NavigateTo {
 	type Error = OdiliaError;
-	type Future = Ready<Result<NavigateTo, Self::Error>>;
-	fn try_from_state(state: Arc<ScreenReaderState>, i_ev: E) -> Self::Future {
-		let ScreenReaderEvent::Navigate(nav) = i_ev.clone().into() else {
-			return err(format!(
-				"Invalid type of input event ({:?}) for extractor {:?}",
-				i_ev,
-				std::any::type_name::<NavigateTo>()
-			)
-			.into());
-		};
-		// TODO: go get the right item via cache
-		todo!()
+	type Future = Boxed<Result<NavigateTo, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, nav: Navigate) -> Self::Future {
+		let last_focused_gaurd = state
+			.accessible_history
+			.lock()
+			.expect("Unable to lock accessible history!");
+		let start = last_focused_gaurd
+			.iter()
+			.nth(0)
+			.cloned()
+			.expect("Can not find a previously focused element!");
+		// explicitly drop so we don't hold it for the duration of the future
+		drop(last_focused_gaurd);
+
+		Box::pin(async move {
+			state.cache_actor
+				.request(CacheRequest::Find(
+					start,
+					nav.direction,
+					nav.find,
+					nav.bound,
+				))
+				.map_ok(|cr| match cr {
+					CacheResponse::Find(FoundItem(ci)) => NavigateTo(ci),
+					e => panic!("Inappropriate response: {e:?}"),
+				})
+				.await
+		})
 	}
 }
 
@@ -131,6 +146,17 @@ where
 	type Future = Ready<Result<Command<C>, Self::Error>>;
 	fn try_from_state(_state: Arc<ScreenReaderState>, cmd: C) -> Self::Future {
 		ok(Command(cmd))
+	}
+}
+
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Connection
+where
+	C: CommandType + Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Connection, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(Connection(state.atspi.connection().clone()))
 	}
 }
 
