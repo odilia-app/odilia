@@ -215,6 +215,16 @@ pub struct CacheItem {
 
 impl CacheItem {
 	fn matches(&self, mr: &ObjectMatchRule) -> bool {
+		assert_eq!(
+			mr.attr,
+			HashMap::new(),
+			"Odilia does not implement support for attribute matching!"
+		);
+		assert_eq!(
+			mr.attr_mt,
+			MatchType::Invalid,
+			"Odilia does not implement support for attribute matching!"
+		);
 		mr.invert
 			^ (match (mr.states_mt, mr.states.is_empty()) {
 				(MatchType::Invalid, _) => true,
@@ -244,16 +254,8 @@ impl CacheItem {
 					mr.roles.iter().all(|r| *r == self.role)
 				}
 				(MatchType::Empty, true) => false,
-				(MatchType::Any, _) => mr.roles.iter().any(|r| *r == self.role),
-				(MatchType::NA, _) => !mr.roles.iter().any(|r| *r == self.role),
-			} && match (mr.attr_mt, mr.attr.is_empty()) {
-				(MatchType::Invalid, _) => true,
-				(MatchType::All, _) | (MatchType::Empty, false) => {
-					mr.roles.iter().all(|r| *r == self.role)
-				}
-				(MatchType::Empty, true) => false,
-				(MatchType::Any, _) => mr.roles.iter().any(|r| *r == self.role),
-				(MatchType::NA, _) => !mr.roles.iter().any(|r| *r == self.role),
+				(MatchType::Any, _) => mr.roles.contains(&self.role),
+				(MatchType::NA, _) => !mr.roles.contains(&self.role),
 			})
 	}
 }
@@ -497,26 +499,64 @@ impl CacheDriver for zbus::Connection {
 }
 
 impl<D: CacheDriver + Send> Cache<D> {
+	async fn next_siblings(
+		&mut self,
+		root: &CacheItem,
+		dir: Direction,
+	) -> Result<(VecDeque<CacheItem>, CacheItem), OdiliaError> {
+		let parent = self.get_or_create(&root.parent).await?;
+		let mut siblings: Vec<_> = self
+			.get_or_create_all(&parent.children)
+			.await?
+			.into_iter()
+			.filter(|sib| match dir {
+				Direction::Forward => sib.index > root.index,
+				Direction::Backward => sib.index < root.index,
+			})
+			.collect();
+		siblings.sort_by(|sib1, sib2| match dir {
+			Direction::Forward => sib1.index.cmp(&sib2.index),
+			Direction::Backward => sib2.index.cmp(&sib1.index),
+		});
+		assert_eq!({
+            let mut cl = siblings.clone();
+            cl.dedup_by_key(|sib| sib.index);
+            cl.len()
+        }, siblings.len(), "There are two elements with the same index! This is almost always an issue with the application's accessibility implementation: {siblings:?}");
+		Ok((siblings.into(), parent))
+	}
 	async fn find(
 		&mut self,
-		start: CacheKey,
+		start_key: CacheKey,
 		dir: Direction,
-		mr: ObjectMatchRule,
+		find_mr: ObjectMatchRule,
+		bound_mr: ObjectMatchRule,
 	) -> Result<Option<CacheItem>, OdiliaError> {
-		// TODO: how do we bound certain types of searches?
-		// it seems to me that there is very little guidance on this.
-		//
-		// For example, searching for "the next button" in an HTML page should not include buttons
-		// that are part of the web browser menus, but using simple "next/prev" navigatinon does go
-		// to them.
-		//
-		// There is the possibility we need a boundary parameter too, in order to be consistent.
-		// We just need _something_ now.
-		let matching_item = None;
-		let mut stack: VecDeque<CacheKey> = VecDeque::new();
-		while let Some(key) = stack.pop_front() {
-			let item = self.get_or_create(&key).await?;
-			if item.matches(&mr) {}
+		println!("FIND: START SEARCH");
+		let mut root = self.get_or_create(&start_key).await?;
+		let mut matching_item = None;
+		let mut stack: VecDeque<_> = self.get_or_create_all(&root.children).await?.into();
+		while stack.is_empty() {
+			println!("Trying parent for siblings");
+			(stack, root) = self.next_siblings(&root, dir).await?;
+			if root.matches(&bound_mr) {
+				return Ok(None);
+			}
+		}
+		while let Some(item) = stack.pop_front() {
+			println!("FIND: {item:?}");
+			if item.matches(&find_mr) {
+				matching_item = Some(item);
+				break;
+			}
+			if item.matches(&bound_mr) {
+				break;
+			}
+			if !stack.is_empty() {
+				continue;
+			}
+			// we can do this because the stack is empty
+			(stack, root) = self.next_siblings(&root, dir).await?;
 		}
 		Ok(matching_item)
 	}
@@ -538,12 +578,12 @@ impl<D: CacheDriver + Send> Cache<D> {
 			}
 			CacheRequest::Children(ref key) => {
 				let children_vec = self.get_or_create(key).await?.children;
-				let children = self.get_or_create_all(children_vec).await?;
+				let children = self.get_or_create_all(&children_vec).await?;
 				Ok(CacheResponse::Children(Children(children)))
 			}
 			CacheRequest::Relation(ref key, ty) => {
 				let rel_ids = self.driver.lookup_relations(key, ty).await?;
-				let rels = self.get_or_create_all(rel_ids).await?;
+				let rels = self.get_or_create_all(&rel_ids).await?;
 				Ok(CacheResponse::Relations(Relations(ty, rels)))
 			}
 			CacheRequest::EventHandler(event) => self
@@ -554,8 +594,12 @@ impl<D: CacheDriver + Send> Cache<D> {
 				let _ = self.add_all(items);
 				Ok(CacheResponse::AddAll)
 			}
-			CacheRequest::Find(start, direction, match_rule) => self
-				.find(start, direction, match_rule)
+			CacheRequest::Find(
+				start,
+				direction,
+				find_match_rule,
+				boundary_match_rule,
+			) => self.find(start, direction, *find_match_rule, *boundary_match_rule)
 				.await
 				.map(|item| CacheResponse::Find(FoundItem(item))),
 		}
@@ -636,17 +680,17 @@ impl<D: CacheDriver> Cache<D> {
 		self.get(key).ok_or(CacheError::NoItem.into())
 	}
 
-	async fn get_or_create_all(&mut self, keys: Vec<CacheKey>) -> OdiliaResult<Vec<CacheItem>> {
+	async fn get_or_create_all(&mut self, keys: &[CacheKey]) -> OdiliaResult<Vec<CacheItem>> {
 		let mut found = vec![];
 		let mut not_found = vec![];
 		for key in keys {
-			match self.tree.get(&key) {
+			match self.tree.get(key) {
 				Some(cache_item) => found.push(cache_item.clone()),
 				None => not_found.push(key),
 			}
 		}
 		for key in not_found {
-			let item = self.get_or_create(&key).await?;
+			let item = self.get_or_create(key).await?;
 			found.push(item);
 		}
 		Ok(self.add_all(found))

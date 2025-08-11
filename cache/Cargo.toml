@@ -25,6 +25,7 @@ async-channel.workspace = true
 smol-cancellation-token.workspace = true
 futures-util.workspace = true
 static_assertions = "1.1.0"
+pin-project-lite.workspace = true
 
 [dev-dependencies]
 atspi = { workspace = true, features = ["connection"] }
