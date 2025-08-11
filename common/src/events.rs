@@ -3,9 +3,9 @@ use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::modes::ScreenReaderMode;
+use crate::{cache::AccessiblePrimitive, modes::ScreenReaderMode};
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize, Debug)]
 /// A list of features supported natively by Odilia.
 pub enum Feature {
 	/// Unimplemented, but will eventually stop all speech until re-activated.
@@ -14,7 +14,7 @@ pub enum Feature {
 	Braille, // TODO
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize, Debug)]
 #[serde(tag = "direction")]
 pub enum Direction {
 	Forward,
@@ -67,7 +67,11 @@ pub struct Quit;
 impl_event_type!(Quit, Quit);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct Navigate(pub Direction, pub ObjectMatchRule);
+pub struct Navigate {
+	pub direction: Direction,
+	pub find: Box<ObjectMatchRule>,
+	pub bound: Box<ObjectMatchRule>,
+}
 impl_event_type!(Navigate, Navigate);
 
 #[derive(Eq, PartialEq, Clone, Serialize, Deserialize, Debug, EnumDiscriminants)]

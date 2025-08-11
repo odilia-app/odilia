@@ -190,8 +190,21 @@ pub struct CaretPos(pub usize);
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Speak(pub String, pub Priority);
 
+impl From<(Priority, &str)> for Speak {
+	fn from(ps: (Priority, &str)) -> Self {
+		Speak(ps.1.to_string(), ps.0)
+	}
+}
+impl From<(Priority, &str)> for OdiliaCommand {
+	fn from(ps: (Priority, &str)) -> Self {
+		Speak::from(ps).into()
+	}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Move(pub AccessiblePrimitive);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SetState {
@@ -209,6 +222,7 @@ macro_rules! impl_command_type {
 }
 
 impl_command_type!(Focus, Focus);
+impl_command_type!(Move, Move);
 impl_command_type!(SetState, SetState);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
@@ -220,6 +234,7 @@ impl_command_type!(Quit, Quit);
 pub enum OdiliaCommand {
 	Speak(Speak),
 	Focus(Focus),
+	Move(Move),
 	CaretPos(CaretPos),
 	SetState(SetState),
 	Quit(Quit),
