@@ -638,6 +638,22 @@ pub const SEMANTIC_ROLES: [Role; 30] = [
 	Role::Article,
 	Role::Landmark,
 ];
+/// General roles which cause a search to stop.
+///
+/// For example: in an HTML document, you do not want to search the browser menu or URL bar for
+/// something. Search is explicitly bounded by the `Role::DocumentFrame` in order to achieve this.
+pub const BOUNDING_ROLES: [Role; 10] = [
+	Role::Frame,
+	Role::DocumentFrame,
+	Role::DocumentWeb,
+	Role::Panel,
+	Role::ScrollPane,
+	Role::LayeredPane,
+	Role::Viewport,
+	Role::DocumentFrame,
+	Role::Application,
+	Role::DesktopFrame,
+];
 
 impl Default for ComboSets {
 	fn default() -> Self {
@@ -666,30 +682,50 @@ impl Default for ComboSets {
 				ComboSet::try_from([
 					(
 						[Key::LeftArrow].try_into().unwrap(),
-						Navigate(
-							Direction::Backward,
-							ObjectMatchRule::builder()
-								.roles(
-									&SEMANTIC_ROLES,
-									MatchType::Any,
-								)
-								.invert(true)
-								.build(),
-						)
+						Navigate {
+							direction: Direction::Backward,
+							find: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&SEMANTIC_ROLES,
+										MatchType::Any,
+									)
+									.invert(true)
+									.build(),
+							),
+							bound: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&BOUNDING_ROLES,
+										MatchType::Any,
+									)
+									.build(),
+							),
+						}
 						.into(),
 					),
 					(
 						[Key::RightArrow].try_into().unwrap(),
-						Navigate(
-							Direction::Forward,
-							ObjectMatchRule::builder()
-								.roles(
-									&SEMANTIC_ROLES,
-									MatchType::Any,
-								)
-								.invert(true)
-								.build(),
-						)
+						Navigate {
+							direction: Direction::Forward,
+							find: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&SEMANTIC_ROLES,
+										MatchType::Any,
+									)
+									.invert(true)
+									.build(),
+							),
+							bound: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&BOUNDING_ROLES,
+										MatchType::Any,
+									)
+									.build(),
+							),
+						}
 						.into(),
 					),
 					(
