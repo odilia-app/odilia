@@ -1,13 +1,20 @@
 use std::{process::Child, time::Duration};
 
+use atspi::{
+	proxy::{accessible::AccessibleProxy, proxy_ext::ProxyExt},
+	ScrollType,
+};
 use odilia_common::{
-	command::{CaretPos, Focus, Quit, Speak},
+	command::{CaretPos, Focus, Move, Quit, Speak},
 	errors::OdiliaError,
 };
 use ssip::Request;
+use tracing::{error, trace};
+use zbus::proxy::CacheProperties;
 
 use crate::state::{
-	AccessibleHistory, ChildrenPids, Command, CurrentCaretPos, ShutdownToken, Speech,
+	AccessibleHistory, ChildrenPids, Command, Connection, CurrentCaretPos, ShutdownToken,
+	Speech,
 };
 
 #[tracing::instrument(ret, err, level = "debug")]
@@ -43,6 +50,39 @@ pub async fn new_focused_item(
 	AccessibleHistory(old_focus): AccessibleHistory,
 ) -> Result<(), OdiliaError> {
 	let _ = old_focus.lock()?.push(new_focus);
+	Ok(())
+}
+
+// NOTE: DO NOT UPDATE STATE HERE!
+//
+// This is for when Odilia has requested a change of focus via AT-SPI.
+// All state management, speaking, etc. will happen once the focus event makes its way back through
+// the handlers.
+#[tracing::instrument(ret, err)]
+pub async fn move_focus(
+	Command(Move(new_focus)): Command<Move>,
+	Connection(con): Connection,
+) -> Result<(), OdiliaError> {
+	let proxies = AccessibleProxy::builder(&con)
+		.cache_properties(CacheProperties::No)
+		.path(new_focus.id.clone())?
+		.destination(new_focus.sender.clone())?
+		.build()
+		.await?
+		.proxies()
+		.await?;
+	let live_item = proxies.component().await?;
+	if !live_item.grab_focus().await? {
+		error!("Unable to get focus on new item: {new_focus:?}");
+	}
+	if !live_item.scroll_to(ScrollType::TopLeft).await? {
+		error!("Unable to scroll to new item; this is usually because the item is invalid!");
+	}
+	let Ok(text_item) = proxies.text().await else {
+		trace!("New focus is not a text item");
+		return Ok(());
+	};
+	text_item.set_caret_offset(0).await?;
 	Ok(())
 }
 

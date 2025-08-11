@@ -1,10 +1,10 @@
 use odilia_common::{
-	command::{Quit as QuitCommand, TryIntoCommands},
+	command::{Focus, Move, Quit as QuitCommand, TryIntoCommands},
 	events::{ChangeMode, Navigate, Quit, StopSpeech, StructuralNavigation},
 };
 use ssip::Priority;
 
-use crate::InputEvent;
+use crate::{state::NavigateTo, InputEvent};
 
 #[tracing::instrument(ret)]
 pub async fn change_mode(InputEvent(cm): InputEvent<ChangeMode>) -> impl TryIntoCommands {
@@ -29,6 +29,13 @@ pub async fn structural_nav(
 }
 
 #[tracing::instrument(ret)]
-pub async fn navigate(InputEvent(nav): InputEvent<Navigate>) {
-	todo!()
+pub async fn navigate(
+	InputEvent(nav): InputEvent<Navigate>,
+	NavigateTo(maybe_item): NavigateTo,
+) -> impl TryIntoCommands {
+	if let Some(item) = maybe_item {
+		Ok(vec![Move(item.object).into()])
+	} else {
+		Ok(vec![(Priority::Text, "No item found!").into()])
+	}
 }
