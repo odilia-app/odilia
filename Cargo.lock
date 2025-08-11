@@ -228,8 +228,7 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "atspi"
 version = "0.27.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e595c4a1ad7be9c5514980ae8c6e4810f17e9d24bd7bbc5ad67e7aef4dc1c819"
+source = "git+https://github.com/odilia-app/atspi/?branch=object-match-improvments#401c340de5a3bb89130b7213386a42ce4ac254f2"
 dependencies = [
  "atspi-common",
  "atspi-connection",
@@ -239,8 +238,7 @@ dependencies = [
 [[package]]
 name = "atspi-common"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d2b4e5cb03df74eae47d7c47918e109db6ad3c825602f236d060a221f4d23b8"
+source = "git+https://github.com/odilia-app/atspi/?branch=object-match-improvments#401c340de5a3bb89130b7213386a42ce4ac254f2"
 dependencies = [
  "enumflags2",
  "serde",
@@ -255,8 +253,7 @@ dependencies = [
 [[package]]
 name = "atspi-connection"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "832ecc699b7b1e801e49f5dccb4db1472519537498448f944e8cdcfcdd92e6b3"
+source = "git+https://github.com/odilia-app/atspi/?branch=object-match-improvments#401c340de5a3bb89130b7213386a42ce4ac254f2"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -267,8 +264,7 @@ dependencies = [
 [[package]]
 name = "atspi-proxies"
 version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b9aef6811420186bed52af0af10fed051ef554b6206edbaffddcfa2dd90e43"
+source = "git+https://github.com/odilia-app/atspi/?branch=object-match-improvments#401c340de5a3bb89130b7213386a42ce4ac254f2"
 dependencies = [
  "atspi-common",
  "serde",
@@ -1044,9 +1040,9 @@ checksum = "9fa0e2a1fcbe2f6be6c42e342259976206b383122fc152e872795338b5a3f3a7"
 
 [[package]]
 name = "libc"
-version = "0.2.174"
+version = "0.2.175"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1171693293099992e19cddea4e8b849964e9846f4acee11b3948bcc337be8776"
+checksum = "6a82ae493e598baaea5209805c49bbf2ea7de956d50d7da0da1164f9c6d28543"
 
 [[package]]
 name = "linux-raw-sys"
@@ -1302,6 +1298,7 @@ dependencies = [
  "futures-util",
  "fxhash",
  "odilia-common",
+ "pin-project-lite",
  "serde",
  "serde_json",
  "serde_plain",
@@ -1568,9 +1565,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.95"
+version = "1.0.96"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
+checksum = "beef09f85ae72cea1ef96ba6870c51e6382ebfa4f0e85b643459331f3daa5be0"
 dependencies = [
  "unicode-ident",
 ]
@@ -1774,9 +1771,9 @@ dependencies = [
 
 [[package]]
 name = "rustversion"
-version = "1.0.21"
+version = "1.0.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a0d197bd2c9dc6e53b84da9556a69ba4cdfab8619eb41a8bd1cc2027a0f6b1d"
+checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
 name = "rusty-fork"
@@ -2765,6 +2762,7 @@ dependencies = [
  "hex",
  "nix",
  "ordered-stream",
+ "rand",
  "serde",
  "serde_repr",
  "tracing",
