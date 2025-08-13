@@ -41,6 +41,7 @@ pub const ACTIVATION_KEY: Key = Key::CapsLock;
 #[derive(Eq, PartialEq, Clone, Default)]
 #[repr(transparent)]
 pub struct KeySet {
+    // TODO: add activation key
 	inner: Vec<Key>,
 }
 
@@ -284,6 +285,8 @@ pub enum ComboError {
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct ComboSet {
+    // TODO: there should be an activation thing here in a tuple:
+    // (KeySet, bool), or a wrapper struct
 	inner: Vec<(KeySet, OdiliaEvent)>,
 }
 impl std::fmt::Debug for ComboSet {
@@ -458,6 +461,9 @@ pub enum SetError {
 #[derive(Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ComboSets {
+    // TODO: add extra checks here to ensure there isn't overlap on un-preefivxed/same-prefixed
+    // keys
+    // TODO: add another check/field for the list of activation keys
 	inner: Vec<(Option<Mode>, ComboSet)>,
 }
 impl std::fmt::Debug for ComboSets {
@@ -819,12 +825,16 @@ impl<'a> IntoIterator for &'a ComboSets {
 #[derive(Debug)]
 pub struct State {
 	/// If the activation key ([`crate::ACTIVATION_KEY`]) is pressed.
+    // TODO: remove; handle via combo sets
 	pub activation_key_pressed: bool,
 	/// Which mode the screen reader is in.
 	pub mode: Mode,
 	/// All pressed keys _after_ activation is pressed.
 	pub pressed: Vec<Key>,
 	/// List of key combos.
+    // NOTE: If you add a activatiable key, that key can no longer be passed through
+    // I don't see a way around that.
+    // So be very careful adding activation keys. 
 	pub combos: ComboSets,
 	/// A synchronous channel to send events to.
 	/// The receiver will send them over a socket to the main Odilia process.
@@ -839,6 +849,8 @@ pub struct State {
 ///
 /// If the [`State`]'s [`SyncSender`] for the [`OdiliaEvent`] is unable to be sent to.
 pub fn callback(event: Event, state: &mut State) -> Option<Event> {
+    // TODO: make sure to check the _individual_ activation keys!
+    // lack thereof is also an indication of how to handle it
 	tracing::debug!("Callback called for {event:?}");
 	match (event.event_type, state.activation_key_pressed) {
 		// if capslock is pressed while activation is disabled
