@@ -46,7 +46,7 @@ odilia-cache = { version = "0.3.0", path = "./cache" }
 nix = { version = "0.30.0", default-features = false, features = ["user"] }
 pin-project-lite = { version = "0.2.16", default-features = false }
 serde_json = { version = "1.0.100", default-features = false, features = ["alloc"] }
-serde = { version = "1.0.200", default-features = false, features = ["derive"] }
+serde = { version = "1.0.228", default-features = false, features = ["derive"] }
 thiserror = { version = "2.0", default-features = false, features = ["std"] }
 tokio = { version = "^1.44.2", default-features = false, features = ["macros", "rt"] }
 smol-cancellation-token = { version = "0.1", default-features = false }
