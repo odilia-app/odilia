@@ -53,6 +53,12 @@ pub trait IntoCommands {
 	fn into_commands(self) -> Self::Iter;
 }
 
+impl IntoCommands for Quit {
+	type Iter = IntoIter<OdiliaCommand, 1>;
+	fn into_commands(self) -> Self::Iter {
+		[self.into()].into_iter()
+	}
+}
 impl IntoCommands for CaretPos {
 	type Iter = IntoIter<OdiliaCommand, 1>;
 	fn into_commands(self) -> Self::Iter {
@@ -176,13 +182,29 @@ impl<T: CommandType> CommandTypeDynamic for T {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Quit;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct CaretPos(pub usize);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Speak(pub String, pub Priority);
 
+impl From<(Priority, &str)> for Speak {
+	fn from(ps: (Priority, &str)) -> Self {
+		Speak(ps.1.to_string(), ps.0)
+	}
+}
+impl From<(Priority, &str)> for OdiliaCommand {
+	fn from(ps: (Priority, &str)) -> Self {
+		Speak::from(ps).into()
+	}
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct Focus(pub AccessiblePrimitive);
+#[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
+pub struct Move(pub AccessiblePrimitive);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct SetState {
@@ -200,9 +222,11 @@ macro_rules! impl_command_type {
 }
 
 impl_command_type!(Focus, Focus);
+impl_command_type!(Move, Move);
 impl_command_type!(SetState, SetState);
 impl_command_type!(Speak, Speak);
 impl_command_type!(CaretPos, CaretPos);
+impl_command_type!(Quit, Quit);
 
 #[derive(Debug, Clone, EnumDiscriminants, Serialize, Deserialize, Eq, PartialEq)]
 #[strum_discriminants(derive(Ord, PartialOrd, Display))]
@@ -210,6 +234,8 @@ impl_command_type!(CaretPos, CaretPos);
 pub enum OdiliaCommand {
 	Speak(Speak),
 	Focus(Focus),
+	Move(Move),
 	CaretPos(CaretPos),
 	SetState(SetState),
+	Quit(Quit),
 }

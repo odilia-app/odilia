@@ -12,20 +12,22 @@ use atspi::{
 	Event,
 };
 use circular_queue::CircularQueue;
-use futures_util::future::{err, ok, Ready};
-use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, Item};
+use futures_lite::future::Boxed;
+use futures_util::future::{err, ok, Ready, TryFutureExt};
+use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, FoundItem, Item};
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::OdiliaError,
-	events::EventType,
+	events::{EventType, Navigate},
 	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
 	Result as OdiliaResult,
 };
+use smol_cancellation_token::CancellationToken;
 use ssip_client_async::{Priority, PunctuationMode, Request as SSIPRequest};
 use tracing::{Instrument, Level};
 
-use crate::tower::from_state::TryFromState;
+use crate::{signal::SignalType, tower::from_state::TryFromState};
 
 impl Debug for ScreenReaderState {
 	fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
@@ -42,6 +44,8 @@ pub struct ScreenReaderState {
 	pub cache_actor: CacheActor,
 	pub config: Arc<ApplicationConfig>,
 	pub children_pids: Arc<Mutex<Vec<Child>>>,
+	/// Used to shutdown the entire screen reader
+	pub shutdown_token: CancellationToken,
 }
 #[derive(Debug, Clone)]
 pub struct AccessibleHistory(pub Arc<Mutex<CircularQueue<AccessiblePrimitive>>>);
@@ -63,11 +67,24 @@ impl<C> TryFromState<Arc<ScreenReaderState>, C> for CurrentCaretPos {
 
 #[derive(Debug, Clone)]
 pub struct LastFocused(pub AccessiblePrimitive);
+#[derive(Debug, Clone)]
+pub struct Connection(pub zbus::Connection);
+#[derive(Debug, Clone)]
+pub struct NavigateTo(pub Option<CacheItem>);
+#[derive(Debug, Clone)]
+pub struct ChildrenPids(pub Arc<Mutex<Vec<Child>>>);
+#[derive(Debug, Clone)]
+pub struct ShutdownToken(pub CancellationToken);
 #[derive(Debug)]
 pub struct CurrentCaretPos(pub Arc<AtomicUsize>);
 #[derive(Debug, Clone)]
 pub struct LastCaretPos(pub usize);
 pub struct Speech(pub Sender<SSIPRequest>);
+#[derive(Debug)]
+pub struct Signal<T>(pub T)
+where
+	T: SignalType;
+
 #[derive(Debug)]
 pub struct Command<T>(pub T)
 where
@@ -88,6 +105,38 @@ where
 		ok(InputEvent(i_ev))
 	}
 }
+impl TryFromState<Arc<ScreenReaderState>, Navigate> for NavigateTo {
+	type Error = OdiliaError;
+	type Future = Boxed<Result<NavigateTo, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, nav: Navigate) -> Self::Future {
+		let last_focused_gaurd = state
+			.accessible_history
+			.lock()
+			.expect("Unable to lock accessible history!");
+		let start = last_focused_gaurd
+			.iter()
+			.nth(0)
+			.cloned()
+			.expect("Can not find a previously focused element!");
+		// explicitly drop so we don't hold it for the duration of the future
+		drop(last_focused_gaurd);
+
+		Box::pin(async move {
+			state.cache_actor
+				.request(CacheRequest::Find(
+					start,
+					nav.direction,
+					nav.find,
+					nav.bound,
+				))
+				.map_ok(|cr| match cr {
+					CacheResponse::Find(FoundItem(ci)) => NavigateTo(ci),
+					e => panic!("Inappropriate response: {e:?}"),
+				})
+				.await
+		})
+	}
+}
 
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Command<C>
 where
@@ -100,6 +149,28 @@ where
 	}
 }
 
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for Connection
+where
+	C: CommandType + Clone + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Connection, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(Connection(state.atspi.connection().clone()))
+	}
+}
+
+impl<S> TryFromState<Arc<ScreenReaderState>, S> for Signal<S>
+where
+	S: SignalType,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<Signal<S>, Self::Error>>;
+	fn try_from_state(_state: Arc<ScreenReaderState>, sig: S) -> Self::Future {
+		ok(Signal(sig))
+	}
+}
+
 impl<C> TryFromState<Arc<ScreenReaderState>, C> for Speech
 where
 	C: CommandType + Debug,
@@ -108,6 +179,26 @@ where
 	type Future = Ready<Result<Speech, Self::Error>>;
 	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
 		ok(Speech(state.ssip.clone()))
+	}
+}
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for ShutdownToken
+where
+	C: CommandType + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<ShutdownToken, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(ShutdownToken(state.shutdown_token.clone()))
+	}
+}
+impl<C> TryFromState<Arc<ScreenReaderState>, C> for ChildrenPids
+where
+	C: CommandType + Debug,
+{
+	type Error = OdiliaError;
+	type Future = Ready<Result<ChildrenPids, Self::Error>>;
+	fn try_from_state(state: Arc<ScreenReaderState>, _cmd: C) -> Self::Future {
+		ok(ChildrenPids(Arc::clone(&state.children_pids)))
 	}
 }
 
@@ -156,6 +247,7 @@ impl ScreenReaderState {
 		ssip: Sender<SSIPRequest>,
 		config: ApplicationConfig,
 		cache_actor: CacheActor,
+		shutdown_token: CancellationToken,
 	) -> Result<ScreenReaderState, OdiliaError> {
 		let atspi = AccessibilityConnection::new()
 			.instrument(tracing::info_span!("connecting to at-spi bus"))
@@ -215,6 +307,7 @@ impl ScreenReaderState {
 			cache_actor,
 			config: Arc::new(config),
 			children_pids: Arc::new(Mutex::new(Vec::new())),
+			shutdown_token,
 		})
 	}
 

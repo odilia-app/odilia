@@ -30,9 +30,10 @@ use atspi::{
 		},
 		CacheEvents, Event, ObjectEvents,
 	},
-	DocumentEvents, KeyboardEvents, MouseEvents, Operation, State, TerminalEvents,
-	WindowEvents,
+	DocumentEvents, KeyboardEvents, MouseEvents, ObjectMatchRule, Operation, State,
+	TerminalEvents, WindowEvents,
 };
+use odilia_common::events::Direction;
 
 use crate::{
 	Cache, CacheDriver, CacheError, CacheItem, CacheKey, Future, OdiliaError, RelationType,
@@ -77,6 +78,21 @@ impl DerefMut for Item {
 }
 
 #[derive(Debug)]
+pub struct FoundItem(pub Option<CacheItem>);
+impl Deref for FoundItem {
+	type Target = Option<CacheItem>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+impl DerefMut for FoundItem {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+#[derive(Debug)]
 pub struct Parent(pub CacheItem);
 
 #[derive(Debug)]
@@ -104,6 +120,12 @@ pub enum CacheRequest {
 	/// A request to add bulk items to the cache.
 	/// Only used for testing.
 	AddAll(Vec<CacheItem>),
+	/// Find a matching item starting at 0, in direction 1, with matching rule 2 within the boundary
+	/// of 3.
+	///
+	/// In some circumstances, this can take quite some time—seconds even if the cache is not
+	/// populated.
+	Find(CacheKey, Direction, Box<ObjectMatchRule>, Box<ObjectMatchRule>),
 }
 
 #[derive(Debug)]
@@ -115,6 +137,7 @@ pub enum CacheResponse {
 	/// A response that adding items to the cache succeeeded.
 	/// Only used for testing.
 	AddAll,
+	Find(FoundItem),
 }
 
 macro_rules! impl_relation {

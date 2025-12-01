@@ -12,6 +12,7 @@
 mod cli;
 mod handlers;
 mod logging;
+mod signal;
 mod state;
 mod tower;
 use std::{
@@ -19,13 +20,11 @@ use std::{
 	path::{Path, PathBuf},
 	process::{exit, Child, Command as ProcCommand},
 	sync::Arc,
-	time::Duration,
 };
 
 use async_channel::bounded;
 use async_executor::StaticExecutor;
-use async_signal::{Signal, Signals};
-use atspi::events::{document, object};
+use atspi::events::event_wrappers;
 use futures_concurrency::future::{Join, TryJoin};
 use futures_lite::{
 	future::{block_on, FutureExt},
@@ -33,8 +32,9 @@ use futures_lite::{
 };
 use futures_util::FutureExt as FatExt;
 use handlers::{
-	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, new_caret_pos,
-	new_focused_item, speak, state_set, stop_speech, structural_nav,
+	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, move_focus,
+	navigate, new_caret_pos, new_focused_item, quit_cmd, quit_input, sigint_quit,
+	sigusr1_reload_config, speak, state_set, stop_speech, structural_nav,
 };
 use odilia_cache::{cache_handler_task, Cache, CacheActor};
 use odilia_common::{
@@ -148,26 +148,6 @@ async fn notifications_monitor(
 	}
 	Ok(())
 }
-#[tracing::instrument(skip_all, err)]
-async fn sigterm_signal_watcher(
-	token: CancellationToken,
-	state: Arc<ScreenReaderState>,
-) -> Result<(), OdiliaError> {
-	let timeout_duration = Duration::from_secs(5); //todo: perhaps take this from the configuration file at some point
-	let mut signals = Signals::new([Signal::Int])?;
-	signals.next()
-		.instrument(tracing::debug_span!("Watching for Ctrl+C"))
-		.await;
-	tracing::debug!("Asking all processes to stop.");
-	(*state.children_pids.lock().expect("Unable to lock mutex!"))
-		.iter_mut()
-		.try_for_each(Child::kill)
-		.expect("Able to kill child processes");
-	tracing::debug!("cancelling all tokens");
-	token.cancel();
-	tracing::debug!(?timeout_duration, "waiting for all tasks to finish");
-	Ok(())
-}
 
 static EXECUTOR: StaticExecutor = StaticExecutor::new();
 
@@ -175,6 +155,7 @@ fn main() -> Result<(), OdiliaError> {
 	block_on(EXECUTOR.run(async_main()))
 }
 
+#[allow(clippy::too_many_lines)]
 async fn async_main() -> Result<(), OdiliaError> {
 	let ex = &EXECUTOR;
 	let args = Args::from_cli_args()?;
@@ -206,7 +187,8 @@ async fn async_main() -> Result<(), OdiliaError> {
 	// lots of space for caching just in case...
 	let (cache_tx, cache_rx) = bounded(4096);
 	let cache = CacheActor::new(cache_tx);
-	let state = Arc::new(ScreenReaderState::new(ssip_req_tx, config, cache).await?);
+	let state =
+		Arc::new(ScreenReaderState::new(ssip_req_tx, config, cache, token.clone()).await?);
 	let ssip = odilia_tts::create_ssip_client().await?;
 
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
@@ -219,20 +201,20 @@ async fn async_main() -> Result<(), OdiliaError> {
 
 	// Register events
 	(
-		state.register_event::<object::StateChangedEvent>(),
-		state.register_event::<object::TextCaretMovedEvent>(),
-		state.register_event::<document::LoadCompleteEvent>(),
-		//TODO: we don't handle these yet!
-		// state.add_cache_match_rule(),
+		state.register_event::<event_wrappers::ObjectEvents>(),
+		state.register_event::<event_wrappers::DocumentEvents>(),
 	)
 		.try_join()
 		.await?;
 
 	// load handlers
-	let handlers = Handlers::new(state.clone())
+	let handlers = Handlers::new(state.clone(), token.clone())
 		.command_listener(speak)
 		.command_listener(new_focused_item)
+		.command_listener(move_focus)
 		.command_listener(new_caret_pos)
+		.command_listener(new_caret_pos)
+		.command_listener(quit_cmd)
 		//.command_listener(set_state)
 		.atspi_listener(doc_loaded)
 		.atspi_listener(caret_moved_update_state)
@@ -241,7 +223,11 @@ async fn async_main() -> Result<(), OdiliaError> {
 		.atspi_listener(state_set)
 		.input_listener(stop_speech)
 		.input_listener(change_mode)
-		.input_listener(structural_nav);
+		.input_listener(quit_input)
+		.input_listener(structural_nav)
+		.input_listener(navigate)
+		.signal_listener(sigint_quit)
+		.signal_listener(sigusr1_reload_config);
 
 	let ssip_event_receiver =
 		odilia_tts::handle_ssip_commands(ssip, ssip_req_rx, token.clone());
@@ -271,7 +257,7 @@ async fn async_main() -> Result<(), OdiliaError> {
 			}
 		}
 	};
-	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx, token.clone());
+	let atspi_handlers_task = handlers.clone().atspi_handler(ev_rx);
 	let listener = odilia_input::setup_input_server()
 		.await
 		.expect("We should be able to set up input server; without it, Odilia cannot be controlled via input methods");
@@ -279,7 +265,8 @@ async fn async_main() -> Result<(), OdiliaError> {
 		.for_each(|fut| {
 			ex.spawn(fut).detach();
 		});
-	let input_handler = handlers.input_handler(input_rx, token.clone());
+	let input_handler = handlers.clone().input_handler(input_rx);
+	let signal_handler = handlers.signal_handler();
 	let child = try_spawn_input_server(&state.config.input.method)?;
 	state.add_child_proc(child).expect("Able to add child to process!");
 
@@ -295,9 +282,9 @@ async fn async_main() -> Result<(), OdiliaError> {
 		input_task,
 		input_handler,
 		cache_handler,
+		signal_handler,
 	)
 		.join();
-	ex.spawn(sigterm_signal_watcher(token, Arc::clone(&state))).detach();
 	let _ = joined_tasks.await;
 	tracing::debug!("All listeners have stopped.");
 	tracing::debug!("Goodbye, Odilia!");

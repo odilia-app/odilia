@@ -24,11 +24,11 @@ mod proptests;
 
 use std::{cmp::Ordering, sync::mpsc::SyncSender};
 
-use atspi::Role;
+use atspi::{MatchType, ObjectMatchRule, Role};
 use odilia_common::{
 	events::{
-		ChangeMode, Direction, Quit, ScreenReaderEvent as OdiliaEvent, StopSpeech,
-		StructuralNavigation,
+		ChangeMode, Direction, Navigate, Quit, ScreenReaderEvent as OdiliaEvent,
+		StopSpeech, StructuralNavigation,
 	},
 	modes::ScreenReaderMode as Mode,
 };
@@ -41,6 +41,7 @@ pub const ACTIVATION_KEY: Key = Key::CapsLock;
 #[derive(Eq, PartialEq, Clone, Default)]
 #[repr(transparent)]
 pub struct KeySet {
+    // TODO: add activation key
 	inner: Vec<Key>,
 }
 
@@ -284,6 +285,8 @@ pub enum ComboError {
 #[derive(Clone, Eq, PartialEq, Default)]
 #[repr(transparent)]
 pub struct ComboSet {
+    // TODO: there should be an activation thing here in a tuple:
+    // (KeySet, bool), or a wrapper struct
 	inner: Vec<(KeySet, OdiliaEvent)>,
 }
 impl std::fmt::Debug for ComboSet {
@@ -458,6 +461,9 @@ pub enum SetError {
 #[derive(Clone, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct ComboSets {
+    // TODO: add extra checks here to ensure there isn't overlap on un-preefivxed/same-prefixed
+    // keys
+    // TODO: add another check/field for the list of activation keys
 	inner: Vec<(Option<Mode>, ComboSet)>,
 }
 impl std::fmt::Debug for ComboSets {
@@ -605,6 +611,56 @@ impl IntoIterator for ComboSets {
 	}
 }
 
+/// The containing roles.
+pub const SEMANTIC_ROLES: [Role; 30] = [
+	Role::Frame,
+	Role::DocumentFrame,
+	Role::DocumentWeb,
+	Role::Dialog,
+	Role::Alert,
+	Role::Panel,
+	Role::ScrollPane,
+	Role::LayeredPane,
+	Role::Viewport,
+	Role::Filler,
+	Role::Section,
+	Role::Form,
+	Role::Grouping,
+	Role::PageTabList,
+	Role::ToolBar,
+	Role::ToolTip,
+	Role::MenuBar,
+	Role::Menu,
+	Role::List,
+	Role::Table,
+	Role::Tree,
+	Role::TreeTable,
+	Role::Table,
+	Role::Canvas,
+	Role::DocumentFrame,
+	Role::Application,
+	Role::DesktopFrame,
+	Role::Footnote,
+	Role::Article,
+	Role::Landmark,
+];
+/// General roles which cause a search to stop.
+///
+/// For example: in an HTML document, you do not want to search the browser menu or URL bar for
+/// something. Search is explicitly bounded by the `Role::DocumentFrame` in order to achieve this.
+pub const BOUNDING_ROLES: [Role; 10] = [
+	Role::Frame,
+	Role::DocumentFrame,
+	Role::DocumentWeb,
+	Role::Panel,
+	Role::ScrollPane,
+	Role::LayeredPane,
+	Role::Viewport,
+	Role::DocumentFrame,
+	Role::Application,
+	Role::DesktopFrame,
+];
+
 impl Default for ComboSets {
 	fn default() -> Self {
 		ComboSets::try_from([
@@ -630,6 +686,54 @@ impl Default for ComboSets {
 			(
 				Some(Mode::Browse),
 				ComboSet::try_from([
+					(
+						[Key::LeftArrow].try_into().unwrap(),
+						Navigate {
+							direction: Direction::Backward,
+							find: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&SEMANTIC_ROLES,
+										MatchType::Any,
+									)
+									.invert(true)
+									.build(),
+							),
+							bound: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&BOUNDING_ROLES,
+										MatchType::Any,
+									)
+									.build(),
+							),
+						}
+						.into(),
+					),
+					(
+						[Key::RightArrow].try_into().unwrap(),
+						Navigate {
+							direction: Direction::Forward,
+							find: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&SEMANTIC_ROLES,
+										MatchType::Any,
+									)
+									.invert(true)
+									.build(),
+							),
+							bound: Box::new(
+								ObjectMatchRule::builder()
+									.roles(
+										&BOUNDING_ROLES,
+										MatchType::Any,
+									)
+									.build(),
+							),
+						}
+						.into(),
+					),
 					(
 						[Key::KeyT].try_into().unwrap(),
 						StructuralNavigation(
@@ -721,12 +825,16 @@ impl<'a> IntoIterator for &'a ComboSets {
 #[derive(Debug)]
 pub struct State {
 	/// If the activation key ([`crate::ACTIVATION_KEY`]) is pressed.
+    // TODO: remove; handle via combo sets
 	pub activation_key_pressed: bool,
 	/// Which mode the screen reader is in.
 	pub mode: Mode,
 	/// All pressed keys _after_ activation is pressed.
 	pub pressed: Vec<Key>,
 	/// List of key combos.
+    // NOTE: If you add a activatiable key, that key can no longer be passed through
+    // I don't see a way around that.
+    // So be very careful adding activation keys. 
 	pub combos: ComboSets,
 	/// A synchronous channel to send events to.
 	/// The receiver will send them over a socket to the main Odilia process.
@@ -741,6 +849,8 @@ pub struct State {
 ///
 /// If the [`State`]'s [`SyncSender`] for the [`OdiliaEvent`] is unable to be sent to.
 pub fn callback(event: Event, state: &mut State) -> Option<Event> {
+    // TODO: make sure to check the _individual_ activation keys!
+    // lack thereof is also an indication of how to handle it
 	tracing::debug!("Callback called for {event:?}");
 	match (event.event_type, state.activation_key_pressed) {
 		// if capslock is pressed while activation is disabled

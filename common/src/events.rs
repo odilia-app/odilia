@@ -1,11 +1,11 @@
-use atspi::Role;
+use atspi::{ObjectMatchRule, Role};
 use enum_dispatch::enum_dispatch;
 use serde::{Deserialize, Serialize};
 use strum::{Display, EnumDiscriminants};
 
-use crate::modes::ScreenReaderMode;
+use crate::{cache::AccessiblePrimitive, modes::ScreenReaderMode};
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize, Debug)]
 /// A list of features supported natively by Odilia.
 pub enum Feature {
 	/// Unimplemented, but will eventually stop all speech until re-activated.
@@ -14,7 +14,7 @@ pub enum Feature {
 	Braille, // TODO
 }
 
-#[derive(Eq, PartialEq, Clone, Hash, Serialize, Deserialize, Debug)]
+#[derive(Eq, PartialEq, Clone, Copy, Hash, Serialize, Deserialize, Debug)]
 #[serde(tag = "direction")]
 pub enum Direction {
 	Forward,
@@ -66,6 +66,14 @@ impl_event_type!(StructuralNavigation, StructuralNavigation);
 pub struct Quit;
 impl_event_type!(Quit, Quit);
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Navigate {
+	pub direction: Direction,
+	pub find: Box<ObjectMatchRule>,
+	pub bound: Box<ObjectMatchRule>,
+}
+impl_event_type!(Navigate, Navigate);
+
 #[derive(Eq, PartialEq, Clone, Serialize, Deserialize, Debug, EnumDiscriminants)]
 /// Events which can be trigged through Odilia's external API.
 /// Subject to change without notice until v1.0, but we're [open to suggestions on our Github](https://github.com/odilia-app/odilia/); please reach out with features you'd like to see.
@@ -82,6 +90,8 @@ pub enum ScreenReaderEvent {
 	ChangeMode(ChangeMode),
 	/// Navigate to the next [`Role`] in [`Direction`] by depth-first search.
 	StructuralNavigation(StructuralNavigation),
+	/// Navigate to the next/prev match of the inner [`ObjectMatchRule`].
+	Navigate(Navigate),
 	/// Quit the screen reader.
 	Quit(Quit),
 }
