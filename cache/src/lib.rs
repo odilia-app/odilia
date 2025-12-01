@@ -17,6 +17,7 @@ pub use relation_set::{RelationSet, Relations};
 mod event_handlers;
 
 pub use accessible_ext::AccessibleExt;
+use ahash::RandomState;
 use async_channel::{Receiver, Sender};
 use atspi::{
 	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
@@ -31,7 +32,6 @@ pub use event_handlers::{
 use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt as LiteExt;
 use futures_util::future::{FutureExt, TryFutureExt};
-use fxhash::FxBuildHasher;
 pub use odilia_common::cache::CacheItem;
 use odilia_common::{
 	cache::AccessiblePrimitive,
@@ -147,7 +147,7 @@ impl AllText for TextProxy<'_> {
 }
 
 pub type CacheKey = AccessiblePrimitive;
-struct NewCache(HashMap<String, HashMap<String, CacheItem, FxBuildHasher>, FxBuildHasher>);
+struct NewCache(HashMap<String, HashMap<String, CacheItem, RandomState>, RandomState>);
 
 impl NewCache {
 	fn has_app(&self, key: &CacheKey) -> bool {
@@ -451,7 +451,7 @@ impl<D: CacheDriver + Send> Cache<D> {
 	}
 	pub fn tree(
 		&self,
-	) -> &HashMap<String, HashMap<String, CacheItem, FxBuildHasher>, FxBuildHasher> {
+	) -> &HashMap<String, HashMap<String, CacheItem, RandomState>, RandomState> {
 		&self.tree.0
 	}
 }
@@ -464,7 +464,7 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
-		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher::default())), driver }
+		Self { tree: NewCache(HashMap::with_hasher(RandomState::default())), driver }
 	}
 
 	/// Remove a single cache item. This function can not fail.
