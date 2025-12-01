@@ -11,7 +11,7 @@
 mod convertable;
 pub use convertable::Convertable;
 mod accessible_ext;
-use std::{collections::HashMap, fmt, fmt::Debug, future::Future};
+use std::{collections::HashMap, fmt, future::Future};
 mod relation_set;
 pub use relation_set::{RelationSet, Relations};
 mod event_handlers;
@@ -20,7 +20,7 @@ pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
 use atspi::{
 	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
-	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+	Event, EventProperties, ObjectRef, RelationType,
 };
 pub use event_handlers::{
 	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
@@ -38,7 +38,6 @@ use odilia_common::{
 	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
-use serde::{Deserialize, Serialize};
 use smol_cancellation_token::CancellationToken;
 use static_assertions::assert_impl_all;
 use zbus::proxy::CacheProperties;
