@@ -230,6 +230,7 @@ impl EventHandler for TextChangedEvent {
 			.length
 			.try_into()
 			.expect("Positive length for text insertion/deletion");
+		assert_eq!(len, self.text.len(), "The length as reported by AT-SPI and the length of the string are different! This means that some application is incorrectly reporting the length of its strings (likely the number of bytes instead of the unicode character length). The offending string is {}", self.text);
 		cache.modify_if_not_new(&key, |item: &mut CacheItem| {
         match (self.operation, item.text.as_mut()) {
             (Operation::Insert, Some(text)) => {

@@ -1,10 +1,13 @@
-use std::{fmt, fmt::Debug, str::FromStr};
+use std::{collections::BTreeMap, fmt, fmt::Debug, str::FromStr};
 
 use atspi::AtspiError;
 use serde_plain::Error as SerdePlainError;
 use thiserror::Error;
 
-use crate::{cache::AccessiblePrimitive, command::OdiliaCommand};
+use crate::{
+	cache::{AccessiblePrimitive, CacheItem},
+	command::OdiliaCommand,
+};
 
 #[derive(Error, Debug)]
 pub enum OdiliaError {
@@ -26,6 +29,8 @@ pub enum OdiliaError {
 	SendError(SendError),
 	#[error("Cache: {0}")]
 	Cache(#[from] CacheError),
+	#[error("Text: {0}")]
+	Text(#[from] TextError),
 	#[error("N/A: {0}")]
 	InfallibleConversion(#[from] std::convert::Infallible),
 	#[error("From int: {0}")]
@@ -50,6 +55,14 @@ pub enum OdiliaError {
 	CommandLine(#[from] lexopt::Error),
 	#[error("SSIP: {0}")]
 	Ssip(#[from] ssip_client_async::ClientError),
+}
+
+#[derive(Error, Debug)]
+pub enum TextError {
+	#[error("The number of children of this element ({1}) is not equal to the number of object replacement characters in the following string: \"[0]\"")]
+	InvalidHyperlinkText(String, usize),
+	#[error("The following subtree has a child that has an associated object replacemnt character, but does not implement the `org.a11y.atspi.Text` interface")]
+	NonTextChildren(BTreeMap<AccessiblePrimitive, CacheItem>),
 }
 
 impl From<&'static str> for OdiliaError {
