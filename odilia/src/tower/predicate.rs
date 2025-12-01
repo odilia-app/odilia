@@ -10,7 +10,7 @@ pub trait Predicate<T> {
 /// This constant is for heuristics reasons, in order to determine whether we should speak the
 /// entire contents of a subtree or not.
 /// Subtrees are rather expensive (latency-wise) to compute constantly, and in some cases, we will
-/// get a [`atspi::StateChangedEvent`] which tells us that a document is focused (getting an
+/// get a [`atspi::events::object::StateChangedEvent`] which tells us that a document is focused (getting an
 /// entire document subtree _can potentially_ take multiple seconds).
 ///
 /// If the role of the item is contained within this list, it is a hint to _not_ try to grab the

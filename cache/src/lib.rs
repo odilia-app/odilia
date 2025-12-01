@@ -219,12 +219,12 @@ pub trait CacheDriver {
 		&self,
 		key: &CacheKey,
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
-	/// Bulk query an application based on the [`CacheKey.sender`] field.
+	/// Bulk query an application based on the `sender` field in [`CacheKey`].
 	fn lookup_bulk(
 		&self,
 		key: &CacheKey,
 	) -> impl Future<Output = OdiliaResult<Vec<CacheItem>>> + Send;
-	/// A seperate method from [`lookup_external`] for getting relation sets.
+	/// A seperate method from [`Self::lookup_external`] for getting relation sets.
 	/// This is separate because it can have rather large results and should only be called when
 	/// absolutely necessary.
 	fn lookup_relations(
@@ -232,14 +232,14 @@ pub trait CacheDriver {
 		key: &CacheKey,
 		ty: RelationType,
 	) -> impl Future<Output = OdiliaResult<Vec<CacheKey>>> + Send;
-	/// A separate method from [`lookup_external`] for converting an [`atspi::CacheItem`] into a
+	/// A separate method from [`Self::lookup_external`] for converting an [`atspi::CacheItem`] into a
 	/// [`CacheItem`].
 	/// This will call out to `DBus` for the remaining details.
 	fn lookup_from_cache_item(
 		&self,
 		cache_item: atspi::CacheItem,
 	) -> impl Future<Output = OdiliaResult<CacheItem>> + Send;
-	/// A separate method from [`lookup_external`] for converting an [`atspi::LegacyCacheItem`] into a
+	/// A separate method from [`Self::lookup_external`] for converting an [`atspi::LegacyCacheItem`] into a
 	/// [`CacheItem`].
 	/// This will call out to `DBus` for the remaining details.
 	fn lookup_from_legacy_cache_item(
@@ -541,12 +541,12 @@ impl<D: CacheDriver> Cache<D> {
 		Ok(self.add_all(found))
 	}
 
-	/// Modify the given item with closure [`F`] if it was already contained in the cache.
+	/// Modify the given item with closure `F` if it was already contained in the cache.
 	/// Otherwise, fetch a new item over the [`CacheDriver`].
 	///
 	/// # Errors
 	///
-	/// See: [`get_or_create`]
+	/// See: [`Self::get_or_create`]
 	pub async fn modify_if_not_new<F>(
 		&mut self,
 		key: &AccessiblePrimitive,
@@ -575,7 +575,10 @@ impl<D: CacheDriver> Cache<D> {
 	///
 	/// This function technically has a `.expect()` which could panic. But we gaurs against this.
 	#[tracing::instrument(level = "trace", ret, err(level = "warn"), skip(self))]
-	async fn get_or_create(&mut self, key: &AccessiblePrimitive) -> OdiliaResult<CacheItem> {
+	pub async fn get_or_create(
+		&mut self,
+		key: &AccessiblePrimitive,
+	) -> OdiliaResult<CacheItem> {
 		// if the item already exists in the cache, return it
 		if let Some(cache_item) = self.get(key) {
 			return Ok(cache_item);

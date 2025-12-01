@@ -105,10 +105,10 @@ pub async fn caret_moved_update_state(
 /// must be upheld:
 ///
 /// - The number of object replacement characters in the text (U+FFFC) must be equal to the number of children
-///   of the element. This function will return [`TextError::InvalidHyperlinkText`] with the string
+///   of the element. This function will return [`odilia_common::errors::TextError::InvalidHyperlinkText`] with the string
 ///   and the number of children if this occurs.
 /// - The children must all implement the `org.a11y.atspi.Text` interface. If this fails to uphold,
-///   then the [`TextError::NonTextChildren`] with the parent and children respectively will be
+///   then the [`odilia_common::errors::TextError::NonTextChildren`] with the parent and children respectively will be
 ///   reported.
 fn resolve_hypertext(
 	root: odilia_cache::CacheItem,

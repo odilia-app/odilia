@@ -735,7 +735,7 @@ pub struct State {
 
 /// The callback function to call in a tight loop.
 /// Returns [`None`] to indicate a desire to swallow an event,
-/// Returns [`Some(Event)`] to indicate a passthrough of the event.
+/// Returns `Some(Event)` to indicate a passthrough of the event.
 ///
 /// # Panics
 ///
