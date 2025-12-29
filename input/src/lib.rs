@@ -79,12 +79,10 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 	let log_path = Path::new(&log_file_name);
 	tracing::debug!("Socket file located at: {:?}", sock_file_path);
 	tracing::debug!("creating log directory");
-	if let Some(p) = log_path.parent() {
-		if !p.exists() {
-			if let Err(e) = fs::create_dir_all(p).await {
-				tracing::error!("Failed to create log dir: {}", e);
-			}
-		}
+	if let Some(p) = log_path.parent()
+		&& !p.exists() && let Err(e) = fs::create_dir_all(p).await
+	{
+		tracing::error!("Failed to create log dir: {}", e);
 	}
 
 	tracing::debug!("checking for already running program");
@@ -119,7 +117,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 				);
 				exit(1);
 			}
-		};
+		}
 	}
 	tracing::debug!(%pid_file_path, "writing current ID to pid file");
 

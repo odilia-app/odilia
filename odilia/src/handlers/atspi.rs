@@ -117,7 +117,7 @@ pub async fn caret_moved(
 				return Some(Speak(text_slice, Priority::Text).into());
 			}
 		} else {
-			return Some(Speak(text.to_string(), Priority::Text).into());
+			return Some(Speak(text.clone(), Priority::Text).into());
 		}
 	}
 	None
