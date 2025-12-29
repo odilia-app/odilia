@@ -2,7 +2,7 @@
 
 use std::{
 	process::Command,
-	sync::mpsc::{sync_channel, Receiver},
+	sync::mpsc::{Receiver, sync_channel},
 	thread,
 	time::Duration,
 };
@@ -11,7 +11,7 @@ use odilia_common::{
 	events::{ScreenReaderEvent as OdiliaEvent, StopSpeech},
 	modes::ScreenReaderMode as Mode,
 };
-use odilia_input_server_keyboard::{callback, ComboSets, State};
+use odilia_input_server_keyboard::{ComboSets, State, callback};
 use rdev::grab;
 
 /// Arguments to [`ydotool`]:

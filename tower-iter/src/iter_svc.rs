@@ -7,7 +7,7 @@ use core::{
 use std::vec::Vec;
 
 use futures_util::future::{ErrInto, Flatten, FutureExt, TryFutureExt};
-use tower::{util::Oneshot, Service, ServiceExt};
+use tower::{Service, ServiceExt, util::Oneshot};
 
 use crate::future_ext::MapFutureMultiSet;
 

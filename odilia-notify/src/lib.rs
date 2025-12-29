@@ -1,7 +1,7 @@
 use futures_lite::{Stream, StreamExt};
 use tracing::{debug, info, instrument};
 use zbus::{
-	fdo::MonitoringProxy, message::Type as MessageType, Connection, MatchRule, MessageStream,
+	Connection, MatchRule, MessageStream, fdo::MonitoringProxy, message::Type as MessageType,
 };
 mod action;
 mod notification;

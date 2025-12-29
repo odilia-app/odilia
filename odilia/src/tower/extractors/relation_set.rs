@@ -1,8 +1,8 @@
 use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, ConstRelationType};
 
 use crate::{
-	tower::{EventProp, GetProperty, PropertyType},
 	OdiliaError,
+	tower::{EventProp, GetProperty, PropertyType},
 };
 
 pub struct RelationSet<T: ConstRelationType>(pub T::InnerStore);
@@ -22,8 +22,13 @@ impl<T: ConstRelationType<InnerStore = Vec<CacheItem>>> GetProperty<RelationSet<
 		let rel = match resp {
 			CacheResponse::Relations(rel) => rel,
 			e => {
-				tracing::error!("Inappropriate response from cache for `Relation` request: {e:?}");
-				return Err(format!("Inappropriate response from cache for `Realtion` request: {e:?}").into());
+				tracing::error!(
+					"Inappropriate response from cache for `Relation` request: {e:?}"
+				);
+				return Err(format!(
+					"Inappropriate response from cache for `Realtion` request: {e:?}"
+				)
+				.into());
 			}
 		};
 		Ok(EventProp(rel.1))

@@ -18,13 +18,13 @@ use std::{
 	io::Write,
 	os::unix::net::UnixStream,
 	path::PathBuf,
-	sync::mpsc::{sync_channel, Receiver},
+	sync::mpsc::{Receiver, sync_channel},
 	thread,
 };
 
 use nix::unistd::Uid;
 use odilia_common::{events::ScreenReaderEvent as OdiliaEvent, modes::ScreenReaderMode as Mode};
-use odilia_input_server_keyboard::{callback, ComboSets, State};
+use odilia_input_server_keyboard::{ComboSets, State, callback};
 use rdev::grab;
 
 /// Finds PID and Socket files and returns their respective [`PathBuf`]s.
@@ -34,8 +34,8 @@ fn get_file_paths() -> (PathBuf, PathBuf) {
 	match env::var("XDG_RUNTIME_DIR") {
 		Ok(val) => {
 			tracing::info!(
-                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
-            );
+				"XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
+			);
 
 			let pid_file_path = format!("{val}/odilias.pid");
 			let sock_file_path = format!("{val}/odilia.sock");

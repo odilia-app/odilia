@@ -19,8 +19,8 @@ mod event_handlers;
 pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
 use atspi::{
-	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 };
 pub use event_handlers::{
 	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
@@ -358,11 +358,7 @@ impl CacheDriver for zbus::Connection {
 				.to_text()
 				.and_then(|text_proxy| {
 					text_proxy.get_all_text().map_ok(|s| {
-						if s.is_empty() {
-							None
-						} else {
-							Some(s)
-						}
+						if s.is_empty() { None } else { Some(s) }
 					})
 				})
 				.unwrap_or_else(|_| None)
@@ -413,11 +409,7 @@ impl CacheDriver for zbus::Connection {
 				.to_text()
 				.and_then(|text_proxy| {
 					text_proxy.get_all_text().map_ok(|s| {
-						if s.is_empty() {
-							None
-						} else {
-							Some(s)
-						}
+						if s.is_empty() { None } else { Some(s) }
 					})
 				})
 				.unwrap_or_else(|_| None)
@@ -713,13 +705,9 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible
 			.to_text()
 			.and_then(|text_proxy| {
-				text_proxy.get_all_text().map_ok(|s| {
-					if s.is_empty() {
-						None
-					} else {
-						Some(s)
-					}
-				})
+				text_proxy
+					.get_all_text()
+					.map_ok(|s| if s.is_empty() { None } else { Some(s) })
 			})
 			.unwrap_or_else(|_| None)
 			.map(Ok),

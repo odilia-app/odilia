@@ -9,8 +9,8 @@ use proptest::prelude::*;
 use rdev::{Button, Event, EventType, Key};
 
 use crate::{
-	callback, tests::EventFromEventType, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, State,
-	ACTIVATION_KEY,
+	ACTIVATION_KEY, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, State, callback,
+	tests::EventFromEventType,
 };
 
 impl ComboSets {
