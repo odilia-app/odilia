@@ -17,7 +17,6 @@ odilia-common.workspace = true
 serde.workspace = true
 tracing.workspace = true
 zbus.workspace = true
-fxhash = "0.2.1"
 serde_plain.workspace = true
 futures-concurrency.workspace = true
 futures-lite.workspace = true
@@ -25,6 +24,7 @@ async-channel.workspace = true
 smol-cancellation-token.workspace = true
 futures-util.workspace = true
 static_assertions = "1.1.0"
+rustc-hash = "2.1.1"
 
 [dev-dependencies]
 atspi = { workspace = true, features = ["connection"] }

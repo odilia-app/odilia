@@ -31,12 +31,12 @@ pub use event_handlers::{
 use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt as LiteExt;
 use futures_util::future::{FutureExt, TryFutureExt};
-use fxhash::FxBuildHasher;
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
+use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 use smol_cancellation_token::CancellationToken;
 use static_assertions::assert_impl_all;
@@ -488,7 +488,7 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
-		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher::default())), driver }
+		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher)), driver }
 	}
 
 	/// Remove a single cache item. This function can not fail.

@@ -518,8 +518,8 @@ impl ComboSets {
 	/// assert!(css.insert(Some(Mode::Focus), cs2).is_ok());
 	/// ```
 	pub fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
-		if let Some(some_mode) = mode {
-			if !self.inner
+		if let Some(some_mode) = mode
+			&& !self.inner
 				.iter()
 				.flat_map(|x| x.1.inner.iter())
 				.filter_map(|ev| match ev.1 {
@@ -527,9 +527,8 @@ impl ComboSets {
 					_ => None,
 				})
 				.any(|m| m == some_mode)
-			{
-				return Err(SetError::UnreachableMode(some_mode));
-			}
+		{
+			return Err(SetError::UnreachableMode(some_mode));
 		}
 		if cs.inner
 			.iter()
