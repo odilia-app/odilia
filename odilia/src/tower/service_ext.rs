@@ -3,6 +3,7 @@ use std::{convert::Infallible, future::Future, sync::Arc};
 use tower::{Layer, Service};
 
 use crate::{
+	TryIntoCommands,
 	tower::{
 		async_try::{AsyncTryInto, AsyncTryIntoLayer, AsyncTryIntoService},
 		iter_svc::IterService,
@@ -10,7 +11,6 @@ use crate::{
 		sync_try::{TryIntoLayer, TryIntoService},
 		unwrap_svc::{MapResponseIntoService, MapResponseTryIntoCommandsService},
 	},
-	TryIntoCommands,
 };
 
 pub trait ServiceExt<Request>: Service<Request> {

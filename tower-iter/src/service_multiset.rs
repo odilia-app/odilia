@@ -6,10 +6,10 @@ use core::{
 };
 use std::vec::Vec;
 
-use futures_util::future::{join_all, JoinAll};
+use futures_util::future::{JoinAll, join_all};
 use tower::Service;
 
-use crate::{call_iter::MapServiceCall, FutureExt, MapMExt, MapOk};
+use crate::{FutureExt, MapMExt, MapOk, call_iter::MapServiceCall};
 
 /// Useful for running a set of services with the same signature concurrently.
 ///

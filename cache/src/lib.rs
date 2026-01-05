@@ -19,8 +19,8 @@ mod event_handlers;
 pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
 use atspi::{
-	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 };
 pub use event_handlers::{
 	CacheRequest, CacheResponse, Children, ConstRelationType, ControlledBy, ControllerFor,
@@ -31,12 +31,12 @@ pub use event_handlers::{
 use futures_concurrency::future::TryJoin;
 use futures_lite::future::FutureExt as LiteExt;
 use futures_util::future::{FutureExt, TryFutureExt};
-use fxhash::FxBuildHasher;
 use odilia_common::{
 	cache::AccessiblePrimitive,
 	errors::{CacheError, OdiliaError},
 	result::OdiliaResult,
 };
+use rustc_hash::FxBuildHasher;
 use serde::{Deserialize, Serialize};
 use smol_cancellation_token::CancellationToken;
 use static_assertions::assert_impl_all;
@@ -358,11 +358,7 @@ impl CacheDriver for zbus::Connection {
 				.to_text()
 				.and_then(|text_proxy| {
 					text_proxy.get_all_text().map_ok(|s| {
-						if s.is_empty() {
-							None
-						} else {
-							Some(s)
-						}
+						if s.is_empty() { None } else { Some(s) }
 					})
 				})
 				.unwrap_or_else(|_| None)
@@ -413,11 +409,7 @@ impl CacheDriver for zbus::Connection {
 				.to_text()
 				.and_then(|text_proxy| {
 					text_proxy.get_all_text().map_ok(|s| {
-						if s.is_empty() {
-							None
-						} else {
-							Some(s)
-						}
+						if s.is_empty() { None } else { Some(s) }
 					})
 				})
 				.unwrap_or_else(|_| None)
@@ -496,7 +488,7 @@ impl<D: CacheDriver> Cache<D> {
 	#[must_use]
 	#[tracing::instrument(level = "debug", ret, skip_all)]
 	pub fn new(driver: D) -> Self {
-		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher::default())), driver }
+		Self { tree: NewCache(HashMap::with_hasher(FxBuildHasher)), driver }
 	}
 
 	/// Remove a single cache item. This function can not fail.
@@ -713,13 +705,9 @@ pub async fn accessible_to_cache_item(accessible: &AccessibleProxy<'_>) -> Odili
 		accessible
 			.to_text()
 			.and_then(|text_proxy| {
-				text_proxy.get_all_text().map_ok(|s| {
-					if s.is_empty() {
-						None
-					} else {
-						Some(s)
-					}
-				})
+				text_proxy
+					.get_all_text()
+					.map_ok(|s| if s.is_empty() { None } else { Some(s) })
 			})
 			.unwrap_or_else(|_| None)
 			.map(Ok),

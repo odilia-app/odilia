@@ -4,7 +4,7 @@ use std::sync::Arc;
 use atspi::{Event, EventProperties};
 use odilia_cache::{CacheActor, CacheItem};
 
-use crate::{tower::from_state::TryFromState, OdiliaError, ScreenReaderState};
+use crate::{OdiliaError, ScreenReaderState, tower::from_state::TryFromState};
 
 /// Define a representation for a property type.
 /// Often, this differs from the internal representation.

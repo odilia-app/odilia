@@ -13,8 +13,8 @@ repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "tts", "linux"]
 categories = ["accessibility"]
-edition = "2021"
-rust-version = "1.81"
+edition = "2024"
+rust-version = "1.88.0"
 publish = true
 
 [package.metadata.release]

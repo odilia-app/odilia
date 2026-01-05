@@ -7,11 +7,11 @@ use std::io;
 
 use odilia_common::{
 	errors::OdiliaError,
-	settings::{log::LoggingKind, ApplicationConfig},
+	settings::{ApplicationConfig, log::LoggingKind},
 };
 use tracing_subscriber::{
 	filter::LevelFilter,
-	fmt::{time::Uptime, Layer},
+	fmt::{Layer, time::Uptime},
 	prelude::*,
 };
 

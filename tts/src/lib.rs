@@ -11,17 +11,17 @@
 use std::{
 	io::ErrorKind,
 	pin::pin,
-	process::{exit, Command, Stdio},
+	process::{Command, Stdio, exit},
 };
 
 use async_channel::Receiver;
 use async_net::unix::UnixStream;
-use futures_lite::{io::BufReader, FutureExt};
+use futures_lite::{FutureExt, io::BufReader};
 use futures_util::FutureExt as FatExt;
 use odilia_common::errors::OdiliaError;
 use smol_cancellation_token::CancellationToken;
 use ssip_client_async::{
-	async_io::AsyncClient, fifo::asynchronous_async_io::Builder, ClientName, Request,
+	ClientName, Request, async_io::AsyncClient, fifo::asynchronous_async_io::Builder,
 };
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
@@ -38,31 +38,32 @@ where
 /// # Errors
 /// There may be errors when trying to send the initial registration command, or when parsing the response.
 #[tracing::instrument(level = "debug", err)]
-pub async fn create_ssip_client(
-) -> Result<AsyncClient<BufReader<UnixStream>, UnixStream>, OdiliaError> {
+pub async fn create_ssip_client()
+-> Result<AsyncClient<BufReader<UnixStream>, UnixStream>, OdiliaError> {
 	tracing::debug!("Attempting to register SSIP client odilia:speech");
-	let mut ssip_core =
-		match Builder::default().build().await {
-			Ok(ssip) => ssip,
-			Err(e) => {
-				if e.kind() == ErrorKind::ConnectionRefused {
-					tracing::debug!("Speech dispatcher is not active. Attempting to spawn it.");
-					Command::new("speech-dispatcher")
-						.arg("--spawn")
-						.stdin(Stdio::null())
-						.stdout(Stdio::null())
-						.stderr(Stdio::null())
-						.spawn()?;
-					tracing::debug!(
-						"Attempting to connect to speech-dispatcher again!"
-					);
-					Builder::default().build().await?
-				} else {
-					tracing::debug!("Speech dispatcher could not be started.");
-					exit(1);
-				}
+	let mut ssip_core = match Builder::default().build().await {
+		Ok(ssip) => ssip,
+		Err(e) => {
+			if e.kind() == ErrorKind::ConnectionRefused {
+				tracing::debug!(
+					"Speech dispatcher is not active. Attempting to spawn it."
+				);
+				Command::new("speech-dispatcher")
+					.arg("--spawn")
+					.stdin(Stdio::null())
+					.stdout(Stdio::null())
+					.stderr(Stdio::null())
+					.spawn()?;
+				tracing::debug!(
+					"Attempting to connect to speech-dispatcher again!"
+				);
+				Builder::default().build().await?
+			} else {
+				tracing::debug!("Speech dispatcher could not be started.");
+				exit(1);
 			}
-		};
+		}
+	};
 	tracing::debug!("Client created. Setting name");
 	ssip_core
 		.set_client_name(ClientName::new("odilia", "speech"))

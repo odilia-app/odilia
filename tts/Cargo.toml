@@ -8,7 +8,7 @@ repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
 keywords = ["accessibility", "tts", "speech-dispatcher", "linux", "async"]
 categories = ["accessibility", "api-bindings"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 ssip-client-async.workspace = true

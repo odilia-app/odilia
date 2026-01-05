@@ -1,17 +1,17 @@
 use std::{
-	collections::{btree_map::Entry, BTreeMap},
+	collections::{BTreeMap, btree_map::Entry},
 	fmt::Debug,
 	marker::PhantomData,
 	task::{Context, Poll},
 };
 
 use atspi::{
-	events::{DBusInterface, DBusMember},
 	Event, EventTypeProperties,
+	events::{DBusInterface, DBusMember},
 };
 use futures_util::{
-	future::{err, Either, ErrInto, Ready},
 	TryFutureExt,
+	future::{Either, ErrInto, Ready, err},
 };
 use odilia_common::{
 	command::{
@@ -91,9 +91,10 @@ where
 			let clone = orig_svc.clone();
 			std::mem::replace(orig_svc, clone)
 		} else {
-			return Either::Left(err(OdiliaError::ServiceNotFound(
-                format!("A service with key {k:?} could not be found in a list with keys of {:?}", self.services.keys())
-            )));
+			return Either::Left(err(OdiliaError::ServiceNotFound(format!(
+				"A service with key {k:?} could not be found in a list with keys of {:?}",
+				self.services.keys()
+			))));
 		};
 		Either::Right(svc.call(req).err_into())
 	}

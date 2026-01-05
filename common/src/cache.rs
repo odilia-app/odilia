@@ -1,4 +1,4 @@
-use atspi::{proxy::accessible::AccessibleProxy, EventProperties, ObjectRef};
+use atspi::{EventProperties, ObjectRef, proxy::accessible::AccessibleProxy};
 use serde::{Deserialize, Serialize};
 use zbus::{
 	names::OwnedUniqueName,

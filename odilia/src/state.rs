@@ -2,25 +2,25 @@ use std::{
 	fmt,
 	fmt::Debug,
 	process::Child,
-	sync::{atomic::AtomicUsize, Arc, Mutex},
+	sync::{Arc, Mutex, atomic::AtomicUsize},
 };
 
 use async_channel::Sender;
 use atspi::{
+	Event,
 	connection::AccessibilityConnection,
 	events::{DBusMatchRule, RegistryEventString},
-	Event,
 };
 use circular_queue::CircularQueue;
-use futures_util::future::{err, ok, Ready};
+use futures_util::future::{Ready, err, ok};
 use odilia_cache::{CacheActor, CacheItem, CacheRequest, CacheResponse, Item};
 use odilia_common::{
+	Result as OdiliaResult,
 	cache::AccessiblePrimitive,
 	command::CommandType,
 	errors::OdiliaError,
 	events::EventType,
-	settings::{speech::PunctuationSpellingMode, ApplicationConfig},
-	Result as OdiliaResult,
+	settings::{ApplicationConfig, speech::PunctuationSpellingMode},
 };
 use ssip_client_async::{Priority, PunctuationMode, Request as SSIPRequest};
 use tracing::{Instrument, Level};

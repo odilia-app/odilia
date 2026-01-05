@@ -5,8 +5,8 @@ use odilia_cache::CacheItem;
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
 use crate::{
-	tower::{from_state::TryFromState, predicate::CONTAINER_ROLES, Predicate},
 	OdiliaError, ScreenReaderState,
+	tower::{Predicate, from_state::TryFromState, predicate::CONTAINER_ROLES},
 };
 
 pub type CacheEvent<E> = EventPredicate<E, Always>;

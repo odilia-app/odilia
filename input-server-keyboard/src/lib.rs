@@ -518,8 +518,8 @@ impl ComboSets {
 	/// assert!(css.insert(Some(Mode::Focus), cs2).is_ok());
 	/// ```
 	pub fn insert(&mut self, mode: Option<Mode>, cs: ComboSet) -> Result<(), SetError> {
-		if let Some(some_mode) = mode {
-			if !self.inner
+		if let Some(some_mode) = mode
+			&& !self.inner
 				.iter()
 				.flat_map(|x| x.1.inner.iter())
 				.filter_map(|ev| match ev.1 {
@@ -527,9 +527,8 @@ impl ComboSets {
 					_ => None,
 				})
 				.any(|m| m == some_mode)
-			{
-				return Err(SetError::UnreachableMode(some_mode));
-			}
+		{
+			return Err(SetError::UnreachableMode(some_mode));
 		}
 		if cs.inner
 			.iter()
@@ -735,7 +734,7 @@ pub struct State {
 
 /// The callback function to call in a tight loop.
 /// Returns [`None`] to indicate a desire to swallow an event,
-/// Returns [`Some(Event)`] to indicate a passthrough of the event.
+/// Returns `Some(`[`Event`]`)` to indicate a passthrough of the event.
 ///
 /// # Panics
 ///
@@ -799,8 +798,8 @@ pub fn callback(event: Event, state: &mut State) -> Option<Event> {
 							state.mode = new_mode;
 						}
 						state.tx.send(combo.1.clone()).expect(
-                "To be able to send the combo over the channel",
-              );
+							"To be able to send the combo over the channel",
+						);
 						// exit early; found combo!
 						return None;
 					}

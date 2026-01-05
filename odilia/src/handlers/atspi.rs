@@ -4,11 +4,11 @@ use std::{
 };
 
 use atspi::{
+	Role,
 	events::{
 		document::LoadCompleteEvent,
 		object::{StateChangedEvent, TextCaretMovedEvent},
 	},
-	Role,
 };
 use odilia_cache::LabelledBy;
 use odilia_common::command::{CaretPos, Focus, OdiliaCommand, SetState, Speak, TryIntoCommands};
@@ -17,8 +17,8 @@ use ssip::Priority;
 use crate::{
 	state::{LastCaretPos, LastFocused},
 	tower::{
-		state_changed::Focused, ActiveAppEvent, CacheEvent, EventProp, NonContainerEvent,
-		RelationSet, Subtree,
+		ActiveAppEvent, CacheEvent, EventProp, NonContainerEvent, RelationSet, Subtree,
+		state_changed::Focused,
 	},
 };
 
@@ -117,7 +117,7 @@ pub async fn caret_moved(
 				return Some(Speak(text_slice, Priority::Text).into());
 			}
 		} else {
-			return Some(Speak(text.to_string(), Priority::Text).into());
+			return Some(Speak(text.clone(), Priority::Text).into());
 		}
 	}
 	None

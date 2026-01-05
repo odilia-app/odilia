@@ -17,7 +17,7 @@ mod tower;
 use std::{
 	env,
 	path::{Path, PathBuf},
-	process::{exit, Child, Command as ProcCommand},
+	process::{Child, Command as ProcCommand, exit},
 	sync::Arc,
 	time::Duration,
 };
@@ -28,7 +28,7 @@ use async_signal::{Signal, Signals};
 use atspi::events::{document, object};
 use futures_concurrency::future::{Join, TryJoin};
 use futures_lite::{
-	future::{block_on, FutureExt},
+	future::{FutureExt, block_on},
 	stream::StreamExt,
 };
 use futures_util::FutureExt as FatExt;
@@ -36,7 +36,7 @@ use handlers::{
 	caret_moved, caret_moved_update_state, change_mode, doc_loaded, focused, new_caret_pos,
 	new_focused_item, speak, state_set, stop_speech, structural_nav,
 };
-use odilia_cache::{cache_handler_task, Cache, CacheActor};
+use odilia_cache::{Cache, CacheActor, cache_handler_task};
 use odilia_common::{
 	command::TryIntoCommands,
 	errors::OdiliaError,
@@ -73,11 +73,7 @@ where
 	os_strings.iter().find_map(|paths| {
 		env::split_paths(&paths).find_map(|dir| {
 			let full_path = dir.join(&exe_name);
-			if full_path.is_file() {
-				Some(full_path)
-			} else {
-				None
-			}
+			if full_path.is_file() { Some(full_path) } else { None }
 		})
 	})
 }
@@ -212,7 +208,9 @@ async fn async_main() -> Result<(), OdiliaError> {
 	if state.say(Priority::Message, "Welcome to Odilia!".to_string()).await {
 		tracing::debug!("Welcome message spoken.");
 	} else {
-		tracing::error!("Welcome message failed. Odilia is not able to continue in this state. Exiting now.");
+		tracing::error!(
+			"Welcome message failed. Odilia is not able to continue in this state. Exiting now."
+		);
 		state.close_speech().await;
 		exit(1);
 	}
@@ -262,12 +260,10 @@ async fn async_main() -> Result<(), OdiliaError> {
 			let Ok(maybe_ev) = maybe else {
 				return;
 			};
-			if let Some(ev) = maybe_ev {
-				if let Err(e) = ev_tx.try_send(ev) {
-					tracing::error!(
-						"Error sending event across channel! {e:?}"
-					);
-				}
+			if let Some(ev) = maybe_ev
+				&& let Err(e) = ev_tx.try_send(ev)
+			{
+				tracing::error!("Error sending event across channel! {e:?}");
 			}
 		}
 	};
@@ -310,8 +306,8 @@ fn load_configuration(cli_overide: Option<PathBuf>) -> Result<ApplicationConfig,
 	// If XDG_CONFIG_HOME based configuration wasn't found, create one by combining default values with the system provided ones, if available, for the user to alter, for the next run of odilia
 	//default configuration first, because that doesn't affect the priority outlined above
 	let xdg_dirs = xdg::BaseDirectories::with_prefix("odilia").expect(
-			"unable to find the odilia config directory according to the xdg dirs specification",
-		);
+		"unable to find the odilia config directory according to the xdg dirs specification",
+	);
 
 	let config_path = xdg_dirs
 		.place_config_file("config.toml")
