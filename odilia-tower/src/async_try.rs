@@ -145,8 +145,8 @@ where
 
 use core::pin::Pin;
 
-use futures_util::future::{err, Either, ErrInto, Flatten, FutureExt, Ready};
-use tower::{util::Oneshot, ServiceExt};
+use futures_util::future::{Either, ErrInto, Flatten, FutureExt, Ready, err};
+use tower::{ServiceExt, util::Oneshot};
 
 pin_project_lite::pin_project! {
 /// A version of [`tower::util::future::AndThenFuture`] that is not generic over an un-namable

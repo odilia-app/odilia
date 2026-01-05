@@ -3,13 +3,14 @@ use std::{collections::VecDeque, sync::Arc, time::Duration};
 use async_channel::bounded;
 use atspi::RelationType;
 use criterion::{
+	BatchSize, BenchmarkId, Criterion,
 	async_executor::{AsyncExecutor, SmolExecutor},
-	criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion,
+	criterion_group, criterion_main,
 };
 use futures_concurrency::future::Race;
-use futures_lite::future::{fuse, FutureExt};
+use futures_lite::future::{FutureExt, fuse};
 use odilia_cache::{
-	cache_handler_task, Cache, CacheActor, CacheDriver, CacheItem, CacheKey, CacheRequest,
+	Cache, CacheActor, CacheDriver, CacheItem, CacheKey, CacheRequest, cache_handler_task,
 };
 use odilia_common::{cache::AccessiblePrimitive, errors::OdiliaError, result::OdiliaResult};
 use smol::spawn;

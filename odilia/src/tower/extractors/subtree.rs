@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, VecDeque};
 use odilia_cache::{CacheActor, CacheItem, CacheKey, CacheRequest, CacheResponse};
 
 use crate::{
-	tower::{EventProp, GetProperty, PropertyType},
 	OdiliaError,
+	tower::{EventProp, GetProperty, PropertyType},
 };
 
 /// A property type that returns a list of elements which contians all elements of a subtree rooted
@@ -32,8 +32,13 @@ impl GetProperty<Subtree> for CacheItem {
 			let chs = match resp {
 				CacheResponse::Children(chs) => chs,
 				e => {
-					tracing::error!("Inappropriate response from cache for `Children` request: {e:?}");
-					return Err(format!("Inappropriate response from cache for `Realtion` request: {e:?}").into());
+					tracing::error!(
+						"Inappropriate response from cache for `Children` request: {e:?}"
+					);
+					return Err(format!(
+						"Inappropriate response from cache for `Realtion` request: {e:?}"
+					)
+					.into());
 				}
 			};
 			for ch in chs.0 {

@@ -1,10 +1,10 @@
-use std::sync::mpsc::{sync_channel, Receiver};
+use std::sync::mpsc::{Receiver, sync_channel};
 
 use odilia_common::events::*;
 use rdev::{Event, EventType, Key};
 
 use crate::{
-	callback, ComboError, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, SetError, State,
+	ComboError, ComboSet, ComboSets, KeySet, Mode, OdiliaEvent, SetError, State, callback,
 };
 
 pub(crate) trait EventFromEventType {
@@ -46,7 +46,11 @@ fn test_unreachable_mode() {
 	)
 	.unwrap();
 	let combos = ComboSets::try_from([(None, core_combos), (Some(Mode::Focus), focus_combos)]);
-	assert_eq!(combos, Err(SetError::UnreachableMode(Mode::Focus)), "It should not be possible to construct the ComboSet when there is no way to activate that mode!");
+	assert_eq!(
+		combos,
+		Err(SetError::UnreachableMode(Mode::Focus)),
+		"It should not be possible to construct the ComboSet when there is no way to activate that mode!"
+	);
 }
 
 #[test]
@@ -76,7 +80,11 @@ fn two_bindings_same_keys() {
 		(shift_plus_a.clone(), ChangeMode(Mode::Browse).into()),
 		(shift_plus_a.clone(), ChangeMode(Mode::Focus).into()),
 	]);
-	assert_eq!(core_combos, Err(ComboError::Identical(shift_plus_a)), "You should not be able to construct two key bindings in the same mode with identical keystrokes!");
+	assert_eq!(
+		core_combos,
+		Err(ComboError::Identical(shift_plus_a)),
+		"You should not be able to construct two key bindings in the same mode with identical keystrokes!"
+	);
 }
 
 #[test]

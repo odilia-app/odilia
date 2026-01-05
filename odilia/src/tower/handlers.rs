@@ -12,17 +12,17 @@ use odilia_common::{
 	errors::OdiliaError,
 	events::{EventType, ScreenReaderEvent, ScreenReaderEventDiscriminants},
 };
-use tower::{util::BoxCloneService, Service, ServiceExt};
+use tower::{Service, ServiceExt, util::BoxCloneService};
 
 use crate::{
 	or_cancel,
 	state::ScreenReaderState,
 	tower::{
+		Handler, ServiceExt as OdiliaServiceExt,
 		async_try::AsyncTryFrom,
 		choice::{ChoiceService, ChooserStatic},
 		from_state::TryFromState,
 		service_set::ServiceSet,
-		Handler, ServiceExt as OdiliaServiceExt,
 	},
 };
 

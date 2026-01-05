@@ -1,7 +1,7 @@
 [package]
 name = "odilia-input-server-keyboard"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Use keybindings to control the Odilia screen reader."
 license = "MIT or Apache-2.0"
 repository = "https://github.com/odilia-app/odilia/"

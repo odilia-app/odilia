@@ -1,8 +1,8 @@
 use std::{collections::HashMap, future::Future};
 
-use atspi::{proxy::accessible::AccessibleProxy, ObjectRef, RelationType, Role};
+use atspi::{ObjectRef, RelationType, Role, proxy::accessible::AccessibleProxy};
 
-use crate::{convertable::Convertable, AccessiblePrimitive, CacheProperties, OdiliaError};
+use crate::{AccessiblePrimitive, CacheProperties, OdiliaError, convertable::Convertable};
 
 pub trait AccessibleExt {
 	type Error: std::error::Error;
@@ -66,9 +66,8 @@ pub trait AccessibleExt {
 		Self: Sized;
 	fn get_relation_set_ext<'a>(
 		&self,
-	) -> impl Future<
-		Output = Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>,
-	> + Send
+	) -> impl Future<Output = Result<HashMap<RelationType, Vec<AccessibleProxy<'a>>>, Self::Error>>
+	+ Send
 	where
 		Self: Sized;
 	fn match_(&self, role: Role) -> impl Future<Output = Result<bool, OdiliaError>> + Send;

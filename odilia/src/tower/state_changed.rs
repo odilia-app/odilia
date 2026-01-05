@@ -1,11 +1,11 @@
 use std::marker::PhantomData;
 
 use atspi::{
-	events::{
-		object::StateChangedEvent, DBusInterface, DBusMatchRule, DBusMember,
-		DBusProperties, MessageConversion, RegistryEventString,
-	},
 	AtspiError, Event, EventProperties, EventTypeProperties, State as AtspiState,
+	events::{
+		DBusInterface, DBusMatchRule, DBusMember, DBusProperties, MessageConversion,
+		RegistryEventString, object::StateChangedEvent,
+	},
 };
 use zbus::{names::UniqueName, zvariant::ObjectPath};
 
@@ -127,7 +127,11 @@ where
 		if <Self as Predicate<StateChangedEvent>>::test(&ev) {
 			Ok(Self { ev, _marker: PhantomData })
 		} else {
-			Err(crate::OdiliaError::PredicateFailure(format!("The type {ev:?} is not compatible with the predicate requirements state = {:?} and enabled = {:?}", std::any::type_name::<S>(), std::any::type_name::<E>())))
+			Err(crate::OdiliaError::PredicateFailure(format!(
+				"The type {ev:?} is not compatible with the predicate requirements state = {:?} and enabled = {:?}",
+				std::any::type_name::<S>(),
+				std::any::type_name::<E>()
+			)))
 		}
 	}
 }

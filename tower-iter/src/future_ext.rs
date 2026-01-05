@@ -1,15 +1,15 @@
 use core::{
-	future::{ready, Future, IntoFuture, Ready},
-	iter::{repeat, Repeat},
+	future::{Future, IntoFuture, Ready, ready},
+	iter::{Repeat, repeat},
 	marker::PhantomData,
 	pin::Pin,
 	task::{Context, Poll},
 };
 use std::vec::Vec;
 
-use futures_util::future::{join_all, Either, FutureExt as OtherFutExt, JoinAll};
+use futures_util::future::{Either, FutureExt as OtherFutExt, JoinAll, join_all};
 use pin_project_lite::pin_project;
-use tower::{util::Oneshot, Service};
+use tower::{Service, util::Oneshot};
 
 use crate::service_multi_iter::ServiceMultiIter;
 

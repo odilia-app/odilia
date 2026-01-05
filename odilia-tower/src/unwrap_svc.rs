@@ -13,7 +13,7 @@ use core::{
 	task::{Context, Poll},
 };
 
-use futures_util::{future::OkInto, TryFutureExt};
+use futures_util::{TryFutureExt, future::OkInto};
 use odilia_common::command::TryIntoCommands;
 use tower::Service;
 
@@ -182,10 +182,12 @@ where
 	fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
 		let this = self.project();
 		match this.fut.poll(cx) {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(Ok(o)) => Poll::Ready(o),
-            Poll::Ready(Err(_)) => panic!("This future may only be called with futures whose error type is Infallible"),
-        }
+			Poll::Pending => Poll::Pending,
+			Poll::Ready(Ok(o)) => Poll::Ready(o),
+			Poll::Ready(Err(_)) => panic!(
+				"This future may only be called with futures whose error type is Infallible"
+			),
+		}
 	}
 }
 

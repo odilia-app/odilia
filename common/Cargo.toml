@@ -9,7 +9,7 @@ repository = "https://github.com/odilia-app/odilia"
 homepage = "https://odilia.app"
 keywords = ["screen-reader", "accessibility", "a11y", "data-structures", "linux"]
 categories = ["accessibility"]
-edition = "2021"
+edition = "2024"
 
 [features]
 default = []

@@ -9,8 +9,8 @@ use core::{
 
 use pin_project_lite::pin_project;
 use tower::{
-	util::{Oneshot, ReadyOneshot},
 	Service, ServiceExt,
+	util::{Oneshot, ReadyOneshot},
 };
 
 /// Converts an [`Iterator`] over a set of (S, I) where `S` is a service that takes the input `I`

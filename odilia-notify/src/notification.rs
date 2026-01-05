@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use zbus::{zvariant::Value, Message};
+use zbus::{Message, zvariant::Value};
 
 use crate::{action::Action, urgency::Urgency};
 

@@ -1,7 +1,7 @@
 [package]
 name = "tower-iter"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "Fully-named Tower services for dealing with iterators (of services or requests)"
 readme = "README.md"
 license = "MIT OR Apache-2.0"

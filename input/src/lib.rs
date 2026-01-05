@@ -24,8 +24,8 @@ use std::{
 use async_channel::Sender;
 use async_fs as fs;
 use async_net::unix::{UnixListener, UnixStream};
-use futures_lite::{future::or, stream::Stream, AsyncReadExt};
-use futures_util::{future::BoxFuture, FutureExt};
+use futures_lite::{AsyncReadExt, future::or, stream::Stream};
+use futures_util::{FutureExt, future::BoxFuture};
 use nix::unistd::Uid;
 use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent};
 use smol_cancellation_token::CancellationToken;
@@ -52,15 +52,15 @@ fn get_log_file_name() -> String {
 	match env::var("XDG_DATA_HOME") {
 		Ok(val) => {
 			tracing::info!(
-                "XDG_DATA_HOME Variable is present, using it's value for default file path."
-            );
+				"XDG_DATA_HOME Variable is present, using it's value for default file path."
+			);
 			format!("{val}/sohks/sohks-{time}.log")
 		}
 		Err(e) => {
 			tracing::warn!(
-                "XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
-                e
-            );
+				"XDG_DATA_HOME Variable is not set, falling back on hardcoded path.\nError: {:#?}",
+				e
+			);
 			let home = env::var("HOME").expect("No $HOME found in environment.");
 			format!("{home}/.local/share/sohks/sohks-{time}.log")
 		}
@@ -79,12 +79,10 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 	let log_path = Path::new(&log_file_name);
 	tracing::debug!("Socket file located at: {:?}", sock_file_path);
 	tracing::debug!("creating log directory");
-	if let Some(p) = log_path.parent() {
-		if !p.exists() {
-			if let Err(e) = fs::create_dir_all(p).await {
-				tracing::error!("Failed to create log dir: {}", e);
-			}
-		}
+	if let Some(p) = log_path.parent()
+		&& !p.exists() && let Err(e) = fs::create_dir_all(p).await
+	{
+		tracing::error!("Failed to create log dir: {}", e);
 	}
 
 	tracing::debug!("checking for already running program");
@@ -119,7 +117,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 				);
 				exit(1);
 			}
-		};
+		}
 	}
 	tracing::debug!(%pid_file_path, "writing current ID to pid file");
 
@@ -184,7 +182,10 @@ async fn sr_event_receiver_inner(
 ) -> Result<BoxFuture<'static, ()>, ControlFlow<()>> {
 	let maybe_msg = or_cancel(listener.accept(), shutdown).await;
 	let Ok(msg) = maybe_msg else {
-		tracing::debug!("Shutting down listening for new input sockets on '{:?}' due to cancellation token", listener.local_addr());
+		tracing::debug!(
+			"Shutting down listening for new input sockets on '{:?}' due to cancellation token",
+			listener.local_addr()
+		);
 		return Err(ControlFlow::Break(()));
 	};
 	match msg {
@@ -215,7 +216,10 @@ async fn handle_event(
 		let mut buf = [0; 4096];
 		let maybe_reader = or_cancel(socket.read(&mut buf), &shutdown).await;
 		let Ok(reader) = maybe_reader else {
-			tracing::debug!("Shutting down listening on input socket at path '{:?}' due to cancellation token", socket.local_addr());
+			tracing::debug!(
+				"Shutting down listening on input socket at path '{:?}' due to cancellation token",
+				socket.local_addr()
+			);
 			break;
 		};
 		let bytes = match reader {
@@ -259,8 +263,8 @@ fn get_file_paths() -> (String, String) {
 	match env::var("XDG_RUNTIME_DIR") {
 		Ok(val) => {
 			tracing::info!(
-                "XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
-            );
+				"XDG_RUNTIME_DIR Variable is present, using it's value as default file path."
+			);
 
 			let pid_file_path = format!("{val}/odilias.pid");
 			let sock_file_path = format!("{val}/odilia.sock");

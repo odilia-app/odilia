@@ -114,13 +114,17 @@ send_err_impl!(async_channel::SendError<ssip::Request>, SendError::Ssip, "async-
 
 #[derive(Debug, thiserror::Error)]
 pub enum CacheError {
-	#[error("The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens.")]
+	#[error(
+		"The cache has been dropped from memory. This never happens under normal circumstances, and should never happen. Please send a detailed bug report if this ever happens."
+	)]
 	NotAvailable,
 	#[error("Item not found in cache.")]
 	NoItem,
 	#[error("It was not possible to get a lock on this item from the cache.")]
 	NoLock,
-	#[error("The range asked for in a call to a get_string_*_offset function has invalid bounds.")]
+	#[error(
+		"The range asked for in a call to a get_string_*_offset function has invalid bounds."
+	)]
 	TextBoundsError,
 	/// This item is already in the cache.
 	#[error("Duplicate: {0}")]

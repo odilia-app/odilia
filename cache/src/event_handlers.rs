@@ -1,7 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
 use atspi::{
+	DocumentEvents, KeyboardEvents, MouseEvents, Operation, State, TerminalEvents,
+	WindowEvents,
 	events::{
+		CacheEvents, Event, ObjectEvents,
 		cache::{AddAccessibleEvent, LegacyAddAccessibleEvent, RemoveAccessibleEvent},
 		document::{
 			self, ContentChangedEvent, LoadCompleteEvent, LoadStoppedEvent,
@@ -28,10 +31,7 @@ use atspi::{
 			MaximizeEvent, MinimizeEvent, MoveEvent, RaiseEvent, ReparentEvent,
 			ResizeEvent, RestoreEvent, RestyleEvent, ShadeEvent, UUshadeEvent,
 		},
-		CacheEvents, Event, ObjectEvents,
 	},
-	DocumentEvents, KeyboardEvents, MouseEvents, Operation, State, TerminalEvents,
-	WindowEvents,
 };
 
 use crate::{
