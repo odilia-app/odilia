@@ -127,9 +127,7 @@ fn forever_repeating_key_problem() {
 	let cs = ComboSets::try_from([(None, core_combos)]).expect("Valid combosets!");
 	let (mut state, _rx) = State::new_unbounded();
 	state.combos = cs;
-	for (i, (ev, correct)) in
-		events.into_iter().zip(correct_return_values.into_iter()).enumerate()
-	{
+	for (i, (ev, correct)) in events.into_iter().zip(correct_return_values).enumerate() {
 		let val = callback(ev, &mut state);
 		assert_eq!(val, correct, "Failed on action [{i}]!");
 	}
