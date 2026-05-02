@@ -19,7 +19,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Cache cargo home
         uses: actions/cache@v3
@@ -59,7 +59,7 @@ jobs:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Cache cargo home
         uses: actions/cache@v3
@@ -87,7 +87,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Cache cargo home
         uses: actions/cache@v3
@@ -117,7 +117,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Cache cargo home
         uses: actions/cache@v3
@@ -145,7 +145,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -161,7 +161,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Cache cargo home
         uses: actions/cache@v3
@@ -201,7 +201,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Cache cargo home
         uses: actions/cache@v3
         env:
@@ -245,7 +245,7 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Install Nix
         uses: cachix/install-nix-action@v31
       - name: Run tests
@@ -254,7 +254,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Install nightly toolchain
         uses: dtolnay/rust-toolchain@master
         with:
@@ -268,7 +268,7 @@ jobs:
     needs: [rustfmt]
     steps:
       - name: Git checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
       - name: Cache cargo home
         uses: actions/cache@v3
         env:
