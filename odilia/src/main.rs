@@ -1,7 +1,6 @@
 #![deny(
 	clippy::all,
 	clippy::pedantic,
-	clippy::cargo,
 	clippy::map_unwrap_or,
 	clippy::unwrap_used,
 	unsafe_code,

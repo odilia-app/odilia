@@ -12,7 +12,6 @@
 	clippy::std_instead_of_alloc,
 	clippy::all,
 	clippy::pedantic,
-	clippy::cargo,
 	unsafe_code,
 	missing_docs
 )]
