@@ -22,5 +22,5 @@ nix.workspace = true
 odilia-common.workspace = true
 serde_json.workspace = true
 smol-cancellation-token.workspace = true
-sysinfo = { version = "0.26.8", default-features = false }
+sysinfo = { version = "0.38.0", default-features = false }
 tracing = { workspace = true, features = ["attributes"] }
