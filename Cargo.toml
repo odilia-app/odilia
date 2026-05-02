@@ -43,7 +43,7 @@ async-fs = { version = "2.1.2", default-features = false }
 lexopt = { version = "0.3.1", default-features = false }
 odilia-common = { version = "0.3.0", path = "./common", features = ["async-io"] }
 odilia-cache = { version = "0.3.0", path = "./cache" }
-nix = { version = "0.30.0", default-features = false, features = ["user"] }
+nix = { version = "0.31.0", default-features = false, features = ["user"] }
 pin-project-lite = { version = "0.2.16", default-features = false }
 serde_json = { version = "1.0.100", default-features = false, features = ["alloc"] }
 serde = { version = "1.0.200", default-features = false, features = ["derive"] }
