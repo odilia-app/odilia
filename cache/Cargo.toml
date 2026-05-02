@@ -28,7 +28,7 @@ rustc-hash = "2.1.1"
 
 [dev-dependencies]
 atspi = { workspace = true, features = ["connection"] }
-criterion = { version = "0.6.0", features = ["async_smol", "html_reports"] }
+criterion = { version = "0.8.0", features = ["async_smol", "html_reports"] }
 smol = "2.0"
 futures-util = { workspace = true, features = ["alloc"] }
 serde_json.workspace = true
