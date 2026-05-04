@@ -29,7 +29,7 @@ use futures_util::{FutureExt, future::BoxFuture};
 use nix::unistd::Uid;
 use odilia_common::{errors::OdiliaError, events::ScreenReaderEvent};
 use smol_cancellation_token::CancellationToken;
-use sysinfo::{ProcessExt, System, SystemExt};
+use sysinfo::System;
 
 async fn or_cancel<F>(f: F, token: &CancellationToken) -> Result<F::Output, std::io::Error>
 where
@@ -97,7 +97,7 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 		let mut sys = System::new_all();
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
-			if pid.to_string() == odilias_pid && process.exe() == env::current_exe()? {
+			if pid.to_string() == odilias_pid && process.exe() == Some(env::current_exe()?.as_path()) {
 				return Err("Server is already running".into());
 			}
 		}
