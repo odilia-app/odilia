@@ -248,6 +248,14 @@ jobs:
         uses: actions/checkout@v6
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+      # Remove the runner's pre-installed rustup proxy from ~/.cargo/bin so the
+      # nixpkgs cargo/rustc from the devshell are used unambiguously. Otherwise
+      # `nix develop --command cargo` can resolve to the rustup proxy on PATH,
+      # which triggers a toolchain install into ~/.rustup. That install has
+      # occasionally raced with itself, producing "downloading 6 components"
+      # twice and corrupting partial downloads.
+      - name: Remove host rustup to avoid PATH collision
+        run: rm -rf ~/.cargo ~/.rustup
       - name: Run tests
         run: nix develop --command cargo build --tests --workspace
   correct-minimum-versions:
