@@ -97,7 +97,9 @@ pub async fn setup_input_server() -> Result<UnixListener, OdiliaError> {
 		let mut sys = System::new_all();
 		sys.refresh_all();
 		for (pid, process) in sys.processes() {
-			if pid.to_string() == odilias_pid && process.exe() == Some(env::current_exe()?.as_path()) {
+			if pid.to_string() == odilias_pid
+				&& process.exe() == Some(env::current_exe()?.as_path())
+			{
 				return Err("Server is already running".into());
 			}
 		}
