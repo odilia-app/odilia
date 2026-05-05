@@ -74,6 +74,10 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
       - name: Cross Compile for ${{ matrix.target }}
         uses: houseabsolute/actions-rust-cross@v1
         with:

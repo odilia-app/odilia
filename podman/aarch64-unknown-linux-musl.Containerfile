@@ -1,4 +1,4 @@
-FROM arm64v8/ubuntu:24.04
+FROM --platform=linux/arm64 arm64v8/ubuntu:24.04
 
 COPY podman/test-wrapper.sh /entrypoint.sh
 COPY podman/install-deps.sh /deps.sh
