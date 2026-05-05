@@ -1,4 +1,4 @@
-FROM ghcr.io/cross-rs/aarch64-unknown-linux-gnu:latest
+FROM arm64v8/ubuntu:24.04
 
 COPY podman/test-wrapper.sh /entrypoint.sh
 COPY podman/install-deps.sh /deps.sh
