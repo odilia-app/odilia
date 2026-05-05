@@ -10,8 +10,6 @@ on:
       - reopened
       - synchronize
       - ready_for_review
-env:
-  CROSS_CONTAINER_ENGINE: 'podman'
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -40,23 +38,32 @@ jobs:
         with:
           toolchain: stable
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst xvfb
-      - name: setup dbus and notification daemon
-        run:
-          sudo systemctl start dbus;
-          systemctl --user start dbus;
-          xvfb-run dunst --screen 0 600x400x8 &
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb dbus-x11
+      - name: Start system dbus
+        run: sudo systemctl start dbus
       - name: Run tests
         # we need to run in release because proptests are slow;
         # if you think compiling is slow, try running proptests without release mode :)
-        run: cargo test --workspace --release --features proptest
+        run: xvfb-run --auto-servernum dbus-run-session -- cargo test --workspace --release --features proptest
   multi-platform:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
     needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
     if: ${{ !github.event.pull_request.draft }}
     strategy:
       matrix:
-        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, x86_64-unknown-linux-musl, aarch64-unknown-linux-musl]
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            arch: x86_64
+          - target: x86_64-unknown-linux-musl
+            runner: ubuntu-latest
+            arch: x86_64
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            arch: aarch64
+          - target: aarch64-unknown-linux-musl
+            runner: ubuntu-24.04-arm
+            arch: aarch64
     steps:
       - name: Git checkout
         uses: actions/checkout@v6
@@ -74,14 +81,32 @@ jobs:
           key: ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-${{ matrix.target }}-build-${{ env.cache-name }}-
-      - name: Cross Compile for ${{ matrix.target }}
-        uses: houseabsolute/actions-rust-cross@v1
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
         with:
-          command: test
-          target: ${{ matrix.target }}
-          args: "--locked --workspace"
-          # force use container, otherwise you need host tools when building same-architecture targets
-          force-use-cross: true
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y libevdev-dev linux-headers-generic clang dbus-x11 dunst xvfb at-spi2-core systemd
+          if [[ "${{ matrix.target }}" == *-musl ]]; then
+            sudo apt install -y musl-tools musl-dev autoconf automake libtool pkg-config make
+            # Linux UAPI headers (linux/, asm-generic/, asm/) aren't on musl-gcc's
+            # search path under -nostdinc; expose them via the musl sysroot.
+            sudo ln -sf /usr/include/linux                            /usr/include/${{ matrix.arch }}-linux-musl/linux
+            sudo ln -sf /usr/include/asm-generic                      /usr/include/${{ matrix.arch }}-linux-musl/asm-generic
+            sudo ln -sf /usr/include/${{ matrix.arch }}-linux-gnu/asm /usr/include/${{ matrix.arch }}-linux-musl/asm
+          fi
+      - name: Start system dbus
+        run: sudo systemctl start dbus
+      - name: Test ${{ matrix.target }}
+        env:
+          CC_x86_64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+          CC_aarch64_unknown_linux_musl: musl-gcc
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
+        run: xvfb-run --auto-servernum dbus-run-session -- cargo test --target ${{ matrix.target }} --locked --workspace
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
@@ -248,6 +273,14 @@ jobs:
         uses: actions/checkout@v6
       - name: Install Nix
         uses: cachix/install-nix-action@v31
+      # Remove the runner's pre-installed rustup proxy from ~/.cargo/bin so the
+      # nixpkgs cargo/rustc from the devshell are used unambiguously. Otherwise
+      # `nix develop --command cargo` can resolve to the rustup proxy on PATH,
+      # which triggers a toolchain install into ~/.rustup. That install has
+      # occasionally raced with itself, producing "downloading 6 components"
+      # twice and corrupting partial downloads.
+      - name: Remove host rustup to avoid PATH collision
+        run: rm -rf ~/.cargo ~/.rustup
       - name: Run tests
         run: nix develop --command cargo build --tests --workspace
   correct-minimum-versions:
