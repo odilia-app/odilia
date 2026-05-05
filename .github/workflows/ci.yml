@@ -38,16 +38,15 @@ jobs:
         with:
           toolchain: stable
       - name: Install Dependencies
-        run: sudo apt -y install at-spi2-core systemd dunst xvfb
+        run: sudo apt -y install at-spi2-core systemd dunst xvfb dbus-x11
       - name: setup dbus and notification daemon
-        run:
-          sudo systemctl start dbus;
-          systemctl --user start dbus;
+        run: |
+          sudo systemctl start dbus
           xvfb-run dunst --screen 0 600x400x8 &
       - name: Run tests
         # we need to run in release because proptests are slow;
         # if you think compiling is slow, try running proptests without release mode :)
-        run: cargo test --workspace --release --features proptest
+        run: dbus-run-session -- cargo test --workspace --release --features proptest
   multi-platform:
     runs-on: ${{ matrix.runner }}
     needs: [test,deny,coverage,rustdoc,rustfmt,clippy]
@@ -101,10 +100,9 @@ jobs:
             sudo ln -sf /usr/include/asm-generic                      /usr/include/${{ matrix.arch }}-linux-musl/asm-generic
             sudo ln -sf /usr/include/${{ matrix.arch }}-linux-gnu/asm /usr/include/${{ matrix.arch }}-linux-musl/asm
           fi
-      - name: Setup dbus and notification daemon
+      - name: Start system dbus and notification daemon
         run: |
           sudo systemctl start dbus
-          systemctl --user start dbus
           xvfb-run dunst --screen 0 600x400x8 &
       - name: Test ${{ matrix.target }}
         env:
@@ -112,7 +110,7 @@ jobs:
           CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
           CC_aarch64_unknown_linux_musl: musl-gcc
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: musl-gcc
-        run: cargo test --target ${{ matrix.target }} --locked --workspace
+        run: dbus-run-session -- cargo test --target ${{ matrix.target }} --locked --workspace
   deny:
     runs-on: ubuntu-latest
     if: ${{ !github.event.pull_request.draft }}
