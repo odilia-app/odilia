@@ -1,6 +1,6 @@
 use std::{collections::HashMap, future::Future};
 
-use atspi::{ObjectRef, RelationType, Role, proxy::accessible::AccessibleProxy};
+use atspi::{ObjectRefOwned, RelationType, Role, proxy::accessible::AccessibleProxy};
 
 use crate::{AccessiblePrimitive, CacheProperties, OdiliaError, convertable::Convertable};
 
@@ -79,7 +79,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 	where
 		Self: Sized,
 	{
-		let or: ObjectRef = self.get_application().await?;
+		let or: ObjectRefOwned = self.get_application().await?;
 		let io: AccessiblePrimitive = or.into();
 		Ok(io.into_accessible(self.as_ref().connection()).await?)
 	}
@@ -87,7 +87,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 	where
 		Self: Sized,
 	{
-		let or: ObjectRef = self.parent().await?;
+		let or: ObjectRefOwned = self.parent().await?;
 		let io: AccessiblePrimitive = or.into();
 		Ok(io.into_accessible(self.as_ref().connection()).await?)
 	}
@@ -106,9 +106,11 @@ impl AccessibleExt for AccessibleProxy<'_> {
 		let mut children = Vec::new();
 		for child_refs in children_refs {
 			let acc = AccessibleProxy::builder(self.as_ref().connection())
-				.destination(child_refs.name)?
+				.destination(
+					child_refs.name_as_str().unwrap_or_default().to_owned(),
+				)?
 				.cache_properties(CacheProperties::No)
-				.path(child_refs.path)?
+				.path(child_refs.path_as_str().to_owned())?
 				.build()
 				.await?;
 			children.push(acc);
@@ -239,10 +241,7 @@ impl AccessibleExt for AccessibleProxy<'_> {
 			stack.push(edge);
 		}
 		while let Some(item) = stack.pop() {
-			// TODO: properly bubble up error
-			let Ok(identifier) = ObjectRef::try_from(&item) else {
-				return Ok(None);
-			};
+			let identifier: AccessiblePrimitive = (&item).into();
 			// the top of the hirearchy for strctural navigation.
 			if visited.contains(&identifier) {
 				continue;
