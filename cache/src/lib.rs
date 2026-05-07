@@ -19,7 +19,7 @@ mod event_handlers;
 pub use accessible_ext::AccessibleExt;
 use async_channel::{Receiver, Sender};
 use atspi::{
-	Event, EventProperties, InterfaceSet, ObjectRef, RelationType, Role, StateSet,
+	Event, EventProperties, InterfaceSet, ObjectRefOwned, RelationType, Role, StateSet,
 	proxy::{accessible::AccessibleProxy, cache::CacheProxy, text::TextProxy},
 };
 pub use event_handlers::{

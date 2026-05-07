@@ -1,4 +1,4 @@
-use atspi::{EventProperties, ObjectRef, proxy::accessible::AccessibleProxy};
+use atspi::{EventProperties, ObjectRef, ObjectRefOwned, proxy::accessible::AccessibleProxy};
 use serde::{Deserialize, Serialize};
 use zbus::{
 	names::OwnedUniqueName,
@@ -55,10 +55,21 @@ impl AccessiblePrimitive {
 	}
 }
 
-impl From<ObjectRef> for AccessiblePrimitive {
-	fn from(atspi_accessible: ObjectRef) -> AccessiblePrimitive {
-		let tuple_converter = (atspi_accessible.name, atspi_accessible.path);
-		tuple_converter.into()
+impl From<ObjectRef<'_>> for AccessiblePrimitive {
+	fn from(atspi_accessible: ObjectRef<'_>) -> AccessiblePrimitive {
+		AccessiblePrimitive {
+			sender: atspi_accessible.name_as_str().unwrap_or_default().to_owned(),
+			id: atspi_accessible.path_as_str().to_owned(),
+		}
+	}
+}
+
+impl From<ObjectRefOwned> for AccessiblePrimitive {
+	fn from(atspi_accessible: ObjectRefOwned) -> AccessiblePrimitive {
+		AccessiblePrimitive {
+			sender: atspi_accessible.name_as_str().unwrap_or_default().to_owned(),
+			id: atspi_accessible.path_as_str().to_owned(),
+		}
 	}
 }
 

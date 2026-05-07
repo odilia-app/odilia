@@ -221,9 +221,9 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 
 [[package]]
 name = "atspi"
-version = "0.27.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e595c4a1ad7be9c5514980ae8c6e4810f17e9d24bd7bbc5ad67e7aef4dc1c819"
+checksum = "6bf601cccedfffec598ec2db1f9d6745885458bccc0e8916d7023f017c94b3d0"
 dependencies = [
  "atspi-common",
  "atspi-connection",
@@ -232,9 +232,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-common"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9d2b4e5cb03df74eae47d7c47918e109db6ad3c825602f236d060a221f4d23b8"
+checksum = "f8a79bed3f5b408ce3152f36e07327a845e6ed5d7e2821a89264037dbcc11daf"
 dependencies = [
  "enumflags2",
  "serde",
@@ -248,9 +248,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-connection"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "832ecc699b7b1e801e49f5dccb4db1472519537498448f944e8cdcfcdd92e6b3"
+checksum = "8fab8e4f574f5a7d3af280b38eff25fb6f47a537dac9ae39ce152f52b19fb10b"
 dependencies = [
  "atspi-common",
  "atspi-proxies",
@@ -260,9 +260,9 @@ dependencies = [
 
 [[package]]
 name = "atspi-proxies"
-version = "0.11.0"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85b9aef6811420186bed52af0af10fed051ef554b6206edbaffddcfa2dd90e43"
+checksum = "53403acd3ab2fdb5914f6558da22e540fc07656fce5510f8c02be0e6ef68413e"
 dependencies = [
  "atspi-common",
  "serde",
@@ -2131,6 +2131,7 @@ version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2e054861b4bd027cd373e18e8d8d8e6548085000e41290d95ce0c373a654b4a"
 dependencies = [
+ "getrandom",
  "js-sys",
  "serde_core",
  "wasm-bindgen",
