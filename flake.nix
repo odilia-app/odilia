@@ -28,9 +28,9 @@
               at-spi2-core.dev
               libevdev
               speechd
-              xorg.libX11
-              xorg.libXi.dev
-              xorg.libXtst
+              libX11
+              libXi.dev
+              libXtst
             ];
             # Provide a complete Rust toolchain (rustc + cargo) from nixpkgs.
             # Without rustc here, `cargo build` inside `nix develop` falls through
