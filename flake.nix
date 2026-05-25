@@ -36,35 +36,49 @@
         pkgs = import nixpkgs {
           inherit system overlays;
         };
+      craneLib = crane.mkLib pkgs;
+      # this was originally in the mkshell derivation, but because this flake is able to build both a shell and binary derivation, those sets are lifted one level
+      nativeBuildInputs =
+      with pkgs;
+      [
+        rust-bin.stable.latest.default
+        at-spi2-core.dev
+        libevdev
+        speechd
+        libX11
+        libXi.dev
+        libXtst
+      ];
+      buildInputs =
+      with pkgs;
+      [
+        pkg-config
+        cargo
+        rust-bin.stable.latest.default
+      ];
+      #this is going to purge the tree of any build artifacts, so only the source code remains
+      src = craneLib.cleanCargoSource ./.;
+      #because we're going to use this for both building the dependencies and the binary, this is cached instead of recomputed
+      commonArgs = {
+        inherit src buildInputs nativeBuildInputs;
+      };
+      
+      #build all the dependencies first
+      cargoArtifacts = craneLib.buildDepsOnly commonArgs;
+      # build the binary
+      bin = craneLib.buildPackage (commonArgs // {
+        inherit cargoArtifacts;
+      });
       in
+      with pkgs;
       {
+        packages = {
+        inherit bin;
+        default = bin;
+          };
         devShells.default =
-          with pkgs;
           mkShell {
-            nativeBuildInputs = [
-              rust-bin.stable.latest.default
-              at-spi2-core.dev
-              libevdev
-              speechd
-              libX11
-              libXi.dev
-              libXtst
-            ];
-            # Provide a complete Rust toolchain (rustc + cargo) from nixpkgs.
-            # Without rustc here, `cargo build` inside `nix develop` falls through
-            # to the GitHub runner's pre-installed rustup proxy at ~/.cargo/bin/cargo,
-            # which on first use races to install a default toolchain into ~/.rustup.
-            # That race occasionally produces concurrent rustup processes
-            # ("info: downloading 6 components" twice), corrupting partial downloads
-            # and leaving conflicting files (bin/rust-gdb, share/zsh) — surfacing as
-            # E0463 "can't find crate for `core`" mid-build. Shipping rustc in the
-            # devshell makes the toolchain self-contained and removes that path.
-            buildInputs = [
-              pkg-config
-              cargo
-              rust-bin.stable.latest.default
-            ];
-
+            inputsFrom = [ bin ];
             shellHook = ''
               alias ls=eza
               alias find=fd
