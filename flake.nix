@@ -2,25 +2,39 @@
   description = "Odilia";
 
   inputs = {
-    crane = {
-      url = "github:ipetkov/crane";
-    };
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    rust-overlay = {
+    url = github:oxalica/rust-overlay;
+    inputs = {
+      nixpkgs.follows = "nixpkgs";
+      flake-utils.follows = "flake-utils";
+    };
+    };
+    crane = {
+      url = "github:ipetkov/crane";
+          inputs = {
+        nixpkgs.follows = "nixpkgs";
+        rust-overlay.follows = "rust-overlay";
+        flake-utils.follows = "flake-utils";
+      };
+    };
   };
-
   outputs =
     {
       self,
       nixpkgs,
       flake-utils,
-      crane
+      rust-overlay,
+      crane,
+      ...
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
+        overlays = [ (import rust-overlay) ];
         pkgs = import nixpkgs {
-          inherit system;
+          inherit system overlays;
         };
       in
       {
@@ -28,6 +42,7 @@
           with pkgs;
           mkShell {
             nativeBuildInputs = [
+              rust-bin.stable.latest.default
               at-spi2-core.dev
               libevdev
               speechd
@@ -47,7 +62,7 @@
             buildInputs = [
               pkg-config
               cargo
-              rustc
+              rust-bin.stable.latest.default
             ];
 
             shellHook = ''
