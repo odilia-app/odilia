@@ -2,6 +2,9 @@
   description = "Odilia";
 
   inputs = {
+    crane = {
+      url = "github:ipetkov/crane";
+    };
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
   };
@@ -11,7 +14,7 @@
       self,
       nixpkgs,
       flake-utils,
-      ...
+      crane
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
