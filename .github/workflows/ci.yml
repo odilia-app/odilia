@@ -281,6 +281,10 @@ jobs:
       # twice and corrupting partial downloads.
       - name: Remove host rustup to avoid PATH collision
         run: rm -rf ~/.cargo ~/.rustup
+      - name: "obtain a development shell"
+        run: "nix develop"
+      - name: "build the binary"
+        run: "nix build"
       - name: Run tests
         run: nix develop --command cargo build --tests --workspace
   correct-minimum-versions:
